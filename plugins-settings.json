@@ -1,0 +1,74 @@
+{
+    "1c5f5c0f-5609-4031-9e57-5bb4811be7b3": {
+        "id": "0361620f-6218-4c60-82ee-6c53a2b1479e",
+        "name": "Youtube",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "1c5f5c0f-5609-4031-9e57-5bb4811be7b3",
+        "publicData": {}
+    },
+    "2bd1c688-31c5-443e-ae25-59aa5b6431fb": {
+        "id": "464a2f14-d75d-4c8d-a509-ca7d2d2c7721",
+        "name": "REST API",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "2bd1c688-31c5-443e-ae25-59aa5b6431fb",
+        "publicData": {}
+    },
+    "832d6f7a-42c3-43f1-a3ce-9a678272f811": {
+        "id": "0a4473a4-de4e-4f57-9b02-ca3f86934233",
+        "name": "Date",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "832d6f7a-42c3-43f1-a3ce-9a678272f811",
+        "publicData": {}
+    },
+    "cabb43dd-6161-4140-8ebf-03b6fb045a0b": {
+        "id": "971b63f9-260c-4ebb-8882-dd2506f3d5d4",
+        "name": "Google",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "cabb43dd-6161-4140-8ebf-03b6fb045a0b",
+        "publicData": {}
+    },
+    "1fa0dd68-5069-436c-9a7d-3b54c340f1fa": {
+        "id": "114e417b-f38c-40a0-b66f-45af8a4f8461",
+        "name": "Supabase Auth",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "1fa0dd68-5069-436c-9a7d-3b54c340f1fa",
+        "publicData": {
+            "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzYW51bHJ2ZWJmcXlvemdzZWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwOTk4NzcsImV4cCI6MjA2MjY3NTg3N30.ld-SqcGsplTFZ8RRFKiLocjJX4DPvzLGcItlcApevGs",
+            "roleTable": "roles",
+            "projectUrl": "https://rsanulrvebfqyozgsefu.supabase.co",
+            "environments": {
+                "production": {
+                    "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzYW51bHJ2ZWJmcXlvemdzZWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwOTk4NzcsImV4cCI6MjA2MjY3NTg3N30.ld-SqcGsplTFZ8RRFKiLocjJX4DPvzLGcItlcApevGs",
+                    "projectUrl": "https://rsanulrvebfqyozgsefu.supabase.co"
+                }
+            },
+            "userRoleTable": "user_metadata",
+            "roleTableNameColumn": "name",
+            "afterForbiddenPageId": "ec4a7639-4aa7-4495-b834-3db1162b96a8",
+            "afterNotSignInPageId": "ec4a7639-4aa7-4495-b834-3db1162b96a8",
+            "userRoleTableRoleColumn": "role_id",
+            "userRoleTableUserColumn": "id"
+        }
+    },
+    "f9ef41c3-1c53-4857-855b-f2f6a40b7186": {
+        "id": "4e6f5028-88d6-4a95-9167-d1fcd10b5314",
+        "name": "Supabase",
+        "designId": "9311c005-2b3f-42e5-acc9-c54a2604bcbe",
+        "pluginId": "f9ef41c3-1c53-4857-855b-f2f6a40b7186",
+        "publicData": {
+            "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzYW51bHJ2ZWJmcXlvemdzZWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwOTk4NzcsImV4cCI6MjA2MjY3NTg3N30.ld-SqcGsplTFZ8RRFKiLocjJX4DPvzLGcItlcApevGs",
+            "projectUrl": "https://rsanulrvebfqyozgsefu.supabase.co",
+            "environments": {
+                "production": {
+                    "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJzYW51bHJ2ZWJmcXlvemdzZWZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwOTk4NzcsImV4cCI6MjA2MjY3NTg3N30.ld-SqcGsplTFZ8RRFKiLocjJX4DPvzLGcItlcApevGs",
+                    "projectUrl": "https://rsanulrvebfqyozgsefu.supabase.co"
+                }
+            },
+            "realtimeTables": {
+                "contacts": true,
+                "payments": true,
+                "suppliers": true
+            }
+        }
+    }
+}

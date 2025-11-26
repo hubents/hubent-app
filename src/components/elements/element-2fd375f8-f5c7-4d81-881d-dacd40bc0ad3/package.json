@@ -1,0 +1,1 @@
+{"name":"ww-pdf-viewer","version":"0.0.1","scripts":{"build":"weweb build","serve":"weweb serve"},"devDependencies":{},"dependencies":{"pdfobject":"^2.2.8"}}

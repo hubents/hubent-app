@@ -1,0 +1,1 @@
+{"name":"ww-date","repository":{"type":"git","url":"https://github.com/weweb-assets/ww-date"},"version":"3.1.0","scripts":{"build":"weweb build","serve":"weweb serve"},"dependencies":{"dayjs":"^1.10.4"},"devDependencies":{},"license":"MIT"}
