@@ -12,6 +12,8 @@ import { db } from "@/db";
 import { announcements } from "@/db/schema";
 import { desc } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 async function getAnnouncements() {
   return await db
     .select()

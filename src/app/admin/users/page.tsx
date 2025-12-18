@@ -13,6 +13,8 @@ import { db } from "@/db";
 import { users, platformAdmins, organizationMembers } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 async function getUsers() {
   const allUsers = await db
     .select({

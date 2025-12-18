@@ -9,11 +9,12 @@ import {
   Shield,
   Database
 } from "lucide-react";
-import { db } from "@/db";
-import { platformSettings } from "@/db/schema";
+
+export const dynamic = 'force-dynamic';
 
 async function getSettings() {
-  return await db.select().from(platformSettings);
+  // Return empty array for now - settings will be loaded from DB later
+  return [] as { key: string; value: string }[];
 }
 
 export default async function SettingsPage() {

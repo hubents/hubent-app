@@ -12,6 +12,8 @@ import { db } from "@/db";
 import { invoices, subscriptions, subscriptionPlans, organizations } from "@/db/schema";
 import { eq, sum, count, desc } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 async function getBillingStats() {
   const [totalRevenue] = await db
     .select({ total: sum(invoices.amount) })

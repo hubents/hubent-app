@@ -12,6 +12,8 @@ import { db } from "@/db";
 import { organizations, users, subscriptions, invoices } from "@/db/schema";
 import { count, sum, eq } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 async function getStats() {
   const [tenantsCount] = await db.select({ count: count() }).from(organizations);
   const [usersCount] = await db.select({ count: count() }).from(users);

@@ -11,6 +11,8 @@ import {
 import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema";
 
+export const dynamic = 'force-dynamic';
+
 async function getPlans() {
   return await db
     .select()

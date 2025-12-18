@@ -11,6 +11,8 @@ import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 async function getAuditLogs() {
   return await db
     .select({
