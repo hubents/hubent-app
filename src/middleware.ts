@@ -2,6 +2,10 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
+  // DEMO MODE: Skip auth temporarily
+  return NextResponse.next();
+  
+  /* ORIGINAL AUTH - Uncomment after demo
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
@@ -28,6 +32,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
+  */
 });
 
 export const config = {
