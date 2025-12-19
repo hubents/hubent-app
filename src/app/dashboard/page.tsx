@@ -165,7 +165,7 @@ export default function DashboardPage() {
                 <span>Meta mensual</span>
                 <span className="font-medium">$30,000</span>
               </div>
-              <Progress value={82} variant="success" className="h-2" />
+              <Progress value={82} className="h-2" />
             </div>
           </CardContent>
         </Card>
