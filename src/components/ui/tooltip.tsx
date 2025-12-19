@@ -37,7 +37,7 @@ const Tooltip = ({ content, children, side = "top", className }: TooltipProps) =
       {isVisible && (
         <div
           className={cn(
-            "absolute z-50 px-3 py-1.5 text-xs font-medium text-white bg-[var(--foreground)] rounded-[var(--radius)] whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-200",
+            "absolute z-50 px-3 py-1.5 text-xs font-medium text-[var(--popover-foreground)] bg-[var(--popover)] border border-[var(--border)] rounded-[var(--radius-md)] whitespace-nowrap shadow-md animate-in fade-in-0 zoom-in-95 duration-200",
             positionClasses[side],
             className
           )}

@@ -10,7 +10,7 @@ import {
 } from "@remixicon/react";
 
 const alertVariants = cva(
-  "relative w-full rounded-[var(--radius)] border p-4 transition-all duration-300",
+  "relative w-full rounded-[var(--radius-lg)] border p-4 transition-all duration-300",
   {
     variants: {
       variant: {

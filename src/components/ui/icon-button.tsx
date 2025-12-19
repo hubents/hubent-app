@@ -15,11 +15,11 @@ interface IconButtonProps {
 }
 
 const variantStyles = {
-  default: "bg-[var(--muted)] text-[var(--foreground)] hover:bg-[var(--muted-foreground)]/20",
-  primary: "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]",
-  success: "bg-[var(--success)] text-white hover:opacity-90",
-  warning: "bg-[var(--warning)] text-white hover:opacity-90",
-  danger: "bg-[var(--destructive)] text-white hover:opacity-90",
+  default: "bg-[var(--muted)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+  primary: "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
+  success: "bg-[var(--success)] text-[var(--success-foreground)] hover:opacity-90",
+  warning: "bg-[var(--warning)] text-[var(--warning-foreground)] hover:opacity-90",
+  danger: "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:opacity-90",
 };
 
 const sizeStyles = {

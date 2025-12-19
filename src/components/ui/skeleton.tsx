@@ -9,7 +9,7 @@ function Skeleton({ className, variant = "shimmer" }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "rounded-[var(--radius)]",
+        "rounded-[var(--radius-md)]",
         variant === "shimmer" 
           ? "skeleton-shimmer" 
           : "animate-pulse bg-[var(--muted)]",
@@ -21,7 +21,7 @@ function Skeleton({ className, variant = "shimmer" }: SkeletonProps) {
 
 function SkeletonCard() {
   return (
-    <div className="rounded-[var(--radius)] border border-[var(--border)] p-6 space-y-4">
+    <div className="rounded-[var(--radius-lg)] border border-[var(--border)] p-6 space-y-4">
       <div className="flex items-center gap-4">
         <Skeleton className="h-12 w-12 rounded-full" />
         <div className="space-y-2 flex-1">

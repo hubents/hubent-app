@@ -23,7 +23,7 @@ function Table<T extends Record<string, unknown>>({
   hoverable = true 
 }: TableProps<T>) {
   return (
-    <div className={cn("overflow-x-auto rounded-[var(--radius)] border border-[var(--border)]", className)}>
+    <div className={cn("overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border)]", className)}>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border)] bg-[var(--muted)]/50">

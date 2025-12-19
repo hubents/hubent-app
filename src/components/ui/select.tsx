@@ -44,10 +44,10 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
           disabled={disabled}
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "flex h-10 w-full items-center justify-between rounded-[var(--radius)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm transition-colors",
-            "focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2",
+            "flex h-10 w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-sm transition-colors",
+            "focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2",
             "disabled:cursor-not-allowed disabled:opacity-50",
-            isOpen && "ring-2 ring-[var(--primary)]"
+            isOpen && "ring-2 ring-[var(--ring)]"
           )}
         >
           <span className={cn(!selectedOption && "text-[var(--muted-foreground)]")}>
@@ -62,7 +62,7 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] py-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="absolute z-50 mt-1 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--popover)] py-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -72,8 +72,8 @@ const Select = React.forwardRef<HTMLDivElement, SelectProps>(
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center px-3 py-2 text-sm transition-colors hover:bg-[var(--muted)]",
-                  value === option.value && "bg-[var(--primary)]/10 text-[var(--primary)] font-medium"
+                  "flex w-full items-center px-3 py-2 text-sm transition-colors hover:bg-[var(--accent)]",
+                  value === option.value && "bg-[var(--accent)] text-[var(--accent-foreground)] font-medium"
                 )}
               >
                 {option.label}

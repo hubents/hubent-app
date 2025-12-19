@@ -82,10 +82,10 @@ const iconMap = {
 };
 
 const colorMap = {
-  success: "border-l-[var(--success)] bg-[var(--success-light)]",
-  error: "border-l-[var(--destructive)] bg-[var(--destructive-light)]",
-  warning: "border-l-[var(--warning)] bg-[var(--warning-light)]",
-  info: "border-l-[var(--info)] bg-[var(--info-light)]",
+  success: "border-l-[var(--success)] bg-[var(--success)]/10",
+  error: "border-l-[var(--destructive)] bg-[var(--destructive)]/10",
+  warning: "border-l-[var(--warning)] bg-[var(--warning)]/10",
+  info: "border-l-[var(--info)] bg-[var(--info)]/10",
 };
 
 const iconColorMap = {
@@ -114,7 +114,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       </div>
       <button
         onClick={onClose}
-        className="shrink-0 p-1 rounded-[var(--radius)] hover:bg-black/10 transition-colors"
+        className="shrink-0 p-1 rounded-[var(--radius-sm)] hover:bg-black/10 transition-colors"
       >
         <RiCloseLine className="h-4 w-4" />
       </button>

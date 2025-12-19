@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-4 animate-fade-in">
-        <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--primary)] hover:-translate-y-1 bg-gradient-to-br from-[var(--primary)] to-[var(--primary-hover)] text-white">
+        <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--primary)] hover:-translate-y-1 bg-[var(--primary)] text-[var(--primary-foreground)]">
           <CardContent className="p-4 flex items-center gap-3">
             <RiCalendarEventLine className="h-8 w-8" />
             <div>
@@ -78,7 +78,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--success)] hover:-translate-y-1">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--success-light)] flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-[var(--success)]/10 flex items-center justify-center">
               <RiUserAddLine className="h-5 w-5 text-[var(--success)]" />
             </div>
             <div>
@@ -89,7 +89,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--warning)] hover:-translate-y-1">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--warning-light)] flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-[var(--warning)]/10 flex items-center justify-center">
               <RiFileListLine className="h-5 w-5 text-[var(--warning)]" />
             </div>
             <div>
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--info)] hover:-translate-y-1">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--info-light)] flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-[var(--info)]/10 flex items-center justify-center">
               <RiMoneyDollarCircleLine className="h-5 w-5 text-[var(--info)]" />
             </div>
             <div>

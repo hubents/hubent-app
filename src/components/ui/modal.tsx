@@ -71,7 +71,7 @@ const Modal = ({ open, onClose, children, className }: ModalProps) => {
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1 rounded-[var(--radius)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+          className="absolute right-4 top-4 p-1 rounded-[var(--radius-sm)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors"
         >
           <RiCloseLine className="h-5 w-5" />
         </button>

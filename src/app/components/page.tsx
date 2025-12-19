@@ -78,7 +78,7 @@ export default function ComponentsPage() {
 
   useEffect(() => {
     document.documentElement.style.setProperty("--primary", primaryColor);
-    document.documentElement.style.setProperty("--primary-hover", adjustColor(primaryColor, -20));
+    // primary-hover removed in new design system
   }, [primaryColor]);
 
   useEffect(() => {
@@ -640,7 +640,7 @@ export default function ComponentsPage() {
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-center">Shake</h3>
                       <div 
-                        className={`p-4 border border-[var(--border)] rounded-[var(--radius)] cursor-pointer text-center bg-[var(--destructive-light)] ${isAnimating ? "animate-shake" : ""}`}
+                        className={`p-4 border border-[var(--border)] rounded-[var(--radius-lg)] cursor-pointer text-center bg-[var(--destructive)]/10 ${isAnimating ? "animate-shake" : ""}`}
                         onClick={triggerAnimation}
                       >
                         Click me!
@@ -651,7 +651,7 @@ export default function ComponentsPage() {
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-center">Rubber Band</h3>
                       <div 
-                        className={`p-4 border border-[var(--border)] rounded-[var(--radius)] cursor-pointer text-center bg-[var(--success-light)] ${isAnimating ? "animate-rubber-band" : ""}`}
+                        className={`p-4 border border-[var(--border)] rounded-[var(--radius-lg)] cursor-pointer text-center bg-[var(--success)]/10 ${isAnimating ? "animate-rubber-band" : ""}`}
                         onClick={triggerAnimation}
                       >
                         Click me!
@@ -662,7 +662,7 @@ export default function ComponentsPage() {
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-center">Jello</h3>
                       <div 
-                        className={`p-4 border border-[var(--border)] rounded-[var(--radius)] cursor-pointer text-center bg-[var(--warning-light)] ${isAnimating ? "animate-jello" : ""}`}
+                        className={`p-4 border border-[var(--border)] rounded-[var(--radius-lg)] cursor-pointer text-center bg-[var(--warning)]/10 ${isAnimating ? "animate-jello" : ""}`}
                         onClick={triggerAnimation}
                       >
                         Click me!
@@ -673,7 +673,7 @@ export default function ComponentsPage() {
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-center">Tada</h3>
                       <div 
-                        className={`p-4 border border-[var(--border)] rounded-[var(--radius)] cursor-pointer text-center bg-[var(--info-light)] ${isAnimating ? "animate-tada" : ""}`}
+                        className={`p-4 border border-[var(--border)] rounded-[var(--radius-lg)] cursor-pointer text-center bg-[var(--info)]/10 ${isAnimating ? "animate-tada" : ""}`}
                         onClick={triggerAnimation}
                       >
                         Click me!

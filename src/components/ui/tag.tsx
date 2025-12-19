@@ -15,10 +15,10 @@ interface TagProps {
 
 const variantClasses = {
   default: "bg-[var(--muted)] text-[var(--foreground)]",
-  primary: "bg-[var(--primary-light)] text-[var(--primary)]",
-  success: "bg-[var(--success-light)] text-[var(--success)]",
-  warning: "bg-[var(--warning-light)] text-[var(--warning)]",
-  error: "bg-[var(--destructive-light)] text-[var(--destructive)]",
+  primary: "bg-[var(--primary)]/10 text-[var(--primary)]",
+  success: "bg-[var(--success)]/10 text-[var(--success)]",
+  warning: "bg-[var(--warning)]/10 text-[var(--warning)]",
+  error: "bg-[var(--destructive)]/10 text-[var(--destructive)]",
 };
 
 const sizeClasses = {

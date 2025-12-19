@@ -27,10 +27,10 @@ const typeIcons = {
 
 const typeBg = {
   default: "",
-  success: "bg-[var(--success-light)]",
-  error: "bg-[var(--destructive-light)]",
-  warning: "bg-[var(--warning-light)]",
-  info: "bg-[var(--info-light)]",
+  success: "bg-[var(--success)]/10",
+  error: "bg-[var(--destructive)]/10",
+  warning: "bg-[var(--warning)]/10",
+  info: "bg-[var(--info)]/10",
 };
 
 const Notification = ({

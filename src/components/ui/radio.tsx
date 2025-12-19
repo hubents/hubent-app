@@ -43,10 +43,10 @@ const RadioGroup = React.forwardRef<HTMLDivElement, RadioGroupProps>(
               disabled={disabled}
               onClick={() => onValueChange?.(option.value)}
               className={cn(
-                "h-5 w-5 shrink-0 rounded-full border-2 transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 flex items-center justify-center",
+                "h-5 w-5 shrink-0 rounded-full border-2 transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 flex items-center justify-center",
                 value === option.value
                   ? "border-[var(--primary)]"
-                  : "border-[var(--border)] hover:border-[var(--primary)]"
+                  : "border-[var(--border)] hover:border-[var(--ring)]"
               )}
             >
               {value === option.value && (

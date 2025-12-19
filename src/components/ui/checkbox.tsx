@@ -23,10 +23,10 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
           disabled={disabled}
           onClick={() => onCheckedChange?.(!checked)}
           className={cn(
-            "h-5 w-5 shrink-0 rounded-[4px] border-2 transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2",
+            "h-5 w-5 shrink-0 rounded-[var(--radius-sm)] border-2 transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
             checked
               ? "border-[var(--primary)] bg-[var(--primary)]"
-              : "border-[var(--border)] bg-transparent hover:border-[var(--primary)]",
+              : "border-[var(--border)] bg-transparent hover:border-[var(--ring)]",
             className
           )}
         >

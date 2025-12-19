@@ -98,13 +98,13 @@ const DropdownMenuItem = ({
     }}
     disabled={disabled}
     className={cn(
-      "flex w-full items-center gap-2 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors",
-      "focus:outline-none focus:bg-[var(--muted)]",
+      "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-sm transition-colors",
+      "focus:outline-none focus:bg-[var(--accent)]",
       disabled
         ? "cursor-not-allowed opacity-50"
         : destructive
-        ? "text-[var(--destructive)] hover:bg-[var(--destructive-light)]"
-        : "hover:bg-[var(--muted)]",
+        ? "text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+        : "hover:bg-[var(--accent)]",
       className
     )}
   >
@@ -129,9 +129,9 @@ const DropdownMenuCheckboxItem = ({
     }}
     disabled={disabled}
     className={cn(
-      "flex w-full items-center gap-2 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors",
-      "focus:outline-none focus:bg-[var(--muted)]",
-      disabled ? "cursor-not-allowed opacity-50" : "hover:bg-[var(--muted)]",
+      "flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-sm transition-colors",
+      "focus:outline-none focus:bg-[var(--accent)]",
+      disabled ? "cursor-not-allowed opacity-50" : "hover:bg-[var(--accent)]",
       className
     )}
   >
