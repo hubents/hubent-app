@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/session";
+import { getLeads, getLeadsByStage, createLead } from "@/lib/crm";
+
+// GET /api/crm/leads - List leads
+export async function GET(request: NextRequest) {
+  try {
+    const session = await requireRole("viewer");
+    const { searchParams } = new URL(request.url);
+    
+    const view = searchParams.get("view"); // "kanban" or "list"
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const search = searchParams.get("search") || undefined;
+    const status = searchParams.get("status") || undefined;
+
+    if (view === "kanban") {
+      const stagesWithLeads = await getLeadsByStage(session);
+      return NextResponse.json({
+        success: true,
+        data: stagesWithLeads,
+      });
+    }
+
+    const result = await getLeads(session, { page, limit, search, status });
+
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      meta: result.meta,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch leads";
+    return NextResponse.json(
+      { success: false, error: { code: "FETCH_ERROR", message } },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/crm/leads - Create lead
+export async function POST(request: NextRequest) {
+  try {
+    const session = await requireRole("planner");
+    const body = await request.json();
+
+    const { title, description, value, currency, stageId, probability, expectedCloseDate, source, companyId, personId, assignedTo } = body;
+
+    if (!title) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Title is required" } },
+        { status: 400 }
+      );
+    }
+
+    const lead = await createLead(session, {
+      title,
+      description,
+      value,
+      currency,
+      stageId,
+      probability,
+      expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : undefined,
+      source,
+      companyId,
+      personId,
+      assignedTo,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: lead,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to create lead";
+    return NextResponse.json(
+      { success: false, error: { code: "CREATE_ERROR", message } },
+      { status: 400 }
+    );
+  }
+}
