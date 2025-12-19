@@ -1,8 +1,11 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   RiAddLine,
   RiSearchLine,
@@ -11,8 +14,9 @@ import {
   RiCalendarLine,
   RiFlag2Line,
 } from "@remixicon/react";
+import { useTasks } from "@/hooks/use-tasks";
 
-const tasks = [
+const fallbackTasks = [
   {
     id: "1",
     title: "Confirmar menú con catering",
@@ -108,9 +112,11 @@ const statusConfig = {
 };
 
 export default function TasksPage() {
-  const completedTasks = tasks.filter((t) => t.status === "completed").length;
-  const totalTasks = tasks.length;
-  const completionRate = Math.round((completedTasks / totalTasks) * 100);
+  const { tasks: apiTasks, stats, loading, updateTaskStatus, createTask } = useTasks();
+  
+  // Use API data if available, otherwise use fallback for demo
+  const displayTasks = apiTasks.length > 0 ? apiTasks : [];
+  const completionRate = stats.completionRate;
 
   return (
     <div className="space-y-6">
@@ -122,7 +128,7 @@ export default function TasksPage() {
             Gestiona las tareas de todos tus eventos
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => createTask({ title: "Nueva Tarea" })}>
           <RiAddLine className="h-4 w-4" />
           Nueva Tarea
         </Button>
@@ -130,37 +136,50 @@ export default function TasksPage() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-[var(--muted-foreground)]">Total Tareas</p>
-            <p className="text-2xl font-bold">{totalTasks}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-[var(--muted-foreground)]">Completadas</p>
-            <p className="text-2xl font-bold text-[var(--success)]">
-              {completedTasks}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-[var(--muted-foreground)]">En Progreso</p>
-            <p className="text-2xl font-bold text-[var(--warning)]">
-              {tasks.filter((t) => t.status === "in_progress").length}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-[var(--muted-foreground)]">Progreso General</p>
-            <div className="flex items-center gap-2">
-              <Progress value={completionRate} className="flex-1" />
-              <span className="text-sm font-medium">{completionRate}%</span>
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="h-4 w-20 mb-2" />
+                <Skeleton className="h-8 w-12" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-[var(--muted-foreground)]">Total Tareas</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-[var(--muted-foreground)]">Completadas</p>
+                <p className="text-2xl font-bold text-[var(--success)]">
+                  {stats.completed}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-[var(--muted-foreground)]">En Progreso</p>
+                <p className="text-2xl font-bold text-[var(--warning)]">
+                  {stats.inProgress}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-[var(--muted-foreground)]">Progreso General</p>
+                <div className="flex items-center gap-2">
+                  <Progress value={completionRate} className="flex-1" />
+                  <span className="text-sm font-medium">{completionRate}%</span>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Search */}
@@ -175,10 +194,23 @@ export default function TasksPage() {
           <CardTitle>Todas las Tareas</CardTitle>
         </CardHeader>
         <CardContent>
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : displayTasks.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-[var(--muted-foreground)]">
+                No hay tareas. Crea una nueva tarea para comenzar.
+              </p>
+            </div>
+          ) : (
           <div className="space-y-3">
-            {tasks.map((task) => {
-              const priority = priorityConfig[task.priority as keyof typeof priorityConfig];
-              const status = statusConfig[task.status as keyof typeof statusConfig];
+            {displayTasks.map((task) => {
+              const priority = priorityConfig[(task.priority || "medium") as keyof typeof priorityConfig];
+              const status = statusConfig[(task.status || "pending") as keyof typeof statusConfig];
 
               return (
                 <div
@@ -212,9 +244,9 @@ export default function TasksPage() {
                       {task.description}
                     </p>
                     <div className="mt-1 flex items-center gap-4 text-xs text-[var(--muted-foreground)]">
-                      <span>{task.eventName}</span>
+                      <span>{task.eventName || "Sin evento"}</span>
                       <span>•</span>
-                      <span>Asignado a: {task.assignee}</span>
+                      <span>Asignado a: {task.assignedUserName || "Sin asignar"}</span>
                     </div>
                   </div>
 
@@ -228,10 +260,12 @@ export default function TasksPage() {
                     <div className="flex items-center gap-1 text-[var(--muted-foreground)]">
                       <RiCalendarLine className="h-4 w-4" />
                       <span className="text-xs">
-                        {new Date(task.dueDate).toLocaleDateString("es-ES", {
-                          day: "numeric",
-                          month: "short",
-                        })}
+                        {task.dueDate 
+                          ? new Date(task.dueDate).toLocaleDateString("es-ES", {
+                              day: "numeric",
+                              month: "short",
+                            })
+                          : "Sin fecha"}
                       </span>
                     </div>
                   </div>
@@ -239,6 +273,7 @@ export default function TasksPage() {
               );
             })}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>
