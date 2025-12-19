@@ -72,6 +72,70 @@ export const orgStatusEnum = pgEnum("org_status", [
   "deleted",
 ]);
 
+// New enums for extended functionality
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+]);
+
+export const documentTypeEnum = pgEnum("document_type", [
+  "quote",
+  "proforma",
+  "invoice",
+  "delivery_note",
+  "credit_note",
+]);
+
+export const documentStatusEnum = pgEnum("document_status", [
+  "draft",
+  "sent",
+  "accepted",
+  "rejected",
+  "paid",
+  "cancelled",
+]);
+
+export const messageTypeEnum = pgEnum("message_type", [
+  "text",
+  "file",
+  "image",
+  "link",
+  "system",
+]);
+
+export const participantTypeEnum = pgEnum("participant_type", [
+  "planner",
+  "vendor",
+  "client",
+  "assistant",
+  "guest",
+]);
+
+export const attachmentTypeEnum = pgEnum("attachment_type", [
+  "file",
+  "document",
+  "image",
+  "link",
+]);
+
+export const rsvpStatusEnum = pgEnum("rsvp_status", [
+  "pending",
+  "confirmed",
+  "declined",
+  "maybe",
+]);
+
+export const vendorClaimStatusEnum = pgEnum("vendor_claim_status", [
+  "pending",
+  "verified",
+  "rejected",
+]);
+
 // ============================================
 // NEXTAUTH TABLES
 // ============================================
@@ -385,6 +449,489 @@ export const payments = pgTable("payments", {
 });
 
 // ============================================
+// CRM TABLES (Leads, Companies, People)
+// ============================================
+
+export const leadStages = pgTable("lead_stages", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").default("#6366f1"),
+  sortOrder: integer("sort_order").default(0),
+  isDefault: boolean("is_default").default(false),
+  isWon: boolean("is_won").default(false),
+  isLost: boolean("is_lost").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  value: decimal("value", { precision: 12, scale: 2 }),
+  currency: text("currency").default("EUR"),
+  stageId: integer("stage_id").references(() => leadStages.id),
+  status: leadStatusEnum("status").default("new"),
+  probability: integer("probability").default(50),
+  expectedCloseDate: timestamp("expected_close_date"),
+  source: text("source"),
+  companyId: integer("company_id"),
+  personId: integer("person_id"),
+  eventId: integer("event_id").references(() => events.id),
+  assignedTo: text("assigned_to").references(() => users.id),
+  createdBy: text("created_by").references(() => users.id),
+  closedAt: timestamp("closed_at"),
+  lostReason: text("lost_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  legalName: text("legal_name").notNull(),
+  tradeName: text("trade_name"),
+  taxId: text("tax_id"),
+  taxIdType: text("tax_id_type").default("cif"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country").default("ES"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  logo: text("logo"),
+  industry: text("industry"),
+  notes: text("notes"),
+  fiscalDataVerified: boolean("fiscal_data_verified").default(false),
+  fiscalDataSource: text("fiscal_data_source"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const people = pgTable("people", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
+  email: text("email"),
+  phone: text("phone"),
+  mobile: text("mobile"),
+  position: text("position"),
+  department: text("department"),
+  linkedinUrl: text("linkedin_url"),
+  avatar: text("avatar"),
+  notes: text("notes"),
+  userId: text("user_id").references(() => users.id),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const peopleCompanies = pgTable("people_companies", {
+  id: serial("id").primaryKey(),
+  personId: integer("person_id").notNull().references(() => people.id, { onDelete: "cascade" }),
+  companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  role: text("role"),
+  isPrimary: boolean("is_primary").default(false),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
+// FINANCE TABLES
+// ============================================
+
+export const productCatalog = pgTable("product_catalog", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  sku: text("sku"),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("21"),
+  unit: text("unit").default("unit"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const bankAccounts = pgTable("bank_accounts", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  bankName: text("bank_name"),
+  bankIcon: text("bank_icon"),
+  iban: text("iban"),
+  swift: text("swift"),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const financialDocuments = pgTable("financial_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  type: documentTypeEnum("type").notNull(),
+  number: text("number").notNull(),
+  status: documentStatusEnum("status").default("draft"),
+  companyId: integer("company_id").references(() => companies.id),
+  personId: integer("person_id").references(() => people.id),
+  eventId: integer("event_id").references(() => events.id),
+  parentDocumentId: integer("parent_document_id"),
+  issueDate: timestamp("issue_date").defaultNow(),
+  dueDate: timestamp("due_date"),
+  validUntil: timestamp("valid_until"),
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }),
+  total: decimal("total", { precision: 12, scale: 2 }),
+  currency: text("currency").default("EUR"),
+  notes: text("notes"),
+  termsAndConditions: text("terms_and_conditions"),
+  pdfUrl: text("pdf_url"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const documentItems = pgTable("document_items", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => financialDocuments.id, { onDelete: "cascade" }),
+  productId: integer("product_id").references(() => productCatalog.id),
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  discount: decimal("discount", { precision: 5, scale: 2 }).default("0"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("21"),
+  total: decimal("total", { precision: 12, scale: 2 }),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const paymentRecords = pgTable("payment_records", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  documentId: integer("document_id").references(() => financialDocuments.id),
+  taskId: integer("task_id").references(() => tasks.id),
+  bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date").defaultNow(),
+  paymentMethod: text("payment_method"),
+  reference: text("reference"),
+  notes: text("notes"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const paymentSchedules = pgTable("payment_schedules", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  taskId: integer("task_id").references(() => tasks.id),
+  eventId: integer("event_id").references(() => events.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  name: text("name").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  isPaid: boolean("is_paid").default(false),
+  paidAt: timestamp("paid_at"),
+  paymentRecordId: integer("payment_record_id").references(() => paymentRecords.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const paymentReminders = pgTable("payment_reminders", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").references(() => financialDocuments.id),
+  scheduleId: integer("schedule_id").references(() => paymentSchedules.id),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  sentAt: timestamp("sent_at"),
+  channel: text("channel").notNull(),
+  status: text("status").default("pending"),
+  messageTemplate: text("message_template"),
+  response: text("response"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
+// TASK TABLES (Extended with Chat)
+// ============================================
+
+export const taskParticipants = pgTable("task_participants", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: participantTypeEnum("type").default("planner"),
+  canEdit: boolean("can_edit").default(false),
+  canComment: boolean("can_comment").default(true),
+  addedBy: text("added_by").references(() => users.id),
+  addedAt: timestamp("added_at").defaultNow(),
+});
+
+export const taskMessages = pgTable("task_messages", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  senderId: text("sender_id").notNull().references(() => users.id),
+  type: messageTypeEnum("type").default("text"),
+  content: text("content").notNull(),
+  isPrivate: boolean("is_private").default(false),
+  visibleTo: json("visible_to").$type<string[]>(),
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const taskAttachments = pgTable("task_attachments", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  messageId: integer("message_id").references(() => taskMessages.id),
+  type: attachmentTypeEnum("type").default("file"),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  size: integer("size"),
+  mimeType: text("mime_type"),
+  uploadedBy: text("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const taskVideos = pgTable("task_videos", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  youtubeUrl: text("youtube_url").notNull(),
+  title: text("title"),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const taskScheduleItems = pgTable("task_schedule_items", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  location: text("location"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskHtmlContent = pgTable("task_html_content", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  content: text("content"),
+  updatedBy: text("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
+// EVENT TEMPLATES
+// ============================================
+
+export const eventTemplates = pgTable("event_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  name: text("name").notNull(),
+  eventType: eventTypeEnum("event_type"),
+  description: text("description"),
+  defaultBudget: decimal("default_budget", { precision: 12, scale: 2 }),
+  isGlobal: boolean("is_global").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskTemplates = pgTable("task_templates", {
+  id: serial("id").primaryKey(),
+  eventTemplateId: integer("event_template_id").notNull().references(() => eventTemplates.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category"),
+  daysBeforeEvent: integer("days_before_event"),
+  daysAfterEvent: integer("days_after_event"),
+  assignToRole: text("assign_to_role"),
+  priority: text("priority").default("medium"),
+  estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const eventParticipants = pgTable("event_participants", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => users.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  clientId: integer("client_id").references(() => clients.id),
+  type: participantTypeEnum("type").notNull(),
+  role: text("role"),
+  invitedBy: text("invited_by").references(() => users.id),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
+export const briefingForms = pgTable("briefing_forms", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  targetType: text("target_type"),
+  fields: json("fields").$type<Array<{
+    id: string;
+    type: string;
+    label: string;
+    required: boolean;
+    options?: string[];
+  }>>(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const briefingResponses = pgTable("briefing_responses", {
+  id: serial("id").primaryKey(),
+  formId: integer("form_id").notNull().references(() => briefingForms.id),
+  eventId: integer("event_id").references(() => events.id),
+  taskId: integer("task_id").references(() => tasks.id),
+  respondentId: text("respondent_id").references(() => users.id),
+  responses: json("responses").$type<Record<string, unknown>>(),
+  status: text("status").default("pending"),
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
+// GUESTS AND RSVP
+// ============================================
+
+export const guestGroups = pgTable("guest_groups", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tableNumber: integer("table_number"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const guests = pgTable("guests", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  groupId: integer("group_id").references(() => guestGroups.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
+  email: text("email"),
+  phone: text("phone"),
+  plusOne: boolean("plus_one").default(false),
+  plusOneName: text("plus_one_name"),
+  dietaryRestrictions: text("dietary_restrictions"),
+  notes: text("notes"),
+  invitedBy: text("invited_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const rsvpResponses = pgTable("rsvp_responses", {
+  id: serial("id").primaryKey(),
+  guestId: integer("guest_id").notNull().references(() => guests.id, { onDelete: "cascade" }),
+  status: rsvpStatusEnum("status").default("pending"),
+  plusOneConfirmed: boolean("plus_one_confirmed").default(false),
+  message: text("message"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const rsvpLandingPages = pgTable("rsvp_landing_pages", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull().unique(),
+  title: text("title"),
+  description: text("description"),
+  heroImage: text("hero_image"),
+  customCss: text("custom_css"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
+// VENDOR MARKETPLACE
+// ============================================
+
+export const vendorProfiles = pgTable("vendor_profiles", {
+  id: serial("id").primaryKey(),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  userId: text("user_id").references(() => users.id),
+  slug: text("slug").unique(),
+  displayName: text("display_name"),
+  tagline: text("tagline"),
+  description: text("description"),
+  coverImage: text("cover_image"),
+  categories: json("categories").$type<string[]>(),
+  services: json("services").$type<string[]>(),
+  priceRange: text("price_range"),
+  serviceAreas: json("service_areas").$type<string[]>(),
+  instagramHandle: text("instagram_handle"),
+  instagramAccessToken: text("instagram_access_token"),
+  facebookUrl: text("facebook_url"),
+  pinterestUrl: text("pinterest_url"),
+  totalReviews: integer("total_reviews").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  isPublic: boolean("is_public").default(false),
+  isClaimed: boolean("is_claimed").default(false),
+  claimedAt: timestamp("claimed_at"),
+  isPremium: boolean("is_premium").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const vendorPortfolio = pgTable("vendor_portfolio", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull().references(() => vendorProfiles.id, { onDelete: "cascade" }),
+  type: text("type").default("image"),
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  title: text("title"),
+  description: text("description"),
+  eventType: text("event_type"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vendorReviews = pgTable("vendor_reviews", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull().references(() => vendorProfiles.id, { onDelete: "cascade" }),
+  reviewerId: text("reviewer_id").references(() => users.id),
+  eventId: integer("event_id").references(() => events.id),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  content: text("content"),
+  isVerified: boolean("is_verified").default(false),
+  isPublic: boolean("is_public").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const vendorClaims = pgTable("vendor_claims", {
+  id: serial("id").primaryKey(),
+  profileId: integer("profile_id").notNull().references(() => vendorProfiles.id),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  status: vendorClaimStatusEnum("status").default("pending"),
+  verificationMethod: text("verification_method"),
+  expiresAt: timestamp("expires_at").notNull(),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
 // RELATIONS
 // ============================================
 
@@ -452,3 +999,53 @@ export type NewPayment = typeof payments.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type PlatformAdmin = typeof platformAdmins.$inferSelect;
 export type Invitation = typeof invitations.$inferSelect;
+
+// CRM Types
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
+export type LeadStage = typeof leadStages.$inferSelect;
+export type Company = typeof companies.$inferSelect;
+export type NewCompany = typeof companies.$inferInsert;
+export type Person = typeof people.$inferSelect;
+export type NewPerson = typeof people.$inferInsert;
+export type PersonCompany = typeof peopleCompanies.$inferSelect;
+
+// Finance Types
+export type ProductCatalogItem = typeof productCatalog.$inferSelect;
+export type NewProductCatalogItem = typeof productCatalog.$inferInsert;
+export type BankAccount = typeof bankAccounts.$inferSelect;
+export type FinancialDocument = typeof financialDocuments.$inferSelect;
+export type NewFinancialDocument = typeof financialDocuments.$inferInsert;
+export type DocumentItem = typeof documentItems.$inferSelect;
+export type PaymentRecord = typeof paymentRecords.$inferSelect;
+export type PaymentSchedule = typeof paymentSchedules.$inferSelect;
+export type PaymentReminder = typeof paymentReminders.$inferSelect;
+
+// Task Types (Extended)
+export type TaskParticipant = typeof taskParticipants.$inferSelect;
+export type TaskMessage = typeof taskMessages.$inferSelect;
+export type NewTaskMessage = typeof taskMessages.$inferInsert;
+export type TaskAttachment = typeof taskAttachments.$inferSelect;
+export type TaskVideo = typeof taskVideos.$inferSelect;
+export type TaskScheduleItem = typeof taskScheduleItems.$inferSelect;
+export type TaskHtmlContent = typeof taskHtmlContent.$inferSelect;
+
+// Event Template Types
+export type EventTemplate = typeof eventTemplates.$inferSelect;
+export type TaskTemplate = typeof taskTemplates.$inferSelect;
+export type EventParticipant = typeof eventParticipants.$inferSelect;
+export type BriefingForm = typeof briefingForms.$inferSelect;
+export type BriefingResponse = typeof briefingResponses.$inferSelect;
+
+// Guest & RSVP Types
+export type GuestGroup = typeof guestGroups.$inferSelect;
+export type Guest = typeof guests.$inferSelect;
+export type NewGuest = typeof guests.$inferInsert;
+export type RsvpResponse = typeof rsvpResponses.$inferSelect;
+export type RsvpLandingPage = typeof rsvpLandingPages.$inferSelect;
+
+// Vendor Marketplace Types
+export type VendorProfile = typeof vendorProfiles.$inferSelect;
+export type VendorPortfolioItem = typeof vendorPortfolio.$inferSelect;
+export type VendorReview = typeof vendorReviews.$inferSelect;
+export type VendorClaim = typeof vendorClaims.$inferSelect;

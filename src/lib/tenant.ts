@@ -1,0 +1,307 @@
+import { db } from "@/db";
+import { 
+  organizations, 
+  organizationMembers, 
+  roles, 
+  rolePermissions, 
+  permissions,
+  platformAdmins 
+} from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import type { TenantRole, UserContext, TenantSession, PermissionCheck } from "@/types";
+
+// ============================================
+// TENANT HELPERS
+// ============================================
+
+/**
+ * Get user's membership in an organization
+ */
+export async function getUserMembership(userId: string, organizationId: number) {
+  const membership = await db
+    .select({
+      id: organizationMembers.id,
+      roleId: organizationMembers.roleId,
+      roleName: roles.name,
+      roleSlug: roles.slug,
+      joinedAt: organizationMembers.joinedAt,
+    })
+    .from(organizationMembers)
+    .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
+    .where(
+      and(
+        eq(organizationMembers.userId, userId),
+        eq(organizationMembers.organizationId, organizationId)
+      )
+    )
+    .limit(1);
+
+  return membership[0] || null;
+}
+
+/**
+ * Get all organizations a user belongs to
+ */
+export async function getUserOrganizations(userId: string) {
+  const orgs = await db
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      slug: organizations.slug,
+      logo: organizations.logo,
+      status: organizations.status,
+      role: roles.slug,
+      roleName: roles.name,
+    })
+    .from(organizationMembers)
+    .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+    .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
+    .where(eq(organizationMembers.userId, userId));
+
+  return orgs;
+}
+
+/**
+ * Get permissions for a role
+ */
+export async function getRolePermissions(roleId: number): Promise<string[]> {
+  const perms = await db
+    .select({
+      slug: permissions.slug,
+    })
+    .from(rolePermissions)
+    .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .where(eq(rolePermissions.roleId, roleId));
+
+  return perms.map((p) => p.slug);
+}
+
+/**
+ * Check if user is a platform admin
+ */
+export async function getPlatformAdminLevel(userId: string) {
+  const admin = await db
+    .select({
+      level: platformAdmins.level,
+      permissions: platformAdmins.permissions,
+    })
+    .from(platformAdmins)
+    .where(eq(platformAdmins.userId, userId))
+    .limit(1);
+
+  return admin[0] || null;
+}
+
+/**
+ * Build complete user context with all organizations and permissions
+ */
+export async function buildUserContext(
+  userId: string,
+  email: string,
+  name?: string,
+  image?: string,
+  currentOrgId?: number
+): Promise<UserContext> {
+  // Get platform admin status
+  const platformAdmin = await getPlatformAdminLevel(userId);
+
+  // Get all user organizations
+  const userOrgs = await getUserOrganizations(userId);
+
+  // Determine current organization
+  let currentOrg = currentOrgId
+    ? userOrgs.find((o) => o.id === currentOrgId)
+    : userOrgs[0];
+
+  let currentOrgPermissions: string[] = [];
+
+  if (currentOrg) {
+    // Get membership to get roleId
+    const membership = await getUserMembership(userId, currentOrg.id);
+    if (membership) {
+      currentOrgPermissions = await getRolePermissions(membership.roleId);
+    }
+  }
+
+  return {
+    userId,
+    email,
+    name,
+    image,
+    platformLevel: platformAdmin?.level ?? undefined,
+    currentOrganization: currentOrg
+      ? {
+          id: currentOrg.id,
+          name: currentOrg.name,
+          slug: currentOrg.slug,
+          role: currentOrg.role as TenantRole,
+          permissions: currentOrgPermissions,
+        }
+      : undefined,
+    organizations: userOrgs.map((o) => ({
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      role: o.role as TenantRole,
+    })),
+  };
+}
+
+/**
+ * Create a tenant session from user context
+ */
+export function createTenantSession(userContext: UserContext): TenantSession | null {
+  if (!userContext.currentOrganization) {
+    return null;
+  }
+
+  return {
+    user: userContext,
+    organizationId: userContext.currentOrganization.id,
+    role: userContext.currentOrganization.role,
+    permissions: userContext.currentOrganization.permissions,
+  };
+}
+
+// ============================================
+// PERMISSION HELPERS
+// ============================================
+
+// Role hierarchy (higher index = more permissions)
+const ROLE_HIERARCHY: TenantRole[] = [
+  "viewer",
+  "accountant",
+  "assistant",
+  "planner",
+  "admin",
+  "owner",
+];
+
+/**
+ * Check if a role has at least the required level
+ */
+export function hasRoleLevel(userRole: TenantRole, requiredRole: TenantRole): boolean {
+  const userLevel = ROLE_HIERARCHY.indexOf(userRole);
+  const requiredLevel = ROLE_HIERARCHY.indexOf(requiredRole);
+  return userLevel >= requiredLevel;
+}
+
+/**
+ * Check if user has a specific permission
+ */
+export function hasPermission(
+  session: TenantSession,
+  permission: string
+): PermissionCheck {
+  // Platform admins have all permissions
+  if (session.user.platformLevel === "super_admin") {
+    return { allowed: true };
+  }
+
+  // Owner and admin have all permissions within their org
+  if (session.role === "owner" || session.role === "admin") {
+    return { allowed: true };
+  }
+
+  // Check specific permission
+  if (session.permissions.includes(permission)) {
+    return { allowed: true };
+  }
+
+  // Check wildcard permissions (e.g., "events:*" matches "events:read")
+  const [resource] = permission.split(":");
+  if (session.permissions.includes(`${resource}:*`)) {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    reason: `Missing permission: ${permission}`,
+  };
+}
+
+/**
+ * Check if user can manage (invite/remove) other users
+ */
+export function canManageUsers(session: TenantSession): PermissionCheck {
+  if (hasRoleLevel(session.role, "admin")) {
+    return { allowed: true };
+  }
+
+  // Planners can invite vendors and clients
+  if (session.role === "planner") {
+    return { allowed: true };
+  }
+
+  return {
+    allowed: false,
+    reason: "Only admins and planners can manage users",
+  };
+}
+
+/**
+ * Check if user can invite a specific role
+ */
+export function canInviteRole(
+  session: TenantSession,
+  targetRole: TenantRole
+): PermissionCheck {
+  // Can't invite roles higher than your own
+  if (!hasRoleLevel(session.role, targetRole)) {
+    return {
+      allowed: false,
+      reason: `Cannot invite users with role higher than yours`,
+    };
+  }
+
+  // Only owner can invite other owners
+  if (targetRole === "owner" && session.role !== "owner") {
+    return {
+      allowed: false,
+      reason: "Only owners can invite other owners",
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Check if user can access a specific event
+ */
+export async function canAccessEvent(
+  session: TenantSession,
+  eventId: number
+): Promise<PermissionCheck> {
+  // Planners and above can access all events in their org
+  if (hasRoleLevel(session.role, "planner")) {
+    return { allowed: true };
+  }
+
+  // For vendors and clients, check if they're participants
+  // This will be implemented when we have event_participants table
+  // For now, deny access
+  return {
+    allowed: false,
+    reason: "You don't have access to this event",
+  };
+}
+
+/**
+ * Check if user can access a specific task
+ */
+export async function canAccessTask(
+  session: TenantSession,
+  taskId: number
+): Promise<PermissionCheck> {
+  // Planners and above can access all tasks in their org
+  if (hasRoleLevel(session.role, "planner")) {
+    return { allowed: true };
+  }
+
+  // For others, check if they're participants
+  // This will be implemented when we have task_participants table
+  return {
+    allowed: false,
+    reason: "You don't have access to this task",
+  };
+}

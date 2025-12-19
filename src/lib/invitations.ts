@@ -1,0 +1,417 @@
+import { db } from "@/db";
+import { 
+  invitations, 
+  roles, 
+  users, 
+  organizationMembers,
+  eventParticipants,
+  taskParticipants,
+  events,
+  tasks
+} from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import type { TenantSession } from "@/types";
+import { canInviteRole } from "@/lib/tenant";
+
+// ============================================
+// INVITATION HELPERS
+// ============================================
+
+/**
+ * Generate a secure random token
+ */
+function generateToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Create an invitation to join an organization
+ */
+export async function createOrganizationInvitation(
+  session: TenantSession,
+  email: string,
+  roleSlug: string,
+  expiresInDays: number = 7
+) {
+  // Get the role
+  const role = await db.query.roles.findFirst({
+    where: (r, { eq, or, and, isNull }) => 
+      and(
+        eq(r.slug, roleSlug),
+        or(
+          isNull(r.organizationId),
+          eq(r.organizationId, session.organizationId)
+        )
+      ),
+  });
+
+  if (!role) {
+    throw new Error(`Role "${roleSlug}" not found`);
+  }
+
+  // Check if user can invite this role
+  const canInvite = canInviteRole(session, roleSlug as any);
+  if (!canInvite.allowed) {
+    throw new Error(canInvite.reason || "Cannot invite this role");
+  }
+
+  // Check if user already exists in organization
+  const existingUser = await db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.email, email),
+  });
+
+  if (existingUser) {
+    const existingMember = await db.query.organizationMembers.findFirst({
+      where: (m, { eq, and }) => 
+        and(
+          eq(m.userId, existingUser.id),
+          eq(m.organizationId, session.organizationId)
+        ),
+    });
+
+    if (existingMember) {
+      throw new Error("User is already a member of this organization");
+    }
+  }
+
+  // Check for existing pending invitation
+  const existingInvitation = await db.query.invitations.findFirst({
+    where: (i, { eq, and }) => 
+      and(
+        eq(i.email, email),
+        eq(i.organizationId, session.organizationId),
+        eq(i.status, "pending")
+      ),
+  });
+
+  if (existingInvitation) {
+    throw new Error("An invitation is already pending for this email");
+  }
+
+  // Create invitation
+  const token = generateToken();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+  const [invitation] = await db.insert(invitations).values({
+    organizationId: session.organizationId,
+    email,
+    roleId: role.id,
+    token,
+    status: "pending",
+    invitedBy: session.user.userId,
+    expiresAt,
+  }).returning();
+
+  return {
+    invitation,
+    inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`,
+  };
+}
+
+/**
+ * Accept an invitation
+ */
+export async function acceptInvitation(token: string, userId: string) {
+  const invitation = await db.query.invitations.findFirst({
+    where: (i, { eq }) => eq(i.token, token),
+  });
+
+  if (!invitation) {
+    throw new Error("Invitation not found");
+  }
+
+  if (invitation.status !== "pending") {
+    throw new Error(`Invitation is ${invitation.status}`);
+  }
+
+  if (new Date() > invitation.expiresAt) {
+    await db.update(invitations)
+      .set({ status: "expired" })
+      .where(eq(invitations.id, invitation.id));
+    throw new Error("Invitation has expired");
+  }
+
+  // Add user to organization
+  await db.insert(organizationMembers).values({
+    organizationId: invitation.organizationId,
+    userId,
+    roleId: invitation.roleId,
+    invitedBy: invitation.invitedBy,
+  });
+
+  // Update invitation status
+  await db.update(invitations)
+    .set({ 
+      status: "accepted",
+      acceptedAt: new Date(),
+    })
+    .where(eq(invitations.id, invitation.id));
+
+  return invitation;
+}
+
+/**
+ * Revoke an invitation
+ */
+export async function revokeInvitation(session: TenantSession, invitationId: number) {
+  const invitation = await db.query.invitations.findFirst({
+    where: (i, { eq, and }) => 
+      and(
+        eq(i.id, invitationId),
+        eq(i.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!invitation) {
+    throw new Error("Invitation not found");
+  }
+
+  if (invitation.status !== "pending") {
+    throw new Error("Can only revoke pending invitations");
+  }
+
+  await db.update(invitations)
+    .set({ status: "revoked" })
+    .where(eq(invitations.id, invitationId));
+}
+
+// ============================================
+// EVENT PARTICIPANT HELPERS
+// ============================================
+
+/**
+ * Add a participant to an event (vendor, client, etc.)
+ */
+export async function addEventParticipant(
+  session: TenantSession,
+  eventId: number,
+  params: {
+    userId?: string;
+    vendorId?: number;
+    clientId?: number;
+    type: "planner" | "vendor" | "client" | "assistant" | "guest";
+    role?: string;
+  }
+) {
+  // Verify event belongs to organization
+  const event = await db.query.events.findFirst({
+    where: (e, { eq, and }) => 
+      and(
+        eq(e.id, eventId),
+        eq(e.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  // Check for existing participant
+  const existing = await db.query.eventParticipants.findFirst({
+    where: (p, { eq, and }) => 
+      and(
+        eq(p.eventId, eventId),
+        params.userId ? eq(p.userId, params.userId) : undefined,
+        params.vendorId ? eq(p.vendorId, params.vendorId) : undefined,
+        params.clientId ? eq(p.clientId, params.clientId) : undefined
+      ),
+  });
+
+  if (existing) {
+    throw new Error("Participant already added to this event");
+  }
+
+  const [participant] = await db.insert(eventParticipants).values({
+    eventId,
+    userId: params.userId,
+    vendorId: params.vendorId,
+    clientId: params.clientId,
+    type: params.type,
+    role: params.role,
+    invitedBy: session.user.userId,
+  }).returning();
+
+  return participant;
+}
+
+/**
+ * Remove a participant from an event
+ */
+export async function removeEventParticipant(
+  session: TenantSession,
+  eventId: number,
+  participantId: number
+) {
+  // Verify event belongs to organization
+  const event = await db.query.events.findFirst({
+    where: (e, { eq, and }) => 
+      and(
+        eq(e.id, eventId),
+        eq(e.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  await db.delete(eventParticipants)
+    .where(
+      and(
+        eq(eventParticipants.id, participantId),
+        eq(eventParticipants.eventId, eventId)
+      )
+    );
+}
+
+// ============================================
+// TASK PARTICIPANT HELPERS
+// ============================================
+
+/**
+ * Add a participant to a task
+ */
+export async function addTaskParticipant(
+  session: TenantSession,
+  taskId: number,
+  params: {
+    userId: string;
+    type: "planner" | "vendor" | "client" | "assistant" | "guest";
+    canEdit?: boolean;
+    canComment?: boolean;
+  }
+) {
+  // Verify task belongs to organization
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq, and }) => 
+      and(
+        eq(t.id, taskId),
+        eq(t.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  // Check for existing participant
+  const existing = await db.query.taskParticipants.findFirst({
+    where: (p, { eq, and }) => 
+      and(
+        eq(p.taskId, taskId),
+        eq(p.userId, params.userId)
+      ),
+  });
+
+  if (existing) {
+    throw new Error("User is already a participant of this task");
+  }
+
+  const [participant] = await db.insert(taskParticipants).values({
+    taskId,
+    userId: params.userId,
+    type: params.type,
+    canEdit: params.canEdit ?? false,
+    canComment: params.canComment ?? true,
+    addedBy: session.user.userId,
+  }).returning();
+
+  return participant;
+}
+
+/**
+ * Remove a participant from a task
+ */
+export async function removeTaskParticipant(
+  session: TenantSession,
+  taskId: number,
+  participantId: number
+) {
+  // Verify task belongs to organization
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq, and }) => 
+      and(
+        eq(t.id, taskId),
+        eq(t.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  await db.delete(taskParticipants)
+    .where(
+      and(
+        eq(taskParticipants.id, participantId),
+        eq(taskParticipants.taskId, taskId)
+      )
+    );
+}
+
+/**
+ * Update participant permissions
+ */
+export async function updateTaskParticipant(
+  session: TenantSession,
+  taskId: number,
+  participantId: number,
+  params: {
+    canEdit?: boolean;
+    canComment?: boolean;
+  }
+) {
+  // Verify task belongs to organization
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq, and }) => 
+      and(
+        eq(t.id, taskId),
+        eq(t.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const [updated] = await db.update(taskParticipants)
+    .set({
+      canEdit: params.canEdit,
+      canComment: params.canComment,
+    })
+    .where(
+      and(
+        eq(taskParticipants.id, participantId),
+        eq(taskParticipants.taskId, taskId)
+      )
+    )
+    .returning();
+
+  return updated;
+}
+
+/**
+ * Get all participants of a task
+ */
+export async function getTaskParticipants(taskId: number) {
+  const participants = await db
+    .select({
+      id: taskParticipants.id,
+      userId: taskParticipants.userId,
+      type: taskParticipants.type,
+      canEdit: taskParticipants.canEdit,
+      canComment: taskParticipants.canComment,
+      addedAt: taskParticipants.addedAt,
+      userName: users.name,
+      userEmail: users.email,
+      userImage: users.image,
+    })
+    .from(taskParticipants)
+    .innerJoin(users, eq(taskParticipants.userId, users.id))
+    .where(eq(taskParticipants.taskId, taskId));
+
+  return participants;
+}
