@@ -27,45 +27,56 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email y contraseña son requeridos");
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const email = (credentials.email as string).toLowerCase();
+          const password = credentials.password as string;
+
+          const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+          });
+
+          if (!user) {
+            console.log("Auth: User not found:", email);
+            return null;
+          }
+
+          if (!user.passwordHash) {
+            console.log("Auth: User has no password:", email);
+            return null;
+          }
+
+          const isValid = await verifyPassword(password, user.passwordHash);
+          if (!isValid) {
+            console.log("Auth: Invalid password for:", email);
+            return null;
+          }
+
+          console.log("Auth: Successful login for:", email);
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          };
+        } catch (error) {
+          console.error("Auth: Error in authorize:", error);
+          return null;
         }
-
-        const email = credentials.email as string;
-        const password = credentials.password as string;
-
-        const user = await db.query.users.findFirst({
-          where: eq(users.email, email),
-        });
-
-        if (!user) {
-          throw new Error("Usuario no encontrado");
-        }
-
-        if (!user.passwordHash) {
-          throw new Error("Este usuario no tiene contraseña. Usa Magic Link o Google.");
-        }
-
-        const isValid = await verifyPassword(password, user.passwordHash);
-        if (!isValid) {
-          throw new Error("Contraseña incorrecta");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        };
       },
     }),
-    Resend({
+    // Only add Resend provider if API key is available
+    ...(process.env.RESEND_API_KEY ? [Resend({
       apiKey: process.env.RESEND_API_KEY,
       from: process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>",
-    }),
-    ...(process.env.GOOGLE_CLIENT_ID ? [Google({
+    })] : []),
+    // Only add Google provider if credentials are available
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     })] : []),
   ],
   pages: {
@@ -86,5 +97,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
+    async signIn({ user, account }) {
+      // For OAuth/Magic Link, ensure user exists in our system
+      if (account?.provider !== "credentials" && user?.email) {
+        const existingUser = await db.query.users.findFirst({
+          where: eq(users.email, user.email.toLowerCase()),
+        });
+        if (!existingUser) {
+          console.log("Auth: Creating new user from OAuth/Magic Link:", user.email);
+        }
+      }
+      return true;
+    },
   },
+  debug: process.env.NODE_ENV === "development",
 });

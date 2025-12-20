@@ -19,7 +19,27 @@ function LoginContent() {
   
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [error, setError] = useState(errorParam ? "Error de autenticación" : "");
+  
+  // Map NextAuth error codes to user-friendly messages
+  const getErrorMessage = (errorCode: string | null) => {
+    if (!errorCode) return "";
+    const errorMessages: Record<string, string> = {
+      "Configuration": "Error de configuración del servidor. Contacta al soporte.",
+      "CredentialsSignin": "Email o contraseña incorrectos",
+      "OAuthSignin": "Error al iniciar sesión con el proveedor",
+      "OAuthCallback": "Error en la respuesta del proveedor",
+      "OAuthCreateAccount": "Error al crear la cuenta",
+      "EmailCreateAccount": "Error al crear la cuenta con email",
+      "Callback": "Error en el proceso de autenticación",
+      "OAuthAccountNotLinked": "Este email ya está registrado con otro método",
+      "EmailSignin": "Error al enviar el email de verificación",
+      "SessionRequired": "Debes iniciar sesión para acceder",
+      "Default": "Error de autenticación",
+    };
+    return errorMessages[errorCode] || errorMessages["Default"];
+  };
+  
+  const [error, setError] = useState(getErrorMessage(errorParam));
   
   const [credentials, setCredentials] = useState({
     email: "",
@@ -35,18 +55,26 @@ function LoginContent() {
 
     try {
       const result = await signIn("credentials", {
-        email: credentials.email,
+        email: credentials.email.toLowerCase(),
         password: credentials.password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError(result.error);
-      } else {
+        // Map error codes to friendly messages
+        if (result.error === "CredentialsSignin") {
+          setError("Email o contraseña incorrectos");
+        } else if (result.error === "Configuration") {
+          setError("Error de configuración. Por favor intenta con Magic Link.");
+        } else {
+          setError(result.error);
+        }
+      } else if (result?.ok) {
         router.push(callbackUrl);
+        router.refresh();
       }
     } catch {
-      setError("Error al iniciar sesión");
+      setError("Error al iniciar sesión. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -58,14 +86,23 @@ function LoginContent() {
     setError("");
 
     try {
-      await signIn("resend", {
-        email: magicEmail,
+      const result = await signIn("resend", {
+        email: magicEmail.toLowerCase(),
         callbackUrl,
         redirect: false,
       });
-      setMagicLinkSent(true);
+
+      if (result?.error) {
+        if (result.error === "Configuration") {
+          setError("El servicio de email no está configurado. Usa contraseña o Google.");
+        } else {
+          setError("Error al enviar el magic link. Intenta de nuevo.");
+        }
+      } else {
+        setMagicLinkSent(true);
+      }
     } catch {
-      setError("Error al enviar el magic link");
+      setError("Error al enviar el magic link. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
