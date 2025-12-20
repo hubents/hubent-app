@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, organizations, subscriptions, subscriptionPlans, organizationMembers, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, validatePassword } from "@/lib/password";
-import { signIn } from "@/lib/auth";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -130,6 +130,14 @@ export async function POST(request: NextRequest) {
 
       return { user: newUser, organization: newOrg };
     });
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(
+      result.user.email,
+      result.user.name || name,
+      result.organization.name,
+      trialEndsAt
+    ).catch((err) => console.error("Failed to send welcome email:", err));
 
     return NextResponse.json({
       success: true,

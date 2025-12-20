@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { invitations, roles, organizationMembers } from "@/db/schema";
+import { invitations, roles, organizationMembers, organizations, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { sendOrganizationInviteEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +92,24 @@ export async function POST(request: NextRequest) {
     });
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
-    console.log("Invitation URL:", inviteUrl);
+
+    // Get organization name and inviter name for email
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, organizationId),
+    });
+
+    const inviter = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+    });
+
+    // Send invitation email (non-blocking)
+    sendOrganizationInviteEmail(
+      email.toLowerCase(),
+      org?.name || "Organización",
+      targetRole.name,
+      inviter?.name || null,
+      inviteUrl
+    ).catch((err) => console.error("Failed to send invitation email:", err));
 
     return NextResponse.json({
       success: true,

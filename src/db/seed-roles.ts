@@ -256,25 +256,40 @@ export async function seedRolesAndPermissions(organizationId?: number) {
 // SEED SUPER ADMIN
 // ============================================
 
-export async function seedSuperAdmin(email: string = "german@napsix.ai") {
+export async function seedSuperAdmin(
+  email: string = "german@napsix.ai",
+  password: string = "Hubents2026.!"
+) {
   console.log(`🔐 Setting up super admin for: ${email}`);
+
+  // Hash the password
+  const bcrypt = await import("bcryptjs");
+  const passwordHash = await bcrypt.hash(password, 12);
 
   let user = await db.query.users.findFirst({
     where: eq(users.email, email),
   });
 
   if (!user) {
-    console.log(`Creating user ${email}...`);
+    console.log(`Creating user ${email} with password...`);
     const [newUser] = await db
       .insert(users)
       .values({
         email,
         name: "German Gimenez",
+        passwordHash,
         emailVerified: new Date(),
         onboardingCompleted: true,
       })
       .returning();
     user = newUser;
+  } else if (!user.passwordHash) {
+    // Update existing user with password if they don't have one
+    console.log(`Updating ${email} with password...`);
+    await db
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, user.id));
   }
 
   const existingAdmin = await db.query.platformAdmins.findFirst({

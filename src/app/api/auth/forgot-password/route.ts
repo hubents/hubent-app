@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateResetToken } from "@/lib/password";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,9 @@ export async function POST(request: NextRequest) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password/${token}`;
 
-    console.log("Password reset URL:", resetUrl);
+    // Send password reset email (non-blocking)
+    sendPasswordResetEmail(email.toLowerCase(), resetUrl)
+      .catch((err) => console.error("Failed to send password reset email:", err));
 
     return NextResponse.json({ success: true });
   } catch (error) {

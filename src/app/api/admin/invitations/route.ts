@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { adminInvitations, platformAdmins } from "@/db/schema";
+import { adminInvitations, platformAdmins, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { sendAdminInviteEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +66,19 @@ export async function POST(request: NextRequest) {
     });
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/admin/invite/${token}`;
-    console.log("Admin invitation URL:", inviteUrl);
+
+    // Get inviter name for email
+    const inviter = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+    });
+
+    // Send admin invitation email (non-blocking)
+    sendAdminInviteEmail(
+      email.toLowerCase(),
+      level,
+      inviter?.name || null,
+      inviteUrl
+    ).catch((err) => console.error("Failed to send admin invitation email:", err));
 
     return NextResponse.json({
       success: true,
