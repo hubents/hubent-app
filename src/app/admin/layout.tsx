@@ -26,12 +26,23 @@ const sidebarItems = [
   { href: "/admin/settings", label: "Configuración", icon: Settings },
 ];
 
+// Pages that should NOT have the admin sidebar
+const standalonePages = ["/admin/login", "/admin/invite"];
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
+  // Check if current page should be standalone (no sidebar)
+  const isStandalone = standalonePages.some(page => pathname.startsWith(page));
+
+  // Render standalone pages without sidebar
+  if (isStandalone) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen flex bg-[var(--muted)]">
