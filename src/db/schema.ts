@@ -26,6 +26,8 @@ export const eventStatusEnum = pgEnum("event_status", [
 
 export const eventTypeEnum = pgEnum("event_type", [
   "wedding",
+  "pre_wedding",
+  "post_wedding",
   "birthday",
   "corporate",
   "social",
