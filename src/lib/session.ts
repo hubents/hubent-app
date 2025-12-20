@@ -53,12 +53,22 @@ export async function getUserContext(): Promise<UserContext | null> {
 
 /**
  * Require authentication - throws if not authenticated
+ * Provides detailed error messages for debugging
  */
 export async function requireAuth(): Promise<TenantSession> {
+  // First check NextAuth session
+  const authSession = await auth();
+  
+  if (!authSession?.user?.id || !authSession?.user?.email) {
+    throw new Error("Unauthorized: Please log in");
+  }
+
+  // Then get full tenant session
   const session = await getSession();
   
   if (!session) {
-    throw new Error("Unauthorized: Please log in");
+    // User is authenticated but has no organization
+    throw new Error("No organization found. Please complete your account setup at /api/debug/session (POST) to repair.");
   }
 
   return session;

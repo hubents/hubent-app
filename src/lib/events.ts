@@ -123,7 +123,7 @@ export async function createEvent(
   session: TenantSession,
   data: {
     name: string;
-    type?: "wedding" | "birthday" | "corporate" | "social" | "other";
+    type?: "wedding" | "pre_wedding" | "post_wedding" | "birthday" | "corporate" | "social" | "other";
     date?: Date;
     endDate?: Date;
     location?: string;
