@@ -2,9 +2,12 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Routes configuration
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/api/auth", "/components"];
-const ADMIN_ROUTES = ["/admin"];
-const DASHBOARD_ROUTES = ["/dashboard"];
+const PUBLIC_ROUTES = ["/", "/api/auth", "/components", "/terms", "/privacy"];
+const TENANT_AUTH_ROUTES = ["/auth"];
+const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];
+const ADMIN_PROTECTED_ROUTES = ["/admin"];
+const DASHBOARD_ROUTES = ["/dashboard", "/onboarding", "/billing", "/select-org"];
+const INVITE_ROUTES = ["/invite"];
 const VENDOR_PORTAL_ROUTES = ["/vendor"];
 const CLIENT_PORTAL_ROUTES = ["/client"];
 
@@ -17,26 +20,65 @@ export default auth((req) => {
   const isPublicRoute = PUBLIC_ROUTES.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
-  const isAdminRoute = ADMIN_ROUTES.some((route) => pathname.startsWith(route));
-  const isDashboardRoute = DASHBOARD_ROUTES.some((route) => pathname.startsWith(route));
+  const isTenantAuthRoute = TENANT_AUTH_ROUTES.some((route) => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isAdminAuthRoute = ADMIN_AUTH_ROUTES.some((route) => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isAdminProtectedRoute = ADMIN_PROTECTED_ROUTES.some((route) => 
+    pathname.startsWith(route)
+  ) && !isAdminAuthRoute;
+  const isDashboardRoute = DASHBOARD_ROUTES.some((route) => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isInviteRoute = INVITE_ROUTES.some((route) => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
   const isVendorPortal = VENDOR_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
   const isClientPortal = CLIENT_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
-  const isApiRoute = pathname.startsWith("/api");
 
   // Allow public routes
   if (isPublicRoute) {
     return NextResponse.next();
   }
 
-  // Redirect to login if not authenticated
-  if (!isLoggedIn && (isDashboardRoute || isAdminRoute || isVendorPortal || isClientPortal)) {
-    const callbackUrl = encodeURIComponent(pathname);
-    return NextResponse.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl));
+  // Allow invite routes (they handle their own auth)
+  if (isInviteRoute) {
+    return NextResponse.next();
   }
 
-  // Redirect logged in users away from login page
-  if (isLoggedIn && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", nextUrl));
+  // Tenant auth routes (/auth/*) - redirect to dashboard if already logged in
+  if (isTenantAuthRoute) {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  // Admin auth routes (/admin/login, /admin/invite/*) - allow access
+  if (isAdminAuthRoute) {
+    if (isLoggedIn && pathname === "/admin/login") {
+      return NextResponse.redirect(new URL("/admin", nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  // Protected admin routes - require auth
+  if (isAdminProtectedRoute) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/admin/login", nextUrl));
+    }
+    // Note: Platform admin verification is done in the admin layout/pages
+    // The middleware just ensures the user is authenticated
+  }
+
+  // Dashboard and tenant protected routes
+  if (isDashboardRoute || isVendorPortal || isClientPortal) {
+    if (!isLoggedIn) {
+      const callbackUrl = encodeURIComponent(pathname);
+      return NextResponse.redirect(new URL(`/auth/login?callbackUrl=${callbackUrl}`, nextUrl));
+    }
   }
 
   // For authenticated requests, add user info to headers
@@ -62,6 +104,6 @@ export default auth((req) => {
 export const config = {
   matcher: [
     // Match all routes except static files and images
-    "/((?!_next/static|_next/image|favicon.ico|images|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|icons|fonts|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|css)$).*)",
   ],
 };

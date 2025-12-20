@@ -146,6 +146,9 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: timestamp("email_verified", { mode: "date" }),
   image: text("image"),
+  passwordHash: text("password_hash"),
+  mustChangePassword: boolean("must_change_password").default(false),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -190,6 +193,18 @@ export const platformAdmins = pgTable("platform_admins", {
   permissions: json("permissions").$type<string[]>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const adminInvitations = pgTable("admin_invitations", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  level: platformAdminLevelEnum("level").notNull(),
+  token: text("token").notNull().unique(),
+  status: invitationStatusEnum("status").default("pending"),
+  invitedBy: text("invited_by").references(() => users.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const subscriptionPlans = pgTable("subscription_plans", {
@@ -283,7 +298,8 @@ export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   planId: integer("plan_id").notNull().references(() => subscriptionPlans.id),
-  status: subscriptionStatusEnum("status").default("active"),
+  status: subscriptionStatusEnum("status").default("trialing"),
+  trialEndsAt: timestamp("trial_ends_at"),
   currentPeriodStart: timestamp("current_period_start"),
   currentPeriodEnd: timestamp("current_period_end"),
   cancelAt: timestamp("cancel_at"),
