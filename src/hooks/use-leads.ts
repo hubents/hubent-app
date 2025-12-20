@@ -34,6 +34,18 @@ export function useLeadsKanban() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const initializeStages = useCallback(async () => {
+    try {
+      await fetch("/api/crm/stages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initializeDefaults: true }),
+      });
+    } catch (err) {
+      console.error("Failed to initialize stages:", err);
+    }
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
@@ -41,6 +53,17 @@ export function useLeadsKanban() {
       const result = await response.json();
 
       if (result.success) {
+        // If no stages, try to initialize them
+        if (result.data.length === 0) {
+          await initializeStages();
+          // Retry fetch after initialization
+          const retryResponse = await fetch("/api/crm/leads?view=kanban");
+          const retryResult = await retryResponse.json();
+          if (retryResult.success) {
+            setStages(retryResult.data);
+            return;
+          }
+        }
         setStages(result.data);
       } else {
         setError(result.error?.message ?? "Failed to fetch leads");
@@ -50,7 +73,7 @@ export function useLeadsKanban() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [initializeStages]);
 
   useEffect(() => {
     fetchLeads();

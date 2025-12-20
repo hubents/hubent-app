@@ -12,9 +12,7 @@ import {
   RiFileListLine,
   RiSettings4Line,
   RiTeamLine,
-  RiChat1Line,
   RiMoneyDollarCircleLine,
-  RiCalendarLine,
 } from "@remixicon/react";
 
 const navigation = [
@@ -24,9 +22,7 @@ const navigation = [
   { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
   { name: "Pagos", href: "/dashboard/payments", icon: RiMoneyDollarCircleLine },
-  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendarLine },
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
-  { name: "Chat", href: "/dashboard/chat", icon: RiChat1Line },
 ];
 
 const bottomNavigation = [

@@ -11,6 +11,8 @@ import {
 } from "@remixicon/react";
 import { useLeadsKanban } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
+import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
+import { useState } from "react";
 
 const fallbackStages = [
   {
@@ -114,7 +116,8 @@ const fallbackStages = [
 ];
 
 export default function CRMPage() {
-  const { stages, loading, error, moveLead, createLead, deleteLead } = useLeadsKanban();
+  const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Use API data if available, otherwise show empty state
   const displayStages = stages.length > 0 ? stages : [];
@@ -129,7 +132,7 @@ export default function CRMPage() {
             Gestiona tus leads y clientes potenciales
           </p>
         </div>
-        <Button className="gap-2" onClick={() => createLead({ title: "Nuevo Lead" })}>
+        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
           <RiAddLine className="h-4 w-4" />
           Nuevo Lead
         </Button>
@@ -192,7 +195,7 @@ export default function CRMPage() {
           stages={displayStages}
           onLeadMove={moveLead}
           onDeleteLead={deleteLead}
-          onAddLead={(stageId) => createLead({ title: "Nuevo Lead", stageId })}
+          onAddLead={(stageId) => setIsCreateDialogOpen(true)}
         />
       ) : (
         <Card>
@@ -207,6 +210,12 @@ export default function CRMPage() {
           </CardContent>
         </Card>
       )}
+
+      <CreateLeadDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onLeadCreated={refetch}
+      />
     </div>
   );
 }

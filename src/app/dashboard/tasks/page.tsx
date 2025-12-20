@@ -15,6 +15,8 @@ import {
   RiFlag2Line,
 } from "@remixicon/react";
 import { useTasks } from "@/hooks/use-tasks";
+import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
+import { useState } from "react";
 
 const fallbackTasks = [
   {
@@ -112,7 +114,8 @@ const statusConfig = {
 };
 
 export default function TasksPage() {
-  const { tasks: apiTasks, stats, loading, updateTaskStatus, createTask } = useTasks();
+  const { tasks: apiTasks, stats, loading, updateTaskStatus, refetch } = useTasks();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   
   // Use API data if available, otherwise use fallback for demo
   const displayTasks = apiTasks.length > 0 ? apiTasks : [];
@@ -128,7 +131,7 @@ export default function TasksPage() {
             Gestiona las tareas de todos tus eventos
           </p>
         </div>
-        <Button className="gap-2" onClick={() => createTask({ title: "Nueva Tarea" })}>
+        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
           <RiAddLine className="h-4 w-4" />
           Nueva Tarea
         </Button>
@@ -276,6 +279,12 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+
+      <CreateTaskDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onTaskCreated={refetch}
+      />
     </div>
   );
 }
