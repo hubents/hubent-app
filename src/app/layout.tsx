@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={`${dmSans.variable} antialiased`} suppressHydrationWarning>
         {children}
+        <Analytics />
       </body>
     </html>
   );
