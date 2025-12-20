@@ -68,16 +68,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       },
     }),
-    // Only add Resend provider if API key is available
-    ...(process.env.RESEND_API_KEY ? [Resend({
-      apiKey: process.env.RESEND_API_KEY,
+    // Resend provider for Magic Link - always include, will use env var at runtime
+    Resend({
+      apiKey: process.env.RESEND_API_KEY!,
       from: process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>",
-    })] : []),
-    // Only add Google provider if credentials are available
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    })] : []),
+    }),
+    // Google provider - always include, will use env vars at runtime
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    }),
   ],
   pages: {
     signIn: "/auth/login",
