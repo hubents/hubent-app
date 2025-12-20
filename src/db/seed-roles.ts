@@ -1,5 +1,6 @@
 import { db } from "./index";
-import { roles, permissions, rolePermissions } from "./schema";
+import { roles, permissions, rolePermissions, users, platformAdmins } from "./schema";
+import { eq } from "drizzle-orm";
 
 // ============================================
 // DEFAULT PERMISSIONS
@@ -251,12 +252,75 @@ export async function seedRolesAndPermissions(organizationId?: number) {
   console.log("🌱 Seed complete!");
 }
 
+// ============================================
+// SEED SUPER ADMIN
+// ============================================
+
+export async function seedSuperAdmin(email: string = "german@napsix.ai") {
+  console.log(`🔐 Setting up super admin for: ${email}`);
+
+  let user = await db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
+
+  if (!user) {
+    console.log(`Creating user ${email}...`);
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email,
+        name: "German Gimenez",
+        emailVerified: new Date(),
+        onboardingCompleted: true,
+      })
+      .returning();
+    user = newUser;
+  }
+
+  const existingAdmin = await db.query.platformAdmins.findFirst({
+    where: eq(platformAdmins.userId, user.id),
+  });
+
+  if (existingAdmin) {
+    console.log(`User ${email} is already a platform admin (${existingAdmin.level})`);
+    if (existingAdmin.level !== "super_admin") {
+      await db
+        .update(platformAdmins)
+        .set({ level: "super_admin" })
+        .where(eq(platformAdmins.userId, user.id));
+      console.log(`Upgraded to super_admin`);
+    }
+  } else {
+    await db.insert(platformAdmins).values({
+      userId: user.id,
+      level: "super_admin",
+    });
+    console.log(`Added ${email} as super_admin`);
+  }
+
+  console.log("🔐 Super admin setup complete!");
+}
+
 // Run if called directly
 if (require.main === module) {
-  seedRolesAndPermissions()
-    .then(() => process.exit(0))
-    .catch((err) => {
-      console.error("Seed failed:", err);
-      process.exit(1);
-    });
+  const args = process.argv.slice(2);
+  const command = args[0];
+
+  if (command === "admin") {
+    const email = args[1] || "german@napsix.ai";
+    seedSuperAdmin(email)
+      .then(() => process.exit(0))
+      .catch((err) => {
+        console.error("Seed failed:", err);
+        process.exit(1);
+      });
+  } else {
+    seedRolesAndPermissions()
+      .then(() => seedSuperAdmin())
+      .then(() => process.exit(0))
+      .catch((err) => {
+        console.error("Seed failed:", err);
+        process.exit(1);
+      });
+  }
 }
