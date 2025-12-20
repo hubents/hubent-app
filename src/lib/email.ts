@@ -1,6 +1,18 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    const apiKey = process.env.RESEND_API_KEY || process.env.resend;
+    if (!apiKey) {
+      throw new Error("RESEND_API_KEY environment variable is not set");
+    }
+    resendClient = new Resend(apiKey);
+  }
+  return resendClient;
+}
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hubents.com";
@@ -14,6 +26,7 @@ interface SendEmailOptions {
 
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
   try {
+    const resend = getResendClient();
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
