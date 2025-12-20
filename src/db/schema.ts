@@ -284,6 +284,9 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   logo: text("logo"),
+  phone: text("phone"),
+  website: text("website"),
+  address: text("address"),
   status: orgStatusEnum("status").default("active"),
   planId: integer("plan_id").references(() => subscriptionPlans.id),
   settings: json("settings").$type<{

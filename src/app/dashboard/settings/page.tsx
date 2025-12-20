@@ -108,6 +108,7 @@ export default function SettingsPage() {
     orgAddress: "",
     orgPhone: "",
   });
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -128,6 +129,8 @@ export default function SettingsPage() {
               orgAddress: data.data.organization?.address || "",
               orgPhone: data.data.organization?.phone || "",
             });
+            // Organization was auto-created if it didn't exist
+            console.log("Profile loaded:", data.data);
           }
         }
       } catch (error) {
@@ -141,6 +144,7 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     setSaving(true);
+    setSaveMessage(null);
     try {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
@@ -150,18 +154,24 @@ export default function SettingsPage() {
           phone: formData.phone,
         }),
       });
-      if (res.ok) {
-        // Show success feedback
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveMessage({ type: "success", text: "Perfil guardado correctamente" });
+      } else {
+        setSaveMessage({ type: "error", text: data.error || "Error al guardar" });
       }
     } catch (error) {
       console.error("Error saving profile:", error);
+      setSaveMessage({ type: "error", text: "Error de conexión" });
     } finally {
       setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
     }
   };
 
   const handleSaveOrganization = async () => {
     setSaving(true);
+    setSaveMessage(null);
     try {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
@@ -175,13 +185,18 @@ export default function SettingsPage() {
           },
         }),
       });
-      if (res.ok) {
-        // Show success feedback
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveMessage({ type: "success", text: "Empresa guardada correctamente" });
+      } else {
+        setSaveMessage({ type: "error", text: data.error || "Error al guardar" });
       }
     } catch (error) {
       console.error("Error saving organization:", error);
+      setSaveMessage({ type: "error", text: "Error de conexión" });
     } finally {
       setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
     }
   };
 
@@ -245,6 +260,16 @@ export default function SettingsPage() {
             </Card>
           ) : (
             <>
+              {/* Save Message */}
+              {saveMessage && (
+                <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                  saveMessage.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                }`}>
+                  {saveMessage.type === "success" ? <RiCheckLine className="h-4 w-4" /> : <RiErrorWarningLine className="h-4 w-4" />}
+                  {saveMessage.text}
+                </div>
+              )}
+
               {/* Profile Section */}
               {activeSection === "profile" && (
                 <>
