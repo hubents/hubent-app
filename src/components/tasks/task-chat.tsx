@@ -13,16 +13,25 @@ import {
 } from "@remixicon/react";
 import { useTaskMessages } from "@/hooks/use-task-messages";
 import { TaskChatMessage } from "./task-chat-message";
+import { useSession } from "next-auth/react";
 
 interface TaskChatProps {
   taskId: number | null;
 }
 
 export function TaskChat({ taskId }: TaskChatProps) {
-  const { messages, loading, sending, sendMessage } = useTaskMessages(taskId);
+  const { data: session } = useSession();
+  const { messages, loading, sending, sendMessage, deleteMessage, refetch } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Refetch messages when taskId changes
+  useEffect(() => {
+    if (taskId) {
+      refetch();
+    }
+  }, [taskId, refetch]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -86,7 +95,11 @@ export function TaskChat({ taskId }: TaskChatProps) {
         ) : (
           <>
             {messages.map((message) => (
-              <TaskChatMessage key={message.id} message={message} />
+              <TaskChatMessage 
+                key={message.id} 
+                message={message} 
+                onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
+              />
             ))}
             <div ref={messagesEndRef} />
           </>

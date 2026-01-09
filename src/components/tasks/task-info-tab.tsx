@@ -14,7 +14,16 @@ import {
   RiLinkM,
   RiDownloadLine,
   RiMoneyDollarCircleLine,
+  RiUploadLine,
 } from "@remixicon/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface TaskDetail {
   id: number;
@@ -64,6 +73,33 @@ export function TaskInfoTab({
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkName, setNewLinkName] = useState("");
   const [addingLink, setAddingLink] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [newPayment, setNewPayment] = useState({ description: "", amount: "", date: "" });
+  const [payments, setPayments] = useState<Array<{ id: number; description: string; amount: number; date: string }>>([]);
+  const [addingPayment, setAddingPayment] = useState(false);
+
+  const handleAddPayment = async () => {
+    if (!newPayment.description || !newPayment.amount) return;
+    setAddingPayment(true);
+    try {
+      // For now, store payments locally (could be extended to API)
+      const payment = {
+        id: Date.now(),
+        description: newPayment.description,
+        amount: parseFloat(newPayment.amount),
+        date: newPayment.date || new Date().toISOString().split("T")[0],
+      };
+      setPayments([...payments, payment]);
+      setNewPayment({ description: "", amount: "", date: "" });
+      setShowPaymentDialog(false);
+    } finally {
+      setAddingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = (paymentId: number) => {
+    setPayments(payments.filter((p) => p.id !== paymentId));
+  };
 
   // Filter attachments by type
   const files = attachments.filter((a) => a.type === "file" || a.type === "document");
@@ -112,20 +148,89 @@ export function TaskInfoTab({
             <RiMoneyDollarCircleLine className="h-4 w-4 text-muted-foreground" />
             Pagos
           </h3>
-          <Button variant="outline" size="sm" className="gap-1">
-            <RiAddLine className="h-4 w-4" />
-            Add Payment
-          </Button>
+          <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <RiAddLine className="h-4 w-4" />
+                Agregar Pago
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Agregar Pago</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Descripción</Label>
+                  <Input
+                    placeholder="Ej: Anticipo proveedor"
+                    value={newPayment.description}
+                    onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Importe</Label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={newPayment.amount}
+                      onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fecha</Label>
+                    <Input
+                      type="date"
+                      value={newPayment.date}
+                      onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddPayment} disabled={addingPayment || !newPayment.description || !newPayment.amount}>
+                    {addingPayment ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <div className="rounded-lg border border-border">
-          <div className="grid grid-cols-3 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
+          <div className="grid grid-cols-4 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
             <span>Descripción</span>
             <span>Fecha</span>
             <span>Importe</span>
+            <span></span>
           </div>
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No hay pagos registrados
-          </div>
+          {payments.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              No hay pagos registrados
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {payments.map((payment) => (
+                <div key={payment.id} className="grid grid-cols-4 gap-4 p-3 items-center">
+                  <span className="text-sm">{payment.description}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(payment.date).toLocaleDateString("es-ES")}
+                  </span>
+                  <span className="text-sm font-medium">${payment.amount.toLocaleString()}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive justify-self-end"
+                    onClick={() => handleDeletePayment(payment.id)}
+                  >
+                    <RiDeleteBinLine className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -84,11 +84,15 @@ export async function GET() {
       expiresAt: inv.expiresAt.toISOString(),
     }));
 
-    return NextResponse.json({ members, pendingInvitations });
+    return NextResponse.json({ 
+      success: true, 
+      data: members,
+      pendingInvitations 
+    });
   } catch (error) {
     console.error("Get team error:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { success: false, error: "Error interno del servidor" },
       { status: 500 }
     );
   }

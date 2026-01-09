@@ -120,8 +120,11 @@ export function TaskGeneralTab({
       try {
         const res = await fetch("/api/team");
         const data = await res.json();
-        if (data.success) {
-          setTeamMembers(data.data || []);
+        if (data.success && data.data) {
+          setTeamMembers(data.data);
+        } else if (data.members) {
+          // Fallback for old API format
+          setTeamMembers(data.members);
         }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
@@ -175,27 +178,36 @@ export function TaskGeneralTab({
             Asignado a
           </label>
           <Select
-            value={task?.assignedTo || ""}
-            onValueChange={(value) => onUpdateTask({ assignedTo: value || null })}
+            value={task?.assignedTo || "__unassigned__"}
+            onValueChange={(value) => onUpdateTask({ assignedTo: value === "__unassigned__" ? null : value })}
             disabled={loadingMembers}
           >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar..." />
             </SelectTrigger>
             <SelectContent>
-              {teamMembers.map((member) => (
-                <SelectItem key={member.id} value={member.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={member.image} />
-                      <AvatarFallback className="text-xs">
-                        {member.name?.charAt(0) || "?"}
-                      </AvatarFallback>
-                    </Avatar>
-                    {member.name}
-                  </div>
+              <SelectItem value="__unassigned__">
+                <span className="text-muted-foreground">Sin asignar</span>
+              </SelectItem>
+              {teamMembers.length === 0 && !loadingMembers ? (
+                <SelectItem value="__no_members__" disabled>
+                  No hay miembros del equipo
                 </SelectItem>
-              ))}
+              ) : (
+                teamMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={member.image} />
+                        <AvatarFallback className="text-xs">
+                          {member.name?.charAt(0) || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {member.name || member.email}
+                    </div>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -296,13 +308,19 @@ export function TaskGeneralTab({
               Añadir
             </SelectTrigger>
             <SelectContent>
-              {teamMembers
-                .filter((m) => !participants.some((p) => p.userId === m.id))
-                .map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name}
-                  </SelectItem>
-                ))}
+              {teamMembers.filter((m) => !participants.some((p) => p.userId === m.id)).length === 0 ? (
+                <SelectItem value="__no_available__" disabled>
+                  {teamMembers.length === 0 ? "No hay miembros" : "Todos agregados"}
+                </SelectItem>
+              ) : (
+                teamMembers
+                  .filter((m) => !participants.some((p) => p.userId === m.id))
+                  .map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name || member.email}
+                    </SelectItem>
+                  ))
+              )}
             </SelectContent>
           </Select>
         </div>
