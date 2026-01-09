@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { upload as vercelUpload } from "@vercel/blob/client";
 
 interface UploadResult {
   url: string;
@@ -18,14 +17,6 @@ interface UseFileUploadOptions {
   onError?: (error: string) => void;
 }
 
-function getFileType(mimeType: string): string {
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  if (mimeType.startsWith("audio/")) return "audio";
-  if (mimeType === "application/pdf") return "document";
-  return "file";
-}
-
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -37,8 +28,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     setError(null);
 
     try {
-      // Validate file size (default 100MB)
-      const maxSize = options.maxSize || 100 * 1024 * 1024;
+      // Validate file size (default 50MB for server upload)
+      const maxSize = options.maxSize || 50 * 1024 * 1024;
       if (file.size > maxSize) {
         const maxMB = (maxSize / (1024 * 1024)).toFixed(0);
         throw new Error(`El archivo excede el límite de ${maxMB}MB`);
@@ -57,33 +48,39 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         }
       }
 
-      // Generate pathname with folder
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const folder = options.folder || "uploads";
-      const pathname = `${folder}/${timestamp}-${sanitizedName}`;
-
       setProgress(10);
 
-      // Use Vercel Blob client upload (bypasses 4.5MB server limit)
-      const blob = await vercelUpload(pathname, file, {
-        access: "public",
-        handleUploadUrl: "/api/upload",
-        onUploadProgress: (progressEvent) => {
-          const percent = Math.round((progressEvent.loaded / progressEvent.total) * 80) + 10;
-          setProgress(percent);
-        },
+      // Use FormData for upload
+      const formData = new FormData();
+      formData.append("file", file);
+      if (options.folder) {
+        formData.append("folder", options.folder);
+      }
+
+      setProgress(30);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
       });
+
+      setProgress(90);
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error?.message || "Error al subir archivo");
+      }
 
       setProgress(100);
 
       const result: UploadResult = {
-        url: blob.url,
-        pathname: blob.pathname,
-        contentType: blob.contentType,
-        size: file.size,
-        name: file.name,
-        type: getFileType(file.type),
+        url: data.data.url,
+        pathname: data.data.pathname,
+        contentType: data.data.contentType,
+        size: data.data.size || file.size,
+        name: data.data.name || file.name,
+        type: data.data.type,
       };
 
       options.onSuccess?.(result);
@@ -94,10 +91,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       if (err instanceof Error) {
         message = err.message;
         // Make error messages more user-friendly
-        if (message.includes("No token found")) {
-          message = "Error de configuración del servidor. Contacta al administrador.";
-        } else if (message.includes("Content Too Large") || message.includes("413")) {
-          message = "El archivo es demasiado grande. Máximo 100MB.";
+        if (message.includes("Content Too Large") || message.includes("413")) {
+          message = "El archivo es demasiado grande. Máximo 50MB.";
+        } else if (message.includes("Unauthorized") || message.includes("401")) {
+          message = "Sesión expirada. Por favor recarga la página.";
+        } else if (message.includes("Failed to fetch")) {
+          message = "Error de conexión. Verifica tu internet.";
         }
       }
       setError(message);
