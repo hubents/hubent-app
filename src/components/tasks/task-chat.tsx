@@ -10,21 +10,52 @@ import {
   RiSendPlaneLine,
   RiAttachment2,
   RiLockLine,
+  RiAtLine,
 } from "@remixicon/react";
 import { useTaskMessages } from "@/hooks/use-task-messages";
 import { TaskChatMessage } from "./task-chat-message";
 import { useSession } from "next-auth/react";
 
-interface TaskChatProps {
-  taskId: number | null;
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  image?: string;
 }
 
-export function TaskChat({ taskId }: TaskChatProps) {
+interface TaskChatProps {
+  taskId: number | null;
+  participants?: Array<{ userId: string; userName?: string; userEmail?: string; userImage?: string }>;
+}
+
+export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const { data: session } = useSession();
   const { messages, loading, sending, sendMessage, deleteMessage, refetch } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch team members for mentions
+  useEffect(() => {
+    async function fetchTeamMembers() {
+      try {
+        const res = await fetch("/api/team");
+        const data = await res.json();
+        if (data.success && data.data) {
+          setTeamMembers(data.data);
+        } else if (data.members) {
+          setTeamMembers(data.members);
+        }
+      } catch (error) {
+        console.error("Failed to fetch team members:", error);
+      }
+    }
+    fetchTeamMembers();
+  }, []);
 
   // Refetch messages when taskId changes
   useEffect(() => {
@@ -52,11 +83,50 @@ export function TaskChat({ taskId }: TaskChatProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !showMentions) {
       e.preventDefault();
       handleSend();
     }
+    if (e.key === "Escape") {
+      setShowMentions(false);
+    }
   };
+
+  const handleMessageChange = (value: string) => {
+    setNewMessage(value);
+    
+    // Check for @ mentions
+    const lastAtIndex = value.lastIndexOf("@");
+    if (lastAtIndex !== -1) {
+      const textAfterAt = value.substring(lastAtIndex + 1);
+      const hasSpaceAfter = textAfterAt.includes(" ");
+      
+      if (!hasSpaceAfter && textAfterAt.length <= 20) {
+        setMentionSearch(textAfterAt.toLowerCase());
+        setShowMentions(true);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  const insertMention = (member: TeamMember) => {
+    const lastAtIndex = newMessage.lastIndexOf("@");
+    const beforeAt = newMessage.substring(0, lastAtIndex);
+    const displayName = member.name || member.email.split("@")[0];
+    setNewMessage(`${beforeAt}@${displayName} `);
+    setShowMentions(false);
+    textareaRef.current?.focus();
+  };
+
+  const filteredMembers = teamMembers.filter(
+    (m) =>
+      (m.name?.toLowerCase().includes(mentionSearch) ||
+        m.email.toLowerCase().includes(mentionSearch)) &&
+      m.id !== session?.user?.id
+  );
 
   if (!taskId) {
     return (
@@ -107,13 +177,43 @@ export function TaskChat({ taskId }: TaskChatProps) {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-border shrink-0 space-y-3">
+      <div className="p-4 border-t border-border shrink-0 space-y-3 relative">
+        {/* Mentions dropdown */}
+        {showMentions && filteredMembers.length > 0 && (
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto z-50">
+            <div className="p-2 text-xs text-muted-foreground border-b border-border">
+              Mencionar a...
+            </div>
+            {filteredMembers.slice(0, 5).map((member) => (
+              <button
+                key={member.id}
+                className="w-full flex items-center gap-2 p-2 hover:bg-muted text-left"
+                onClick={() => insertMention(member)}
+              >
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={member.image} />
+                  <AvatarFallback className="text-xs">
+                    {member.name?.charAt(0) || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{member.name || member.email}</p>
+                  {member.name && (
+                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        
         <Textarea
+          ref={textareaRef}
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => handleMessageChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Añade un comentario..."
-          className="min-h-[80px] resize-none"
+          placeholder="Añade un comentario... Usa @ para mencionar"
+          className="min-h-20 resize-none"
           disabled={sending}
         />
         
@@ -138,6 +238,24 @@ export function TaskChat({ taskId }: TaskChatProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Mention button */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={sending}
+              onClick={() => {
+                setNewMessage(newMessage + "@");
+                setShowMentions(true);
+                setMentionSearch("");
+                textareaRef.current?.focus();
+              }}
+              title="Mencionar usuario"
+            >
+              <RiAtLine className="h-4 w-4" />
+            </Button>
+
             {/* Attachment button */}
             <Button
               type="button"
