@@ -354,6 +354,124 @@ export async function sendAdminInviteEmail(
 // PASSWORD RESET EMAIL
 // ============================================
 
+// ============================================
+// TENANT WELCOME EMAIL (Admin creates tenant)
+// ============================================
+
+export async function sendTenantWelcomeEmail(
+  to: string,
+  ownerName: string,
+  organizationName: string,
+  tempPassword: string
+) {
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 40px 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                🎉 ¡Bienvenido a HubEnts!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
+                Hola <strong>${ownerName}</strong>,
+              </p>
+              
+              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
+                Tu organización <strong>${organizationName}</strong> ha sido creada en HubEnts. 
+                Ya puedes comenzar a gestionar tus eventos.
+              </p>
+              
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <p style="margin: 0 0 15px; font-size: 14px; color: #64748b; font-weight: 600;">
+                  Tus credenciales de acceso:
+                </p>
+                <table style="width: 100%;">
+                  <tr>
+                    <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Email:</td>
+                    <td style="padding: 8px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${to}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Contraseña temporal:</td>
+                    <td style="padding: 8px 0; font-size: 14px; color: #1e293b; font-weight: 600; font-family: monospace;">${tempPassword}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 14px; color: #92400e;">
+                  ⚠️ Por seguridad, te pediremos cambiar tu contraseña en el primer inicio de sesión.
+                </p>
+              </div>
+              
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="${APP_URL}/auth/login" 
+                       style="display: inline-block; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                      Iniciar sesión
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              
+              <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 15px; font-size: 14px; color: #6b7280;">
+                  <strong>¿Qué puedes hacer con HubEnts?</strong>
+                </p>
+                <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #6b7280;">
+                  <li style="margin-bottom: 8px;">📅 Gestionar eventos y cronogramas</li>
+                  <li style="margin-bottom: 8px;">👥 Administrar invitados y RSVP</li>
+                  <li style="margin-bottom: 8px;">🏪 Coordinar proveedores</li>
+                  <li style="margin-bottom: 8px;">💰 Controlar presupuestos y pagos</li>
+                  <li style="margin-bottom: 8px;">✅ Asignar tareas a tu equipo</li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
+                ¿Necesitas ayuda? Responde a este email o visita nuestro centro de ayuda.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+  return sendEmail({
+    to,
+    subject: `🎉 Tu cuenta en HubEnts está lista - ${organizationName}`,
+    html,
+    text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en HubEnts. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${APP_URL}/auth/login`,
+  });
+}
+
 export async function sendPasswordResetEmail(
   to: string,
   resetUrl: string

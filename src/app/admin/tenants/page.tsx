@@ -52,6 +52,9 @@ export default function TenantsPage() {
     planId: "",
     phone: "",
     website: "",
+    ownerEmail: "",
+    ownerName: "",
+    sendWelcomeEmail: true,
   });
 
   useEffect(() => {
@@ -86,6 +89,9 @@ export default function TenantsPage() {
           planId: formData.planId ? parseInt(formData.planId) : null,
           phone: formData.phone || null,
           website: formData.website || null,
+          ownerEmail: formData.ownerEmail || null,
+          ownerName: formData.ownerName || null,
+          sendWelcomeEmail: formData.sendWelcomeEmail,
         }),
       });
 
@@ -97,7 +103,7 @@ export default function TenantsPage() {
       }
 
       setShowModal(false);
-      setFormData({ name: "", slug: "", planId: "", phone: "", website: "" });
+      setFormData({ name: "", slug: "", planId: "", phone: "", website: "", ownerEmail: "", ownerName: "", sendWelcomeEmail: true });
       fetchTenants();
     } catch (e) {
       setError("Error de conexión");
@@ -396,6 +402,55 @@ export default function TenantsPage() {
                     setFormData({ ...formData, website: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="border-t border-border pt-4 mt-4">
+                <p className="text-sm font-medium mb-3">Propietario (Owner)</p>
+                
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerEmail">Email del propietario</Label>
+                    <Input
+                      id="ownerEmail"
+                      type="email"
+                      placeholder="propietario@empresa.com"
+                      value={formData.ownerEmail}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ownerEmail: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Si el usuario no existe, se creará automáticamente
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ownerName">Nombre del propietario</Label>
+                    <Input
+                      id="ownerName"
+                      placeholder="Juan Pérez"
+                      value={formData.ownerName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ownerName: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="sendWelcomeEmail"
+                      checked={formData.sendWelcomeEmail}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sendWelcomeEmail: e.target.checked })
+                      }
+                      className="rounded border-border"
+                    />
+                    <Label htmlFor="sendWelcomeEmail" className="text-sm font-normal cursor-pointer">
+                      Enviar email de bienvenida con credenciales
+                    </Label>
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
