@@ -1,53 +1,90 @@
 import "dotenv/config";
 import { db } from "../src/db";
-import { users, platformAdmins } from "../src/db/schema";
+import { users, platformAdmins, organizations, organizationMembers, roles } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
-async function auditAdmins() {
+async function auditAll() {
   try {
-    console.log("🔍 Auditing platform admins...\n");
+    console.log("🔍 Full Database Audit\n");
+    console.log("=".repeat(50));
 
-    // Get all platform admins with user info including password hash
-    const admins = await db
+    // 1. Check users
+    const allUsers = await db.select().from(users);
+    console.log(`\n📊 USERS: ${allUsers.length} total`);
+    allUsers.forEach((u, i) => {
+      console.log(`  ${i + 1}. ${u.email} (ID: ${u.id})`);
+    });
+
+    // 2. Check organizations
+    const allOrgs = await db.select().from(organizations);
+    console.log(`\n🏢 ORGANIZATIONS: ${allOrgs.length} total`);
+    allOrgs.forEach((o, i) => {
+      console.log(`  ${i + 1}. ${o.name} (ID: ${o.id}, Owner: ${o.ownerId})`);
+    });
+
+    // 3. Check roles
+    const allRoles = await db.select().from(roles);
+    console.log(`\n👤 ROLES: ${allRoles.length} total`);
+    allRoles.forEach((r, i) => {
+      console.log(`  ${i + 1}. ${r.name} (ID: ${r.id}, Slug: ${r.slug})`);
+    });
+
+    // 4. Check organization memberships
+    const allMemberships = await db
       .select({
-        adminId: platformAdmins.id,
-        level: platformAdmins.level,
-        userId: platformAdmins.userId,
+        id: organizationMembers.id,
+        orgId: organizationMembers.organizationId,
+        userId: organizationMembers.userId,
+        roleId: organizationMembers.roleId,
+        orgName: organizations.name,
         userName: users.name,
         userEmail: users.email,
-        emailVerified: users.emailVerified,
-        hasPassword: users.passwordHash,
-        createdAt: platformAdmins.createdAt,
+        roleName: roles.name,
+        roleSlug: roles.slug,
+      })
+      .from(organizationMembers)
+      .leftJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+      .leftJoin(users, eq(organizationMembers.userId, users.id))
+      .leftJoin(roles, eq(organizationMembers.roleId, roles.id));
+
+    console.log(`\n🔗 ORGANIZATION MEMBERSHIPS: ${allMemberships.length} total`);
+    if (allMemberships.length === 0) {
+      console.log("  ⚠️  NO MEMBERSHIPS FOUND - THIS IS THE PROBLEM!");
+      console.log("  Users need to be linked to organizations via organizationMembers table");
+    } else {
+      allMemberships.forEach((m, i) => {
+        console.log(`  ${i + 1}. User: ${m.userEmail} -> Org: ${m.orgName} (Role: ${m.roleSlug})`);
+      });
+    }
+
+    // 5. Check platform admins
+    const admins = await db
+      .select({
+        level: platformAdmins.level,
+        userEmail: users.email,
       })
       .from(platformAdmins)
       .leftJoin(users, eq(platformAdmins.userId, users.id));
 
-    if (admins.length === 0) {
-      console.log("❌ No platform admins found in database!");
-      console.log("\nTo add an admin, run:");
-      console.log("  npx tsx scripts/add-super-admin.ts your@email.com");
-    } else {
-      console.log(`✅ Found ${admins.length} platform admin(s):\n`);
-      admins.forEach((admin, i) => {
-        console.log(`${i + 1}. ${admin.userEmail}`);
-        console.log(`   Name: ${admin.userName || "Not set"}`);
-        console.log(`   Level: ${admin.level}`);
-        console.log(`   Email Verified: ${admin.emailVerified ? "Yes" : "No"}`);
-        console.log(`   Has Password: ${admin.hasPassword ? "YES" : "NO"}`);
-        console.log(`   Created: ${admin.createdAt}`);
-        console.log("");
-      });
-    }
+    console.log(`\n👑 PLATFORM ADMINS: ${admins.length} total`);
+    admins.forEach((a, i) => {
+      console.log(`  ${i + 1}. ${a.userEmail} (Level: ${a.level})`);
+    });
 
-    // Also check total users
-    const allUsers = await db.select().from(users);
-    console.log(`\n📊 Total users in database: ${allUsers.length}`);
+    console.log("\n" + "=".repeat(50));
+    console.log("DIAGNOSIS:");
     
-    if (allUsers.length > 0) {
-      console.log("\nAll users:");
-      allUsers.forEach((u, i) => {
-        console.log(`  ${i + 1}. ${u.email} (${u.name || "No name"}) - Has Password: ${u.passwordHash ? "YES" : "NO"}`);
-      });
+    if (allMemberships.length === 0 && allOrgs.length > 0 && allUsers.length > 0) {
+      console.log("❌ PROBLEM: Users exist and organizations exist, but no memberships!");
+      console.log("   FIX: Need to create organization_members records linking users to orgs");
+    } else if (allOrgs.length === 0) {
+      console.log("❌ PROBLEM: No organizations exist!");
+      console.log("   FIX: Need to create organizations for users");
+    } else if (allRoles.length === 0) {
+      console.log("❌ PROBLEM: No roles exist!");
+      console.log("   FIX: Need to seed system roles (owner, admin, planner, etc.)");
+    } else {
+      console.log("✅ Database structure looks OK");
     }
 
     process.exit(0);
@@ -58,4 +95,4 @@ async function auditAdmins() {
   }
 }
 
-auditAdmins();
+auditAll();

@@ -71,6 +71,7 @@ export async function requireAuth(): Promise<TenantSession> {
   const authSession = await auth();
   
   if (!authSession?.user?.id || !authSession?.user?.email) {
+    console.error("[requireAuth] No NextAuth session found");
     throw new Error("Unauthorized: Please log in");
   }
 
@@ -78,8 +79,23 @@ export async function requireAuth(): Promise<TenantSession> {
   const session = await getSession();
   
   if (!session) {
-    // User is authenticated but has no organization
-    throw new Error("No organization found. Please complete your account setup at /api/debug/session (POST) to repair.");
+    // User is authenticated but has no organization - try to get user context for more info
+    const userContext = await buildUserContext(
+      authSession.user.id,
+      authSession.user.email,
+      authSession.user.name ?? undefined,
+      authSession.user.image ?? undefined
+    );
+    
+    console.error("[requireAuth] No tenant session. User context:", {
+      userId: userContext.userId,
+      email: userContext.email,
+      organizationsCount: userContext.organizations.length,
+      currentOrganization: userContext.currentOrganization,
+      organizations: userContext.organizations,
+    });
+    
+    throw new Error(`No organization found. User has ${userContext.organizations.length} organizations. Please visit /api/debug/session (POST) to repair.`);
   }
 
   return session;
