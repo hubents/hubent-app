@@ -175,9 +175,9 @@ export function TasksPageContent() {
                     >
                       {task.title}
                     </p>
-                    {task.event && (
+                    {task.eventName && (
                       <p className="text-sm text-muted-foreground truncate">
-                        {task.event.name}
+                        {task.eventName}
                       </p>
                     )}
                   </div>

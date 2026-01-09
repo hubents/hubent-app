@@ -41,9 +41,10 @@ export async function getUserMembership(userId: string, organizationId: number) 
 
 /**
  * Get all organizations a user belongs to
+ * If user owns an org but has no membership, auto-create it
  */
 export async function getUserOrganizations(userId: string) {
-  const orgs = await db
+  let orgs = await db
     .select({
       id: organizations.id,
       name: organizations.name,
@@ -57,6 +58,57 @@ export async function getUserOrganizations(userId: string) {
     .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
     .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
     .where(eq(organizationMembers.userId, userId));
+
+  // If no memberships found, check if user owns any organization
+  if (orgs.length === 0) {
+    const ownedOrgs = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.ownerId, userId));
+
+    if (ownedOrgs.length > 0) {
+      // Find or create owner role
+      let ownerRole = await db.query.roles.findFirst({
+        where: eq(roles.slug, "owner"),
+      });
+
+      if (!ownerRole) {
+        const [created] = await db.insert(roles).values({
+          name: "Owner",
+          slug: "owner",
+          description: "Full access to organization",
+          isSystem: true,
+        }).returning();
+        ownerRole = created;
+      }
+
+      // Create membership for each owned org
+      for (const org of ownedOrgs) {
+        await db.insert(organizationMembers).values({
+          organizationId: org.id,
+          userId: userId,
+          roleId: ownerRole.id,
+          joinedAt: new Date(),
+        }).onConflictDoNothing();
+      }
+
+      // Re-fetch organizations
+      orgs = await db
+        .select({
+          id: organizations.id,
+          name: organizations.name,
+          slug: organizations.slug,
+          logo: organizations.logo,
+          status: organizations.status,
+          role: roles.slug,
+          roleName: roles.name,
+        })
+        .from(organizationMembers)
+        .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+        .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
+        .where(eq(organizationMembers.userId, userId));
+    }
+  }
 
   return orgs;
 }
