@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { requireRole } from "@/lib/session";
 
-// Get the Blob token from environment
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+// Helper to get token at runtime (not build time)
+function getBlobToken(): string | undefined {
+  return process.env.BLOB_READ_WRITE_TOKEN;
+}
 
 // POST /api/upload - Upload a file to Vercel Blob
 export async function POST(request: NextRequest) {
   try {
-    // Check if Blob token is configured
-    if (!BLOB_TOKEN) {
-      console.error("BLOB_READ_WRITE_TOKEN is not configured");
+    // Check if Blob token is configured (read at runtime)
+    const token = getBlobToken();
+    if (!token) {
+      console.error("BLOB_READ_WRITE_TOKEN is not configured in environment");
       return NextResponse.json(
         { success: false, error: { code: "CONFIG_ERROR", message: "El almacenamiento de archivos no está configurado. Contacta al administrador." } },
         { status: 500 }
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
       const blob = await put(pathname, file, {
         access: "public",
         addRandomSuffix: false,
-        token: BLOB_TOKEN,
+        token: token,
       });
 
       // Determine file type
@@ -98,7 +101,8 @@ export async function POST(request: NextRequest) {
 // DELETE /api/upload - Delete a file from Vercel Blob
 export async function DELETE(request: NextRequest) {
   try {
-    if (!BLOB_TOKEN) {
+    const token = getBlobToken();
+    if (!token) {
       return NextResponse.json(
         { success: false, error: { code: "CONFIG_ERROR", message: "Almacenamiento no configurado" } },
         { status: 500 }
@@ -117,7 +121,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await del(url, { token: BLOB_TOKEN });
+    await del(url, { token: token });
 
     return NextResponse.json({
       success: true,
