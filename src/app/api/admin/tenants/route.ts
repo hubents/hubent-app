@@ -16,7 +16,8 @@ function generateTempPassword(): string {
 
 export async function GET() {
   try {
-    const tenants = await db
+    // Get all organizations with their subscription info
+    const tenantsRaw = await db
       .select({
         id: organizations.id,
         name: organizations.name,
@@ -27,9 +28,30 @@ export async function GET() {
         website: organizations.website,
         ownerId: organizations.ownerId,
         createdAt: organizations.createdAt,
+        // Subscription info
+        subscriptionPlanId: subscriptions.planId,
+        subscriptionStatus: subscriptions.status,
+        subscriptionPlanName: subscriptionPlans.name,
       })
       .from(organizations)
+      .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
+      .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
       .orderBy(desc(organizations.createdAt));
+
+    // Transform to include plan info from subscription
+    const tenants = tenantsRaw.map(t => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      status: t.status,
+      planId: t.subscriptionPlanId || t.planId,
+      planName: t.subscriptionPlanName,
+      subscriptionStatus: t.subscriptionStatus,
+      phone: t.phone,
+      website: t.website,
+      ownerId: t.ownerId,
+      createdAt: t.createdAt,
+    }));
 
     const plans = await db.select().from(subscriptionPlans);
 

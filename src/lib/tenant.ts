@@ -44,6 +44,8 @@ export async function getUserMembership(userId: string, organizationId: number) 
  * If user owns an org but has no membership, auto-create it
  */
 export async function getUserOrganizations(userId: string) {
+  console.log(`[getUserOrganizations] Looking up orgs for userId: ${userId}`);
+  
   let orgs = await db
     .select({
       id: organizations.id,
@@ -59,12 +61,18 @@ export async function getUserOrganizations(userId: string) {
     .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
     .where(eq(organizationMembers.userId, userId));
 
+  console.log(`[getUserOrganizations] Found ${orgs.length} memberships`);
+
   // If no memberships found, check if user owns any organization
   if (orgs.length === 0) {
+    console.log(`[getUserOrganizations] No memberships, checking owned orgs...`);
+    
     const ownedOrgs = await db
       .select()
       .from(organizations)
       .where(eq(organizations.ownerId, userId));
+
+    console.log(`[getUserOrganizations] Found ${ownedOrgs.length} owned orgs`);
 
     if (ownedOrgs.length > 0) {
       // Find or create owner role
@@ -72,7 +80,10 @@ export async function getUserOrganizations(userId: string) {
         where: eq(roles.slug, "owner"),
       });
 
+      console.log(`[getUserOrganizations] Owner role exists: ${!!ownerRole}`);
+
       if (!ownerRole) {
+        console.log(`[getUserOrganizations] Creating owner role...`);
         const [created] = await db.insert(roles).values({
           name: "Owner",
           slug: "owner",
@@ -80,16 +91,23 @@ export async function getUserOrganizations(userId: string) {
           isSystem: true,
         }).returning();
         ownerRole = created;
+        console.log(`[getUserOrganizations] Created owner role with ID: ${ownerRole.id}`);
       }
 
       // Create membership for each owned org
       for (const org of ownedOrgs) {
-        await db.insert(organizationMembers).values({
-          organizationId: org.id,
-          userId: userId,
-          roleId: ownerRole.id,
-          joinedAt: new Date(),
-        }).onConflictDoNothing();
+        console.log(`[getUserOrganizations] Creating membership for org ${org.id} (${org.name})`);
+        try {
+          await db.insert(organizationMembers).values({
+            organizationId: org.id,
+            userId: userId,
+            roleId: ownerRole.id,
+            joinedAt: new Date(),
+          }).onConflictDoNothing();
+          console.log(`[getUserOrganizations] Membership created/exists for org ${org.id}`);
+        } catch (err) {
+          console.error(`[getUserOrganizations] Error creating membership:`, err);
+        }
       }
 
       // Re-fetch organizations
@@ -107,6 +125,8 @@ export async function getUserOrganizations(userId: string) {
         .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
         .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
         .where(eq(organizationMembers.userId, userId));
+      
+      console.log(`[getUserOrganizations] After auto-create, found ${orgs.length} memberships`);
     }
   }
 
