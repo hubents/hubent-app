@@ -191,16 +191,27 @@ export async function buildUserContext(
   image?: string,
   currentOrgId?: number
 ): Promise<UserContext> {
+  console.log(`[buildUserContext] Building context for userId: ${userId}, requestedOrgId: ${currentOrgId}`);
+  
   // Get platform admin status
   const platformAdmin = await getPlatformAdminLevel(userId);
 
   // Get all user organizations
   const userOrgs = await getUserOrganizations(userId);
+  console.log(`[buildUserContext] User has ${userOrgs.length} organizations`);
 
-  // Determine current organization
+  // Determine current organization - ALWAYS use first org if none specified
   let currentOrg = currentOrgId
     ? userOrgs.find((o) => o.id === currentOrgId)
     : userOrgs[0];
+
+  // If specified org not found but user has orgs, use first one
+  if (!currentOrg && userOrgs.length > 0) {
+    console.log(`[buildUserContext] Requested org ${currentOrgId} not found, using first org`);
+    currentOrg = userOrgs[0];
+  }
+
+  console.log(`[buildUserContext] Current org: ${currentOrg?.name || 'NONE'} (id: ${currentOrg?.id})`);
 
   let currentOrgPermissions: string[] = [];
 
