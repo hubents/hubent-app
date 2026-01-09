@@ -25,6 +25,7 @@ import Link from "next/link";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { EditEventDialog } from "@/components/events/edit-event-dialog";
+import { useEvent } from "@/contexts/event-context";
 import {
   Dialog,
   DialogContent,
@@ -78,6 +79,7 @@ interface EventDetailClientProps {
 }
 
 export function EventDetailClient({ eventId }: EventDetailClientProps) {
+  const { setActiveEvent } = useEvent();
   const [event, setEvent] = useState<Event | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,13 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [newDoc, setNewDoc] = useState({ name: "", url: "" });
   const [addingGuest, setAddingGuest] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
+
+  // Set active event when loaded
+  useEffect(() => {
+    if (event) {
+      setActiveEvent(event);
+    }
+  }, [event, setActiveEvent]);
 
   const fetchAllVendors = async () => {
     try {
