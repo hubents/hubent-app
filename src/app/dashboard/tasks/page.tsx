@@ -16,7 +16,9 @@ import {
 } from "@remixicon/react";
 import { useTasks } from "@/hooks/use-tasks";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
-import { useState } from "react";
+import { TaskDrawer } from "@/components/tasks/task-drawer";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 const fallbackTasks = [
   {
@@ -115,11 +117,26 @@ const statusConfig = {
 
 export default function TasksPage() {
   const { tasks: apiTasks, stats, loading, updateTaskStatus, refetch } = useTasks();
+  const searchParams = useSearchParams();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Handle ?new=true query param to auto-open create dialog
+  useEffect(() => {
+    if (searchParams.get("new") === "true") {
+      setIsCreateDialogOpen(true);
+    }
+  }, [searchParams]);
   
   // Use API data if available, otherwise use fallback for demo
   const displayTasks = apiTasks.length > 0 ? apiTasks : [];
   const completionRate = stats.completionRate;
+
+  const handleTaskClick = (taskId: number) => {
+    setSelectedTaskId(taskId);
+    setIsDrawerOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -218,9 +235,13 @@ export default function TasksPage() {
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-4 rounded-lg border border-[var(--border)] p-4 transition-colors hover:bg-[var(--muted)]"
+                  className="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-muted cursor-pointer"
+                  onClick={() => handleTaskClick(task.id)}
                 >
-                  <button className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+                  <button 
+                    className="text-muted-foreground hover:text-primary"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {task.status === "completed" ? (
                       <RiCheckboxCircleLine className="h-6 w-6 text-[var(--success)]" />
                     ) : (
@@ -284,6 +305,14 @@ export default function TasksPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onTaskCreated={refetch}
+      />
+
+      <TaskDrawer
+        taskId={selectedTaskId}
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        onTaskDeleted={refetch}
+        onTaskUpdated={refetch}
       />
     </div>
   );
