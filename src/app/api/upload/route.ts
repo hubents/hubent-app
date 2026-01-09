@@ -45,11 +45,21 @@ export async function POST(request: NextRequest) {
       const filename = `${folder}/${file.name}`;
 
       // Upload to Cloudflare R2
-      const result = await uploadToR2(buffer, filename, file.type);
+      let result;
+      try {
+        result = await uploadToR2(buffer, filename, file.type);
+      } catch (uploadError) {
+        const errorMsg = uploadError instanceof Error ? uploadError.message : "Error desconocido";
+        console.error("Upload to R2 failed:", errorMsg);
+        return NextResponse.json(
+          { success: false, error: { code: "UPLOAD_ERROR", message: errorMsg } },
+          { status: 500 }
+        );
+      }
 
       if (!result) {
         return NextResponse.json(
-          { success: false, error: { code: "UPLOAD_ERROR", message: "Error al subir archivo a R2" } },
+          { success: false, error: { code: "UPLOAD_ERROR", message: "Error al subir archivo a R2 - resultado nulo" } },
           { status: 500 }
         );
       }

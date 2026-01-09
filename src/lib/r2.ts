@@ -54,6 +54,7 @@ export async function uploadToR2(
   const key = `uploads/${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
 
   try {
+    console.log("R2 uploading to:", config.bucketName, "key:", key);
     await client.send(
       new PutObjectCommand({
         Bucket: config.bucketName,
@@ -65,10 +66,13 @@ export async function uploadToR2(
 
     // Return public URL
     const url = `${config.publicUrl}/${key}`;
+    console.log("R2 upload success:", url);
     return { url, key };
-  } catch (error) {
-    console.error("R2 upload error:", error);
-    return null;
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : "Unknown";
+    console.error("R2 upload error:", errorName, errorMessage, error);
+    throw new Error(`R2 Error: ${errorName} - ${errorMessage}`);
   }
 }
 
