@@ -757,6 +757,17 @@ export const taskHtmlContent = pgTable("task_html_content", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const taskPayments = pgTable("task_payments", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  date: timestamp("date").notNull(),
+  status: text("status").default("pending"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ============================================
 // EVENT TEMPLATES
 // ============================================

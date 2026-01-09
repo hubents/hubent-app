@@ -77,6 +77,17 @@ interface TaskHtmlContent {
   updatedAt?: string;
 }
 
+interface TaskPayment {
+  id: number;
+  taskId: number;
+  description: string;
+  amount: string;
+  date: string;
+  status: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 export function useTaskDetail(taskId: number | null) {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [participants, setParticipants] = useState<TaskParticipant[]>([]);
@@ -84,6 +95,7 @@ export function useTaskDetail(taskId: number | null) {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [scheduleItems, setScheduleItems] = useState<TaskScheduleItem[]>([]);
   const [htmlContent, setHtmlContent] = useState<TaskHtmlContent | null>(null);
+  const [payments, setPayments] = useState<TaskPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,6 +183,20 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId]);
 
+  const fetchPayments = useCallback(async () => {
+    if (!taskId) return;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/payments`);
+      const data = await res.json();
+      if (data.success) {
+        setPayments(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch payments:", err);
+    }
+  }, [taskId]);
+
   const fetchAll = useCallback(async () => {
     if (!taskId) return;
     
@@ -185,6 +211,7 @@ export function useTaskDetail(taskId: number | null) {
         fetchAttachments(),
         fetchScheduleItems(),
         fetchHtmlContent(),
+        fetchPayments(),
       ]);
     } catch (err) {
       setError("Failed to load task details");
@@ -192,7 +219,7 @@ export function useTaskDetail(taskId: number | null) {
     } finally {
       setLoading(false);
     }
-  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent]);
+  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent, fetchPayments]);
 
   useEffect(() => {
     fetchAll();
@@ -432,6 +459,48 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId, fetchParticipants]);
 
+  // Add payment
+  const addPayment = useCallback(async (paymentData: { description: string; amount: number; date?: string }) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPayments();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to add payment:", err);
+      return null;
+    }
+  }, [taskId, fetchPayments]);
+
+  // Delete payment
+  const deletePayment = useCallback(async (paymentId: number) => {
+    if (!taskId) return false;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/payments?paymentId=${paymentId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPayments();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to delete payment:", err);
+      return false;
+    }
+  }, [taskId, fetchPayments]);
+
   return {
     task,
     participants,
@@ -439,6 +508,7 @@ export function useTaskDetail(taskId: number | null) {
     attachments,
     scheduleItems,
     htmlContent,
+    payments,
     loading,
     error,
     refetch: fetchAll,
@@ -453,5 +523,7 @@ export function useTaskDetail(taskId: number | null) {
     saveHtmlContent,
     addParticipant,
     removeParticipant,
+    addPayment,
+    deletePayment,
   };
 }

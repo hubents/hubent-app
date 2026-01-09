@@ -58,6 +58,7 @@ export function TaskDrawer({
     attachments,
     scheduleItems,
     htmlContent,
+    payments,
     loading,
     refetch,
     updateTask,
@@ -71,6 +72,8 @@ export function TaskDrawer({
     saveHtmlContent,
     addParticipant,
     removeParticipant,
+    addPayment,
+    deletePayment,
   } = useTaskDetail(taskId);
 
   useEffect(() => {
@@ -132,15 +135,16 @@ export function TaskDrawer({
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <Button
-                variant="ghost"
-                size="icon"
+                variant="outline"
+                size="sm"
                 onClick={handleDelete}
                 disabled={deleting || loading}
-                className="text-[var(--muted-foreground)] hover:text-red-500"
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground gap-1"
               >
-                <RiDeleteBinLine className="h-5 w-5" />
+                <RiDeleteBinLine className="h-4 w-4" />
+                {deleting ? "Eliminando..." : "Eliminar"}
               </Button>
             </div>
           </div>
@@ -193,10 +197,13 @@ export function TaskDrawer({
                   <TaskInfoTab
                     task={task}
                     attachments={attachments}
+                    payments={payments}
                     loading={loading}
                     onUpdateTask={handleTaskUpdate}
                     onAddAttachment={addAttachment}
                     onDeleteAttachment={deleteAttachment}
+                    onAddPayment={addPayment}
+                    onDeletePayment={deletePayment}
                   />
                 </TabsContent>
 

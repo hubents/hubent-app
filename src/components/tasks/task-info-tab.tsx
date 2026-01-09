@@ -42,13 +42,27 @@ interface TaskAttachment {
   uploadedAt: string;
 }
 
+interface TaskPayment {
+  id: number;
+  taskId: number;
+  description: string;
+  amount: string;
+  date: string;
+  status: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 interface TaskInfoTabProps {
   task: TaskDetail | null;
   attachments: TaskAttachment[];
+  payments: TaskPayment[];
   loading: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddAttachment: (data: { name: string; url: string; type?: string }) => Promise<unknown>;
   onDeleteAttachment: (attachmentId: number) => Promise<boolean>;
+  onAddPayment: (data: { description: string; amount: number; date?: string }) => Promise<unknown>;
+  onDeletePayment: (paymentId: number) => Promise<boolean>;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -61,10 +75,13 @@ function formatFileSize(bytes: number | null): string {
 export function TaskInfoTab({
   task,
   attachments,
+  payments,
   loading,
   onUpdateTask,
   onAddAttachment,
   onDeleteAttachment,
+  onAddPayment,
+  onDeletePayment,
 }: TaskInfoTabProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     task?.dueDate ? new Date(task.dueDate) : undefined
@@ -75,21 +92,17 @@ export function TaskInfoTab({
   const [addingLink, setAddingLink] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newPayment, setNewPayment] = useState({ description: "", amount: "", date: "" });
-  const [payments, setPayments] = useState<Array<{ id: number; description: string; amount: number; date: string }>>([]);
   const [addingPayment, setAddingPayment] = useState(false);
 
   const handleAddPayment = async () => {
     if (!newPayment.description || !newPayment.amount) return;
     setAddingPayment(true);
     try {
-      // For now, store payments locally (could be extended to API)
-      const payment = {
-        id: Date.now(),
+      await onAddPayment({
         description: newPayment.description,
         amount: parseFloat(newPayment.amount),
         date: newPayment.date || new Date().toISOString().split("T")[0],
-      };
-      setPayments([...payments, payment]);
+      });
       setNewPayment({ description: "", amount: "", date: "" });
       setShowPaymentDialog(false);
     } finally {
@@ -97,8 +110,8 @@ export function TaskInfoTab({
     }
   };
 
-  const handleDeletePayment = (paymentId: number) => {
-    setPayments(payments.filter((p) => p.id !== paymentId));
+  const handleDeletePayment = async (paymentId: number) => {
+    await onDeletePayment(paymentId);
   };
 
   // Filter attachments by type
@@ -218,7 +231,7 @@ export function TaskInfoTab({
                   <span className="text-sm text-muted-foreground">
                     {new Date(payment.date).toLocaleDateString("es-ES")}
                   </span>
-                  <span className="text-sm font-medium">${payment.amount.toLocaleString()}</span>
+                  <span className="text-sm font-medium">${parseFloat(payment.amount).toLocaleString()}</span>
                   <Button
                     variant="ghost"
                     size="icon"

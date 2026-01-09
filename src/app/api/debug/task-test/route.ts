@@ -53,9 +53,17 @@ export async function GET(request: NextRequest) {
     // 4. Get first task for testing
     const session = await getSession();
     if (session) {
-      const firstTask = await db.query.tasks.findFirst({
-        where: (t, { eq }) => eq(t.organizationId, session.organizationId),
-      });
+      // Use simple select instead of query API to avoid schema mismatch
+      const [firstTask] = await db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          eventId: tasks.eventId,
+          organizationId: tasks.organizationId,
+        })
+        .from(tasks)
+        .where(eq(tasks.organizationId, session.organizationId))
+        .limit(1);
 
       results.firstTask = firstTask ? {
         id: firstTask.id,
@@ -94,9 +102,7 @@ export async function GET(request: NextRequest) {
 
         // HTML Content
         try {
-          const html = await db.query.taskHtmlContent.findFirst({
-            where: (h, { eq }) => eq(h.taskId, taskId),
-          });
+          const [html] = await db.select().from(taskHtmlContent).where(eq(taskHtmlContent.taskId, taskId)).limit(1);
           results.htmlContent = { success: true, hasContent: !!html };
         } catch (err) {
           results.htmlContent = { success: false, error: err instanceof Error ? err.message : "Unknown" };
@@ -120,9 +126,16 @@ export async function GET(request: NextRequest) {
       }
 
       // 5. Get first event
-      const firstEvent = await db.query.events.findFirst({
-        where: (e, { eq }) => eq(e.organizationId, session.organizationId),
-      });
+      const [firstEvent] = await db
+        .select({
+          id: events.id,
+          name: events.name,
+          status: events.status,
+          organizationId: events.organizationId,
+        })
+        .from(events)
+        .where(eq(events.organizationId, session.organizationId))
+        .limit(1);
 
       results.firstEvent = firstEvent ? {
         id: firstEvent.id,
