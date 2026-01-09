@@ -27,7 +27,7 @@ interface FileUploaderProps {
 export function FileUploader({
   folder = "uploads",
   accept,
-  maxSize = 50 * 1024 * 1024,
+  maxSize = 100 * 1024 * 1024, // 100MB default
   multiple = false,
   onUpload,
   onError,

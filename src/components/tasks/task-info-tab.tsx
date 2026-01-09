@@ -298,7 +298,7 @@ export function TaskInfoTab({
               <div className="space-y-4 py-4">
                 <FileUploader
                   folder="task-attachments"
-                  maxSize={50 * 1024 * 1024}
+                  maxSize={100 * 1024 * 1024}
                   onUpload={async (result) => {
                     await onAddAttachment({
                       name: result.name,

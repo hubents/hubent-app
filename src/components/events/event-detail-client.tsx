@@ -618,7 +618,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 <div className="space-y-4 py-4">
                   <FileUploader
                     folder="event-documents"
-                    maxSize={50 * 1024 * 1024}
+                    maxSize={100 * 1024 * 1024}
                     onUpload={async (result) => {
                       await handleAddDocument({ name: result.name, url: result.url });
                       setShowAddDocDialog(false);
