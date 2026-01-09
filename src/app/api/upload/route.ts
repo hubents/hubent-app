@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, del } from "@vercel/blob";
 import { requireRole } from "@/lib/session";
+import { uploadToR2, deleteFromR2, isR2Configured } from "@/lib/r2";
 
-// Helper to get token at runtime (not build time)
-function getBlobToken(): string | undefined {
-  return process.env.BLOB_READ_WRITE_TOKEN;
-}
-
-// POST /api/upload - Upload a file to Vercel Blob
+// POST /api/upload - Upload a file to Cloudflare R2
 export async function POST(request: NextRequest) {
   try {
-    // Check if Blob token is configured (read at runtime)
-    const token = getBlobToken();
-    if (!token) {
-      console.error("BLOB_READ_WRITE_TOKEN is not configured in environment");
+    // Check if R2 is configured
+    if (!isR2Configured()) {
+      console.error("Cloudflare R2 is not configured");
       return NextResponse.json(
         { success: false, error: { code: "CONFIG_ERROR", message: "El almacenamiento de archivos no está configurado. Contacta al administrador." } },
         { status: 500 }
@@ -37,26 +31,28 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Validate file size (max 4.5MB due to Vercel Functions limit)
-      const maxSize = 4.5 * 1024 * 1024;
+      // Validate file size (max 10MB - R2 can handle more but keeping reasonable for UX)
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         return NextResponse.json(
-          { success: false, error: { code: "FILE_TOO_LARGE", message: "El archivo excede el límite de 4.5MB. Para archivos más grandes, usa un enlace externo (Google Drive, Dropbox, etc.)" } },
+          { success: false, error: { code: "FILE_TOO_LARGE", message: "El archivo excede el límite de 10MB. Para archivos más grandes, usa un enlace externo." } },
           { status: 400 }
         );
       }
 
-      // Generate unique filename
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const pathname = `${folder}/${timestamp}-${sanitizedName}`;
+      // Convert file to buffer
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const filename = `${folder}/${file.name}`;
 
-      // Upload to Vercel Blob with explicit token
-      const blob = await put(pathname, file, {
-        access: "public",
-        addRandomSuffix: false,
-        token: token,
-      });
+      // Upload to Cloudflare R2
+      const result = await uploadToR2(buffer, filename, file.type);
+
+      if (!result) {
+        return NextResponse.json(
+          { success: false, error: { code: "UPLOAD_ERROR", message: "Error al subir archivo a R2" } },
+          { status: 500 }
+        );
+      }
 
       // Determine file type
       let fileType = "file";
@@ -73,9 +69,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          url: blob.url,
-          pathname: blob.pathname,
-          contentType: blob.contentType,
+          url: result.url,
+          pathname: result.key,
+          contentType: file.type,
           size: file.size,
           name: file.name,
           type: fileType,
@@ -98,11 +94,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/upload - Delete a file from Vercel Blob
+// DELETE /api/upload - Delete a file from Cloudflare R2
 export async function DELETE(request: NextRequest) {
   try {
-    const token = getBlobToken();
-    if (!token) {
+    if (!isR2Configured()) {
       return NextResponse.json(
         { success: false, error: { code: "CONFIG_ERROR", message: "Almacenamiento no configurado" } },
         { status: 500 }
@@ -112,16 +107,23 @@ export async function DELETE(request: NextRequest) {
     await requireRole("planner");
 
     const { searchParams } = new URL(request.url);
-    const url = searchParams.get("url");
+    const key = searchParams.get("key");
 
-    if (!url) {
+    if (!key) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "URL requerida" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Key requerida" } },
         { status: 400 }
       );
     }
 
-    await del(url, { token: token });
+    const success = await deleteFromR2(key);
+
+    if (!success) {
+      return NextResponse.json(
+        { success: false, error: { code: "DELETE_ERROR", message: "Error al eliminar archivo" } },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

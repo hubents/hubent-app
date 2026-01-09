@@ -28,10 +28,10 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     setError(null);
 
     try {
-      // Validate file size (default 4.5MB for Vercel Functions)
-      const maxSize = options.maxSize || 4.5 * 1024 * 1024;
+      // Validate file size (default 10MB for Cloudflare R2)
+      const maxSize = options.maxSize || 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        const maxMB = (maxSize / (1024 * 1024)).toFixed(1);
+        const maxMB = (maxSize / (1024 * 1024)).toFixed(0);
         throw new Error(`El archivo excede el límite de ${maxMB}MB. Para archivos más grandes, usa un enlace externo.`);
       }
 
@@ -92,12 +92,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         message = err.message;
         // Make error messages more user-friendly
         if (message.includes("Content Too Large") || message.includes("413")) {
-          message = "El archivo es demasiado grande. Máximo 4.5MB. Para archivos más grandes, usa un enlace externo.";
+          message = "El archivo es demasiado grande. Máximo 10MB. Para archivos más grandes, usa un enlace externo.";
         } else if (message.includes("Unauthorized") || message.includes("401")) {
           message = "Sesión expirada. Por favor recarga la página.";
         } else if (message.includes("Failed to fetch")) {
           message = "Error de conexión. Verifica tu internet.";
-        } else if (message.includes("No token found") || message.includes("CONFIG_ERROR")) {
+        } else if (message.includes("CONFIG_ERROR")) {
           message = "El almacenamiento no está configurado. Contacta al administrador.";
         }
       }

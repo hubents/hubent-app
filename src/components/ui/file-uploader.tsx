@@ -27,7 +27,7 @@ interface FileUploaderProps {
 export function FileUploader({
   folder = "uploads",
   accept,
-  maxSize = 4.5 * 1024 * 1024, // 4.5MB default (Vercel Functions limit)
+  maxSize = 10 * 1024 * 1024, // 10MB default (Cloudflare R2)
   multiple = false,
   onUpload,
   onError,
@@ -169,8 +169,8 @@ export function FileUploader({
             </p>
           </div>
           <div className="text-xs text-muted-foreground space-y-0.5">
-            <p>Máximo <span className="font-medium">{(maxSize / (1024 * 1024)).toFixed(1)}MB</span></p>
-            <p className="text-[10px]">Imágenes, PDFs y documentos pequeños</p>
+            <p>Máximo <span className="font-medium">{(maxSize / (1024 * 1024)).toFixed(0)}MB</span></p>
+            <p className="text-[10px]">Imágenes, PDFs y documentos</p>
           </div>
         </div>
 
