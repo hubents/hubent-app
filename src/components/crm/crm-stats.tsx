@@ -53,11 +53,17 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
   // Calculate metrics
   const totalLeads = stages.reduce((sum, s) => sum + s.leads.length, 0);
   const totalValue = stages.reduce((sum, s) => sum + s.totalValue, 0);
-  const wonStage = stages.find(s => s.isWon);
-  const lostStage = stages.find(s => s.isLost);
+  
+  // Find won/lost stages by flag or by name pattern
+  const wonStage = stages.find(s => s.isWon === true) || 
+    stages.find(s => s.name.toLowerCase().includes('ganado') || s.name.toLowerCase().includes('won'));
+  const lostStage = stages.find(s => s.isLost === true) || 
+    stages.find(s => s.name.toLowerCase().includes('perdido') || s.name.toLowerCase().includes('lost'));
+  
   const wonLeads = wonStage?.leads.length || 0;
   const lostLeads = lostStage?.leads.length || 0;
   const wonValue = wonStage?.totalValue || 0;
+  const lostValue = lostStage?.totalValue || 0;
   const activeLeads = totalLeads - wonLeads - lostLeads;
   
   // Weighted pipeline value (by probability)
@@ -232,7 +238,7 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
               </div>
               <div>
                 <p className="text-sm font-medium">Perdidos</p>
-                <p className="text-lg font-bold">{lostLeads} <span className="text-sm font-normal text-muted-foreground">({formatCurrency(lostStage?.totalValue || 0)})</span></p>
+                <p className="text-lg font-bold">{lostLeads} <span className="text-sm font-normal text-muted-foreground">({formatCurrency(lostValue)})</span></p>
               </div>
             </div>
           </div>
