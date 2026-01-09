@@ -27,7 +27,7 @@ interface FileUploaderProps {
 export function FileUploader({
   folder = "uploads",
   accept,
-  maxSize = 50 * 1024 * 1024, // 50MB default
+  maxSize = 4.5 * 1024 * 1024, // 4.5MB default (Vercel Functions limit)
   multiple = false,
   onUpload,
   onError,
@@ -168,9 +168,10 @@ export function FileUploader({
               o haz clic para seleccionar {getAcceptLabel()}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Máximo {(maxSize / (1024 * 1024)).toFixed(0)}MB
-          </p>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p>Máximo <span className="font-medium">{(maxSize / (1024 * 1024)).toFixed(1)}MB</span></p>
+            <p className="text-[10px]">Imágenes, PDFs y documentos pequeños</p>
+          </div>
         </div>
 
         {uploading && (
