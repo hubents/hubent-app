@@ -17,7 +17,7 @@ import {
 import { useTasks } from "@/hooks/use-tasks";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 const fallbackTasks = [
@@ -115,8 +115,8 @@ const statusConfig = {
   completed: { label: "Completada", variant: "success" as const },
 };
 
-export default function TasksPage() {
-  const { tasks: apiTasks, stats, loading, updateTaskStatus, refetch } = useTasks();
+function TasksPageContent() {
+  const { tasks: apiTasks, stats, loading, refetch } = useTasks();
   const searchParams = useSearchParams();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
@@ -315,5 +315,23 @@ export default function TasksPage() {
         onTaskUpdated={refetch}
       />
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    }>
+      <TasksPageContent />
+    </Suspense>
   );
 }
