@@ -116,7 +116,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
               </SelectTrigger>
               <SelectContent>
                 {events.length === 0 ? (
-                  <SelectItem value="" disabled>No hay eventos - crea uno primero</SelectItem>
+                  <SelectItem value="__no_events__" disabled>No hay eventos - crea uno primero</SelectItem>
                 ) : (
                   events.map((event) => (
                     <SelectItem key={event.id} value={event.id.toString()}>
