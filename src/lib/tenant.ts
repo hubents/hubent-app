@@ -94,17 +94,34 @@ export async function getUserOrganizations(userId: string) {
         console.log(`[getUserOrganizations] Created owner role with ID: ${ownerRole.id}`);
       }
 
-      // Create membership for each owned org
+      // Create membership for each owned org (check if exists first)
       for (const org of ownedOrgs) {
-        console.log(`[getUserOrganizations] Creating membership for org ${org.id} (${org.name})`);
+        console.log(`[getUserOrganizations] Checking membership for org ${org.id} (${org.name})`);
         try {
-          await db.insert(organizationMembers).values({
-            organizationId: org.id,
-            userId: userId,
-            roleId: ownerRole.id,
-            joinedAt: new Date(),
-          }).onConflictDoNothing();
-          console.log(`[getUserOrganizations] Membership created/exists for org ${org.id}`);
+          // Check if membership already exists
+          const existingMembership = await db
+            .select({ id: organizationMembers.id })
+            .from(organizationMembers)
+            .where(
+              and(
+                eq(organizationMembers.organizationId, org.id),
+                eq(organizationMembers.userId, userId)
+              )
+            )
+            .limit(1);
+
+          if (existingMembership.length === 0) {
+            console.log(`[getUserOrganizations] Creating membership for org ${org.id}`);
+            await db.insert(organizationMembers).values({
+              organizationId: org.id,
+              userId: userId,
+              roleId: ownerRole.id,
+              joinedAt: new Date(),
+            });
+            console.log(`[getUserOrganizations] Membership created for org ${org.id}`);
+          } else {
+            console.log(`[getUserOrganizations] Membership already exists for org ${org.id}`);
+          }
         } catch (err) {
           console.error(`[getUserOrganizations] Error creating membership:`, err);
         }
