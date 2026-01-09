@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FileUploader } from "@/components/ui/file-uploader";
 
 interface Event {
   id: number;
@@ -252,19 +253,19 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
-  const handleAddDocument = async () => {
-    if (!newDoc.name || !newDoc.url) return;
+  const handleAddDocument = async (doc?: { name: string; url: string }) => {
+    const docToAdd = doc || newDoc;
+    if (!docToAdd.name || !docToAdd.url) return;
     setAddingDoc(true);
     try {
       const res = await fetch(`/api/events/${eventId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDoc),
+        body: JSON.stringify(docToAdd),
       });
       const data = await res.json();
       if (data.success) {
         setNewDoc({ name: "", url: "" });
-        setShowAddDocDialog(false);
         fetchDocuments();
       }
     } finally {
@@ -612,9 +613,25 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Agregar Documento</DialogTitle>
+                  <DialogTitle>Subir Documento</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  <FileUploader
+                    folder="event-documents"
+                    maxSize={50 * 1024 * 1024}
+                    onUpload={async (result) => {
+                      await handleAddDocument({ name: result.name, url: result.url });
+                      setShowAddDocDialog(false);
+                    }}
+                  />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <Label>Nombre del documento</Label>
                     <Input
@@ -630,16 +647,13 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                       value={newDoc.url}
                       onChange={(e) => setNewDoc({ ...newDoc, url: e.target.value })}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Sube tu documento a Google Drive u otro servicio y pega el enlace
-                    </p>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setShowAddDocDialog(false)}>
                       Cancelar
                     </Button>
-                    <Button onClick={handleAddDocument} disabled={addingDoc || !newDoc.name || !newDoc.url}>
-                      {addingDoc ? "Guardando..." : "Guardar"}
+                    <Button onClick={() => handleAddDocument()} disabled={addingDoc || !newDoc.name || !newDoc.url}>
+                      {addingDoc ? "Guardando..." : "Guardar enlace"}
                     </Button>
                   </div>
                 </div>
