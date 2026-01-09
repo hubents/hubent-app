@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
@@ -48,17 +49,24 @@ export default function AdminLayout({
     <div className="min-h-screen flex bg-[var(--muted)]">
       {/* Sidebar */}
       <aside className="w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-[var(--border)]">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-red-500/10">
-              <Shield className="h-5 w-5 text-red-500" />
-            </div>
+        {/* Header with Logo */}
+        <div className="p-4 border-b border-border">
+          <Link href="/admin" className="flex items-center gap-3">
+            <Image
+              src="/images/logo.png"
+              alt="HubEnts"
+              width={36}
+              height={36}
+              className="rounded-lg"
+            />
             <div>
-              <h1 className="font-bold text-sm">SuperAdmin</h1>
-              <p className="text-xs text-[var(--muted-foreground)]">HubEnts Platform</p>
+              <span className="font-bold text-lg">hubents</span>
+              <div className="flex items-center gap-1.5">
+                <Shield className="h-3 w-3 text-slate-500" />
+                <span className="text-xs text-muted-foreground">Admin</span>
+              </div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Navigation */}
