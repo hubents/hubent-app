@@ -14,10 +14,21 @@ export async function getSession(): Promise<TenantSession | null> {
     return null;
   }
 
-  // Get organization ID from headers (set by middleware) or default to first org
+  // Get organization ID from headers (set by middleware) or cookies
   const headersList = await headers();
   const orgIdHeader = headersList.get("x-organization-id");
-  const orgId = orgIdHeader ? parseInt(orgIdHeader, 10) : undefined;
+  let orgId = orgIdHeader ? parseInt(orgIdHeader, 10) : undefined;
+
+  // If no org ID from header, try to get from cookie header
+  if (!orgId) {
+    const cookieHeader = headersList.get("cookie");
+    if (cookieHeader) {
+      const match = cookieHeader.match(/hubents-org-id=(\d+)/);
+      if (match) {
+        orgId = parseInt(match[1], 10);
+      }
+    }
+  }
 
   // Build full user context
   const userContext = await buildUserContext(
