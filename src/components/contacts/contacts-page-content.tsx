@@ -43,12 +43,14 @@ import {
   RiUploadLine,
   RiDownloadLine,
   RiExternalLinkLine,
+  RiUserStarLine,
 } from "@remixicon/react";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
 import { CreateContactDialog } from "./create-contact-dialog";
 import { ImportContactsDialog } from "./import-contacts-dialog";
 import { LinkContactDialog } from "./link-contact-dialog";
+import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
 
 interface Contact {
   id: number;
@@ -69,8 +71,10 @@ export function ContactsPageContent() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selectedContactForLead, setSelectedContactForLead] = useState<Contact | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const { contacts, stats, loading, refetch, deleteContact } = useContacts({
@@ -110,6 +114,12 @@ export function ContactsPageContent() {
     e.stopPropagation();
     setSelectedContact(contact);
     setIsLinkDialogOpen(true);
+  };
+
+  const handleConvertToLead = (e: React.MouseEvent, contact: Contact) => {
+    e.stopPropagation();
+    setSelectedContactForLead(contact);
+    setIsLeadDialogOpen(true);
   };
 
   const handleDeleteContact = async (e: React.MouseEvent, contactId: number) => {
@@ -382,6 +392,15 @@ export function ContactsPageContent() {
                             <RiExternalLinkLine className="h-4 w-4 mr-2" />
                             Ver detalles
                           </DropdownMenuItem>
+                          {!contact.isLead && (
+                            <DropdownMenuItem 
+                              onClick={(e) => handleConvertToLead(e as unknown as React.MouseEvent, contact)}
+                              className="text-green-600"
+                            >
+                              <RiUserStarLine className="h-4 w-4 mr-2" />
+                              Convertir a Lead
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={(e) => handleLinkContact(e as unknown as React.MouseEvent, contact)}>
                             <RiFileListLine className="h-4 w-4 mr-2" />
                             Vincular a tarea
@@ -447,6 +466,14 @@ export function ContactsPageContent() {
         onOpenChange={setIsLinkDialogOpen}
         contact={selectedContact}
         onLinkComplete={refetch}
+      />
+
+      {/* Create Lead Dialog */}
+      <CreateLeadDialog
+        open={isLeadDialogOpen}
+        onOpenChange={setIsLeadDialogOpen}
+        onLeadCreated={refetch}
+        preselectedContact={selectedContactForLead || undefined}
       />
 
       {/* Contact Drawer */}

@@ -510,6 +510,7 @@ export const leads = pgTable("leads", {
   probability: integer("probability").default(50),
   expectedCloseDate: timestamp("expected_close_date"),
   source: text("source"),
+  contactId: integer("contact_id"),
   companyId: integer("company_id"),
   personId: integer("person_id"),
   eventId: integer("event_id").references(() => events.id),

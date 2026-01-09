@@ -217,6 +217,7 @@ export async function createLead(
     probability?: number;
     expectedCloseDate?: Date;
     source?: string;
+    contactId: number;
     companyId?: number;
     personId?: number;
     assignedTo?: string;
@@ -245,6 +246,7 @@ export async function createLead(
     probability: data.probability || 50,
     expectedCloseDate: data.expectedCloseDate,
     source: data.source,
+    contactId: data.contactId,
     companyId: data.companyId,
     personId: data.personId,
     assignedTo: data.assignedTo || session.user.userId,

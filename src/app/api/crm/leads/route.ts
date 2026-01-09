@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { getLeads, getLeadsByStage, createLead } from "@/lib/crm";
+import { updateContact } from "@/lib/contacts";
 
 // GET /api/crm/leads - List leads
 export async function GET(request: NextRequest) {
@@ -44,11 +45,18 @@ export async function POST(request: NextRequest) {
     const session = await requireRole("planner");
     const body = await request.json();
 
-    const { title, description, value, currency, stageId, probability, expectedCloseDate, source, companyId, personId, assignedTo } = body;
+    const { title, description, value, currency, stageId, probability, expectedCloseDate, source, contactId, companyId, personId, assignedTo } = body;
 
     if (!title) {
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "Title is required" } },
+        { status: 400 }
+      );
+    }
+
+    if (!contactId) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Contact is required for leads" } },
         { status: 400 }
       );
     }
@@ -62,10 +70,14 @@ export async function POST(request: NextRequest) {
       probability,
       expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : undefined,
       source,
+      contactId,
       companyId,
       personId,
       assignedTo,
     });
+
+    // Mark contact as lead
+    await updateContact(session, contactId, { isLead: true }).catch(() => {});
 
     return NextResponse.json({
       success: true,
