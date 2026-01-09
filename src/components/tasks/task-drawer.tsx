@@ -135,16 +135,16 @@ export function TaskDrawer({
                 </>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 mr-8">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDelete}
                 disabled={deleting || loading}
-                className="text-destructive hover:bg-destructive hover:text-destructive-foreground gap-1"
+                className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground gap-2"
               >
                 <RiDeleteBinLine className="h-4 w-4" />
-                {deleting ? "Eliminando..." : "Eliminar"}
+                {deleting ? "Eliminando..." : "Eliminar tarea"}
               </Button>
             </div>
           </div>

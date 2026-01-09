@@ -17,11 +17,22 @@ import {
   RiFileTextLine,
   RiEditLine,
   RiAddLine,
+  RiUserAddLine,
+  RiUploadLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { EditEventDialog } from "@/components/events/edit-event-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Event {
   id: number;
@@ -66,6 +77,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [vendors, setVendors] = useState<Array<{ id: number; vendorName: string; service: string }>>([]);
+  const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string }>>([]);
+  const [guests, setGuests] = useState<Array<{ id: number; firstName: string; lastName: string }>>([]);
+  const [showAddGuestDialog, setShowAddGuestDialog] = useState(false);
+  const [showAddDocDialog, setShowAddDocDialog] = useState(false);
+  const [newGuest, setNewGuest] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [newDoc, setNewDoc] = useState({ name: "", url: "" });
+  const [addingGuest, setAddingGuest] = useState(false);
+  const [addingDoc, setAddingDoc] = useState(false);
 
   const fetchEvent = async () => {
     try {
@@ -91,10 +111,46 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
+  const fetchVendors = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/vendors`);
+      const data = await res.json();
+      if (data.success) {
+        setVendors(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch vendors:", error);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/documents`);
+      const data = await res.json();
+      if (data.success) {
+        setDocuments(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+    }
+  };
+
+  const fetchGuests = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests`);
+      const data = await res.json();
+      if (data.success) {
+        setGuests(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch guests:", error);
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests()]);
       setLoading(false);
     }
     loadData();
@@ -108,6 +164,47 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
   const handleTaskCreated = () => {
     fetchTasks();
+  };
+
+  const handleAddGuest = async () => {
+    if (!newGuest.firstName) return;
+    setAddingGuest(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newGuest),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewGuest({ firstName: "", lastName: "", email: "", phone: "" });
+        setShowAddGuestDialog(false);
+        fetchGuests();
+        fetchEvent(); // Update guest count
+      }
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const handleAddDocument = async () => {
+    if (!newDoc.name || !newDoc.url) return;
+    setAddingDoc(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newDoc),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewDoc({ name: "", url: "" });
+        setShowAddDocDialog(false);
+        fetchDocuments();
+      }
+    } finally {
+      setAddingDoc(false);
+    }
   };
 
   if (loading) {
@@ -336,16 +433,29 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiStore2Line className="h-5 w-5" />
-              Proveedores
+              Proveedores ({vendors.length})
             </CardTitle>
-            <Button variant="outline" size="sm">
-              Agregar
-            </Button>
+            <Link href="/dashboard/providers">
+              <Button variant="outline" size="sm">
+                Agregar
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              No hay proveedores asignados
-            </div>
+            {vendors.length > 0 ? (
+              <div className="space-y-2">
+                {vendors.map((vendor) => (
+                  <div key={vendor.id} className="flex items-center justify-between p-2 rounded border">
+                    <span className="font-medium">{vendor.vendorName}</span>
+                    <span className="text-sm text-muted-foreground">{vendor.service}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay proveedores asignados
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -354,16 +464,165 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiFileTextLine className="h-5 w-5" />
-              Documentos
+              Documentos ({documents.length})
             </CardTitle>
-            <Button variant="outline" size="sm">
-              Subir
-            </Button>
+            <Dialog open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <RiUploadLine className="h-4 w-4" />
+                  Subir
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Agregar Documento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nombre del documento</Label>
+                    <Input
+                      placeholder="Ej: Contrato de servicios"
+                      value={newDoc.name}
+                      onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>URL del documento</Label>
+                    <Input
+                      placeholder="https://..."
+                      value={newDoc.url}
+                      onChange={(e) => setNewDoc({ ...newDoc, url: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Sube tu documento a Google Drive u otro servicio y pega el enlace
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowAddDocDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleAddDocument} disabled={addingDoc || !newDoc.name || !newDoc.url}>
+                      {addingDoc ? "Guardando..." : "Guardar"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              No hay documentos
-            </div>
+            {documents.length > 0 ? (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <a
+                    key={doc.id}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors"
+                  >
+                    <RiFileTextLine className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{doc.name}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay documentos
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Guests / Invitados */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiGroupLine className="h-5 w-5" />
+              Lista de Invitados ({guests.length})
+            </CardTitle>
+            <Dialog open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <RiUserAddLine className="h-4 w-4" />
+                  Añadir
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Añadir Invitado</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nombre *</Label>
+                      <Input
+                        placeholder="Ej: Juan"
+                        value={newGuest.firstName}
+                        onChange={(e) => setNewGuest({ ...newGuest, firstName: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Apellido</Label>
+                      <Input
+                        placeholder="Ej: Pérez"
+                        value={newGuest.lastName}
+                        onChange={(e) => setNewGuest({ ...newGuest, lastName: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        placeholder="juan@ejemplo.com"
+                        value={newGuest.email}
+                        onChange={(e) => setNewGuest({ ...newGuest, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Teléfono</Label>
+                      <Input
+                        placeholder="+54 9 11 1234-5678"
+                        value={newGuest.phone}
+                        onChange={(e) => setNewGuest({ ...newGuest, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowAddGuestDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleAddGuest} disabled={addingGuest || !newGuest.firstName}>
+                      {addingGuest ? "Guardando..." : "Añadir Invitado"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {guests.length > 0 ? (
+              <div className="space-y-2">
+                {guests.slice(0, 5).map((guest) => (
+                  <div key={guest.id} className="flex items-center gap-2 p-2 rounded border">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                      {guest.firstName.charAt(0)}{guest.lastName?.charAt(0) || ""}
+                    </div>
+                    <span>{guest.firstName} {guest.lastName}</span>
+                  </div>
+                ))}
+                {guests.length > 5 && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    +{guests.length - 5} invitados más
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay invitados registrados
+              </div>
+            )}
           </CardContent>
         </Card>
 

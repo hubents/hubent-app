@@ -164,8 +164,8 @@ export async function updateEvent(
     name: string;
     type: string;
     status: string;
-    date: Date;
-    endDate: Date;
+    date: Date | string | null;
+    endDate: Date | string | null;
     location: string;
     guestCount: number;
     budget: number;
@@ -175,8 +175,16 @@ export async function updateEvent(
 ) {
   const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
   
+  // Handle date conversion - accept string, Date, or null
+  if (data.date !== undefined) {
+    updateData.date = data.date ? (typeof data.date === 'string' ? new Date(data.date) : data.date) : null;
+  }
+  if (data.endDate !== undefined) {
+    updateData.endDate = data.endDate ? (typeof data.endDate === 'string' ? new Date(data.endDate) : data.endDate) : null;
+  }
+  
   if (data.budget !== undefined) {
-    updateData.budget = data.budget.toString();
+    updateData.budget = data.budget?.toString() || null;
   }
 
   const [updated] = await db.update(events)
