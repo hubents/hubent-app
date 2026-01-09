@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
+import { EditEventDialog } from "@/components/events/edit-event-dialog";
 
 interface Event {
   id: number;
@@ -61,6 +62,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -161,7 +163,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             <p className="text-lg text-muted-foreground">{event.description}</p>
           )}
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
           <RiEditLine className="h-4 w-4" />
           Editar Evento
         </Button>
@@ -400,6 +402,14 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onOpenChange={setIsDrawerOpen}
         onTaskDeleted={handleTaskCreated}
         onTaskUpdated={handleTaskCreated}
+      />
+
+      {/* Edit Event Dialog */}
+      <EditEventDialog
+        open={isEditEventOpen}
+        onOpenChange={setIsEditEventOpen}
+        event={event}
+        onEventUpdated={fetchEvent}
       />
     </div>
   );
