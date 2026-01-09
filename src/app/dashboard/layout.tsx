@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 
 export default function DashboardLayout({
   children,
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <OrgCookieSetter />
       <Sidebar />
       <div className="ml-[var(--sidebar-width)]">
         <Header />
