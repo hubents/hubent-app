@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { db } from "@/db";
-import { events, taskAttachments } from "@/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { events, eventDocuments } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -31,17 +31,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get documents attached to this event (using taskAttachments with null taskId for event-level docs)
-    // For now, we'll use a simple approach - documents linked to event tasks
+    // Get documents attached to this event
     const documents = await db
       .select()
-      .from(taskAttachments)
-      .where(
-        and(
-          isNull(taskAttachments.taskId),
-          eq(taskAttachments.type, "document")
-        )
-      );
+      .from(eventDocuments)
+      .where(eq(eventDocuments.eventId, eventIdNum));
 
     return NextResponse.json({ success: true, data: documents });
   } catch (error) {
@@ -89,11 +83,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Store document as attachment (we'll add eventId column later if needed)
+    // Store document in eventDocuments table
     const [document] = await db
-      .insert(taskAttachments)
+      .insert(eventDocuments)
       .values({
-        taskId: null as unknown as number, // Event-level document
+        eventId: eventIdNum,
         type,
         name,
         url,
@@ -147,8 +141,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     await db
-      .delete(taskAttachments)
-      .where(eq(taskAttachments.id, parseInt(documentId, 10)));
+      .delete(eventDocuments)
+      .where(eq(eventDocuments.id, parseInt(documentId, 10)));
 
     return NextResponse.json({ success: true });
   } catch (error) {
