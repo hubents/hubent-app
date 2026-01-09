@@ -95,72 +95,72 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
       {/* Main KPIs */}
       <div className="grid gap-4 md:grid-cols-4">
         {/* Total Pipeline Value */}
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200 dark:border-blue-800">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Pipeline Total</p>
+                <p className="text-sm font-medium text-muted-foreground">Pipeline Total</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(totalValue)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Ponderado: {formatCurrency(weightedValue)}
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <RiMoneyDollarCircleLine className="h-6 w-6 text-blue-600" />
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                <RiMoneyDollarCircleLine className="h-5 w-5 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Active Leads */}
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/50 dark:to-purple-900/30 border-purple-200 dark:border-purple-800">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Leads Activos</p>
+                <p className="text-sm font-medium text-muted-foreground">Leads Activos</p>
                 <p className="text-2xl font-bold mt-1">{activeLeads}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   de {totalLeads} totales
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                <RiUserLine className="h-6 w-6 text-purple-600" />
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                <RiUserLine className="h-5 w-5 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Conversion Rate */}
-        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">Tasa Conversión</p>
+                <p className="text-sm font-medium text-muted-foreground">Tasa Conversión</p>
                 <p className="text-2xl font-bold mt-1">{conversionRate.toFixed(0)}%</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {wonLeads} ganados / {closedDeals} cerrados
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                <RiPercentLine className="h-6 w-6 text-green-600" />
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                <RiPercentLine className="h-5 w-5 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Won Value */}
-        <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30 border-amber-200 dark:border-amber-800">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Valor Ganado</p>
+                <p className="text-sm font-medium text-muted-foreground">Valor Ganado</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(wonValue)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Promedio: {formatCurrency(avgDealValue)}
                 </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <RiTrophyLine className="h-6 w-6 text-amber-600" />
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                <RiTrophyLine className="h-5 w-5 text-muted-foreground" />
               </div>
             </div>
           </CardContent>
@@ -217,21 +217,21 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
 
           {/* Won/Lost Summary */}
           <div className="mt-6 pt-4 border-t grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30">
-              <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                <RiArrowUpLine className="h-5 w-5 text-green-600" />
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                <RiArrowUpLine className="h-4 w-4 text-green-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">Ganados</p>
+                <p className="text-sm font-medium">Ganados</p>
                 <p className="text-lg font-bold">{wonLeads} <span className="text-sm font-normal text-muted-foreground">({formatCurrency(wonValue)})</span></p>
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30">
-              <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                <RiArrowDownLine className="h-5 w-5 text-red-600" />
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                <RiArrowDownLine className="h-4 w-4 text-red-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-red-700 dark:text-red-400">Perdidos</p>
+                <p className="text-sm font-medium">Perdidos</p>
                 <p className="text-lg font-bold">{lostLeads} <span className="text-sm font-normal text-muted-foreground">({formatCurrency(lostStage?.totalValue || 0)})</span></p>
               </div>
             </div>
