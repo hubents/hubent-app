@@ -32,24 +32,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// POST /api/tasks/[taskId]/participants - Add participant to task
+// POST /api/tasks/[taskId]/participants - Add participant to task (user or vendor)
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requireRole("planner");
     const { taskId } = await params;
     const body = await request.json();
 
-    const { userId, type, canEdit, canComment } = body;
+    const { userId, vendorId, type, canEdit, canComment } = body;
 
-    if (!userId || !type) {
+    if (!userId && !vendorId) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "userId and type are required" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "userId or vendorId is required" } },
+        { status: 400 }
+      );
+    }
+
+    if (!type) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "type is required" } },
         { status: 400 }
       );
     }
 
     const participant = await addTaskParticipant(session, parseInt(taskId, 10), {
       userId,
+      vendorId,
       type,
       canEdit,
       canComment,

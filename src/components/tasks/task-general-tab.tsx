@@ -21,6 +21,7 @@ import {
   RiAddLine,
   RiDeleteBinLine,
   RiGroupLine,
+  RiStore2Line,
 } from "@remixicon/react";
 import { TaskYoutubeEmbed } from "./task-youtube-embed";
 import { TaskRichEditor } from "./task-rich-editor";
@@ -40,10 +41,14 @@ interface TaskDetail {
 
 interface TaskParticipant {
   id: number;
-  userId: string;
-  userName?: string;
-  userEmail?: string;
-  userImage?: string;
+  userId: string | null;
+  vendorId: number | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  userImage?: string | null;
+  vendorName?: string | null;
+  name?: string | null;
+  isVendor?: boolean;
   type: string;
   canEdit: boolean;
   canComment: boolean;
@@ -67,6 +72,12 @@ interface TeamMember {
   image?: string;
 }
 
+interface Vendor {
+  id: number;
+  name: string;
+  category: string | null;
+}
+
 interface TaskGeneralTabProps {
   task: TaskDetail | null;
   participants: TaskParticipant[];
@@ -77,7 +88,7 @@ interface TaskGeneralTabProps {
   onAddVideo: (data: { youtubeUrl: string; title?: string }) => Promise<unknown>;
   onDeleteVideo: (videoId: number) => Promise<boolean>;
   onSaveHtmlContent: (content: string) => Promise<unknown>;
-  onAddParticipant: (data: { userId: string; type: string }) => Promise<unknown>;
+  onAddParticipant: (data: { userId?: string; vendorId?: number; type: string }) => Promise<unknown>;
   onRemoveParticipant: (participantId: number) => Promise<boolean>;
 }
 
@@ -111,28 +122,37 @@ export function TaskGeneralTab({
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [addingVideo, setAddingVideo] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  // Fetch team members for assignment
+  // Fetch team members and vendors for assignment
   useEffect(() => {
-    async function fetchTeamMembers() {
+    async function fetchData() {
       setLoadingMembers(true);
       try {
-        const res = await fetch("/api/team");
-        const data = await res.json();
-        if (data.success && data.data) {
-          setTeamMembers(data.data);
-        } else if (data.members) {
-          // Fallback for old API format
-          setTeamMembers(data.members);
+        const [teamRes, vendorsRes] = await Promise.all([
+          fetch("/api/team"),
+          fetch("/api/vendors"),
+        ]);
+        const teamData = await teamRes.json();
+        const vendorsData = await vendorsRes.json();
+        
+        if (teamData.success && teamData.data) {
+          setTeamMembers(teamData.data);
+        } else if (teamData.members) {
+          setTeamMembers(teamData.members);
+        }
+        
+        if (vendorsData.success && vendorsData.data) {
+          setVendors(vendorsData.data);
         }
       } catch (error) {
-        console.error("Failed to fetch team members:", error);
+        console.error("Failed to fetch data:", error);
       } finally {
         setLoadingMembers(false);
       }
     }
-    fetchTeamMembers();
+    fetchData();
   }, []);
 
   const handleAddVideo = async () => {
@@ -149,6 +169,18 @@ export function TaskGeneralTab({
   const handleAddParticipant = async (userId: string) => {
     await onAddParticipant({ userId, type: "planner" });
   };
+
+  const handleAddVendorParticipant = async (vendorId: string) => {
+    await onAddParticipant({ vendorId: parseInt(vendorId, 10), type: "vendor" });
+  };
+
+  // Filter out already added participants
+  const availableMembers = teamMembers.filter(
+    (m) => !participants.some((p) => p.userId === m.id)
+  );
+  const availableVendors = vendors.filter(
+    (v) => !participants.some((p) => p.vendorId === v.id)
+  );
 
   if (loading) {
     return (
@@ -284,16 +316,20 @@ export function TaskGeneralTab({
           {participants.map((p) => (
             <Badge
               key={p.id}
-              variant="secondary"
-              className="flex items-center gap-2 pr-1"
+              variant={p.isVendor ? "outline" : "secondary"}
+              className={`flex items-center gap-2 pr-1 ${p.isVendor ? "border-blue-500 text-blue-600" : ""}`}
             >
-              <Avatar className="h-5 w-5">
-                <AvatarImage src={p.userImage} />
-                <AvatarFallback className="text-xs">
-                  {p.userName?.charAt(0) || "?"}
-                </AvatarFallback>
-              </Avatar>
-              {p.userName || p.userEmail}
+              {p.isVendor ? (
+                <RiStore2Line className="h-4 w-4" />
+              ) : (
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={p.userImage || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {(p.name || p.userName)?.charAt(0) || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              {p.name || p.userName || p.userEmail || p.vendorName}
               <button
                 onClick={() => onRemoveParticipant(p.id)}
                 className="ml-1 hover:text-red-500"
@@ -305,21 +341,38 @@ export function TaskGeneralTab({
           <Select onValueChange={handleAddParticipant}>
             <SelectTrigger className="w-auto h-7 text-xs">
               <RiAddLine className="h-3 w-3 mr-1" />
-              Añadir
+              Miembro
             </SelectTrigger>
             <SelectContent>
-              {teamMembers.filter((m) => !participants.some((p) => p.userId === m.id)).length === 0 ? (
+              {availableMembers.length === 0 ? (
                 <SelectItem value="__no_available__" disabled>
                   {teamMembers.length === 0 ? "No hay miembros" : "Todos agregados"}
                 </SelectItem>
               ) : (
-                teamMembers
-                  .filter((m) => !participants.some((p) => p.userId === m.id))
-                  .map((member) => (
+                availableMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name || member.email}
                     </SelectItem>
                   ))
+              )}
+            </SelectContent>
+          </Select>
+          <Select onValueChange={handleAddVendorParticipant}>
+            <SelectTrigger className="w-auto h-7 text-xs">
+              <RiStore2Line className="h-3 w-3 mr-1" />
+              Proveedor
+            </SelectTrigger>
+            <SelectContent>
+              {availableVendors.length === 0 ? (
+                <SelectItem value="__no_vendors__" disabled>
+                  {vendors.length === 0 ? "No hay proveedores" : "Todos agregados"}
+                </SelectItem>
+              ) : (
+                availableVendors.map((vendor) => (
+                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                    {vendor.name} {vendor.category && `(${vendor.category})`}
+                  </SelectItem>
+                ))
               )}
             </SelectContent>
           </Select>

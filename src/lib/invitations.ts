@@ -7,7 +7,8 @@ import {
   eventParticipants,
   taskParticipants,
   events,
-  tasks
+  tasks,
+  vendors
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { TenantSession } from "@/types";
@@ -272,18 +273,24 @@ export async function removeEventParticipant(
 // ============================================
 
 /**
- * Add a participant to a task
+ * Add a participant to a task (user or vendor)
  */
 export async function addTaskParticipant(
   session: TenantSession,
   taskId: number,
   params: {
-    userId: string;
+    userId?: string;
+    vendorId?: number;
     type: "planner" | "vendor" | "client" | "assistant" | "guest";
     canEdit?: boolean;
     canComment?: boolean;
   }
 ) {
+  // Must have either userId or vendorId
+  if (!params.userId && !params.vendorId) {
+    throw new Error("Either userId or vendorId is required");
+  }
+
   // Verify task belongs to organization
   const task = await db.query.tasks.findFirst({
     where: (t, { eq, and }) => 
@@ -298,21 +305,29 @@ export async function addTaskParticipant(
   }
 
   // Check for existing participant
+  const existingConditions = [eq(taskParticipants.taskId, taskId)];
+  if (params.userId) {
+    existingConditions.push(eq(taskParticipants.userId, params.userId));
+  }
+  if (params.vendorId) {
+    existingConditions.push(eq(taskParticipants.vendorId, params.vendorId));
+  }
+
   const existing = await db.query.taskParticipants.findFirst({
     where: (p, { eq, and }) => 
-      and(
-        eq(p.taskId, taskId),
-        eq(p.userId, params.userId)
-      ),
+      params.userId 
+        ? and(eq(p.taskId, taskId), eq(p.userId, params.userId))
+        : and(eq(p.taskId, taskId), eq(p.vendorId, params.vendorId!)),
   });
 
   if (existing) {
-    throw new Error("User is already a participant of this task");
+    throw new Error(params.userId ? "User is already a participant of this task" : "Vendor is already a participant of this task");
   }
 
   const [participant] = await db.insert(taskParticipants).values({
     taskId,
     userId: params.userId,
+    vendorId: params.vendorId,
     type: params.type,
     canEdit: params.canEdit ?? false,
     canComment: params.canComment ?? true,
@@ -394,13 +409,15 @@ export async function updateTaskParticipant(
 }
 
 /**
- * Get all participants of a task
+ * Get all participants of a task (users and vendors)
  */
 export async function getTaskParticipants(taskId: number) {
-  const participants = await db
+  // Get user participants
+  const userParticipants = await db
     .select({
       id: taskParticipants.id,
       userId: taskParticipants.userId,
+      vendorId: taskParticipants.vendorId,
       type: taskParticipants.type,
       canEdit: taskParticipants.canEdit,
       canComment: taskParticipants.canComment,
@@ -408,10 +425,16 @@ export async function getTaskParticipants(taskId: number) {
       userName: users.name,
       userEmail: users.email,
       userImage: users.image,
+      vendorName: vendors.name,
     })
     .from(taskParticipants)
-    .innerJoin(users, eq(taskParticipants.userId, users.id))
+    .leftJoin(users, eq(taskParticipants.userId, users.id))
+    .leftJoin(vendors, eq(taskParticipants.vendorId, vendors.id))
     .where(eq(taskParticipants.taskId, taskId));
 
-  return participants;
+  return userParticipants.map(p => ({
+    ...p,
+    name: p.userName || p.vendorName,
+    isVendor: !!p.vendorId,
+  }));
 }

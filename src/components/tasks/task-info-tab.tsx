@@ -14,8 +14,9 @@ import {
   RiLinkM,
   RiDownloadLine,
   RiMoneyDollarCircleLine,
-  RiUploadLine,
+  RiVideoLine,
 } from "@remixicon/react";
+import { FileUploader } from "@/components/ui/file-uploader";
 import {
   Dialog,
   DialogContent,
@@ -287,24 +288,33 @@ export function TaskInfoTab({
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1">
                 <RiAddLine className="h-4 w-4" />
-                Agregar Archivo
+                Subir Archivo
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Agregar Archivo o Imagen</DialogTitle>
+                <DialogTitle>Subir Archivo</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    value={newFile.type}
-                    onChange={(e) => setNewFile({ ...newFile, type: e.target.value })}
-                  >
-                    <option value="file">Archivo</option>
-                    <option value="image">Imagen</option>
-                  </select>
+                <FileUploader
+                  folder="task-attachments"
+                  maxSize={50 * 1024 * 1024}
+                  onUpload={async (result) => {
+                    await onAddAttachment({
+                      name: result.name,
+                      url: result.url,
+                      type: result.type,
+                    });
+                    setShowFileDialog(false);
+                  }}
+                />
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Nombre</Label>
@@ -321,16 +331,13 @@ export function TaskInfoTab({
                     value={newFile.url}
                     onChange={(e) => setNewFile({ ...newFile, url: e.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Sube tu archivo a Google Drive, Dropbox u otro servicio y pega el enlace aquí
-                  </p>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setShowFileDialog(false)}>
                     Cancelar
                   </Button>
                   <Button onClick={handleAddFile} disabled={addingFile || !newFile.name || !newFile.url}>
-                    {addingFile ? "Guardando..." : "Guardar"}
+                    {addingFile ? "Guardando..." : "Guardar enlace"}
                   </Button>
                 </div>
               </div>

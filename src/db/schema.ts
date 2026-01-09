@@ -688,7 +688,8 @@ export const paymentReminders = pgTable("payment_reminders", {
 export const taskParticipants = pgTable("task_participants", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
-  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  vendorId: integer("vendor_id").references(() => vendors.id, { onDelete: "cascade" }),
   type: participantTypeEnum("type").default("planner"),
   canEdit: boolean("can_edit").default(false),
   canComment: boolean("can_comment").default(true),

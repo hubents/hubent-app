@@ -20,10 +20,14 @@ interface TaskDetail {
 interface TaskParticipant {
   id: number;
   taskId: number;
-  userId: string;
-  userName?: string;
-  userEmail?: string;
-  userImage?: string;
+  userId: string | null;
+  vendorId: number | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  userImage?: string | null;
+  vendorName?: string | null;
+  name?: string | null;
+  isVendor?: boolean;
   type: string;
   canEdit: boolean;
   canComment: boolean;
@@ -417,8 +421,8 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId]);
 
-  // Add participant
-  const addParticipant = useCallback(async (participantData: { userId: string; type: string; canEdit?: boolean; canComment?: boolean }) => {
+  // Add participant (user or vendor)
+  const addParticipant = useCallback(async (participantData: { userId?: string; vendorId?: number; type: string; canEdit?: boolean; canComment?: boolean }) => {
     if (!taskId) return null;
     
     try {
