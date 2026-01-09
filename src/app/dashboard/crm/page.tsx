@@ -1,18 +1,14 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  RiAddLine,
-  RiMoreLine,
-} from "@remixicon/react";
+import { RiAddLine } from "@remixicon/react";
 import { useLeadsKanban } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
 import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
 import { LeadDetailDialog } from "@/components/crm/lead-detail-dialog";
+import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
 
 interface Lead {
@@ -173,45 +169,7 @@ export default function CRMPage() {
       </div>
 
       {/* Pipeline Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
-        {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-12 mb-1" />
-                <Skeleton className="h-3 w-16" />
-              </CardContent>
-            </Card>
-          ))
-        ) : displayStages.length > 0 ? (
-          displayStages.map((stage) => (
-            <Card key={stage.id}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="h-3 w-3 rounded-full" 
-                    style={{ backgroundColor: stage.color || "#6366f1" }}
-                  />
-                  <span className="text-sm font-medium">{stage.name}</span>
-                </div>
-                <p className="mt-2 text-2xl font-bold">{stage.leads.length}</p>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  €{stage.totalValue.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card className="md:col-span-5">
-            <CardContent className="p-8 text-center">
-              <p className="text-[var(--muted-foreground)]">
-                No hay etapas configuradas. Ejecuta las migraciones y el seed para comenzar.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      <CRMStats stages={displayStages} loading={loading} />
 
       {/* Kanban Board */}
       {loading ? (
