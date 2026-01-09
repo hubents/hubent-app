@@ -1,24 +1,35 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-// Cloudflare R2 configuration
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+// Helper function to get env vars at RUNTIME (not build time)
+function getR2Config() {
+  return {
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucketName: process.env.R2_BUCKET_NAME,
+    publicUrl: process.env.R2_PUBLIC_URL,
+  };
+}
 
-// Create S3 client for R2
+// Create S3 client for R2 - reads env vars at runtime
 function getR2Client() {
-  if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+  const config = getR2Config();
+  
+  if (!config.accountId || !config.accessKeyId || !config.secretAccessKey) {
+    console.error("R2 missing credentials:", {
+      hasAccountId: !!config.accountId,
+      hasAccessKeyId: !!config.accessKeyId,
+      hasSecretAccessKey: !!config.secretAccessKey,
+    });
     return null;
   }
   
   return new S3Client({
     region: "auto",
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
     credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
     },
   });
 }
@@ -28,10 +39,15 @@ export async function uploadToR2(
   filename: string,
   contentType: string
 ): Promise<{ url: string; key: string } | null> {
+  const config = getR2Config();
   const client = getR2Client();
   
-  if (!client || !R2_BUCKET_NAME || !R2_PUBLIC_URL) {
-    console.error("R2 is not configured. Missing environment variables.");
+  if (!client || !config.bucketName || !config.publicUrl) {
+    console.error("R2 is not configured. Missing:", {
+      hasClient: !!client,
+      hasBucketName: !!config.bucketName,
+      hasPublicUrl: !!config.publicUrl,
+    });
     return null;
   }
 
@@ -40,7 +56,7 @@ export async function uploadToR2(
   try {
     await client.send(
       new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: config.bucketName,
         Key: key,
         Body: file,
         ContentType: contentType,
@@ -48,7 +64,7 @@ export async function uploadToR2(
     );
 
     // Return public URL
-    const url = `${R2_PUBLIC_URL}/${key}`;
+    const url = `${config.publicUrl}/${key}`;
     return { url, key };
   } catch (error) {
     console.error("R2 upload error:", error);
@@ -57,9 +73,10 @@ export async function uploadToR2(
 }
 
 export async function deleteFromR2(key: string): Promise<boolean> {
+  const config = getR2Config();
   const client = getR2Client();
   
-  if (!client || !R2_BUCKET_NAME) {
+  if (!client || !config.bucketName) {
     console.error("R2 is not configured");
     return false;
   }
@@ -67,7 +84,7 @@ export async function deleteFromR2(key: string): Promise<boolean> {
   try {
     await client.send(
       new DeleteObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: config.bucketName,
         Key: key,
       })
     );
@@ -79,5 +96,6 @@ export async function deleteFromR2(key: string): Promise<boolean> {
 }
 
 export function isR2Configured(): boolean {
-  return !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET_NAME && R2_PUBLIC_URL);
+  const config = getR2Config();
+  return !!(config.accountId && config.accessKeyId && config.secretAccessKey && config.bucketName && config.publicUrl);
 }
