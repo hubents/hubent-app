@@ -93,6 +93,9 @@ export function TaskInfoTab({
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newPayment, setNewPayment] = useState({ description: "", amount: "", date: "" });
   const [addingPayment, setAddingPayment] = useState(false);
+  const [showFileDialog, setShowFileDialog] = useState(false);
+  const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
+  const [addingFile, setAddingFile] = useState(false);
 
   const handleAddPayment = async () => {
     if (!newPayment.description || !newPayment.amount) return;
@@ -112,6 +115,22 @@ export function TaskInfoTab({
 
   const handleDeletePayment = async (paymentId: number) => {
     await onDeletePayment(paymentId);
+  };
+
+  const handleAddFile = async () => {
+    if (!newFile.name || !newFile.url) return;
+    setAddingFile(true);
+    try {
+      await onAddAttachment({
+        name: newFile.name,
+        url: newFile.url,
+        type: newFile.type,
+      });
+      setNewFile({ name: "", url: "", type: "file" });
+      setShowFileDialog(false);
+    } finally {
+      setAddingFile(false);
+    }
   };
 
   // Filter attachments by type
@@ -262,7 +281,62 @@ export function TaskInfoTab({
 
       {/* Attachments Section */}
       <div className="space-y-3">
-        <h3 className="font-medium">Archivos</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium">Archivos</h3>
+          <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <RiAddLine className="h-4 w-4" />
+                Agregar Archivo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Agregar Archivo o Imagen</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={newFile.type}
+                    onChange={(e) => setNewFile({ ...newFile, type: e.target.value })}
+                  >
+                    <option value="file">Archivo</option>
+                    <option value="image">Imagen</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    placeholder="Ej: Contrato firmado.pdf"
+                    value={newFile.name}
+                    onChange={(e) => setNewFile({ ...newFile, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>URL del archivo</Label>
+                  <Input
+                    placeholder="https://..."
+                    value={newFile.url}
+                    onChange={(e) => setNewFile({ ...newFile, url: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sube tu archivo a Google Drive, Dropbox u otro servicio y pega el enlace aquí
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowFileDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddFile} disabled={addingFile || !newFile.name || !newFile.url}>
+                    {addingFile ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
         <Tabs value={attachmentTab} onValueChange={setAttachmentTab}>
           <TabsList>
             <TabsTrigger value="files" className="gap-1">
