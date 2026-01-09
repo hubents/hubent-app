@@ -1,0 +1,217 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/session";
+import { db } from "@/db";
+import { taskScheduleItems, tasks } from "@/db/schema";
+import { eq, and, asc } from "drizzle-orm";
+
+type RouteParams = { params: Promise<{ taskId: string }> };
+
+// GET /api/tasks/[taskId]/schedule - List task schedule items
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireRole("viewer");
+    const { taskId } = await params;
+
+    // Verify task belongs to organization
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, parseInt(taskId, 10)),
+          eq(t.organizationId, session.organizationId)
+        ),
+    });
+
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
+        { status: 404 }
+      );
+    }
+
+    const scheduleItems = await db
+      .select()
+      .from(taskScheduleItems)
+      .where(eq(taskScheduleItems.taskId, parseInt(taskId, 10)))
+      .orderBy(asc(taskScheduleItems.sortOrder), asc(taskScheduleItems.date));
+
+    return NextResponse.json({
+      success: true,
+      data: scheduleItems,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch schedule";
+    return NextResponse.json(
+      { success: false, error: { code: "FETCH_ERROR", message } },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/tasks/[taskId]/schedule - Add schedule item to task
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireRole("planner");
+    const { taskId } = await params;
+    const body = await request.json();
+
+    const { title, description, date, startTime, endTime, location, notes, sortOrder } = body;
+
+    if (!title || !date) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "title and date are required" } },
+        { status: 400 }
+      );
+    }
+
+    // Verify task belongs to organization
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, parseInt(taskId, 10)),
+          eq(t.organizationId, session.organizationId)
+        ),
+    });
+
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
+        { status: 404 }
+      );
+    }
+
+    const [scheduleItem] = await db.insert(taskScheduleItems).values({
+      taskId: parseInt(taskId, 10),
+      title,
+      description,
+      date: new Date(date),
+      startTime,
+      endTime,
+      location,
+      notes,
+      sortOrder: sortOrder || 0,
+    }).returning();
+
+    return NextResponse.json({
+      success: true,
+      data: scheduleItem,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to add schedule item";
+    return NextResponse.json(
+      { success: false, error: { code: "CREATE_ERROR", message } },
+      { status: 400 }
+    );
+  }
+}
+
+// PATCH /api/tasks/[taskId]/schedule - Update schedule item
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireRole("planner");
+    const { taskId } = await params;
+    const body = await request.json();
+
+    const { scheduleItemId, ...updateData } = body;
+
+    if (!scheduleItemId) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "scheduleItemId is required" } },
+        { status: 400 }
+      );
+    }
+
+    // Verify task belongs to organization
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, parseInt(taskId, 10)),
+          eq(t.organizationId, session.organizationId)
+        ),
+    });
+
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
+        { status: 404 }
+      );
+    }
+
+    // Convert date if present
+    if (updateData.date) {
+      updateData.date = new Date(updateData.date);
+    }
+
+    const [updated] = await db.update(taskScheduleItems)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(
+        and(
+          eq(taskScheduleItems.id, scheduleItemId),
+          eq(taskScheduleItems.taskId, parseInt(taskId, 10))
+        )
+      )
+      .returning();
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update schedule item";
+    return NextResponse.json(
+      { success: false, error: { code: "UPDATE_ERROR", message } },
+      { status: 400 }
+    );
+  }
+}
+
+// DELETE /api/tasks/[taskId]/schedule - Delete schedule item
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireRole("planner");
+    const { taskId } = await params;
+    const { searchParams } = new URL(request.url);
+    const scheduleItemId = searchParams.get("scheduleItemId");
+
+    if (!scheduleItemId) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "scheduleItemId is required" } },
+        { status: 400 }
+      );
+    }
+
+    // Verify task belongs to organization
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, parseInt(taskId, 10)),
+          eq(t.organizationId, session.organizationId)
+        ),
+    });
+
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
+        { status: 404 }
+      );
+    }
+
+    await db.delete(taskScheduleItems)
+      .where(
+        and(
+          eq(taskScheduleItems.id, parseInt(scheduleItemId, 10)),
+          eq(taskScheduleItems.taskId, parseInt(taskId, 10))
+        )
+      );
+
+    return NextResponse.json({
+      success: true,
+      data: { message: "Schedule item deleted" },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete schedule item";
+    return NextResponse.json(
+      { success: false, error: { code: "DELETE_ERROR", message } },
+      { status: 400 }
+    );
+  }
+}

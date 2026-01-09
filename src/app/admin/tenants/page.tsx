@@ -10,11 +10,13 @@ import {
   Building2, 
   Search, 
   Eye,
-  UserCog,
+  ExternalLink,
   Ban,
   Plus,
   X,
-  Loader2
+  Loader2,
+  Play,
+  Trash2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -41,6 +43,7 @@ export default function TenantsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -72,6 +75,43 @@ export default function TenantsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTenantAction = async (tenantId: number, action: "suspend" | "activate" | "delete") => {
+    const actionLabels = {
+      suspend: "suspender",
+      activate: "activar", 
+      delete: "eliminar"
+    };
+    
+    if (!confirm(`¿Estás seguro de ${actionLabels[action]} este tenant?`)) {
+      return;
+    }
+
+    setActionLoading(tenantId);
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Error al ejecutar acción");
+        return;
+      }
+
+      fetchTenants();
+    } catch (e) {
+      alert("Error de conexión");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleImpersonate = (slug: string) => {
+    window.open(`/dashboard?org=${slug}`, "_blank");
   };
 
   const handleCreateTenant = async (e: React.FormEvent) => {
@@ -285,18 +325,67 @@ export default function TenantsPage() {
                         : "-"}
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Link href={`/admin/tenants/${tenant.id}`}>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" title="Ver detalle">
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Button variant="ghost" size="sm">
-                          <UserCog className="h-4 w-4" />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          title="Impersonar"
+                          onClick={() => handleImpersonate(tenant.slug)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-red-500">
-                          <Ban className="h-4 w-4" />
-                        </Button>
+                        {tenant.status === "active" ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-yellow-500"
+                            title="Suspender"
+                            onClick={() => handleTenantAction(tenant.id, "suspend")}
+                            disabled={actionLoading === tenant.id}
+                          >
+                            {actionLoading === tenant.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Ban className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : tenant.status === "suspended" ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-green-500"
+                            title="Activar"
+                            onClick={() => handleTenantAction(tenant.id, "activate")}
+                            disabled={actionLoading === tenant.id}
+                          >
+                            {actionLoading === tenant.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : null}
+                        {tenant.status !== "deleted" && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-500"
+                            title="Eliminar"
+                            onClick={() => handleTenantAction(tenant.id, "delete")}
+                            disabled={actionLoading === tenant.id}
+                          >
+                            {actionLoading === tenant.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

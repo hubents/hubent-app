@@ -447,6 +447,7 @@ export const tasks = pgTable("tasks", {
   description: text("description"),
   status: taskStatusEnum("status").default("pending"),
   priority: text("priority").default("medium"),
+  category: text("category").default("general"),
   dueDate: timestamp("due_date"),
   eventId: integer("event_id").references(() => events.id),
   assignedTo: text("assigned_to").references(() => users.id),
