@@ -19,6 +19,7 @@ import {
   RiAddLine,
   RiUserAddLine,
   RiUploadLine,
+  RiDeleteBinLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
@@ -33,6 +34,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Event {
   id: number;
@@ -77,7 +85,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [vendors, setVendors] = useState<Array<{ id: number; vendorName: string; service: string }>>([]);
+  const [vendors, setVendors] = useState<Array<{ id: number; vendorId: number; vendorName: string; service: string }>>([])
+  const [allVendors, setAllVendors] = useState<Array<{ id: number; name: string; category: string | null }>>([])
+  const [showAddVendorDialog, setShowAddVendorDialog] = useState(false)
+  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null)
+  const [vendorService, setVendorService] = useState("")
+  const [addingVendor, setAddingVendor] = useState(false);
   const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string }>>([]);
   const [guests, setGuests] = useState<Array<{ id: number; firstName: string; lastName: string }>>([]);
   const [showAddGuestDialog, setShowAddGuestDialog] = useState(false);
@@ -86,6 +99,18 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [newDoc, setNewDoc] = useState({ name: "", url: "" });
   const [addingGuest, setAddingGuest] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
+
+  const fetchAllVendors = async () => {
+    try {
+      const res = await fetch("/api/vendors");
+      const data = await res.json();
+      if (data.success) {
+        setAllVendors(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch all vendors:", error);
+    }
+  };
 
   const fetchEvent = async () => {
     try {
@@ -150,7 +175,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors()]);
       setLoading(false);
     }
     loadData();
@@ -165,6 +190,46 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const handleTaskCreated = () => {
     fetchTasks();
   };
+
+  const handleAddVendorToEvent = async () => {
+    if (!selectedVendorId) return;
+    setAddingVendor(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/vendors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendorId: selectedVendorId,
+          service: vendorService,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedVendorId(null);
+        setVendorService("");
+        setShowAddVendorDialog(false);
+        fetchVendors();
+      }
+    } finally {
+      setAddingVendor(false);
+    }
+  };
+
+  const handleRemoveVendor = async (eventVendorId: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/vendors?id=${eventVendorId}`, {
+        method: "DELETE",
+      });
+      fetchVendors();
+    } catch (error) {
+      console.error("Failed to remove vendor:", error);
+    }
+  };
+
+  // Filter out vendors already assigned to this event
+  const availableVendors = allVendors.filter(
+    (v) => !vendors.some((ev) => ev.vendorId === v.id)
+  );
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
@@ -435,19 +500,91 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiStore2Line className="h-5 w-5" />
               Proveedores ({vendors.length})
             </CardTitle>
-            <Link href="/dashboard/providers">
-              <Button variant="outline" size="sm">
-                Agregar
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <Dialog open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <RiAddLine className="h-4 w-4" />
+                    Asignar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Asignar Proveedor al Evento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Seleccionar Proveedor</Label>
+                      {availableVendors.length > 0 ? (
+                        <Select
+                          value={selectedVendorId?.toString() || ""}
+                          onValueChange={(value) => setSelectedVendorId(parseInt(value, 10))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegir proveedor..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableVendors.map((v) => (
+                              <SelectItem key={v.id} value={v.id.toString()}>
+                                {v.name} {v.category && `(${v.category})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No hay proveedores disponibles.{" "}
+                          <Link href="/dashboard/vendors" className="text-primary underline">
+                            Crear nuevo proveedor
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Servicio a prestar</Label>
+                      <Input
+                        placeholder="Ej: Catering para 100 personas"
+                        value={vendorService}
+                        onChange={(e) => setVendorService(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowAddVendorDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleAddVendorToEvent} disabled={addingVendor || !selectedVendorId}>
+                        {addingVendor ? "Asignando..." : "Asignar Proveedor"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Link href="/dashboard/vendors">
+                <Button variant="ghost" size="sm">
+                  + Nuevo
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
             {vendors.length > 0 ? (
               <div className="space-y-2">
                 {vendors.map((vendor) => (
-                  <div key={vendor.id} className="flex items-center justify-between p-2 rounded border">
-                    <span className="font-medium">{vendor.vendorName}</span>
-                    <span className="text-sm text-muted-foreground">{vendor.service}</span>
+                  <div key={vendor.id} className="flex items-center justify-between p-2 rounded border group">
+                    <div>
+                      <span className="font-medium">{vendor.vendorName}</span>
+                      {vendor.service && (
+                        <span className="text-sm text-muted-foreground ml-2">- {vendor.service}</span>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                      onClick={() => handleRemoveVendor(vendor.id)}
+                    >
+                      <RiDeleteBinLine className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
