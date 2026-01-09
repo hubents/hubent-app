@@ -43,6 +43,13 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
     eventId: preselectedEventId?.toString() || "",
   });
 
+  // Actualizar eventId cuando cambia preselectedEventId
+  useEffect(() => {
+    if (preselectedEventId) {
+      setFormData(prev => ({ ...prev, eventId: preselectedEventId.toString() }));
+    }
+  }, [preselectedEventId]);
+
   useEffect(() => {
     async function loadEvents() {
       try {
@@ -55,10 +62,11 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
         console.error("Error loading events:", error);
       }
     }
-    if (open) {
+    // Solo cargar eventos si no hay uno preseleccionado
+    if (open && !preselectedEventId) {
       loadEvents();
     }
-  }, [open]);
+  }, [open, preselectedEventId]);
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.eventId) return;
@@ -83,7 +91,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
           description: "",
           priority: "medium",
           dueDate: "",
-          eventId: "",
+          eventId: preselectedEventId?.toString() || "",
         });
         onOpenChange(false);
         onTaskCreated?.();
@@ -105,28 +113,31 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Evento *</label>
-            <Select
-              value={formData.eventId}
-              onValueChange={(value) => setFormData({ ...formData, eventId: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar evento" />
-              </SelectTrigger>
-              <SelectContent>
-                {events.length === 0 ? (
-                  <SelectItem value="__no_events__" disabled>No hay eventos - crea uno primero</SelectItem>
-                ) : (
-                  events.map((event) => (
-                    <SelectItem key={event.id} value={event.id.toString()}>
-                      {event.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Solo mostrar selector de evento si no hay uno preseleccionado */}
+          {!preselectedEventId && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Evento *</label>
+              <Select
+                value={formData.eventId}
+                onValueChange={(value) => setFormData({ ...formData, eventId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar evento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.length === 0 ? (
+                    <SelectItem value="__no_events__" disabled>No hay eventos - crea uno primero</SelectItem>
+                  ) : (
+                    events.map((event) => (
+                      <SelectItem key={event.id} value={event.id.toString()}>
+                        {event.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Título *</label>
