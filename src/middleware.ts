@@ -81,7 +81,7 @@ export default auth((req) => {
     }
   }
 
-  // For authenticated requests, add user info to headers
+  // For ALL requests (including API routes), add user info to headers if authenticated
   if (isLoggedIn && req.auth?.user) {
     const response = NextResponse.next();
     
@@ -89,15 +89,21 @@ export default auth((req) => {
     response.headers.set("x-user-id", req.auth.user.id || "");
     response.headers.set("x-user-email", req.auth.user.email || "");
     
-    // Organization ID will be set from cookie or query param
+    // Organization ID will be set from cookie
     const orgId = req.cookies.get("hubents-org-id")?.value;
     if (orgId) {
       response.headers.set("x-organization-id", orgId);
     }
 
+    // Log for debugging API routes
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+      console.log(`[Middleware] API route: ${pathname}, userId: ${req.auth.user.id}, orgId: ${orgId || 'NOT SET'}`);
+    }
+
     return response;
   }
 
+  // For unauthenticated requests, just continue
   return NextResponse.next();
 });
 
