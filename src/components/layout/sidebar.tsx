@@ -13,11 +13,13 @@ import {
   RiSettings4Line,
   RiTeamLine,
   RiMoneyDollarCircleLine,
+  RiContactsBookLine,
 } from "@remixicon/react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
+  { name: "Contactos", href: "/dashboard/contacts", icon: RiContactsBookLine },
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
   { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },

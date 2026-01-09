@@ -580,6 +580,160 @@ export const peopleCompanies = pgTable("people_companies", {
 });
 
 // ============================================
+// CONTACTS TABLES (Unified Contact Management)
+// ============================================
+
+export const contactTypeEnum = pgEnum("contact_type", [
+  "person",
+  "company",
+]);
+
+export const contactSourceEnum = pgEnum("contact_source", [
+  "manual",
+  "import",
+  "website",
+  "referral",
+  "social_media",
+  "event",
+  "other",
+]);
+
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Type: person or company
+  type: contactTypeEnum("type").notNull().default("person"),
+  
+  // Common fields
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  phoneCountryCode: text("phone_country_code").default("+34"),
+  avatar: text("avatar"),
+  
+  // Person-specific fields
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  passportId: text("passport_id"),
+  nieOrCif: text("nie_or_cif"),
+  
+  // Company-specific fields
+  tradeName: text("trade_name"),
+  taxId: text("tax_id"),
+  website: text("website"),
+  contactPersonName: text("contact_person_name"),
+  contactPersonEmail: text("contact_person_email"),
+  
+  // Event-related fields (for leads/clients)
+  eventDate: timestamp("event_date"),
+  guestCount: integer("guest_count"),
+  budget: decimal("budget", { precision: 12, scale: 2 }),
+  venueType: text("venue_type"),
+  
+  // Address fields
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country").default("ES"),
+  
+  // Bank information
+  bankName: text("bank_name"),
+  bankAccountNumber: text("bank_account_number"),
+  bankIban: text("bank_iban"),
+  bankSwift: text("bank_swift"),
+  paymentMethods: json("payment_methods").$type<string[]>(),
+  
+  // Marketing/CRM fields
+  tags: json("tags").$type<string[]>(),
+  source: contactSourceEnum("source").default("manual"),
+  leadId: integer("lead_id").references(() => leads.id),
+  isLead: boolean("is_lead").default(false),
+  leadScore: integer("lead_score").default(0),
+  notes: text("notes"),
+  
+  // Metadata
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const contactDocuments = pgTable("contact_documents", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  type: text("type").default("document"),
+  size: integer("size"),
+  mimeType: text("mime_type"),
+  uploadedBy: text("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const contactPhotos = pgTable("contact_photos", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  caption: text("caption"),
+  sortOrder: integer("sort_order").default(0),
+  uploadedBy: text("uploaded_by").references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const contactActivityTypeEnum = pgEnum("contact_activity_type", [
+  "note",
+  "call",
+  "email",
+  "meeting",
+  "task_created",
+  "event_linked",
+  "lead_converted",
+  "status_change",
+  "other",
+]);
+
+export const contactActivities = pgTable("contact_activities", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  type: contactActivityTypeEnum("type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const contactTags = pgTable("contact_tags", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").default("#6366f1"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Link contacts to events
+export const contactEvents = pgTable("contact_events", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  role: text("role"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Link contacts to tasks
+export const contactTasks = pgTable("contact_tasks", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  role: text("role"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
 // FINANCE TABLES
 // ============================================
 
@@ -1055,6 +1209,20 @@ export type NewCompany = typeof companies.$inferInsert;
 export type Person = typeof people.$inferSelect;
 export type NewPerson = typeof people.$inferInsert;
 export type PersonCompany = typeof peopleCompanies.$inferSelect;
+
+// Contact Types
+export type Contact = typeof contacts.$inferSelect;
+export type NewContact = typeof contacts.$inferInsert;
+export type ContactDocument = typeof contactDocuments.$inferSelect;
+export type NewContactDocument = typeof contactDocuments.$inferInsert;
+export type ContactPhoto = typeof contactPhotos.$inferSelect;
+export type NewContactPhoto = typeof contactPhotos.$inferInsert;
+export type ContactActivity = typeof contactActivities.$inferSelect;
+export type NewContactActivity = typeof contactActivities.$inferInsert;
+export type ContactTag = typeof contactTags.$inferSelect;
+export type NewContactTag = typeof contactTags.$inferInsert;
+export type ContactEvent = typeof contactEvents.$inferSelect;
+export type ContactTask = typeof contactTasks.$inferSelect;
 
 // Finance Types
 export type ProductCatalogItem = typeof productCatalog.$inferSelect;
