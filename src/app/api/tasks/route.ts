@@ -53,10 +53,12 @@ export async function GET(request: NextRequest) {
       data: results,
     });
   } catch (error) {
+    console.error("GET /api/tasks error:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch tasks";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
     return NextResponse.json(
       { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -93,10 +95,12 @@ export async function POST(request: NextRequest) {
       data: task,
     });
   } catch (error) {
+    console.error("POST /api/tasks error:", error);
     const message = error instanceof Error ? error.message : "Failed to create task";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
     return NextResponse.json(
       { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
+      { status }
     );
   }
 }
