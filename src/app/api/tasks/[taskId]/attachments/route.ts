@@ -47,10 +47,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: attachments,
     });
   } catch (error) {
+    console.error("GET /api/tasks/[taskId]/attachments error:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch attachments";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
     return NextResponse.json(
       { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -104,10 +106,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: attachment,
     });
   } catch (error) {
+    console.error("POST /api/tasks/[taskId]/attachments error:", error);
     const message = error instanceof Error ? error.message : "Failed to add attachment";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
     return NextResponse.json(
       { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
+      { status }
     );
   }
 }

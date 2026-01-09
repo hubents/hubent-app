@@ -62,6 +62,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const fetchEvent = async () => {
@@ -97,8 +98,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     loadData();
   }, [eventId]);
 
-  const handleTaskClick = (taskId: number) => {
-    setSelectedTaskId(taskId);
+  const handleTaskClick = (task: Task) => {
+    setSelectedTaskId(task.id);
+    setSelectedTaskTitle(task.title);
     setIsDrawerOpen(true);
   };
 
@@ -275,7 +277,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   <div
                     key={task.id}
                     className="flex items-center justify-between rounded-lg border border-border p-3 cursor-pointer hover:bg-muted transition-colors"
-                    onClick={() => handleTaskClick(task.id)}
+                    onClick={() => handleTaskClick(task)}
                   >
                     <div>
                       <p className={`font-medium ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
@@ -393,6 +395,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       {/* Task Drawer */}
       <TaskDrawer
         taskId={selectedTaskId}
+        taskTitle={selectedTaskTitle}
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
         onTaskDeleted={handleTaskCreated}

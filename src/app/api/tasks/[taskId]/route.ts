@@ -32,10 +32,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: task,
     });
   } catch (error) {
+    console.error("GET /api/tasks/[taskId] error:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch task";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
     return NextResponse.json(
       { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -47,8 +49,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
+    // Remove undefined values and handle date conversion
+    const cleanBody: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(body)) {
+      if (value !== undefined) {
+        if (key === "dueDate" && value) {
+          cleanBody[key] = new Date(value as string);
+        } else {
+          cleanBody[key] = value;
+        }
+      }
+    }
+
     const [updated] = await db.update(tasks)
-      .set({ ...body, updatedAt: new Date() })
+      .set({ ...cleanBody, updatedAt: new Date() })
       .where(
         and(
           eq(tasks.id, parseInt(taskId, 10)),
@@ -69,10 +83,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: updated,
     });
   } catch (error) {
+    console.error("PATCH /api/tasks/[taskId] error:", error);
     const message = error instanceof Error ? error.message : "Failed to update task";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
     return NextResponse.json(
       { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
+      { status }
     );
   }
 }

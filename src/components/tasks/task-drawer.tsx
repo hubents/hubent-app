@@ -25,6 +25,7 @@ import { TaskChat } from "./task-chat";
 
 interface TaskDrawerProps {
   taskId: number | null;
+  taskTitle?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskDeleted?: () => void;
@@ -41,6 +42,7 @@ const categoryColors: Record<string, string> = {
 
 export function TaskDrawer({
   taskId,
+  taskTitle: initialTitle,
   open,
   onOpenChange,
   onTaskDeleted,
@@ -118,7 +120,7 @@ export function TaskDrawer({
               ) : (
                 <>
                   <SheetTitle className="text-xl font-semibold">
-                    {task?.title || "Cargando..."}
+                    {task?.title || initialTitle || "Cargando..."}
                   </SheetTitle>
                   {task?.category && (
                     <Badge
