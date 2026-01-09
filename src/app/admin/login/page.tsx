@@ -106,8 +106,8 @@ function AdminLoginContent() {
         <Card className="w-full max-w-md border-slate-700 bg-slate-800">
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
-              <div className="p-4 rounded-full bg-red-500/10">
-                <Mail className="h-8 w-8 text-red-400" />
+              <div className="p-4 rounded-full bg-slate-500/10">
+                <Mail className="h-8 w-8 text-slate-400" />
               </div>
             </div>
             <CardTitle className="text-2xl text-white">Revisa tu email</CardTitle>
@@ -142,8 +142,8 @@ function AdminLoginContent() {
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500/10">
-                <Shield className="h-6 w-6 text-red-400" />
+              <div className="p-2 rounded-lg bg-slate-600/20">
+                <Shield className="h-6 w-6 text-slate-400" />
               </div>
               <div className="flex items-center gap-2">
                 <Image
@@ -219,7 +219,7 @@ function AdminLoginContent() {
                   />
                 </div>
                 
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={loading}>
+                <Button type="submit" className="w-full bg-slate-700 hover:bg-slate-800" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -247,7 +247,7 @@ function AdminLoginContent() {
                   />
                 </div>
                 
-                <Button type="submit" className="w-full gap-2 bg-red-600 hover:bg-red-700" disabled={loading}>
+                <Button type="submit" className="w-full gap-2 bg-slate-700 hover:bg-slate-800" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -304,7 +304,7 @@ function AdminLoginContent() {
 
           <p className="text-center text-xs text-slate-500 pt-2">
             ¿Eres usuario de la plataforma?{" "}
-            <a href="/auth/login" className="text-red-400 hover:underline">
+            <a href="/auth/login" className="text-slate-400 hover:text-slate-300 hover:underline">
               Ir al login de usuarios
             </a>
           </p>
@@ -318,7 +318,7 @@ export default function AdminLoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <Loader2 className="h-8 w-8 animate-spin text-red-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
       </div>
     }>
       <AdminLoginContent />
