@@ -38,6 +38,12 @@ interface Lead {
   createdAt: Date | null;
   assignedUserName: string | null;
   assignedUserImage: string | null;
+  contactId?: number | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactType?: string | null;
+  contactAvatar?: string | null;
 }
 
 interface Stage {
@@ -206,6 +212,22 @@ export function LeadKanban({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+
+                      {/* Contact Info */}
+                      {lead.contactName && (
+                        <div className="flex items-center gap-2 py-1 px-2 bg-muted/50 rounded text-xs">
+                          <Avatar className="h-5 w-5">
+                            <AvatarImage src={lead.contactAvatar || undefined} />
+                            <AvatarFallback className={cn(
+                              "text-[10px]",
+                              lead.contactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"
+                            )}>
+                              {lead.contactName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="truncate text-muted-foreground">{lead.contactName}</span>
+                        </div>
+                      )}
 
                       {/* Lead Value */}
                       {lead.value && (

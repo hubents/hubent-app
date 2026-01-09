@@ -12,7 +12,23 @@ import {
 import { useLeadsKanban } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
 import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
+import { LeadDetailDialog } from "@/components/crm/lead-detail-dialog";
 import { useState } from "react";
+
+interface Lead {
+  id: number;
+  title: string;
+  value: string | null;
+  currency: string | null;
+  stageId: number | null;
+  status: string | null;
+  probability: number | null;
+  expectedCloseDate: Date | null;
+  assignedTo: string | null;
+  createdAt: Date | null;
+  assignedUserName: string | null;
+  assignedUserImage: string | null;
+}
 
 const fallbackStages = [
   {
@@ -118,9 +134,27 @@ const fallbackStages = [
 export default function CRMPage() {
   const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [createStageId, setCreateStageId] = useState<number | undefined>(undefined);
 
   // Use API data if available, otherwise show empty state
   const displayStages = stages.length > 0 ? stages : [];
+
+  const handleLeadClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleAddLead = (stageId: number) => {
+    setCreateStageId(stageId);
+    setIsCreateDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -195,7 +229,9 @@ export default function CRMPage() {
           stages={displayStages}
           onLeadMove={moveLead}
           onDeleteLead={deleteLead}
-          onAddLead={(stageId) => setIsCreateDialogOpen(true)}
+          onLeadClick={handleLeadClick}
+          onEditLead={handleEditLead}
+          onAddLead={handleAddLead}
         />
       ) : (
         <Card>
@@ -215,6 +251,16 @@ export default function CRMPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onLeadCreated={refetch}
+        stageId={createStageId}
+      />
+
+      <LeadDetailDialog
+        open={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        lead={selectedLead}
+        stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
+        onLeadUpdated={refetch}
+        onLeadDeleted={refetch}
       />
     </div>
   );

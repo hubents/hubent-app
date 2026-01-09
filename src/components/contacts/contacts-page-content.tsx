@@ -68,6 +68,7 @@ interface Contact {
 export function ContactsPageContent() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [leadFilter, setLeadFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
@@ -80,6 +81,7 @@ export function ContactsPageContent() {
   const { contacts, stats, loading, refetch, deleteContact } = useContacts({
     search: search || undefined,
     type: typeFilter !== "all" ? typeFilter : undefined,
+    isLead: leadFilter === "leads" ? true : leadFilter === "no-leads" ? false : undefined,
   });
 
   const handleContactClick = (contactId: number) => {
@@ -138,6 +140,39 @@ export function ContactsPageContent() {
       .slice(0, 2);
   };
 
+  const handleExportCSV = () => {
+    if (contacts.length === 0) {
+      alert("No hay contactos para exportar");
+      return;
+    }
+
+    const headers = ["Tipo", "Nombre", "Email", "Teléfono", "Ciudad", "Es Lead", "Tags"];
+    const rows = contacts.map(c => [
+      c.type === "company" ? "Empresa" : "Persona",
+      c.name,
+      c.email || "",
+      c.phone || "",
+      c.city || "",
+      c.isLead ? "Sí" : "No",
+      c.tags?.join(", ") || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `contactos_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -149,6 +184,10 @@ export function ContactsPageContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
+            <RiDownloadLine className="h-4 w-4" />
+            Exportar CSV
+          </Button>
           <Button variant="outline" className="gap-2" onClick={() => setIsImportDialogOpen(true)}>
             <RiUploadLine className="h-4 w-4" />
             Importar CSV
@@ -220,13 +259,23 @@ export function ContactsPageContent() {
             <CardTitle>Lista de Contactos</CardTitle>
             <div className="flex items-center gap-3">
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Todos" />
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="person">Personas</SelectItem>
                   <SelectItem value="company">Empresas</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={leadFilter} onValueChange={setLeadFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="leads">Solo Leads</SelectItem>
+                  <SelectItem value="no-leads">Sin Lead</SelectItem>
                 </SelectContent>
               </Select>
               <div className="relative w-64">
@@ -361,6 +410,21 @@ export function ContactsPageContent() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Enviar email</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {!contact.isLead && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              onClick={(e) => handleConvertToLead(e, contact)}
+                            >
+                              <RiUserStarLine className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Convertir a Lead</TooltipContent>
                         </Tooltip>
                       )}
                       <Tooltip>

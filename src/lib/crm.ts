@@ -5,7 +5,8 @@ import {
   companies, 
   people, 
   peopleCompanies,
-  users
+  users,
+  contacts
 } from "@/db/schema";
 import { eq, and, desc, isNull, ilike, or, sql } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
@@ -168,11 +169,18 @@ export async function getLeadsByStage(session: TenantSession) {
       expectedCloseDate: leads.expectedCloseDate,
       assignedTo: leads.assignedTo,
       createdAt: leads.createdAt,
+      contactId: leads.contactId,
       assignedUserName: users.name,
       assignedUserImage: users.image,
+      contactName: contacts.name,
+      contactEmail: contacts.email,
+      contactPhone: contacts.phone,
+      contactType: contacts.type,
+      contactAvatar: contacts.avatar,
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
+    .leftJoin(contacts, eq(leads.contactId, contacts.id))
     .where(
       and(
         eq(leads.organizationId, session.organizationId),
@@ -203,7 +211,28 @@ export async function getLead(session: TenantSession, leadId: number) {
       ),
   });
 
-  return lead;
+  if (!lead) return null;
+
+  // Get contact info if contactId exists
+  let contact = null;
+  if (lead.contactId) {
+    contact = await db.query.contacts.findFirst({
+      where: (c, { eq }) => eq(c.id, lead.contactId!),
+      columns: {
+        id: true,
+        type: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+      },
+    });
+  }
+
+  return {
+    ...lead,
+    contact,
+  };
 }
 
 export async function createLead(

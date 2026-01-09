@@ -35,6 +35,9 @@ interface ContactStats {
 interface UseContactsParams {
   search?: string;
   type?: string;
+  isLead?: boolean;
+  city?: string;
+  tag?: string;
   page?: number;
   limit?: number;
 }
@@ -64,6 +67,9 @@ export function useContacts(params: UseContactsParams = {}) {
       const searchParams = new URLSearchParams();
       if (params.search) searchParams.set("search", params.search);
       if (params.type) searchParams.set("type", params.type);
+      if (params.isLead !== undefined) searchParams.set("isLead", params.isLead.toString());
+      if (params.city) searchParams.set("city", params.city);
+      if (params.tag) searchParams.set("tag", params.tag);
       if (params.page) searchParams.set("page", params.page.toString());
       if (params.limit) searchParams.set("limit", params.limit.toString());
 
@@ -83,7 +89,7 @@ export function useContacts(params: UseContactsParams = {}) {
     } finally {
       setLoading(false);
     }
-  }, [params.search, params.type, params.page, params.limit]);
+  }, [params.search, params.type, params.isLead, params.city, params.tag, params.page, params.limit]);
 
   useEffect(() => {
     fetchContacts();

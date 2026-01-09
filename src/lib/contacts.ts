@@ -21,9 +21,9 @@ import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 export async function getContacts(
   session: TenantSession,
-  params: PaginationParams & FilterParams & { type?: string; tags?: string[] } = {}
+  params: PaginationParams & FilterParams & { type?: string; tags?: string[]; isLead?: boolean } = {}
 ) {
-  const { page = 1, limit = 50, search, type, tags } = params;
+  const { page = 1, limit = 50, search, type, tags, isLead } = params;
   const offset = (page - 1) * limit;
 
   let whereClause = and(
@@ -45,6 +45,10 @@ export async function getContacts(
 
   if (type && (type === "person" || type === "company")) {
     whereClause = and(whereClause, eq(contacts.type, type));
+  }
+
+  if (isLead !== undefined) {
+    whereClause = and(whereClause, eq(contacts.isLead, isLead));
   }
 
   const results = await db

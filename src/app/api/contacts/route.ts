@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const search = searchParams.get("search") || undefined;
     const type = searchParams.get("type") || undefined;
+    const isLeadParam = searchParams.get("isLead");
+    const isLead = isLeadParam === "true" ? true : isLeadParam === "false" ? false : undefined;
 
-    const result = await getContacts(session, { page, limit, search, type });
+    const result = await getContacts(session, { page, limit, search, type, isLead });
 
     return NextResponse.json({
       success: true,
