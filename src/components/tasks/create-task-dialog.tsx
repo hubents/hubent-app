@@ -19,10 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ContactSelector } from "@/components/contacts/contact-selector";
 
 interface Event {
   id: number;
   name: string;
+}
+
+interface Contact {
+  id: number;
+  type: "person" | "company";
+  name: string;
+  email: string | null;
+  avatar: string | null;
 }
 
 interface CreateTaskDialogProps {
@@ -35,6 +44,7 @@ interface CreateTaskDialogProps {
 export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselectedEventId }: CreateTaskDialogProps) {
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -93,6 +103,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
           dueDate: "",
           eventId: preselectedEventId?.toString() || "",
         });
+        setSelectedContacts([]);
         onOpenChange(false);
         onTaskCreated?.();
       }
@@ -183,6 +194,17 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Contactos relacionados</label>
+            <ContactSelector
+              selectedContacts={selectedContacts}
+              onSelect={(contact) => setSelectedContacts([...selectedContacts, contact])}
+              onRemove={(contactId) => setSelectedContacts(selectedContacts.filter(c => c.id !== contactId))}
+              placeholder="Vincular contacto..."
+              multiple
+            />
           </div>
         </div>
         <DialogFooter>

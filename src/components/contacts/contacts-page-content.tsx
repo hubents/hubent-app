@@ -15,6 +15,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   RiAddLine,
   RiSearchLine,
   RiUserLine,
@@ -22,19 +35,45 @@ import {
   RiMailLine,
   RiPhoneLine,
   RiMapPinLine,
+  RiWhatsappLine,
+  RiMoreLine,
+  RiDeleteBinLine,
+  RiCalendarEventLine,
+  RiFileListLine,
+  RiUploadLine,
+  RiDownloadLine,
+  RiExternalLinkLine,
 } from "@remixicon/react";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
 import { CreateContactDialog } from "./create-contact-dialog";
+import { ImportContactsDialog } from "./import-contacts-dialog";
+import { LinkContactDialog } from "./link-contact-dialog";
+
+interface Contact {
+  id: number;
+  type: "person" | "company";
+  name: string;
+  email: string | null;
+  phone: string | null;
+  phoneCountryCode: string | null;
+  avatar: string | null;
+  city: string | null;
+  tags: string[] | null;
+  isLead: boolean | null;
+}
 
 export function ContactsPageContent() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const { contacts, stats, loading, refetch } = useContacts({
+  const { contacts, stats, loading, refetch, deleteContact } = useContacts({
     search: search || undefined,
     type: typeFilter !== "all" ? typeFilter : undefined,
   });
@@ -42,6 +81,42 @@ export function ContactsPageContent() {
   const handleContactClick = (contactId: number) => {
     setSelectedContactId(contactId);
     setIsDrawerOpen(true);
+  };
+
+  const handleQuickCall = (e: React.MouseEvent, contact: Contact) => {
+    e.stopPropagation();
+    if (contact.phone) {
+      const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "");
+      window.open(`tel:${fullPhone}`, "_self");
+    }
+  };
+
+  const handleQuickEmail = (e: React.MouseEvent, contact: Contact) => {
+    e.stopPropagation();
+    if (contact.email) {
+      window.open(`mailto:${contact.email}`, "_self");
+    }
+  };
+
+  const handleQuickWhatsApp = (e: React.MouseEvent, contact: Contact) => {
+    e.stopPropagation();
+    if (contact.phone) {
+      const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "").replace("+", "");
+      window.open(`https://wa.me/${fullPhone}`, "_blank");
+    }
+  };
+
+  const handleLinkContact = (e: React.MouseEvent, contact: Contact) => {
+    e.stopPropagation();
+    setSelectedContact(contact);
+    setIsLinkDialogOpen(true);
+  };
+
+  const handleDeleteContact = async (e: React.MouseEvent, contactId: number) => {
+    e.stopPropagation();
+    if (confirm("¿Estás seguro de eliminar este contacto?")) {
+      await deleteContact(contactId);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -63,10 +138,16 @@ export function ContactsPageContent() {
             Administra todos tus contactos desde un solo lugar
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo Contacto
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setIsImportDialogOpen(true)}>
+            <RiUploadLine className="h-4 w-4" />
+            Importar CSV
+          </Button>
+          <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Nuevo Contacto
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -172,77 +253,176 @@ export function ContactsPageContent() {
               )}
             </div>
           ) : (
-            <div className="space-y-2">
-              {contacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => handleContactClick(contact.id)}
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={contact.avatar || undefined} />
-                    <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                      {contact.type === "company" ? (
-                        <RiBuilding2Line className="h-5 w-5" />
-                      ) : (
-                        getInitials(contact.name)
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
+            <TooltipProvider>
+              <div className="space-y-2">
+                {contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors group"
+                    onClick={() => handleContactClick(contact.id)}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={contact.avatar || undefined} />
+                      <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
+                        {contact.type === "company" ? (
+                          <RiBuilding2Line className="h-5 w-5" />
+                        ) : (
+                          getInitials(contact.name)
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{contact.name}</p>
-                      <Badge variant={contact.type === "company" ? "secondary" : "outline"} className="text-xs">
-                        {contact.type === "company" ? "Empresa" : "Persona"}
-                      </Badge>
-                      {contact.isLead && (
-                        <Badge variant="default" className="text-xs bg-green-500">
-                          Lead
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{contact.name}</p>
+                        <Badge variant={contact.type === "company" ? "secondary" : "outline"} className="text-xs">
+                          {contact.type === "company" ? "Empresa" : "Persona"}
                         </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      {contact.email && (
-                        <span className="flex items-center gap-1 truncate">
-                          <RiMailLine className="h-3 w-3" />
-                          {contact.email}
-                        </span>
-                      )}
-                      {contact.phone && (
-                        <span className="flex items-center gap-1">
-                          <RiPhoneLine className="h-3 w-3" />
-                          {contact.phoneCountryCode} {contact.phone}
-                        </span>
-                      )}
-                      {contact.city && (
-                        <span className="flex items-center gap-1">
-                          <RiMapPinLine className="h-3 w-3" />
-                          {contact.city}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {contact.tags && contact.tags.length > 0 && (
-                      <div className="flex gap-1">
-                        {contact.tags.slice(0, 2).map((tag, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                        {contact.tags.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{contact.tags.length - 2}
+                        {contact.isLead && (
+                          <Badge variant="default" className="text-xs bg-green-500">
+                            Lead
                           </Badge>
                         )}
                       </div>
-                    )}
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        {contact.email && (
+                          <span className="flex items-center gap-1 truncate">
+                            <RiMailLine className="h-3 w-3" />
+                            {contact.email}
+                          </span>
+                        )}
+                        {contact.phone && (
+                          <span className="flex items-center gap-1">
+                            <RiPhoneLine className="h-3 w-3" />
+                            {contact.phoneCountryCode} {contact.phone}
+                          </span>
+                        )}
+                        {contact.city && (
+                          <span className="flex items-center gap-1">
+                            <RiMapPinLine className="h-3 w-3" />
+                            {contact.city}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {contact.phone && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={(e) => handleQuickCall(e, contact)}
+                              >
+                                <RiPhoneLine className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Llamar</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={(e) => handleQuickWhatsApp(e, contact)}
+                              >
+                                <RiWhatsappLine className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>WhatsApp</TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+                      {contact.email && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              onClick={(e) => handleQuickEmail(e, contact)}
+                            >
+                              <RiMailLine className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Enviar email</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            onClick={(e) => handleLinkContact(e, contact)}
+                          >
+                            <RiCalendarEventLine className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Vincular a evento/tarea</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <RiMoreLine className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleContactClick(contact.id)}>
+                            <RiExternalLinkLine className="h-4 w-4 mr-2" />
+                            Ver detalles
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => handleLinkContact(e as unknown as React.MouseEvent, contact)}>
+                            <RiFileListLine className="h-4 w-4 mr-2" />
+                            Vincular a tarea
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => handleLinkContact(e as unknown as React.MouseEvent, contact)}>
+                            <RiCalendarEventLine className="h-4 w-4 mr-2" />
+                            Vincular a evento
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => handleDeleteContact(e as unknown as React.MouseEvent, contact.id)}
+                          >
+                            <RiDeleteBinLine className="h-4 w-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {contact.tags && contact.tags.length > 0 && (
+                        <div className="flex gap-1">
+                          {contact.tags.slice(0, 2).map((tag, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {contact.tags.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{contact.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
@@ -252,6 +432,21 @@ export function ContactsPageContent() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onContactCreated={refetch}
+      />
+
+      {/* Import Contacts Dialog */}
+      <ImportContactsDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        onImportComplete={refetch}
+      />
+
+      {/* Link Contact Dialog */}
+      <LinkContactDialog
+        open={isLinkDialogOpen}
+        onOpenChange={setIsLinkDialogOpen}
+        contact={selectedContact}
+        onLinkComplete={refetch}
       />
 
       {/* Contact Drawer */}
