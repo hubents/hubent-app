@@ -134,10 +134,12 @@ export function TaskInfoTab({
     }
   };
 
-  // Filter attachments by type
-  const files = attachments.filter((a) => a.type === "file" || a.type === "document");
-  const images = attachments.filter((a) => a.type === "image" || a.mimeType?.startsWith("image/"));
-  const links = attachments.filter((a) => a.type === "link");
+  // Filter attachments by type (with defensive check)
+  const safeAttachments = attachments || [];
+  const safePayments = payments || [];
+  const files = safeAttachments.filter((a) => a.type === "file" || a.type === "document");
+  const images = safeAttachments.filter((a) => a.type === "image" || a.mimeType?.startsWith("image/"));
+  const links = safeAttachments.filter((a) => a.type === "link");
 
   const handleDateSelect = async (date: Date | undefined) => {
     setSelectedDate(date);
@@ -239,13 +241,13 @@ export function TaskInfoTab({
             <span>Importe</span>
             <span></span>
           </div>
-          {payments.length === 0 ? (
+          {safePayments.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               No hay pagos registrados
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {payments.map((payment) => (
+              {safePayments.map((payment) => (
                 <div key={payment.id} className="grid grid-cols-4 gap-4 p-3 items-center">
                   <span className="text-sm">{payment.description}</span>
                   <span className="text-sm text-muted-foreground">
