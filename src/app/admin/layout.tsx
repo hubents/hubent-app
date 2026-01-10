@@ -12,7 +12,6 @@ import {
   ScrollText,
   Megaphone,
   LogOut,
-  Shield,
   Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,21 +53,14 @@ export default function AdminLayout({
       <aside className="w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col">
         {/* Header with Logo */}
         <div className="p-4 border-b border-border">
-          <Link href="/admin" className="flex items-center gap-3">
+          <Link href="/admin">
             <Image
-              src="/images/logo.png"
+              src="/images/logo-horizontal.svg"
               alt="HubEnts"
-              width={36}
+              width={140}
               height={36}
-              className="rounded-lg"
+              className="h-9 w-auto"
             />
-            <div>
-              <span className="font-bold text-lg">hubents</span>
-              <div className="flex items-center gap-1.5">
-                <Shield className="h-3 w-3 text-slate-500" />
-                <span className="text-xs text-muted-foreground">Admin</span>
-              </div>
-            </div>
           </Link>
         </div>
 
