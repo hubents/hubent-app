@@ -123,11 +123,14 @@ export function useTaskDetail(taskId: number | null) {
     try {
       const res = await fetch(`/api/tasks/${taskId}/participants`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setParticipants(data.data);
+      } else {
+        setParticipants([]);
       }
     } catch (err) {
       console.error("Failed to fetch participants:", err);
+      setParticipants([]);
     }
   }, [taskId]);
 
@@ -137,11 +140,14 @@ export function useTaskDetail(taskId: number | null) {
     try {
       const res = await fetch(`/api/tasks/${taskId}/videos`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setVideos(data.data);
+      } else {
+        setVideos([]);
       }
     } catch (err) {
       console.error("Failed to fetch videos:", err);
+      setVideos([]);
     }
   }, [taskId]);
 
@@ -151,11 +157,14 @@ export function useTaskDetail(taskId: number | null) {
     try {
       const res = await fetch(`/api/tasks/${taskId}/attachments`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setAttachments(data.data);
+      } else {
+        setAttachments([]);
       }
     } catch (err) {
       console.error("Failed to fetch attachments:", err);
+      setAttachments([]);
     }
   }, [taskId]);
 
@@ -165,11 +174,14 @@ export function useTaskDetail(taskId: number | null) {
     try {
       const res = await fetch(`/api/tasks/${taskId}/schedule`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setScheduleItems(data.data);
+      } else {
+        setScheduleItems([]);
       }
     } catch (err) {
       console.error("Failed to fetch schedule items:", err);
+      setScheduleItems([]);
     }
   }, [taskId]);
 
@@ -193,11 +205,14 @@ export function useTaskDetail(taskId: number | null) {
     try {
       const res = await fetch(`/api/tasks/${taskId}/payments`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setPayments(data.data);
+      } else {
+        setPayments([]);
       }
     } catch (err) {
       console.error("Failed to fetch payments:", err);
+      setPayments([]);
     }
   }, [taskId]);
 
