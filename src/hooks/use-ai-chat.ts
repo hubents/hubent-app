@@ -101,20 +101,42 @@ export function useAIChat(options: UseAIChatOptions = {}) {
       setMessages(prev => [...prev, assistantMessage]);
 
       if (reader) {
+        let buffer = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           
-          const chunk = decoder.decode(value, { stream: true });
+          buffer += decoder.decode(value, { stream: true });
           
-          setMessages(prev => {
-            const updated = [...prev];
-            const lastMessage = updated[updated.length - 1];
-            if (lastMessage.role === "assistant") {
-              lastMessage.content += chunk;
+          // Procesar líneas completas (SSE format: data: {...})
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === "data: [DONE]") continue;
+            
+            // SSE format: "data: {...}" o "event: ..." 
+            if (trimmed.startsWith("data: ")) {
+              const jsonStr = trimmed.slice(6);
+              try {
+                const data = JSON.parse(jsonStr);
+                // UI Message Stream format
+                if (data.type === "text" && data.value) {
+                  setMessages(prev => {
+                    const updated = [...prev];
+                    const lastMessage = updated[updated.length - 1];
+                    if (lastMessage.role === "assistant") {
+                      lastMessage.content += data.value;
+                    }
+                    return updated;
+                  });
+                }
+              } catch {
+                // Ignorar errores de parsing
+              }
             }
-            return updated;
-          });
+          }
         }
       }
     } catch (err) {

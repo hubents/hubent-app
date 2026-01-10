@@ -16,6 +16,7 @@ import {
   Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AdminHeader } from "@/components/layout/admin-header";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -108,9 +109,12 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <AdminHeader />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

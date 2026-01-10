@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("Error en chat AI:", error);
     return new Response(
