@@ -1136,6 +1136,27 @@ export const rsvpFaqs = pgTable("rsvp_faqs", {
 });
 
 // ============================================
+// EVENT PAYMENTS (Direct payments, not from tasks)
+// ============================================
+
+export const eventPayments = pgTable("event_payments", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  status: text("status").default("pending"), // pending, paid, overdue
+  dueDate: timestamp("due_date"),
+  paidDate: timestamp("paid_date"),
+  paidTo: text("paid_to"),
+  paidBy: text("paid_by"),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  notes: text("notes"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
 // VENDOR MARKETPLACE
 // ============================================
 

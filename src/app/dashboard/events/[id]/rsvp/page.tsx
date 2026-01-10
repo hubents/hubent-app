@@ -39,6 +39,7 @@ import {
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useFileUpload } from "@/hooks/use-file-upload";
 
 interface RsvpSettings {
   enabled: boolean;
@@ -133,6 +134,28 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const [inviteMessage, setInviteMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+
+  // File upload hook for cover image
+  const { upload: uploadImage, uploading: uploadingImage, error: uploadError } = useFileUpload({
+    folder: `events/${eventId}/cover`,
+    allowedTypes: ["image/*"],
+    onSuccess: async (result) => {
+      setCoverImage(result.url);
+      // Save to event
+      await fetch(`/api/events/${eventId}/rsvp`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: result.url }),
+      });
+    },
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadImage(file);
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -709,20 +732,61 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <RiImageAddLine className="h-5 w-5" />
               Imagen del evento
             </CardTitle>
-            <Button variant="outline" size="sm">Cambiar foto</Button>
+            <div>
+              <input
+                type="file"
+                id="cover-image-upload"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => document.getElementById("cover-image-upload")?.click()}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <>
+                    <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+                    Subiendo...
+                  </>
+                ) : (
+                  "Cambiar foto"
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {coverImage ? (
-              <div className="relative h-48 rounded-lg overflow-hidden">
-                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+            {uploadError && (
+              <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+                {uploadError}
               </div>
-            ) : (
-              <div className="h-48 rounded-lg bg-muted flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <RiImageAddLine className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Añade una imagen para tu evento</p>
+            )}
+            {coverImage ? (
+              <div className="relative h-48 rounded-lg overflow-hidden group">
+                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => document.getElementById("cover-image-upload")?.click()}
+                  >
+                    Cambiar imagen
+                  </Button>
                 </div>
               </div>
+            ) : (
+              <label
+                htmlFor="cover-image-upload"
+                className="h-48 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors border-2 border-dashed border-muted-foreground/25"
+              >
+                <div className="text-center text-muted-foreground">
+                  <RiImageAddLine className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Haz clic para añadir una imagen</p>
+                  <p className="text-xs mt-1">JPG, PNG, GIF hasta 10MB</p>
+                </div>
+              </label>
             )}
           </CardContent>
         </Card>
