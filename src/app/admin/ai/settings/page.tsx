@@ -28,15 +28,23 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 const models = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", description: "Rápido y eficiente" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", description: "Balance velocidad/calidad" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", description: "Mayor capacidad" },
+  // Google
+  { id: "google/gemini-2.0-flash", name: "Gemini 2.0 Flash", description: "Rápido y eficiente", provider: "Google" },
+  { id: "google/gemini-1.5-flash", name: "Gemini 1.5 Flash", description: "Balance velocidad/calidad", provider: "Google" },
+  { id: "google/gemini-1.5-pro", name: "Gemini 1.5 Pro", description: "Mayor capacidad", provider: "Google" },
+  // OpenAI
+  { id: "openai/gpt-4o", name: "GPT-4o", description: "Multimodal avanzado", provider: "OpenAI" },
+  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", description: "Rápido y económico", provider: "OpenAI" },
+  // Anthropic
+  { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", description: "Excelente razonamiento", provider: "Anthropic" },
+  // Meta
+  { id: "meta/llama-3.3-70b", name: "Llama 3.3 70B", description: "Open source potente", provider: "Meta" },
 ];
 
 export default function AdminAISettingsPage() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({
-    model: "gemini-2.0-flash",
+    model: "google/gemini-2.0-flash",
     temperature: 0.7,
     maxTokens: 2048,
     enabled: true,
@@ -255,20 +263,22 @@ export default function AdminAISettingsPage() {
           </CardContent>
         </Card>
 
-        {/* API Key Info */}
-        <Card className="border-amber-500/50 bg-amber-500/5">
+        {/* AI Gateway Info */}
+        <Card className="border-green-500/50 bg-green-500/5">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <Shield className="w-5 h-5 text-amber-600" />
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Zap className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="font-medium text-amber-700">Variable de Entorno Requerida</p>
-                <p className="text-sm text-amber-600 mt-1">
-                  Asegúrate de tener configurada la variable <code className="bg-amber-500/20 px-1 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> en Vercel.
+                <p className="font-medium text-green-700">Vercel AI Gateway</p>
+                <p className="text-sm text-green-600 mt-1">
+                  Usando Vercel AI Gateway con autenticación OIDC automática. 
+                  No requiere API keys individuales por proveedor.
                 </p>
-                <p className="text-xs text-amber-600/80 mt-2">
-                  Obtén tu API key en: https://aistudio.google.com/apikey
+                <p className="text-xs text-green-600/80 mt-2">
+                  Acceso a +100 modelos de Google, OpenAI, Anthropic, Meta y más.
+                  Analytics y caching incluidos en el dashboard de Vercel.
                 </p>
               </div>
             </div>
