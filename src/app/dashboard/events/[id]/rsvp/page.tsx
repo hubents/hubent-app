@@ -785,6 +785,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                   <RiImageAddLine className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>Haz clic para añadir una imagen</p>
                   <p className="text-xs mt-1">JPG, PNG, GIF hasta 10MB</p>
+                  <p className="text-xs mt-1 opacity-75">Tamaño recomendado: 1920x600 px (ratio 3.2:1)</p>
                 </div>
               </label>
             )}
