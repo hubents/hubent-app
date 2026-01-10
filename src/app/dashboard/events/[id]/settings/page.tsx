@@ -33,6 +33,7 @@ import {
   RiUserAddLine,
 } from "@remixicon/react";
 import { useRouter } from "next/navigation";
+import { LocationMap } from "@/components/ui/location-map";
 
 interface EventData {
   id: number;
@@ -302,9 +303,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
               placeholder="Ej: Calle Falsa 123, Ciudad"
             />
           </div>
-          <div className="h-48 rounded-lg bg-[var(--muted)] flex items-center justify-center text-[var(--muted-foreground)]">
-            Mapa (próximamente)
-          </div>
+          <LocationMap address={formData.location} className="h-48" />
         </CardContent>
       </Card>
 

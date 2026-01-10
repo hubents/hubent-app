@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   RiShareLine,
   RiMailSendLine,
@@ -20,8 +28,11 @@ import {
   RiMapPinLine,
   RiCalendarLine,
   RiHotelLine,
+  RiCheckLine,
+  RiLoader4Line,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface RsvpSettings {
   enabled: boolean;
@@ -33,6 +44,13 @@ interface RsvpSettings {
   showAccommodations: boolean;
   showLocation: boolean;
   showFaqs: boolean;
+}
+
+interface Guest {
+  id: number;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
 }
 
 export default function EventRsvpPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +71,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     showFaqs: true,
   });
   const [copied, setCopied] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [selectedGuests, setSelectedGuests] = useState<number[]>([]);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -88,6 +112,67 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
 
+  const fetchGuests = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests`);
+      const data = await res.json();
+      if (data.success) {
+        setGuests(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch guests:", error);
+    }
+  };
+
+  const handleOpenSendDialog = async () => {
+    await fetchGuests();
+    setShowSendDialog(true);
+    setSendResult(null);
+  };
+
+  const handleToggleGuest = (guestId: number) => {
+    setSelectedGuests((prev) =>
+      prev.includes(guestId)
+        ? prev.filter((id) => id !== guestId)
+        : [...prev, guestId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const guestsWithEmail = guests.filter((g) => g.email);
+    if (selectedGuests.length === guestsWithEmail.length) {
+      setSelectedGuests([]);
+    } else {
+      setSelectedGuests(guestsWithEmail.map((g) => g.id));
+    }
+  };
+
+  const handleSendInvitations = async () => {
+    if (selectedGuests.length === 0) return;
+    setSending(true);
+    setSendResult(null);
+
+    try {
+      const res = await fetch(`/api/events/${eventId}/invitations/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guestIds: selectedGuests,
+          customMessage: inviteMessage,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSendResult(data.data);
+        setSelectedGuests([]);
+      }
+    } catch (error) {
+      console.error("Failed to send invitations:", error);
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -111,16 +196,131 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <RiEyeLine className="h-4 w-4" />
-            Vista previa
-          </Button>
-          <Button className="gap-2">
+          <Link href={`/rsvp/${eventId}`} target="_blank">
+            <Button variant="outline" className="gap-2">
+              <RiEyeLine className="h-4 w-4" />
+              Vista previa
+            </Button>
+          </Link>
+          <Button className="gap-2" onClick={handleOpenSendDialog}>
             <RiMailSendLine className="h-4 w-4" />
             Enviar invitaciones
           </Button>
         </div>
       </div>
+
+      {/* Send Invitations Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enviar Invitaciones por Email</DialogTitle>
+            <DialogDescription>
+              Selecciona los invitados a los que deseas enviar la invitación
+            </DialogDescription>
+          </DialogHeader>
+
+          {sendResult ? (
+            <div className="py-6 text-center">
+              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                <RiCheckLine className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">¡Invitaciones enviadas!</h3>
+              <p className="text-muted-foreground">
+                {sendResult.sent} enviadas correctamente
+                {sendResult.failed > 0 && `, ${sendResult.failed} fallidas`}
+              </p>
+              <Button className="mt-4" onClick={() => setShowSendDialog(false)}>
+                Cerrar
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {guests.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <Button variant="ghost" size="sm" onClick={handleSelectAll}>
+                      {selectedGuests.length === guests.filter((g) => g.email).length
+                        ? "Deseleccionar todos"
+                        : "Seleccionar todos"}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedGuests.length} seleccionados
+                    </span>
+                  </div>
+
+                  <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                    {guests.map((guest) => (
+                      <div
+                        key={guest.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3",
+                          !guest.email && "opacity-50"
+                        )}
+                      >
+                        <Checkbox
+                          checked={selectedGuests.includes(guest.id)}
+                          onCheckedChange={() => handleToggleGuest(guest.id)}
+                          disabled={!guest.email}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">
+                            {guest.firstName} {guest.lastName}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {guest.email || "Sin email"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Mensaje personalizado (opcional)</Label>
+                    <Textarea
+                      placeholder="Añade un mensaje especial para los invitados..."
+                      value={inviteMessage}
+                      onChange={(e) => setInviteMessage(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowSendDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSendInvitations}
+                      disabled={sending || selectedGuests.length === 0}
+                      className="gap-2"
+                    >
+                      {sending ? (
+                        <>
+                          <RiLoader4Line className="h-4 w-4 animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <RiMailSendLine className="h-4 w-4" />
+                          Enviar ({selectedGuests.length})
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No hay invitados registrados
+                  </p>
+                  <Link href={`/dashboard/events/${eventId}/guests`}>
+                    <Button variant="outline">Añadir invitados</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Share Section */}
