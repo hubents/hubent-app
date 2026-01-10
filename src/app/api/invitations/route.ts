@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { createOrganizationInvitation, revokeInvitation } from "@/lib/invitations";
 import { db } from "@/db";
-import { invitations } from "@/db/schema";
+import { invitations, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { sendOrganizationInviteEmail } from "@/lib/email";
 
 // GET /api/invitations - List pending invitations
 export async function GET() {
@@ -53,8 +54,32 @@ export async function POST(request: NextRequest) {
 
     const result = await createOrganizationInvitation(session, email, role);
 
-    // TODO: Send invitation email via Resend
-    // await sendInvitationEmail(email, result.inviteUrl, session.user.name);
+    // Get organization name for the email
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+    });
+
+    // Send invitation email
+    const roleLabels: Record<string, string> = {
+      owner: "Propietario",
+      admin: "Administrador",
+      planner: "Planificador",
+      member: "Miembro",
+      viewer: "Visualizador",
+    };
+
+    try {
+      await sendOrganizationInviteEmail(
+        email,
+        org?.name || "Tu organización",
+        roleLabels[role] || role,
+        session.user?.name || null,
+        result.inviteUrl
+      );
+    } catch (emailError) {
+      console.error("Failed to send invitation email:", emailError);
+      // Continue even if email fails - invitation is still created
+    }
 
     return NextResponse.json({
       success: true,
