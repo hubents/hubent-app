@@ -53,14 +53,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[55]"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[90]"
         onClick={onClose}
       />
 
       {/* Panel - Centered, opens upward */}
       <div
         className={cn(
-          "fixed z-[60] bg-card border border-border shadow-2xl flex flex-col rounded-2xl",
+          "fixed z-[100] bg-card border border-border shadow-2xl flex flex-col rounded-2xl",
           // Centered position, opens upward from bottom
           "left-1/2 -translate-x-1/2 bottom-20",
           // Size

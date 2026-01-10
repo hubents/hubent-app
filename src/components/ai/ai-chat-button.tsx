@@ -18,7 +18,7 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed z-[60] flex items-center justify-center transition-all duration-300",
+          "fixed z-[100] flex items-center justify-center transition-all duration-300",
           // Position - CENTERED at bottom
           "bottom-4 left-1/2 -translate-x-1/2",
           // Size
