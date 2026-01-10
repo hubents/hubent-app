@@ -14,15 +14,15 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - Centered at bottom */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed z-40 flex items-center justify-center transition-all duration-300",
-          // Position
-          "bottom-20 right-4 md:bottom-6 md:right-6",
+          "fixed z-[60] flex items-center justify-center transition-all duration-300",
+          // Position - CENTERED at bottom
+          "bottom-4 left-1/2 -translate-x-1/2",
           // Size
-          "w-14 h-14 md:w-16 md:h-16",
+          "w-14 h-14",
           // Style
           "rounded-full shadow-lg",
           // Gradient background
@@ -33,8 +33,8 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
           "active:scale-95",
           // Glow effect
           "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-br before:from-violet-500 before:via-purple-500 before:to-fuchsia-500 before:blur-lg before:opacity-50 before:-z-10",
-          // Hide when panel is open on mobile
-          isOpen && "md:opacity-100 opacity-0 pointer-events-none md:pointer-events-auto"
+          // Hide when panel is open
+          isOpen && "opacity-0 pointer-events-none scale-90"
         )}
         aria-label={isOpen ? "Cerrar chat" : "Abrir asistente IA"}
       >

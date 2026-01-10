@@ -53,18 +53,20 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 md:hidden"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[55]"
         onClick={onClose}
       />
 
-      {/* Panel */}
+      {/* Panel - Centered, opens upward */}
       <div
         className={cn(
-          "fixed z-50 bg-[var(--card)] border-l border-[var(--border)] shadow-2xl flex flex-col",
-          // Mobile: full screen drawer from bottom
-          "inset-x-0 bottom-0 top-16 rounded-t-2xl md:rounded-none",
-          // Desktop: side panel
-          "md:inset-y-0 md:right-0 md:left-auto md:w-[420px] md:top-0"
+          "fixed z-[60] bg-card border border-border shadow-2xl flex flex-col rounded-2xl",
+          // Centered position, opens upward from bottom
+          "left-1/2 -translate-x-1/2 bottom-20",
+          // Size
+          "w-[95vw] max-w-md h-[70vh] max-h-[600px]",
+          // Animation
+          "animate-in slide-in-from-bottom-4 fade-in duration-200"
         )}
       >
         {/* Header */}
