@@ -407,6 +407,7 @@ export const events = pgTable("events", {
   guestCount: integer("guest_count").default(0),
   budget: decimal("budget", { precision: 10, scale: 2 }),
   description: text("description"),
+  coverImage: text("cover_image"),
   clientId: integer("client_id").references(() => clients.id),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1063,6 +1064,77 @@ export const rsvpLandingPages = pgTable("rsvp_landing_pages", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// RSVP Settings per event
+export const rsvpSettings = pgTable("rsvp_settings", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").default(true),
+  deadline: timestamp("deadline"),
+  allowPlusOne: boolean("allow_plus_one").default(false),
+  askDietaryRestrictions: boolean("ask_dietary_restrictions").default(true),
+  customMessage: text("custom_message"),
+  showItinerary: boolean("show_itinerary").default(true),
+  showHotels: boolean("show_hotels").default(true),
+  showNearbyPlans: boolean("show_nearby_plans").default(true),
+  showFaqs: boolean("show_faqs").default(true),
+  showLocation: boolean("show_location").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Itinerary items for events
+export const rsvpItinerary = pgTable("rsvp_itinerary", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  location: text("location"),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Recommended hotels
+export const rsvpHotels = pgTable("rsvp_hotels", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address"),
+  phone: text("phone"),
+  website: text("website"),
+  priceRange: text("price_range"),
+  distance: text("distance"),
+  imageUrl: text("image_url"),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Nearby plans/activities
+export const rsvpNearbyPlans = pgTable("rsvp_nearby_plans", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  address: text("address"),
+  website: text("website"),
+  imageUrl: text("image_url"),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// FAQs
+export const rsvpFaqs = pgTable("rsvp_faqs", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ============================================
 // VENDOR MARKETPLACE
 // ============================================
@@ -1258,6 +1330,11 @@ export type Guest = typeof guests.$inferSelect;
 export type NewGuest = typeof guests.$inferInsert;
 export type RsvpResponse = typeof rsvpResponses.$inferSelect;
 export type RsvpLandingPage = typeof rsvpLandingPages.$inferSelect;
+export type RsvpSettings = typeof rsvpSettings.$inferSelect;
+export type RsvpItineraryItem = typeof rsvpItinerary.$inferSelect;
+export type RsvpHotel = typeof rsvpHotels.$inferSelect;
+export type RsvpNearbyPlan = typeof rsvpNearbyPlans.$inferSelect;
+export type RsvpFaq = typeof rsvpFaqs.$inferSelect;
 
 // Vendor Marketplace Types
 export type VendorProfile = typeof vendorProfiles.$inferSelect;

@@ -30,6 +30,12 @@ import {
   RiHotelLine,
   RiCheckLine,
   RiLoader4Line,
+  RiAddLine,
+  RiDeleteBinLine,
+  RiEditLine,
+  RiImageAddLine,
+  RiCompassLine,
+  RiTimeLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -41,9 +47,51 @@ interface RsvpSettings {
   askDietaryRestrictions: boolean;
   customMessage: string;
   showItinerary: boolean;
-  showAccommodations: boolean;
+  showHotels: boolean;
+  showNearbyPlans: boolean;
   showLocation: boolean;
   showFaqs: boolean;
+}
+
+interface ItineraryItem {
+  id: number;
+  title: string;
+  description: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  orderIndex: number;
+}
+
+interface Hotel {
+  id: number;
+  name: string;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  priceRange: string | null;
+  distance: string | null;
+  imageUrl: string | null;
+  orderIndex: number;
+}
+
+interface NearbyPlan {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string | null;
+  address: string | null;
+  website: string | null;
+  imageUrl: string | null;
+  orderIndex: number;
+}
+
+interface Faq {
+  id: number;
+  question: string;
+  answer: string;
+  orderIndex: number;
 }
 
 interface Guest {
@@ -66,10 +114,18 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     askDietaryRestrictions: true,
     customMessage: "",
     showItinerary: true,
-    showAccommodations: true,
+    showHotels: true,
+    showNearbyPlans: true,
     showLocation: true,
     showFaqs: true,
   });
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [nearbyPlans, setNearbyPlans] = useState<NearbyPlan[]>([]);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<ItineraryItem | Hotel | NearbyPlan | Faq | null>(null);
   const [copied, setCopied] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -79,20 +135,46 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
 
   useEffect(() => {
-    async function fetchEvent() {
+    async function fetchData() {
       try {
-        const res = await fetch(`/api/events/${eventId}`);
-        const data = await res.json();
-        if (data.success) {
-          setActiveEvent(data.data);
+        // Fetch event
+        const eventRes = await fetch(`/api/events/${eventId}`);
+        const eventData = await eventRes.json();
+        if (eventData.success) {
+          setActiveEvent(eventData.data);
+          setCoverImage(eventData.data.coverImage || null);
+        }
+
+        // Fetch RSVP data
+        const rsvpRes = await fetch(`/api/events/${eventId}/rsvp`);
+        const rsvpData = await rsvpRes.json();
+        if (rsvpData.success) {
+          if (rsvpData.data.settings) {
+            setSettings({
+              enabled: rsvpData.data.settings.enabled ?? true,
+              deadline: rsvpData.data.settings.deadline || null,
+              allowPlusOne: rsvpData.data.settings.allowPlusOne ?? false,
+              askDietaryRestrictions: rsvpData.data.settings.askDietaryRestrictions ?? true,
+              customMessage: rsvpData.data.settings.customMessage || "",
+              showItinerary: rsvpData.data.settings.showItinerary ?? true,
+              showHotels: rsvpData.data.settings.showHotels ?? true,
+              showNearbyPlans: rsvpData.data.settings.showNearbyPlans ?? true,
+              showLocation: rsvpData.data.settings.showLocation ?? true,
+              showFaqs: rsvpData.data.settings.showFaqs ?? true,
+            });
+          }
+          setItinerary(rsvpData.data.itinerary || []);
+          setHotels(rsvpData.data.hotels || []);
+          setNearbyPlans(rsvpData.data.nearbyPlans || []);
+          setFaqs(rsvpData.data.faqs || []);
         }
       } catch (error) {
-        console.error("Failed to fetch event:", error);
+        console.error("Failed to fetch data:", error);
       } finally {
         setLoading(false);
       }
     }
-    fetchEvent();
+    fetchData();
   }, [eventId, setActiveEvent]);
 
   const rsvpUrl = typeof window !== "undefined" 
@@ -170,6 +252,127 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
       console.error("Failed to send invitations:", error);
     } finally {
       setSending(false);
+    }
+  };
+
+  // CRUD functions for itinerary
+  const handleAddItinerary = async (item: Partial<ItineraryItem>) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setItinerary([...itinerary, data.data]);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error("Failed to add itinerary:", error);
+    }
+  };
+
+  const handleDeleteItinerary = async (id: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp/itinerary?id=${id}`, { method: "DELETE" });
+      setItinerary(itinerary.filter((i) => i.id !== id));
+    } catch (error) {
+      console.error("Failed to delete itinerary:", error);
+    }
+  };
+
+  // CRUD functions for hotels
+  const handleAddHotel = async (item: Partial<Hotel>) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHotels([...hotels, data.data]);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error("Failed to add hotel:", error);
+    }
+  };
+
+  const handleDeleteHotel = async (id: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp/hotels?id=${id}`, { method: "DELETE" });
+      setHotels(hotels.filter((h) => h.id !== id));
+    } catch (error) {
+      console.error("Failed to delete hotel:", error);
+    }
+  };
+
+  // CRUD functions for nearby plans
+  const handleAddNearbyPlan = async (item: Partial<NearbyPlan>) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNearbyPlans([...nearbyPlans, data.data]);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error("Failed to add nearby plan:", error);
+    }
+  };
+
+  const handleDeleteNearbyPlan = async (id: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp/nearby-plans?id=${id}`, { method: "DELETE" });
+      setNearbyPlans(nearbyPlans.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error("Failed to delete nearby plan:", error);
+    }
+  };
+
+  // CRUD functions for FAQs
+  const handleAddFaq = async (item: Partial<Faq>) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFaqs([...faqs, data.data]);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error("Failed to add FAQ:", error);
+    }
+  };
+
+  const handleDeleteFaq = async (id: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp/faqs?id=${id}`, { method: "DELETE" });
+      setFaqs(faqs.filter((f) => f.id !== id));
+    } catch (error) {
+      console.error("Failed to delete FAQ:", error);
+    }
+  };
+
+  // Save settings
+  const handleSaveSettings = async () => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings, coverImage }),
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
     }
   };
 
@@ -454,13 +657,24 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
               <div className={cn(
                 "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showAccommodations ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
+                settings.showHotels ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
               )}
-              onClick={() => setSettings({ ...settings, showAccommodations: !settings.showAccommodations })}
+              onClick={() => setSettings({ ...settings, showHotels: !settings.showHotels })}
               >
                 <RiHotelLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">Acomodaciones</p>
+                <p className="font-medium">Hoteles</p>
                 <p className="text-sm text-[var(--muted-foreground)]">Hoteles recomendados</p>
+              </div>
+
+              <div className={cn(
+                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
+                settings.showNearbyPlans ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
+              )}
+              onClick={() => setSettings({ ...settings, showNearbyPlans: !settings.showNearbyPlans })}
+              >
+                <RiCompassLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
+                <p className="font-medium">Planes cercanos</p>
+                <p className="text-sm text-[var(--muted-foreground)]">Actividades y lugares</p>
               </div>
 
               <div className={cn(
@@ -488,6 +702,202 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           </CardContent>
         </Card>
 
+        {/* Cover Image */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiImageAddLine className="h-5 w-5" />
+              Imagen del evento
+            </CardTitle>
+            <Button variant="outline" size="sm">Cambiar foto</Button>
+          </CardHeader>
+          <CardContent>
+            {coverImage ? (
+              <div className="relative h-48 rounded-lg overflow-hidden">
+                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="h-48 rounded-lg bg-muted flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <RiImageAddLine className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Añade una imagen para tu evento</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Itinerary Section */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiCalendarLine className="h-5 w-5" />
+              Itinerario
+              <Switch
+                checked={settings.showItinerary}
+                onCheckedChange={(checked) => setSettings({ ...settings, showItinerary: checked })}
+              />
+            </CardTitle>
+            <Button size="sm" className="gap-1" onClick={() => setEditingSection("itinerary")}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {itinerary.length > 0 ? (
+              <div className="space-y-3">
+                {itinerary.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg border">
+                    <RiTimeLine className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium">{item.title}</p>
+                      {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
+                      {item.startTime && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(item.startTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          {item.endTime && ` - ${new Date(item.endTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteItinerary(item.id)}>
+                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <RiCalendarLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Añade el cronograma del evento</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Hotels Section */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiHotelLine className="h-5 w-5" />
+              Hoteles
+              <Switch
+                checked={settings.showHotels}
+                onCheckedChange={(checked) => setSettings({ ...settings, showHotels: checked })}
+              />
+            </CardTitle>
+            <Button size="sm" className="gap-1" onClick={() => setEditingSection("hotel")}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {hotels.length > 0 ? (
+              <div className="space-y-3">
+                {hotels.map((hotel) => (
+                  <div key={hotel.id} className="flex items-start gap-3 p-3 rounded-lg border">
+                    <div className="flex-1">
+                      <p className="font-medium">{hotel.name}</p>
+                      {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
+                      {hotel.priceRange && <p className="text-xs text-muted-foreground">{hotel.priceRange}</p>}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>
+                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <RiHotelLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Recomienda hoteles cercanos</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Nearby Plans Section */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiCompassLine className="h-5 w-5" />
+              Planes cercanos
+              <Switch
+                checked={settings.showNearbyPlans}
+                onCheckedChange={(checked) => setSettings({ ...settings, showNearbyPlans: checked })}
+              />
+            </CardTitle>
+            <Button size="sm" className="gap-1" onClick={() => setEditingSection("nearbyPlan")}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {nearbyPlans.length > 0 ? (
+              <div className="space-y-3">
+                {nearbyPlans.map((plan) => (
+                  <div key={plan.id} className="flex items-start gap-3 p-3 rounded-lg border">
+                    <div className="flex-1">
+                      <p className="font-medium">{plan.name}</p>
+                      {plan.category && <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>}
+                      {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteNearbyPlan(plan.id)}>
+                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <RiCompassLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Sugiere actividades cercanas</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* FAQs Section */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiQuestionLine className="h-5 w-5" />
+              Preguntas frecuentes
+              <Switch
+                checked={settings.showFaqs}
+                onCheckedChange={(checked) => setSettings({ ...settings, showFaqs: checked })}
+              />
+            </CardTitle>
+            <Button size="sm" className="gap-1" onClick={() => setEditingSection("faq")}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir FAQ
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {faqs.length > 0 ? (
+              <div className="space-y-3">
+                {faqs.map((faq) => (
+                  <div key={faq.id} className="p-3 rounded-lg border">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium">{faq.question}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{faq.answer}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteFaq(faq.id)}>
+                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <RiQuestionLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Añade preguntas frecuentes para tus invitados</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Custom Message */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -500,12 +910,196 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               onChange={(e) => setSettings({ ...settings, customMessage: e.target.value })}
               rows={4}
             />
-            <p className="text-sm text-[var(--muted-foreground)] mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Este mensaje aparecerá en la página de RSVP y en las invitaciones enviadas.
             </p>
           </CardContent>
         </Card>
+
+        {/* Save Button */}
+        <div className="lg:col-span-2 flex justify-end">
+          <Button onClick={handleSaveSettings} className="gap-2">
+            <RiCheckLine className="h-4 w-4" />
+            Guardar cambios
+          </Button>
+        </div>
       </div>
+
+      {/* Add Itinerary Dialog */}
+      <Dialog open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir al itinerario</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleAddItinerary({
+              title: formData.get("title") as string,
+              description: formData.get("description") as string,
+              startTime: formData.get("startTime") as string || null,
+              location: formData.get("location") as string,
+            });
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Título *</Label>
+              <Input name="title" required placeholder="Ej: Ceremonia" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea name="description" placeholder="Detalles del momento..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Hora</Label>
+                <Input name="startTime" type="datetime-local" />
+              </div>
+              <div className="space-y-2">
+                <Label>Lugar</Label>
+                <Input name="location" placeholder="Ubicación" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
+              <Button type="submit">Añadir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Hotel Dialog */}
+      <Dialog open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir hotel</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleAddHotel({
+              name: formData.get("name") as string,
+              description: formData.get("description") as string,
+              address: formData.get("address") as string,
+              phone: formData.get("phone") as string,
+              website: formData.get("website") as string,
+              priceRange: formData.get("priceRange") as string,
+              distance: formData.get("distance") as string,
+            });
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input name="name" required placeholder="Nombre del hotel" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea name="description" placeholder="Descripción breve..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Dirección</Label>
+              <Input name="address" placeholder="Dirección completa" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Teléfono</Label>
+                <Input name="phone" placeholder="+54 11 1234-5678" />
+              </div>
+              <div className="space-y-2">
+                <Label>Rango de precios</Label>
+                <Input name="priceRange" placeholder="$$$ - $$$$" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Sitio web</Label>
+                <Input name="website" placeholder="https://..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Distancia</Label>
+                <Input name="distance" placeholder="A 5 min del evento" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
+              <Button type="submit">Añadir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Nearby Plan Dialog */}
+      <Dialog open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir plan cercano</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleAddNearbyPlan({
+              name: formData.get("name") as string,
+              description: formData.get("description") as string,
+              category: formData.get("category") as string,
+              address: formData.get("address") as string,
+              website: formData.get("website") as string,
+            });
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input name="name" required placeholder="Nombre del lugar" />
+            </div>
+            <div className="space-y-2">
+              <Label>Categoría</Label>
+              <Input name="category" placeholder="Restaurante, Bar, Museo..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea name="description" placeholder="Por qué lo recomiendas..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Dirección</Label>
+              <Input name="address" placeholder="Dirección" />
+            </div>
+            <div className="space-y-2">
+              <Label>Sitio web</Label>
+              <Input name="website" placeholder="https://..." />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
+              <Button type="submit">Añadir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add FAQ Dialog */}
+      <Dialog open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir pregunta frecuente</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleAddFaq({
+              question: formData.get("question") as string,
+              answer: formData.get("answer") as string,
+            });
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Pregunta *</Label>
+              <Input name="question" required placeholder="¿Cuál es el código de vestimenta?" />
+            </div>
+            <div className="space-y-2">
+              <Label>Respuesta *</Label>
+              <Textarea name="answer" required placeholder="Formal / Semi-formal..." rows={3} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
+              <Button type="submit">Añadir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

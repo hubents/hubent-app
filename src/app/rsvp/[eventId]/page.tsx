@@ -23,9 +23,60 @@ import {
   RiQuestionLine,
   RiHotelLine,
   RiUserLine,
+  RiCompassLine,
+  RiPhoneLine,
+  RiGlobalLine,
+  RiArrowDownSLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { LocationMap } from "@/components/ui/location-map";
+
+interface ItineraryItem {
+  id: number;
+  title: string;
+  description: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+}
+
+interface Hotel {
+  id: number;
+  name: string;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  priceRange: string | null;
+  distance: string | null;
+}
+
+interface NearbyPlan {
+  id: number;
+  name: string;
+  description: string | null;
+  category: string | null;
+  address: string | null;
+  website: string | null;
+}
+
+interface Faq {
+  id: number;
+  question: string;
+  answer: string;
+}
+
+interface RsvpSettings {
+  showItinerary: boolean;
+  showHotels: boolean;
+  showNearbyPlans: boolean;
+  showFaqs: boolean;
+  showLocation: boolean;
+  allowPlusOne: boolean;
+  askDietaryRestrictions: boolean;
+  customMessage: string | null;
+}
 
 interface EventData {
   id: number;
@@ -35,6 +86,12 @@ interface EventData {
   endDate: string | null;
   location: string | null;
   description: string | null;
+  coverImage: string | null;
+  settings: RsvpSettings;
+  itinerary: ItineraryItem[];
+  hotels: Hotel[];
+  nearbyPlans: NearbyPlan[];
+  faqs: Faq[];
 }
 
 interface RsvpFormData {
@@ -196,11 +253,18 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
       {/* Hero Section */}
       <div className="relative h-64 md:h-80 bg-primary/10 flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80" />
+        {event?.coverImage && (
+          <img 
+            src={event.coverImage} 
+            alt={event.name} 
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-background/90" />
         <div className="relative z-10 text-center px-4">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">{event?.name}</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white drop-shadow-lg">{event?.name}</h1>
           {event?.date && (
-            <p className="text-lg text-muted-foreground flex items-center justify-center gap-2">
+            <p className="text-lg text-white/90 flex items-center justify-center gap-2 drop-shadow">
               <RiCalendarLine className="h-5 w-5" />
               {new Date(event.date).toLocaleDateString("es-ES", {
                 weekday: "long",
@@ -413,6 +477,169 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
             </form>
           </CardContent>
         </Card>
+
+        {/* Itinerary Section */}
+        {event?.itinerary && event.itinerary.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RiCalendarLine className="h-5 w-5 text-primary" />
+                Itinerario
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {event.itinerary.map((item, index) => (
+                  <div key={item.id} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <RiTimeLine className="h-5 w-5 text-primary" />
+                      </div>
+                      {index < event.itinerary.length - 1 && (
+                        <div className="w-0.5 flex-1 bg-border mt-2" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="font-medium">{item.title}</p>
+                      {item.startTime && (
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(item.startTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          {item.endTime && ` - ${new Date(item.endTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
+                        </p>
+                      )}
+                      {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
+                      {item.location && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <RiMapPinLine className="h-3 w-3" /> {item.location}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Location Map */}
+        {event?.settings?.showLocation && event?.location && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RiMapPinLine className="h-5 w-5 text-primary" />
+                Ubicación
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LocationMap address={event.location} className="h-64" />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Hotels Section */}
+        {event?.hotels && event.hotels.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RiHotelLine className="h-5 w-5 text-primary" />
+                Hoteles recomendados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {event.hotels.map((hotel) => (
+                  <div key={hotel.id} className="p-4 rounded-lg border">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{hotel.name}</p>
+                        {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
+                        {hotel.distance && <p className="text-xs text-muted-foreground mt-1">{hotel.distance}</p>}
+                      </div>
+                      {hotel.priceRange && (
+                        <span className="text-sm font-medium text-primary">{hotel.priceRange}</span>
+                      )}
+                    </div>
+                    {hotel.description && <p className="text-sm text-muted-foreground mt-2">{hotel.description}</p>}
+                    <div className="flex gap-3 mt-3">
+                      {hotel.phone && (
+                        <a href={`tel:${hotel.phone}`} className="text-sm text-primary flex items-center gap-1">
+                          <RiPhoneLine className="h-4 w-4" /> Llamar
+                        </a>
+                      )}
+                      {hotel.website && (
+                        <a href={hotel.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary flex items-center gap-1">
+                          <RiGlobalLine className="h-4 w-4" /> Web
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Nearby Plans Section */}
+        {event?.nearbyPlans && event.nearbyPlans.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RiCompassLine className="h-5 w-5 text-primary" />
+                Planes cercanos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {event.nearbyPlans.map((plan) => (
+                  <div key={plan.id} className="p-4 rounded-lg border">
+                    <div className="flex items-start justify-between">
+                      <p className="font-medium">{plan.name}</p>
+                      {plan.category && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>
+                      )}
+                    </div>
+                    {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
+                    {plan.address && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                        <RiMapPinLine className="h-3 w-3" /> {plan.address}
+                      </p>
+                    )}
+                    {plan.website && (
+                      <a href={plan.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary flex items-center gap-1 mt-2">
+                        <RiGlobalLine className="h-4 w-4" /> Ver más
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* FAQs Section */}
+        {event?.faqs && event.faqs.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RiQuestionLine className="h-5 w-5 text-primary" />
+                Preguntas frecuentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {event.faqs.map((faq) => (
+                  <details key={faq.id} className="group">
+                    <summary className="flex items-center justify-between cursor-pointer p-3 rounded-lg hover:bg-muted">
+                      <span className="font-medium">{faq.question}</span>
+                      <RiArrowDownSLine className="h-5 w-5 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <p className="text-sm text-muted-foreground px-3 pb-3 pt-1">{faq.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground mt-8">

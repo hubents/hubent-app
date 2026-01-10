@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { events, guests, rsvpResponses } from "@/db/schema";
+import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -20,6 +20,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         endDate: events.endDate,
         location: events.location,
         description: events.description,
+        coverImage: events.coverImage,
       })
       .from(events)
       .where(eq(events.id, eventIdNum))
@@ -32,9 +33,62 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Get RSVP settings
+    const settings = await db
+      .select()
+      .from(rsvpSettings)
+      .where(eq(rsvpSettings.eventId, eventIdNum))
+      .limit(1);
+
+    // Get itinerary (if enabled)
+    const itinerary = await db
+      .select()
+      .from(rsvpItinerary)
+      .where(eq(rsvpItinerary.eventId, eventIdNum))
+      .orderBy(rsvpItinerary.orderIndex);
+
+    // Get hotels (if enabled)
+    const hotels = await db
+      .select()
+      .from(rsvpHotels)
+      .where(eq(rsvpHotels.eventId, eventIdNum))
+      .orderBy(rsvpHotels.orderIndex);
+
+    // Get nearby plans (if enabled)
+    const nearbyPlans = await db
+      .select()
+      .from(rsvpNearbyPlans)
+      .where(eq(rsvpNearbyPlans.eventId, eventIdNum))
+      .orderBy(rsvpNearbyPlans.orderIndex);
+
+    // Get FAQs (if enabled)
+    const faqs = await db
+      .select()
+      .from(rsvpFaqs)
+      .where(eq(rsvpFaqs.eventId, eventIdNum))
+      .orderBy(rsvpFaqs.orderIndex);
+
+    const rsvpConfig = settings[0] || {
+      showItinerary: true,
+      showHotels: true,
+      showNearbyPlans: true,
+      showFaqs: true,
+      showLocation: true,
+      allowPlusOne: false,
+      askDietaryRestrictions: true,
+      customMessage: null,
+    };
+
     return NextResponse.json({
       success: true,
-      data: event[0],
+      data: {
+        ...event[0],
+        settings: rsvpConfig,
+        itinerary: rsvpConfig.showItinerary ? itinerary : [],
+        hotels: rsvpConfig.showHotels ? hotels : [],
+        nearbyPlans: rsvpConfig.showNearbyPlans ? nearbyPlans : [],
+        faqs: rsvpConfig.showFaqs ? faqs : [],
+      },
     });
   } catch (error) {
     console.error("Error fetching event for RSVP:", error);
