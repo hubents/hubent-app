@@ -1268,6 +1268,122 @@ export const organizationMembersRelations = relations(organizationMembers, ({ on
 }));
 
 // ============================================
+// AI ASSISTANT TABLES
+// ============================================
+
+export const aiDocumentCategoryEnum = pgEnum("ai_document_category", [
+  "faq",
+  "tutorial",
+  "feature",
+  "policy",
+  "general",
+]);
+
+export const aiPromptContextEnum = pgEnum("ai_prompt_context", [
+  "general",
+  "event",
+  "task",
+  "finance",
+  "support",
+  "onboarding",
+]);
+
+export const aiMessageRoleEnum = pgEnum("ai_message_role", [
+  "user",
+  "assistant",
+  "system",
+]);
+
+// Configuración global de la IA
+export const aiConfig = pgTable("ai_config", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value"),
+  type: text("type").default("string"), // string, number, boolean, json
+  description: text("description"),
+  updatedBy: text("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Documentación para RAG/contexto
+export const aiDocuments = pgTable("ai_documents", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: aiDocumentCategoryEnum("category").default("general"),
+  tags: json("tags").$type<string[]>(),
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Prompts personalizados por contexto
+export const aiPrompts = pgTable("ai_prompts", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  content: text("content").notNull(),
+  context: aiPromptContextEnum("context").default("general"),
+  roleTarget: text("role_target"), // null = todos, o específico: owner, admin, planner
+  isActive: boolean("is_active").default(true),
+  version: integer("version").default(1),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Historial de conversaciones
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  userId: text("user_id").notNull().references(() => users.id),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  title: text("title"),
+  messageCount: integer("message_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Mensajes individuales
+export const aiMessages = pgTable("ai_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => aiConversations.id, { onDelete: "cascade" }),
+  role: aiMessageRoleEnum("role").notNull(),
+  content: text("content").notNull(),
+  toolCalls: json("tool_calls").$type<object[]>(),
+  tokenCount: integer("token_count"),
+  latencyMs: integer("latency_ms"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Feedback de usuarios
+export const aiFeedback = pgTable("ai_feedback", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull().references(() => aiMessages.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id),
+  rating: integer("rating"), // 1 = 👎, 5 = 👍
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Métricas agregadas diarias
+export const aiAnalytics = pgTable("ai_analytics", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  totalConversations: integer("total_conversations").default(0),
+  totalMessages: integer("total_messages").default(0),
+  totalTokens: integer("total_tokens").default(0),
+  avgLatencyMs: integer("avg_latency_ms"),
+  positiveRatings: integer("positive_ratings").default(0),
+  negativeRatings: integer("negative_ratings").default(0),
+  topTools: json("top_tools").$type<Record<string, number>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -1362,3 +1478,18 @@ export type VendorProfile = typeof vendorProfiles.$inferSelect;
 export type VendorPortfolioItem = typeof vendorPortfolio.$inferSelect;
 export type VendorReview = typeof vendorReviews.$inferSelect;
 export type VendorClaim = typeof vendorClaims.$inferSelect;
+
+// AI Assistant Types
+export type AiConfig = typeof aiConfig.$inferSelect;
+export type NewAiConfig = typeof aiConfig.$inferInsert;
+export type AiDocument = typeof aiDocuments.$inferSelect;
+export type NewAiDocument = typeof aiDocuments.$inferInsert;
+export type AiPrompt = typeof aiPrompts.$inferSelect;
+export type NewAiPrompt = typeof aiPrompts.$inferInsert;
+export type AiConversation = typeof aiConversations.$inferSelect;
+export type NewAiConversation = typeof aiConversations.$inferInsert;
+export type AiMessage = typeof aiMessages.$inferSelect;
+export type NewAiMessage = typeof aiMessages.$inferInsert;
+export type AiFeedback = typeof aiFeedback.$inferSelect;
+export type NewAiFeedback = typeof aiFeedback.$inferInsert;
+export type AiAnalytics = typeof aiAnalytics.$inferSelect;

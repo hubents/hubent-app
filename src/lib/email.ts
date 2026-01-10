@@ -22,6 +22,121 @@ function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "https://hubents.com";
 }
 
+function getLogoUrl() {
+  return `${getAppUrl()}/images/logo.png`;
+}
+
+// ============================================
+// BRAND COLORS (Minimalista)
+// ============================================
+const COLORS = {
+  background: "#f9fafb",
+  cardBg: "#ffffff",
+  textPrimary: "#111827",
+  textSecondary: "#6b7280",
+  textMuted: "#9ca3af",
+  border: "#e5e7eb",
+  accent: "#10b981",
+  buttonBg: "#111827",
+  buttonText: "#ffffff",
+  warningBg: "#fffbeb",
+  warningBorder: "#fcd34d",
+  warningText: "#92400e",
+  successBg: "#ecfdf5",
+  successBorder: "#a7f3d0",
+  successText: "#065f46",
+};
+
+// ============================================
+// EMAIL TEMPLATE HELPERS
+// ============================================
+function emailWrapper(content: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${COLORS.background}; -webkit-font-smoothing: antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${COLORS.background}; padding: 48px 20px;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0" style="background-color: ${COLORS.cardBg}; border-radius: 8px; overflow: hidden; border: 1px solid ${COLORS.border};">
+          <!-- Logo Header -->
+          <tr>
+            <td style="padding: 32px 40px 24px; text-align: center; border-bottom: 1px solid ${COLORS.border};">
+              <img src="${getLogoUrl()}" alt="HubEnts" height="36" style="display: block; margin: 0 auto; height: 36px;" />
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px 40px;">
+              ${content}
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px; border-top: 1px solid ${COLORS.border}; text-align: center;">
+              <p style="margin: 0; font-size: 13px; color: ${COLORS.textMuted};">
+                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+function primaryButton(text: string, url: string): string {
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="margin: 28px 0;">
+  <tr>
+    <td align="center">
+      <a href="${url}" 
+         style="display: inline-block; background-color: ${COLORS.buttonBg}; color: ${COLORS.buttonText}; text-decoration: none; padding: 12px 32px; border-radius: 6px; font-weight: 500; font-size: 14px;">
+        ${text}
+      </a>
+    </td>
+  </tr>
+</table>
+`;
+}
+
+function infoBox(content: string, type: "warning" | "success" = "warning"): string {
+  const bg = type === "success" ? COLORS.successBg : COLORS.warningBg;
+  const border = type === "success" ? COLORS.successBorder : COLORS.warningBorder;
+  const text = type === "success" ? COLORS.successText : COLORS.warningText;
+  
+  return `
+<div style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 6px; padding: 14px 16px; margin: 24px 0;">
+  <p style="margin: 0; font-size: 14px; color: ${text}; line-height: 1.5;">
+    ${content}
+  </p>
+</div>
+`;
+}
+
+function paragraph(text: string): string {
+  return `<p style="margin: 0 0 16px; font-size: 15px; color: ${COLORS.textPrimary}; line-height: 1.6;">${text}</p>`;
+}
+
+function heading(text: string): string {
+  return `<h2 style="margin: 0 0 20px; font-size: 22px; font-weight: 600; color: ${COLORS.textPrimary};">${text}</h2>`;
+}
+
+function mutedText(text: string): string {
+  return `<p style="margin: 0; font-size: 13px; color: ${COLORS.textMuted}; text-align: center;">${text}</p>`;
+}
+
 interface SendEmailOptions {
   to: string;
   subject: string;
@@ -69,99 +184,20 @@ export async function sendWelcomeEmail(
     year: "numeric",
   });
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); padding: 40px 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                🎉 ¡Bienvenido a HubEnts!
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                Hola <strong>${name}</strong>,
-              </p>
-              
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                Tu cuenta para <strong>${companyName}</strong> ha sido creada exitosamente. 
-                Estamos emocionados de tenerte con nosotros.
-              </p>
-              
-              <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 30px 0;">
-                <p style="margin: 0; font-size: 14px; color: #166534;">
-                  🎁 <strong>Tu prueba gratuita de 7 días</strong> está activa hasta el ${trialEndDate}.
-                  Tienes acceso completo a todas las funcionalidades.
-                </p>
-              </div>
-              
-              <p style="margin: 0 0 30px; font-size: 16px; color: #374151;">
-                ¿Listo para comenzar? Completa tu configuración inicial:
-              </p>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${getAppUrl()}/onboarding?welcome=true" 
-                       style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      Comenzar configuración
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 15px; font-size: 14px; color: #6b7280;">
-                  <strong>¿Qué puedes hacer con HubEnts?</strong>
-                </p>
-                <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #6b7280;">
-                  <li style="margin-bottom: 8px;">📅 Gestionar eventos y cronogramas</li>
-                  <li style="margin-bottom: 8px;">👥 Administrar invitados y RSVP</li>
-                  <li style="margin-bottom: 8px;">🏪 Coordinar proveedores</li>
-                  <li style="margin-bottom: 8px;">💰 Controlar presupuestos y pagos</li>
-                  <li style="margin-bottom: 8px;">✅ Asignar tareas a tu equipo</li>
-                </ul>
-              </div>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                ¿Necesitas ayuda? Responde a este email o visita nuestro centro de ayuda.
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  const content = `
+    ${heading("Bienvenido a HubEnts")}
+    ${paragraph(`Hola <strong>${name}</strong>,`)}
+    ${paragraph(`Tu cuenta para <strong>${companyName}</strong> ha sido creada exitosamente.`)}
+    ${infoBox(`<strong>Tu prueba gratuita de 7 días</strong> está activa hasta el ${trialEndDate}. Tienes acceso completo a todas las funcionalidades.`, "success")}
+    ${paragraph("¿Listo para comenzar? Completa tu configuración inicial:")}
+    ${primaryButton("Comenzar configuración", `${getAppUrl()}/onboarding?welcome=true`)}
+    ${mutedText("¿Necesitas ayuda? Responde a este email.")}
+  `;
 
   return sendEmail({
     to,
-    subject: `🎉 Bienvenido a HubEnts, ${name}!`,
-    html,
+    subject: `Bienvenido a HubEnts, ${name}`,
+    html: emailWrapper(content),
     text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita está activa hasta el ${trialEndDate}. Visita ${getAppUrl()}/onboarding para comenzar.`,
   });
 }
@@ -177,84 +213,26 @@ export async function sendOrganizationInviteEmail(
   inviterName: string | null,
   inviteUrl: string
 ) {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); padding: 40px 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                👋 Te han invitado a un equipo
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                ${inviterName ? `<strong>${inviterName}</strong> te ha invitado` : "Has sido invitado"} 
-                a unirte a <strong>${organizationName}</strong> en HubEnts.
-              </p>
-              
-              <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
-                <p style="margin: 0 0 5px; font-size: 14px; color: #6b7280;">Tu rol será:</p>
-                <p style="margin: 0; font-size: 20px; font-weight: 600; color: #7c3aed;">${roleName}</p>
-              </div>
-              
-              <p style="margin: 0 0 30px; font-size: 16px; color: #374151;">
-                Haz clic en el botón para aceptar la invitación y unirte al equipo:
-              </p>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${inviteUrl}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      Aceptar invitación
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <p style="margin: 30px 0 0; font-size: 14px; color: #9ca3af; text-align: center;">
-                Esta invitación expira en 7 días.
-              </p>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                Si no esperabas esta invitación, puedes ignorar este email.
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  const inviterText = inviterName 
+    ? `<strong>${inviterName}</strong> te ha invitado` 
+    : "Has sido invitado";
+
+  const content = `
+    ${heading("Te han invitado a un equipo")}
+    ${paragraph(`${inviterText} a unirte a <strong>${organizationName}</strong> en HubEnts.`)}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
+      <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Tu rol será:</p>
+      <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${roleName}</p>
+    </div>
+    ${paragraph("Haz clic en el botón para aceptar la invitación:")}
+    ${primaryButton("Aceptar invitación", inviteUrl)}
+    ${mutedText("Esta invitación expira en 7 días.")}
+  `;
 
   return sendEmail({
     to,
-    subject: `👋 ${inviterName || "Alguien"} te invitó a ${organizationName}`,
-    html,
+    subject: `${inviterName || "Alguien"} te invitó a ${organizationName}`,
+    html: emailWrapper(content),
     text: `Has sido invitado a unirte a ${organizationName} como ${roleName}. Acepta la invitación aquí: ${inviteUrl}`,
   });
 }
@@ -270,94 +248,29 @@ export async function sendAdminInviteEmail(
   inviteUrl: string
 ) {
   const levelLabel = level === "super_admin" ? "Super Administrador" : "Soporte";
-  
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #1e293b;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #1e293b; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #0f172a; border-radius: 12px; overflow: hidden; border: 1px solid #334155;">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 40px 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                🛡️ Invitación de Administrador
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; color: #e2e8f0;">
-                ${inviterName ? `<strong>${inviterName}</strong> te ha invitado` : "Has sido invitado"} 
-                a unirte al equipo de administración de <strong>HubEnts</strong>.
-              </p>
-              
-              <div style="background-color: #1e293b; border: 1px solid #475569; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
-                <p style="margin: 0 0 5px; font-size: 14px; color: #94a3b8;">Nivel de acceso:</p>
-                <p style="margin: 0; font-size: 20px; font-weight: 600; color: #ef4444;">${levelLabel}</p>
-              </div>
-              
-              <div style="background-color: #422006; border: 1px solid #854d0e; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; font-size: 14px; color: #fbbf24;">
-                  ⚠️ <strong>Acceso privilegiado:</strong> Este rol te dará acceso al panel de administración de la plataforma.
-                </p>
-              </div>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${inviteUrl}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      Aceptar invitación
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <p style="margin: 30px 0 0; font-size: 14px; color: #64748b; text-align: center;">
-                Esta invitación expira en 7 días.
-              </p>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #0f172a; border-top: 1px solid #334155; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 10px; font-size: 14px; color: #64748b;">
-                Si no esperabas esta invitación, por favor ignórala y contacta al equipo de HubEnts.
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #475569;">
-                © ${new Date().getFullYear()} HubEnts Platform Administration
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  const inviterText = inviterName 
+    ? `<strong>${inviterName}</strong> te ha invitado` 
+    : "Has sido invitado";
+
+  const content = `
+    ${heading("Invitación de Administrador")}
+    ${paragraph(`${inviterText} a unirte al equipo de administración de <strong>HubEnts</strong>.`)}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
+      <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Nivel de acceso:</p>
+      <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${levelLabel}</p>
+    </div>
+    ${infoBox("<strong>Acceso privilegiado:</strong> Este rol te dará acceso al panel de administración de la plataforma.", "warning")}
+    ${primaryButton("Aceptar invitación", inviteUrl)}
+    ${mutedText("Esta invitación expira en 7 días.")}
+  `;
 
   return sendEmail({
     to,
-    subject: `🛡️ Invitación de Administrador - HubEnts`,
-    html,
+    subject: `Invitación de Administrador - HubEnts`,
+    html: emailWrapper(content),
     text: `Has sido invitado como ${levelLabel} de HubEnts. Acepta la invitación aquí: ${inviteUrl}`,
   });
 }
-
-// ============================================
-// PASSWORD RESET EMAIL
-// ============================================
 
 // ============================================
 // TENANT WELCOME EMAIL (Admin creates tenant)
@@ -369,199 +282,67 @@ export async function sendTenantWelcomeEmail(
   organizationName: string,
   tempPassword: string
 ) {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 40px 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                🎉 ¡Bienvenido a HubEnts!
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                Hola <strong>${ownerName}</strong>,
-              </p>
-              
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                Tu organización <strong>${organizationName}</strong> ha sido creada en HubEnts. 
-                Ya puedes comenzar a gestionar tus eventos.
-              </p>
-              
-              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 30px 0;">
-                <p style="margin: 0 0 15px; font-size: 14px; color: #64748b; font-weight: 600;">
-                  Tus credenciales de acceso:
-                </p>
-                <table style="width: 100%;">
-                  <tr>
-                    <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Email:</td>
-                    <td style="padding: 8px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${to}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Contraseña temporal:</td>
-                    <td style="padding: 8px 0; font-size: 14px; color: #1e293b; font-weight: 600; font-family: monospace;">${tempPassword}</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; font-size: 14px; color: #92400e;">
-                  ⚠️ Por seguridad, te pediremos cambiar tu contraseña en el primer inicio de sesión.
-                </p>
-              </div>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${getAppUrl()}/auth/login" 
-                       style="display: inline-block; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      Iniciar sesión
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 15px; font-size: 14px; color: #6b7280;">
-                  <strong>¿Qué puedes hacer con HubEnts?</strong>
-                </p>
-                <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #6b7280;">
-                  <li style="margin-bottom: 8px;">📅 Gestionar eventos y cronogramas</li>
-                  <li style="margin-bottom: 8px;">👥 Administrar invitados y RSVP</li>
-                  <li style="margin-bottom: 8px;">🏪 Coordinar proveedores</li>
-                  <li style="margin-bottom: 8px;">💰 Controlar presupuestos y pagos</li>
-                  <li style="margin-bottom: 8px;">✅ Asignar tareas a tu equipo</li>
-                </ul>
-              </div>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                ¿Necesitas ayuda? Responde a este email o visita nuestro centro de ayuda.
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  const content = `
+    ${heading("Tu cuenta está lista")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(`Tu organización <strong>${organizationName}</strong> ha sido creada en HubEnts.`)}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0;">
+      <p style="margin: 0 0 12px; font-size: 13px; color: ${COLORS.textSecondary}; font-weight: 500;">Tus credenciales de acceso:</p>
+      <table style="width: 100%;">
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textSecondary};">Email:</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; font-weight: 500;">${to}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textSecondary};">Contraseña:</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; font-weight: 500; font-family: monospace;">${tempPassword}</td>
+        </tr>
+      </table>
+    </div>
+    ${infoBox("Por seguridad, te pediremos cambiar tu contraseña en el primer inicio de sesión.", "warning")}
+    ${primaryButton("Iniciar sesión", `${getAppUrl()}/auth/login`)}
+    ${mutedText("¿Necesitas ayuda? Responde a este email.")}
+  `;
 
   return sendEmail({
     to,
-    subject: `🎉 Tu cuenta en HubEnts está lista - ${organizationName}`,
-    html,
+    subject: `Tu cuenta en HubEnts está lista - ${organizationName}`,
+    html: emailWrapper(content),
     text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en HubEnts. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${getAppUrl()}/auth/login`,
   });
 }
+
+// ============================================
+// PASSWORD RESET EMAIL
+// ============================================
 
 export async function sendPasswordResetEmail(
   to: string,
   resetUrl: string
 ) {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); padding: 40px 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
-                🔐 Restablecer contraseña
-              </h1>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; color: #374151;">
-                Recibimos una solicitud para restablecer la contraseña de tu cuenta en HubEnts.
-              </p>
-              
-              <p style="margin: 0 0 30px; font-size: 16px; color: #374151;">
-                Haz clic en el botón para crear una nueva contraseña:
-              </p>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="${resetUrl}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                      Restablecer contraseña
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              
-              <div style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 15px; margin: 30px 0;">
-                <p style="margin: 0; font-size: 14px; color: #92400e;">
-                  ⏰ Este enlace expira en <strong>1 hora</strong> por seguridad.
-                </p>
-              </div>
-              
-              <p style="margin: 0; font-size: 14px; color: #6b7280;">
-                Si no solicitaste este cambio, puedes ignorar este email. Tu contraseña no será modificada.
-              </p>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                ¿Problemas con el botón? Copia y pega este enlace en tu navegador:
-              </p>
-              <p style="margin: 0 0 20px; font-size: 12px; color: #9ca3af; word-break: break-all;">
-                ${resetUrl}
-              </p>
-              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
+  const content = `
+    ${heading("Restablecer contraseña")}
+    ${paragraph("Recibimos una solicitud para restablecer la contraseña de tu cuenta en HubEnts.")}
+    ${paragraph("Haz clic en el botón para crear una nueva contraseña:")}
+    ${primaryButton("Restablecer contraseña", resetUrl)}
+    ${infoBox("Este enlace expira en <strong>1 hora</strong> por seguridad.", "warning")}
+    <p style="margin: 24px 0 0; font-size: 14px; color: ${COLORS.textSecondary};">
+      Si no solicitaste este cambio, puedes ignorar este email.
+    </p>
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid ${COLORS.border};">
+      <p style="margin: 0 0 8px; font-size: 13px; color: ${COLORS.textMuted};">
+        ¿Problemas con el botón? Copia y pega este enlace:
+      </p>
+      <p style="margin: 0; font-size: 12px; color: ${COLORS.textMuted}; word-break: break-all;">
+        ${resetUrl}
+      </p>
+    </div>
+  `;
 
   return sendEmail({
     to,
-    subject: `🔐 Restablecer tu contraseña - HubEnts`,
-    html,
+    subject: `Restablecer tu contraseña - HubEnts`,
+    html: emailWrapper(content),
     text: `Recibimos una solicitud para restablecer tu contraseña. Visita este enlace para crear una nueva: ${resetUrl}. El enlace expira en 1 hora.`,
   });
 }

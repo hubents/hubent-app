@@ -29,6 +29,13 @@
       "when": 1766270000000,
       "tag": "0003_add_org_contact_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768024657057,
+      "tag": "0004_lame_chat",
+      "breakpoints": true
     }
   ]
 }
