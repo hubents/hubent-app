@@ -1,8 +1,7 @@
 import { streamText } from "ai";
 import { getGeminiModel, defaultChatConfig } from "@/lib/ai/gemini";
 import { buildSystemPrompt, INITIAL_SUGGESTIONS } from "@/lib/ai/system-prompt";
-// Tools deshabilitados temporalmente - AI SDK v6 requiere sintaxis diferente
-// import { createAITools } from "@/lib/ai/tools";
+import { createAITools } from "@/lib/ai/tools";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { 
@@ -62,11 +61,21 @@ export async function POST(req: Request) {
       messages
     );
 
+    // Crear tools si hay contexto de organización
+    const tools = userInfo?.organizationId 
+      ? createAITools({
+          userId,
+          organizationId: userInfo.organizationId,
+          role: userInfo.role || "viewer",
+        })
+      : undefined;
+
     // Generar respuesta con streaming
     const result = streamText({
       model,
       system: systemPrompt,
       messages,
+      tools,
       temperature: defaultChatConfig.temperature,
       onFinish: async ({ text, usage }) => {
         // Guardar mensaje del asistente
