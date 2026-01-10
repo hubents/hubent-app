@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { createOrganizationInvitation, revokeInvitation } from "@/lib/invitations";
 import { db } from "@/db";
-import { invitations, organizations } from "@/db/schema";
+import { invitations, organizations, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { sendOrganizationInviteEmail } from "@/lib/email";
@@ -178,6 +178,32 @@ export async function PUT(request: NextRequest) {
       })
       .where(eq(invitations.id, id))
       .returning();
+
+    // Get organization name and role for email
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+    });
+
+    const role = invitation.roleId ? await db.query.roles.findFirst({
+      where: eq(roles.id, invitation.roleId),
+    }) : null;
+
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${newToken}`;
+
+    // Send the invitation email
+    try {
+      await sendOrganizationInviteEmail(
+        invitation.email,
+        org?.name || "Tu organización",
+        role?.name || "Miembro",
+        session.user?.name || null,
+        inviteUrl
+      );
+      console.log(`Invitation email sent to ${invitation.email}`);
+    } catch (emailError) {
+      console.error("Failed to send invitation email:", emailError);
+      // Continue even if email fails - invitation is still updated
+    }
 
     return NextResponse.json({
       success: true,
