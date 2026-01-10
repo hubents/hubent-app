@@ -84,7 +84,7 @@ export function useTeam() {
 
   const cancelInvitation = useCallback(async (invitationId: number) => {
     try {
-      const response = await fetch(`/api/invitations/${invitationId}`, { method: "DELETE" });
+      const response = await fetch(`/api/invitations?id=${invitationId}`, { method: "DELETE" });
       const result = await response.json();
       if (result.success) {
         fetchTeam();
@@ -99,7 +99,7 @@ export function useTeam() {
 
   const resendInvitation = useCallback(async (invitationId: number) => {
     try {
-      const response = await fetch(`/api/invitations/${invitationId}`, { method: "PUT" });
+      const response = await fetch(`/api/invitations?id=${invitationId}`, { method: "PUT" });
       const result = await response.json();
       if (result.success) {
         fetchTeam();
