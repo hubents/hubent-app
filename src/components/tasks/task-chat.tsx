@@ -45,13 +45,18 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
       try {
         const res = await fetch("/api/team");
         const data = await res.json();
-        if (data.success && data.data) {
+        if (data.success && data.data?.members) {
+          setTeamMembers(data.data.members);
+        } else if (data.success && Array.isArray(data.data)) {
           setTeamMembers(data.data);
         } else if (data.members) {
           setTeamMembers(data.members);
+        } else {
+          setTeamMembers([]);
         }
       } catch (error) {
         console.error("Failed to fetch team members:", error);
+        setTeamMembers([]);
       }
     }
     fetchTeamMembers();
@@ -121,10 +126,10 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
     textareaRef.current?.focus();
   };
 
-  const filteredMembers = teamMembers.filter(
+  const filteredMembers = (teamMembers || []).filter(
     (m) =>
       (m.name?.toLowerCase().includes(mentionSearch) ||
-        m.email.toLowerCase().includes(mentionSearch)) &&
+        m.email?.toLowerCase().includes(mentionSearch)) &&
       m.id !== session?.user?.id
   );
 

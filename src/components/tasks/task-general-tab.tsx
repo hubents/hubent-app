@@ -182,12 +182,15 @@ export function TaskGeneralTab({
     await onAddParticipant({ vendorId: parseInt(vendorId, 10), type: "vendor" });
   };
 
-  // Filter out already added participants
-  const availableMembers = teamMembers.filter(
-    (m) => !participants.some((p) => p.userId === m.id)
+  // Filter out already added participants (with defensive checks)
+  const safeTeamMembers = teamMembers || [];
+  const safeVendors = vendors || [];
+  const safeParticipants = participants || [];
+  const availableMembers = safeTeamMembers.filter(
+    (m) => !safeParticipants.some((p) => p.userId === m.id)
   );
-  const availableVendors = vendors.filter(
-    (v) => !participants.some((p) => p.vendorId === v.id)
+  const availableVendors = safeVendors.filter(
+    (v) => !safeParticipants.some((p) => p.vendorId === v.id)
   );
 
   if (loading) {
