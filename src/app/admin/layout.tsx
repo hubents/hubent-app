@@ -52,17 +52,15 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className="w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col">
         {/* Header with Logo */}
-        <div className="p-4 border-b border-border">
-          <Link href="/admin" className="flex items-center gap-2">
-            <Image
-              src="/images/logo.png"
-              alt="HubEnts"
-              width={36}
-              height={36}
-              className="rounded-lg"
-            />
-            <span className="font-bold text-lg">hubents</span>
-          </Link>
+        <div className="flex h-16 items-center gap-3 px-6 border-b border-[var(--border)]">
+          <Image
+            src="/images/icon.png"
+            alt="HubEnts"
+            width={32}
+            height={32}
+            className="rounded-lg flex-shrink-0"
+          />
+          <span className="text-xl font-bold">hubents</span>
         </div>
 
         {/* Navigation */}

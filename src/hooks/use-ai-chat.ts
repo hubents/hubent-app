@@ -1,29 +1,47 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
-interface Message {
+interface UseAIChatOptions {
+  context?: string;
+}
+
+export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: Date;
 }
 
-interface UseAIChatOptions {
-  context?: string;
-}
-
 export function useAIChat(options: UseAIChatOptions = {}) {
   const { context = "dashboard" } = options;
   
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sessionId] = useState(() => crypto.randomUUID());
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [input, setInput] = useState("");
+
+  // Crear transport con body personalizado
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: "/api/ai/chat",
+    body: {
+      sessionId,
+      context,
+    },
+  }), [sessionId, context]);
+
+  // Usar el hook oficial de AI SDK v6
+  const {
+    messages: chatMessages,
+    sendMessage: originalSendMessage,
+    status,
+    stop,
+    setMessages: setChatMessages,
+    error,
+  } = useChat({
+    transport,
+  });
 
   // Cargar sugerencias iniciales
   useEffect(() => {
@@ -35,7 +53,6 @@ export function useAIChat(options: UseAIChatOptions = {}) {
           setSuggestions(data.suggestions);
         }
       } catch {
-        // Usar sugerencias por defecto
         setSuggestions([
           "¿Cuáles son mis próximos eventos?",
           "¿Tengo tareas pendientes?",
@@ -46,126 +63,36 @@ export function useAIChat(options: UseAIChatOptions = {}) {
     loadSuggestions();
   }, [context]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
+  // Convertir mensajes al formato esperado por los componentes
+  const messages: Message[] = chatMessages.map(m => ({
+    id: m.id,
+    role: m.role as "user" | "assistant",
+    content: m.parts
+      ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .map(p => p.text)
+      .join("") || "",
+    createdAt: new Date(),
+  }));
 
-    setError(null);
-    setIsLoading(true);
-
-    // Agregar mensaje del usuario
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: content.trim(),
-      createdAt: new Date(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
-
-    // Preparar mensajes para la API
-    const apiMessages = [...messages, userMessage].map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
-
-    try {
-      abortControllerRef.current = new AbortController();
-
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: apiMessages,
-          sessionId,
-          context,
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error("Error en la respuesta del servidor");
-      }
-
-      // Leer stream de respuesta
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "",
-        createdAt: new Date(),
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-
-      if (reader) {
-        let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          buffer += decoder.decode(value, { stream: true });
-          
-          // Procesar líneas completas (SSE format: data: {...})
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed === "data: [DONE]") continue;
-            
-            // SSE format: "data: {...}" o "event: ..." 
-            if (trimmed.startsWith("data: ")) {
-              const jsonStr = trimmed.slice(6);
-              try {
-                const data = JSON.parse(jsonStr);
-                // UI Message Stream format
-                if (data.type === "text" && data.value) {
-                  setMessages(prev => {
-                    const updated = [...prev];
-                    const lastMessage = updated[updated.length - 1];
-                    if (lastMessage.role === "assistant") {
-                      lastMessage.content += data.value;
-                    }
-                    return updated;
-                  });
-                }
-              } catch {
-                // Ignorar errores de parsing
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return;
-      }
-      setError(err instanceof Error ? err.message : "Error desconocido");
-      // Remover mensaje del asistente vacío si hay error
-      setMessages(prev => prev.filter(m => m.content.length > 0));
-    } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
-    }
-  }, [messages, isLoading, sessionId, context]);
+  const isLoading = status === "streaming" || status === "submitted";
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
-    sendMessage(input);
-  }, [input, sendMessage]);
+    if (input.trim() && status === "ready") {
+      originalSendMessage({ text: input });
+      setInput("");
+    }
+  }, [input, status, originalSendMessage]);
 
-  const stop = useCallback(() => {
-    abortControllerRef.current?.abort();
-    setIsLoading(false);
-  }, []);
+  const sendMessage = useCallback((content: string) => {
+    if (content.trim() && status === "ready") {
+      originalSendMessage({ text: content });
+    }
+  }, [status, originalSendMessage]);
 
   const clear = useCallback(() => {
-    setMessages([]);
-    setError(null);
-  }, []);
+    setChatMessages([]);
+  }, [setChatMessages]);
 
   const sendFeedback = useCallback(async (messageId: string, rating: number, comment?: string) => {
     try {
@@ -184,7 +111,7 @@ export function useAIChat(options: UseAIChatOptions = {}) {
     input,
     setInput,
     isLoading,
-    error,
+    error: error?.message || null,
     suggestions,
     handleSubmit,
     sendMessage,

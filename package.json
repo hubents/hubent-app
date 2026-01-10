@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.6",
+    "@ai-sdk/react": "^3.0.29",
     "@auth/drizzle-adapter": "^1.11.1",
     "@aws-sdk/client-s3": "^3.965.0",
     "@aws-sdk/s3-request-presigner": "^3.965.0",
