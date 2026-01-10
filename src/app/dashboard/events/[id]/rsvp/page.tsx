@@ -305,6 +305,24 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleEditItinerary = async (item: ItineraryItem) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setItinerary(itinerary.map((i) => (i.id === item.id ? item : i)));
+        setEditingSection(null);
+        setEditingItem(null);
+      }
+    } catch (error) {
+      console.error("Failed to edit itinerary:", error);
+    }
+  };
+
   // CRUD functions for hotels
   const handleAddHotel = async (item: Partial<Hotel>) => {
     try {
@@ -824,9 +842,17 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         </p>
                       )}
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteItinerary(item.id)}>
-                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingItem(item);
+                        setEditingSection("itinerary-edit");
+                      }}>
+                        <RiEditLine className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteItinerary(item.id)}>
+                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -999,10 +1025,13 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
+            const timeValue = formData.get("startTime") as string;
+            // Convert time (HH:mm) to a full datetime for today
+            const startTime = timeValue ? new Date(`2000-01-01T${timeValue}:00`).toISOString() : null;
             handleAddItinerary({
               title: formData.get("title") as string,
               description: formData.get("description") as string,
-              startTime: formData.get("startTime") as string || null,
+              startTime,
               location: formData.get("location") as string,
             });
           }} className="space-y-4">
@@ -1017,7 +1046,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Hora</Label>
-                <Input name="startTime" type="datetime-local" />
+                <Input name="startTime" type="time" />
               </div>
               <div className="space-y-2">
                 <Label>Lugar</Label>
@@ -1029,6 +1058,81 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Itinerary Dialog */}
+      <Dialog open={editingSection === "itinerary-edit"} onOpenChange={(open) => {
+        if (!open) {
+          setEditingSection(null);
+          setEditingItem(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar itinerario</DialogTitle>
+          </DialogHeader>
+          {editingItem && "title" in editingItem && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const timeValue = formData.get("startTime") as string;
+              const startTime = timeValue ? new Date(`2000-01-01T${timeValue}:00`).toISOString() : null;
+              handleEditItinerary({
+                ...(editingItem as ItineraryItem),
+                title: formData.get("title") as string,
+                description: formData.get("description") as string,
+                startTime,
+                location: formData.get("location") as string,
+              });
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Título *</Label>
+                <Input 
+                  name="title" 
+                  required 
+                  defaultValue={(editingItem as ItineraryItem).title} 
+                  placeholder="Ej: Ceremonia" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Textarea 
+                  name="description" 
+                  defaultValue={(editingItem as ItineraryItem).description || ""} 
+                  placeholder="Detalles del momento..." 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Hora</Label>
+                  <Input 
+                    name="startTime" 
+                    type="time" 
+                    defaultValue={(editingItem as ItineraryItem).startTime 
+                      ? new Date((editingItem as ItineraryItem).startTime!).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", hour12: false })
+                      : ""
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Lugar</Label>
+                  <Input 
+                    name="location" 
+                    defaultValue={(editingItem as ItineraryItem).location || ""} 
+                    placeholder="Ubicación" 
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditingSection(null);
+                  setEditingItem(null);
+                }}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
