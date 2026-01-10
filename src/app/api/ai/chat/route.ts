@@ -60,12 +60,21 @@ export async function POST(req: Request) {
       messages
     );
 
+    // Crear tools si hay contexto de organización
+    const tools = userInfo?.organizationId 
+      ? createAITools({
+          userId,
+          organizationId: userInfo.organizationId,
+          role: userInfo.role || "viewer",
+        })
+      : undefined;
+
     // Generar respuesta con streaming
-    // Tools temporalmente deshabilitados para debug
     const result = streamText({
       model,
       system: systemPrompt,
       messages,
+      tools,
       temperature: defaultChatConfig.temperature,
       onFinish: async ({ text, usage }) => {
         // Guardar mensaje del asistente

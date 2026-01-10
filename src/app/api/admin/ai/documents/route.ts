@@ -39,20 +39,26 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { title, content, category, tags, priority } = body;
+    const { title, content, category, tags, priority, type, fileUrl, fileName, fileSize, mimeType, linkUrl } = body;
 
-    if (!title || !content) {
-      return Response.json({ error: "Título y contenido son requeridos" }, { status: 400 });
+    if (!title) {
+      return Response.json({ error: "Título es requerido" }, { status: 400 });
     }
 
     const [newDoc] = await db
       .insert(aiDocuments)
       .values({
         title,
-        content,
+        content: content || "",
         category: category || "general",
         tags: tags || [],
         priority: priority || 0,
+        type: type || "text",
+        fileUrl,
+        fileName,
+        fileSize,
+        mimeType,
+        linkUrl,
         createdBy: session.user.id,
       })
       .returning();
@@ -72,7 +78,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const { id, title, content, category, tags, priority, isActive } = body;
+    const { id, title, content, category, tags, priority, isActive, type, fileUrl, fileName, fileSize, mimeType, linkUrl } = body;
 
     if (!id) {
       return Response.json({ error: "ID es requerido" }, { status: 400 });
@@ -87,6 +93,12 @@ export async function PUT(req: Request) {
         tags,
         priority,
         isActive,
+        type,
+        fileUrl,
+        fileName,
+        fileSize,
+        mimeType,
+        linkUrl,
         updatedAt: new Date(),
       })
       .where(eq(aiDocuments.id, id))

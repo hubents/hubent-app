@@ -28,7 +28,11 @@ import {
   Edit, 
   Trash2, 
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Upload,
+  Link as LinkIcon,
+  File,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -41,6 +45,12 @@ interface AIDocument {
   tags: string[] | null;
   isActive: boolean;
   priority: number;
+  type: "text" | "file" | "link";
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  linkUrl?: string;
   createdAt: string;
 }
 
@@ -66,7 +76,11 @@ export default function AdminAIDocumentsPage() {
     category: "general",
     tags: "",
     priority: 0,
+    type: "text" as "text" | "file" | "link",
+    linkUrl: "",
   });
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; size: number; mimeType: string } | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -86,9 +100,70 @@ export default function AdminAIDocumentsPage() {
     }
   }
 
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Solo se permiten archivos PDF, DOC, DOCX, TXT o MD");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("El archivo no puede superar 10MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setUploadedFile({
+          url: data.url,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+        });
+        setForm(f => ({ ...f, title: f.title || file.name.replace(/\.[^/.]+$/, "") }));
+        toast.success("Archivo subido");
+      } else {
+        toast.error(data.error || "Error al subir archivo");
+      }
+    } catch {
+      toast.error("Error al subir archivo");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSave() {
-    if (!form.title || !form.content) {
-      toast.error("Título y contenido son requeridos");
+    if (!form.title) {
+      toast.error("El título es requerido");
+      return;
+    }
+
+    if (form.type === "text" && !form.content) {
+      toast.error("El contenido es requerido");
+      return;
+    }
+
+    if (form.type === "file" && !uploadedFile && !editingDoc?.fileUrl) {
+      toast.error("Debes subir un archivo");
+      return;
+    }
+
+    if (form.type === "link" && !form.linkUrl) {
+      toast.error("La URL es requerida");
       return;
     }
 
@@ -99,6 +174,12 @@ export default function AdminAIDocumentsPage() {
         ...form,
         id: editingDoc?.id,
         tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+        ...(uploadedFile && {
+          fileUrl: uploadedFile.url,
+          fileName: uploadedFile.name,
+          fileSize: uploadedFile.size,
+          mimeType: uploadedFile.mimeType,
+        }),
       };
 
       const res = await fetch("/api/admin/ai/documents", {
@@ -141,8 +222,9 @@ export default function AdminAIDocumentsPage() {
   }
 
   function resetForm() {
-    setForm({ title: "", content: "", category: "general", tags: "", priority: 0 });
+    setForm({ title: "", content: "", category: "general", tags: "", priority: 0, type: "text", linkUrl: "" });
     setEditingDoc(null);
+    setUploadedFile(null);
   }
 
   function openEdit(doc: AIDocument) {
@@ -153,7 +235,17 @@ export default function AdminAIDocumentsPage() {
       category: doc.category,
       tags: doc.tags?.join(", ") || "",
       priority: doc.priority,
+      type: doc.type || "text",
+      linkUrl: doc.linkUrl || "",
     });
+    if (doc.fileUrl) {
+      setUploadedFile({
+        url: doc.fileUrl,
+        name: doc.fileName || "archivo",
+        size: doc.fileSize || 0,
+        mimeType: doc.mimeType || "",
+      });
+    }
     setIsDialogOpen(true);
   }
 
@@ -205,6 +297,40 @@ export default function AdminAIDocumentsPage() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
+              {/* Tipo de documento */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={form.type === "text" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setForm({ ...form, type: "text" })}
+                  className="gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Texto
+                </Button>
+                <Button
+                  type="button"
+                  variant={form.type === "file" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setForm({ ...form, type: "file" })}
+                  className="gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Archivo
+                </Button>
+                <Button
+                  type="button"
+                  variant={form.type === "link" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setForm({ ...form, type: "link" })}
+                  className="gap-2"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                  Link
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Título</Label>
@@ -234,15 +360,96 @@ export default function AdminAIDocumentsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Contenido</Label>
-                <Textarea
-                  value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
-                  placeholder="Escribe el contenido que Enti usará para responder..."
-                  rows={8}
-                />
-              </div>
+              {/* Contenido según tipo */}
+              {form.type === "text" && (
+                <div className="space-y-2">
+                  <Label>Contenido</Label>
+                  <Textarea
+                    value={form.content}
+                    onChange={(e) => setForm({ ...form, content: e.target.value })}
+                    placeholder="Escribe el contenido que Enti usará para responder..."
+                    rows={8}
+                  />
+                </div>
+              )}
+
+              {form.type === "file" && (
+                <div className="space-y-2">
+                  <Label>Archivo (PDF, DOC, DOCX, TXT, MD)</Label>
+                  {uploadedFile ? (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                      <File className="w-8 h-8 text-blue-500" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{uploadedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(uploadedFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUploadedFile(null)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt,.md"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                        disabled={uploading}
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        {uploading ? (
+                          <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {uploading ? "Subiendo..." : "Haz clic para subir un archivo"}
+                        </p>
+                      </label>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Descripción del archivo (opcional)</Label>
+                    <Textarea
+                      value={form.content}
+                      onChange={(e) => setForm({ ...form, content: e.target.value })}
+                      placeholder="Describe brevemente el contenido del archivo..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {form.type === "link" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>URL del enlace</Label>
+                    <Input
+                      value={form.linkUrl}
+                      onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
+                      placeholder="https://ejemplo.com/documentacion"
+                      type="url"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción del enlace</Label>
+                    <Textarea
+                      value={form.content}
+                      onChange={(e) => setForm({ ...form, content: e.target.value })}
+                      placeholder="Describe el contenido del enlace..."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

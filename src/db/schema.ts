@@ -1314,6 +1314,13 @@ export const aiDocuments = pgTable("ai_documents", {
   tags: json("tags").$type<string[]>(),
   isActive: boolean("is_active").default(true),
   priority: integer("priority").default(0),
+  // Nuevos campos para archivos y links
+  type: text("type").default("text"), // text, file, link
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  linkUrl: text("link_url"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
