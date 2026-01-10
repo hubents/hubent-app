@@ -82,7 +82,7 @@ export default function TeamPage() {
     setIsSubmitting(true);
     try {
       const result = await inviteMember(newInvite);
-      if (result) {
+      if (result.success) {
         toast.success("Invitación enviada", {
           description: `Se envió una invitación a ${newInvite.email}`,
         });
@@ -90,7 +90,9 @@ export default function TeamPage() {
         setEmailError(null);
         setIsDialogOpen(false);
       } else {
-        toast.error("Error al enviar invitación");
+        toast.error("Error al enviar invitación", {
+          description: result.error,
+        });
       }
     } finally {
       setIsSubmitting(false);

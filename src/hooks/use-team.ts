@@ -52,7 +52,7 @@ export function useTeam() {
   const inviteMember = useCallback(async (data: {
     email: string;
     role?: string;
-  }) => {
+  }): Promise<{ success: boolean; error?: string; data?: unknown }> => {
     try {
       const response = await fetch("/api/team/invite", {
         method: "POST",
@@ -64,12 +64,12 @@ export function useTeam() {
 
       if (result.success) {
         fetchTeam();
-        return result.data;
+        return { success: true, data: result };
       }
-      return null;
+      return { success: false, error: result.error || "Error al enviar invitación" };
     } catch (err) {
       console.error("Failed to invite member:", err);
-      return null;
+      return { success: false, error: "Error de conexión" };
     }
   }, [fetchTeam]);
 
