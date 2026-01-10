@@ -46,47 +46,49 @@ export async function POST(
       );
     }
 
-    await db.transaction(async (tx) => {
-      if (!user) {
-        if (!body.name || !body.password) {
-          throw new Error("Nombre y contraseña son requeridos para nuevos usuarios");
-        }
-
-        const passwordHash = await hashPassword(body.password);
-
-        const [newUser] = await tx
-          .insert(users)
-          .values({
-            name: body.name,
-            email: invitation.email.toLowerCase(),
-            passwordHash,
-            emailVerified: new Date(),
-            onboardingCompleted: true,
-          })
-          .returning();
-
-        user = newUser;
+    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    if (!user) {
+      if (!body.name || !body.password) {
+        return NextResponse.json(
+          { error: "Nombre y contraseña son requeridos para nuevos usuarios" },
+          { status: 400 }
+        );
       }
 
-      const existingAdmin = await tx.query.platformAdmins.findFirst({
-        where: eq(platformAdmins.userId, user!.id),
-      });
+      const passwordHash = await hashPassword(body.password);
 
-      if (!existingAdmin) {
-        await tx.insert(platformAdmins).values({
-          userId: user!.id,
-          level: invitation.level,
-        });
-      }
-
-      await tx
-        .update(adminInvitations)
-        .set({
-          status: "accepted",
-          acceptedAt: new Date(),
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          name: body.name,
+          email: invitation.email.toLowerCase(),
+          passwordHash,
+          emailVerified: new Date(),
+          onboardingCompleted: true,
         })
-        .where(eq(adminInvitations.id, invitation.id));
+        .returning();
+
+      user = newUser;
+    }
+
+    const existingAdmin = await db.query.platformAdmins.findFirst({
+      where: eq(platformAdmins.userId, user!.id),
     });
+
+    if (!existingAdmin) {
+      await db.insert(platformAdmins).values({
+        userId: user!.id,
+        level: invitation.level,
+      });
+    }
+
+    await db
+      .update(adminInvitations)
+      .set({
+        status: "accepted",
+        acceptedAt: new Date(),
+      })
+      .where(eq(adminInvitations.id, invitation.id));
 
     return NextResponse.json({
       success: true,

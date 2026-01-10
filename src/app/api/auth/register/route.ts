@@ -38,104 +38,108 @@ export async function POST(request: NextRequest) {
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
-    const result = await db.transaction(async (tx) => {
-      const [newUser] = await tx
-        .insert(users)
+    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    // Create user first
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        name,
+        email: email.toLowerCase(),
+        passwordHash,
+        emailVerified: new Date(),
+        onboardingCompleted: false,
+      })
+      .returning();
+
+    // Find or create starter plan
+    let starterPlan = await db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.slug, "starter"),
+    });
+
+    if (!starterPlan) {
+      const [createdPlan] = await db
+        .insert(subscriptionPlans)
         .values({
-          name,
-          email: email.toLowerCase(),
-          passwordHash,
-          emailVerified: new Date(),
-          onboardingCompleted: false,
+          name: "Starter",
+          slug: "starter",
+          description: "Plan de prueba gratuito",
+          priceMonthly: "0",
+          priceYearly: "0",
+          features: ["1 evento activo", "2 usuarios", "50 invitados RSVP", "500MB almacenamiento"],
+          limits: { users: 2, events: 1, vendors: 5, storage: 500 },
+          isActive: true,
+          sortOrder: 0,
         })
         .returning();
+      starterPlan = createdPlan;
+    }
 
-      let starterPlan = await tx.query.subscriptionPlans.findFirst({
-        where: eq(subscriptionPlans.slug, "starter"),
-      });
+    // Generate unique slug for organization
+    const slug = companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .substring(0, 50);
 
-      if (!starterPlan) {
-        const [createdPlan] = await tx
-          .insert(subscriptionPlans)
-          .values({
-            name: "Starter",
-            slug: "starter",
-            description: "Plan de prueba gratuito",
-            priceMonthly: "0",
-            priceYearly: "0",
-            features: ["1 evento activo", "2 usuarios", "50 invitados RSVP", "500MB almacenamiento"],
-            limits: { users: 2, events: 1, vendors: 5, storage: 500 },
-            isActive: true,
-            sortOrder: 0,
-          })
-          .returning();
-        starterPlan = createdPlan;
-      }
+    const uniqueSlug = `${slug}-${Date.now().toString(36)}`;
 
-      const slug = companyName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .substring(0, 50);
+    // Create organization
+    const [newOrg] = await db
+      .insert(organizations)
+      .values({
+        name: companyName,
+        slug: uniqueSlug,
+        ownerId: newUser.id,
+        status: "active",
+        settings: {
+          timezone: "America/Argentina/Buenos_Aires",
+          currency: "USD",
+          language: "es",
+        },
+      })
+      .returning();
 
-      const uniqueSlug = `${slug}-${Date.now().toString(36)}`;
+    // Create subscription
+    await db.insert(subscriptions).values({
+      organizationId: newOrg.id,
+      planId: starterPlan.id,
+      status: "trialing",
+      trialEndsAt,
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: trialEndsAt,
+    });
 
-      const [newOrg] = await tx
-        .insert(organizations)
+    // Find or create owner role
+    let ownerRole = await db.query.roles.findFirst({
+      where: eq(roles.slug, "owner"),
+    });
+
+    if (!ownerRole) {
+      const [createdRole] = await db
+        .insert(roles)
         .values({
-          name: companyName,
-          slug: uniqueSlug,
-          ownerId: newUser.id,
-          status: "active",
-          settings: {
-            timezone: "America/Argentina/Buenos_Aires",
-            currency: "USD",
-            language: "es",
-          },
+          name: "Owner",
+          slug: "owner",
+          description: "Propietario de la organización",
+          isSystem: true,
         })
         .returning();
+      ownerRole = createdRole;
+    }
 
-      await tx.insert(subscriptions).values({
-        organizationId: newOrg.id,
-        planId: starterPlan.id,
-        status: "trialing",
-        trialEndsAt,
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: trialEndsAt,
-      });
-
-      let ownerRole = await tx.query.roles.findFirst({
-        where: eq(roles.slug, "owner"),
-      });
-
-      if (!ownerRole) {
-        const [createdRole] = await tx
-          .insert(roles)
-          .values({
-            name: "Owner",
-            slug: "owner",
-            description: "Propietario de la organización",
-            isSystem: true,
-          })
-          .returning();
-        ownerRole = createdRole;
-      }
-
-      await tx.insert(organizationMembers).values({
-        organizationId: newOrg.id,
-        userId: newUser.id,
-        roleId: ownerRole.id,
-        joinedAt: new Date(),
-      });
-
-      return { user: newUser, organization: newOrg };
+    // Create organization membership
+    await db.insert(organizationMembers).values({
+      organizationId: newOrg.id,
+      userId: newUser.id,
+      roleId: ownerRole.id,
+      joinedAt: new Date(),
     });
 
     // Send welcome email (non-blocking)
     sendWelcomeEmail(
-      result.user.email,
-      result.user.name || name,
-      result.organization.name,
+      newUser.email,
+      newUser.name || name,
+      newOrg.name,
       trialEndsAt
     ).catch((err) => console.error("Failed to send welcome email:", err));
 
@@ -143,14 +147,14 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Cuenta creada exitosamente",
       user: {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
       },
       organization: {
-        id: result.organization.id,
-        name: result.organization.name,
-        slug: result.organization.slug,
+        id: newOrg.id,
+        name: newOrg.name,
+        slug: newOrg.slug,
       },
       trialEndsAt: trialEndsAt.toISOString(),
     });

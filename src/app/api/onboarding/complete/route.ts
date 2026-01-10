@@ -18,81 +18,80 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { profile, company, event, teamEmails } = body;
 
-    await db.transaction(async (tx) => {
-      await tx
-        .update(users)
+    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    await db
+      .update(users)
+      .set({
+        onboardingCompleted: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, session.user!.id!));
+
+    const userOrgs = await db.query.organizations.findFirst({
+      where: eq(organizations.ownerId, session.user!.id!),
+    });
+
+    if (userOrgs && company) {
+      await db
+        .update(organizations)
         .set({
-          onboardingCompleted: true,
+          logo: company.logo || null,
+          settings: {
+            timezone: company.timezone || "America/Argentina/Buenos_Aires",
+            currency: company.currency || "USD",
+            language: "es",
+          },
           updatedAt: new Date(),
         })
-        .where(eq(users.id, session.user!.id!));
+        .where(eq(organizations.id, userOrgs.id));
 
-      const userOrgs = await tx.query.organizations.findFirst({
-        where: eq(organizations.ownerId, session.user!.id!),
-      });
+      if (event?.name) {
+        await db.insert(events).values({
+          organizationId: userOrgs.id,
+          name: event.name,
+          type: event.type || "wedding",
+          date: event.date ? new Date(event.date) : null,
+          status: "draft",
+          createdBy: session.user!.id!,
+        });
+      }
 
-      if (userOrgs && company) {
-        await tx
-          .update(organizations)
-          .set({
-            logo: company.logo || null,
-            settings: {
-              timezone: company.timezone || "America/Argentina/Buenos_Aires",
-              currency: company.currency || "USD",
-              language: "es",
-            },
-            updatedAt: new Date(),
-          })
-          .where(eq(organizations.id, userOrgs.id));
+      if (teamEmails && teamEmails.length > 0) {
+        let memberRole = await db.query.roles.findFirst({
+          where: eq(roles.slug, "planner"),
+        });
 
-        if (event?.name) {
-          await tx.insert(events).values({
-            organizationId: userOrgs.id,
-            name: event.name,
-            type: event.type || "wedding",
-            date: event.date ? new Date(event.date) : null,
-            status: "draft",
-            createdBy: session.user!.id!,
-          });
+        if (!memberRole) {
+          const [createdRole] = await db
+            .insert(roles)
+            .values({
+              name: "Planner",
+              slug: "planner",
+              description: "Planificador de eventos",
+              isSystem: true,
+            })
+            .returning();
+          memberRole = createdRole;
         }
 
-        if (teamEmails && teamEmails.length > 0) {
-          let memberRole = await tx.query.roles.findFirst({
-            where: eq(roles.slug, "planner"),
-          });
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
 
-          if (!memberRole) {
-            const [createdRole] = await tx
-              .insert(roles)
-              .values({
-                name: "Planner",
-                slug: "planner",
-                description: "Planificador de eventos",
-                isSystem: true,
-              })
-              .returning();
-            memberRole = createdRole;
-          }
-
-          const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + 7);
-
-          for (const email of teamEmails) {
-            if (email && email.includes("@")) {
-              await tx.insert(invitations).values({
-                organizationId: userOrgs.id,
-                email: email.toLowerCase().trim(),
-                roleId: memberRole.id,
-                token: crypto.randomUUID(),
-                status: "pending",
-                invitedBy: session.user!.id!,
-                expiresAt,
-              });
-            }
+        for (const email of teamEmails) {
+          if (email && email.includes("@")) {
+            await db.insert(invitations).values({
+              organizationId: userOrgs.id,
+              email: email.toLowerCase().trim(),
+              roleId: memberRole.id,
+              token: crypto.randomUUID(),
+              status: "pending",
+              invitedBy: session.user!.id!,
+              expiresAt,
+            });
           }
         }
       }
-    });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

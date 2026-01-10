@@ -37,10 +37,19 @@ export async function POST(request: NextRequest) {
 
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password/${token}`;
 
-    // Send password reset email (non-blocking)
-    sendPasswordResetEmail(email.toLowerCase(), resetUrl)
-      .catch((err) => console.error("Failed to send password reset email:", err));
+    // Send password reset email - await to catch errors
+    try {
+      const emailResult = await sendPasswordResetEmail(email.toLowerCase(), resetUrl);
+      console.log("Password reset email result:", emailResult);
+      
+      if (!emailResult.success) {
+        console.error("Failed to send password reset email:", emailResult.error);
+      }
+    } catch (emailError) {
+      console.error("Error sending password reset email:", emailError);
+    }
 
+    // Always return success for security (don't reveal if email exists)
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Forgot password error:", error);

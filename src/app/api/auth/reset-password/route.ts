@@ -50,20 +50,19 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password);
 
-    await db.transaction(async (tx) => {
-      await tx
-        .update(users)
-        .set({ 
-          passwordHash,
-          mustChangePassword: false,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, user.id));
+    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    await db
+      .update(users)
+      .set({ 
+        passwordHash,
+        mustChangePassword: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
 
-      await tx
-        .delete(verificationTokens)
-        .where(eq(verificationTokens.token, token));
-    });
+    await db
+      .delete(verificationTokens)
+      .where(eq(verificationTokens.token, token));
 
     return NextResponse.json({ success: true });
   } catch (error) {
