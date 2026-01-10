@@ -22,13 +22,13 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
 
   return createPortal(
     <>
-      {/* Floating Button - Centered at bottom */}
+      {/* Floating Button - Bottom right, above mobile nav */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed z-[100] flex items-center justify-center transition-all duration-300",
-          // Position - CENTERED at bottom
-          "bottom-4 left-1/2 -translate-x-1/2",
+          // Position - Bottom right corner, safe from drawer
+          "bottom-20 right-4 md:bottom-6 md:right-6",
           // Size
           "w-14 h-14",
           // Style

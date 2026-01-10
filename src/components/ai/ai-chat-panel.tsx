@@ -57,14 +57,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         onClick={onClose}
       />
 
-      {/* Panel - Centered, opens upward */}
+      {/* Panel - Right side, opens upward from button */}
       <div
         className={cn(
           "fixed z-[100] bg-card border border-border shadow-2xl flex flex-col rounded-2xl",
-          // Centered position, opens upward from bottom
-          "left-1/2 -translate-x-1/2 bottom-20",
+          // Position - Bottom right, above the button
+          "right-4 bottom-36 md:right-6 md:bottom-24",
           // Size
-          "w-[95vw] max-w-md h-[70vh] max-h-[600px]",
+          "w-[90vw] max-w-md h-[60vh] max-h-[500px]",
           // Animation
           "animate-in slide-in-from-bottom-4 fade-in duration-200"
         )}

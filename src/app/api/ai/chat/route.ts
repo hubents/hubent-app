@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText, convertToModelMessages, UIMessage } from "ai";
 import { getGeminiModel, defaultChatConfig } from "@/lib/ai/gemini";
 import { buildSystemPrompt, INITIAL_SUGGESTIONS } from "@/lib/ai/system-prompt";
 import { createAITools } from "@/lib/ai/tools";
@@ -26,14 +26,17 @@ export async function POST(req: Request) {
       });
     }
 
-    const { messages, sessionId, context } = await req.json();
+    const { messages: rawMessages, sessionId, context } = await req.json();
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!rawMessages || !Array.isArray(rawMessages)) {
       return new Response(JSON.stringify({ error: "Mensajes inválidos" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // Convertir UIMessage[] a ModelMessage[] - CRÍTICO para que funcione con useChat
+    const messages = await convertToModelMessages(rawMessages as UIMessage[]);
 
     // Obtener información del usuario y organización
     const userInfo = await getUserContext(session.user.id);
@@ -53,11 +56,20 @@ export async function POST(req: Request) {
     const conversationSessionId = sessionId || crypto.randomUUID();
     const userId = session.user.id;
     
+    // Extraer texto de los mensajes para guardar en DB
+    const messagesForDb = rawMessages.map((m: UIMessage) => ({
+      role: m.role,
+      content: m.parts
+        ?.filter((p: { type: string }) => p.type === "text")
+        .map((p: { type: string; text?: string }) => p.text || "")
+        .join("") || "",
+    }));
+
     await saveConversation(
       conversationSessionId,
       userId,
       userInfo?.organizationId,
-      messages
+      messagesForDb
     );
 
     // Crear tools si hay contexto de organización
@@ -87,7 +99,8 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toTextStreamResponse();
+    // toUIMessageStreamResponse es CRÍTICO para que useChat parsee correctamente
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("Error en chat AI:", error);
     return new Response(

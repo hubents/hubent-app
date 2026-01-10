@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface UseAIChatOptions {
   context?: string;
@@ -16,19 +18,36 @@ export interface Message {
 export function useAIChat(options: UseAIChatOptions = {}) {
   const { context = "dashboard" } = options;
   
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sessionId] = useState(() => crypto.randomUUID());
   const [suggestions, setSuggestions] = useState<string[]>([
     "¿Cuáles son mis próximos eventos?",
     "¿Tengo tareas pendientes?",
     "Dame un resumen del día",
   ]);
-  
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [input, setInput] = useState("");
 
+  // Crear transport con configuración personalizada
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: "/api/ai/chat",
+    body: {
+      sessionId,
+      context,
+    },
+  }), [sessionId, context]);
+
+  // Hook oficial de AI SDK - maneja el streaming automáticamente
+  const {
+    messages: chatMessages,
+    sendMessage: originalSendMessage,
+    status,
+    stop,
+    setMessages: setChatMessages,
+    error: chatError,
+  } = useChat({
+    transport,
+  });
+
+  // Cargar sugerencias iniciales
   useEffect(() => {
     async function loadSuggestions() {
       try {
@@ -44,95 +63,40 @@ export function useAIChat(options: UseAIChatOptions = {}) {
     loadSuggestions();
   }, [context]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
-
-    setError(null);
-    setIsLoading(true);
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: content.trim(),
+  // Convertir mensajes al formato esperado por los componentes
+  const messages: Message[] = useMemo(() => 
+    chatMessages.map(m => ({
+      id: m.id,
+      role: m.role as "user" | "assistant",
+      content: m.parts
+        ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map(p => p.text)
+        .join("") || "",
       createdAt: new Date(),
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
+    })),
+    [chatMessages]
+  );
 
-    const allMessages = [...messages, userMessage];
-    const apiMessages = allMessages.map(m => ({ role: m.role, content: m.content }));
-
-    try {
-      abortControllerRef.current = new AbortController();
-
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, sessionId, context }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.details || `Error ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No se pudo leer la respuesta");
-
-      const decoder = new TextDecoder();
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "",
-        createdAt: new Date(),
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-
-      let fullContent = "";
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        fullContent += chunk;
-        
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIdx = updated.length - 1;
-          if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
-            updated[lastIdx] = { ...updated[lastIdx], content: fullContent };
-          }
-          return updated;
-        });
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Error desconocido");
-      setMessages(prev => prev.filter(m => m.content.length > 0));
-    } finally {
-      setIsLoading(false);
-      abortControllerRef.current = null;
-    }
-  }, [messages, isLoading, sessionId, context]);
+  const isLoading = status === "streaming" || status === "submitted";
+  const error = chatError?.message || null;
 
   const handleSubmit = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
-    sendMessage(input);
-  }, [input, sendMessage]);
+    if (input.trim() && !isLoading) {
+      originalSendMessage({ text: input });
+      setInput("");
+    }
+  }, [input, isLoading, originalSendMessage]);
 
-  const stop = useCallback(() => {
-    abortControllerRef.current?.abort();
-    setIsLoading(false);
-  }, []);
+  const sendMessage = useCallback((content: string) => {
+    if (content.trim() && !isLoading) {
+      originalSendMessage({ text: content });
+    }
+  }, [isLoading, originalSendMessage]);
 
   const clear = useCallback(() => {
-    setMessages([]);
-    setError(null);
-  }, []);
+    setChatMessages([]);
+  }, [setChatMessages]);
 
   const sendFeedback = useCallback(async (messageId: string, rating: number, comment?: string) => {
     try {
@@ -146,5 +110,17 @@ export function useAIChat(options: UseAIChatOptions = {}) {
     }
   }, []);
 
-  return { messages, input, setInput, isLoading, error, suggestions, handleSubmit, sendMessage, stop, clear, sendFeedback };
+  return { 
+    messages, 
+    input, 
+    setInput, 
+    isLoading, 
+    error, 
+    suggestions, 
+    handleSubmit, 
+    sendMessage, 
+    stop, 
+    clear, 
+    sendFeedback 
+  };
 }
