@@ -147,11 +147,15 @@ export function TaskGeneralTab({
           setTeamMembers([]);
         }
         
-        if (vendorsData.success && vendorsData.data) {
+        if (vendorsData.success && Array.isArray(vendorsData.data)) {
           setVendors(vendorsData.data);
+        } else {
+          setVendors([]);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
+        setTeamMembers([]);
+        setVendors([]);
       } finally {
         setLoadingMembers(false);
       }

@@ -72,8 +72,8 @@ export default function PaymentsPage() {
     setIsDialogOpen(false);
   };
 
-  const filteredPayments = payments.filter((payment) => {
-    const matchesSearch = payment.concept.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredPayments = (payments || []).filter((payment) => {
+    const matchesSearch = (payment.concept || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === "all" || payment.type === filterType;
     return matchesSearch && matchesType;
   });
