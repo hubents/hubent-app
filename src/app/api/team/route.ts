@@ -86,8 +86,10 @@ export async function GET() {
 
     return NextResponse.json({ 
       success: true, 
-      data: members,
-      pendingInvitations 
+      data: {
+        members,
+        invitations: pendingInvitations
+      }
     });
   } catch (error) {
     console.error("Get team error:", error);

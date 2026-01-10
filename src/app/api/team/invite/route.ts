@@ -17,12 +17,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, role } = body;
 
-    if (!email || !role) {
+    // Validación más robusta
+    if (!email || typeof email !== 'string' || !email.trim()) {
       return NextResponse.json(
-        { error: "Email y rol son requeridos" },
+        { error: "Email es requerido" },
         { status: 400 }
       );
     }
+
+    if (!role || typeof role !== 'string') {
+      return NextResponse.json(
+        { error: "Rol es requerido" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     const cookieStore = await cookies();
     const orgIdCookie = cookieStore.get("hubents-org-id")?.value;
@@ -65,7 +75,7 @@ export async function POST(request: NextRequest) {
     const existingInvitation = await db.query.invitations.findFirst({
       where: and(
         eq(invitations.organizationId, organizationId),
-        eq(invitations.email, email.toLowerCase()),
+        eq(invitations.email, normalizedEmail),
         eq(invitations.status, "pending")
       ),
     });
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     await db.insert(invitations).values({
       organizationId,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       roleId: targetRole.id,
       token,
       status: "pending",
@@ -104,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // Send invitation email (non-blocking)
     sendOrganizationInviteEmail(
-      email.toLowerCase(),
+      normalizedEmail,
       org?.name || "Organización",
       targetRole.name,
       inviter?.name || null,

@@ -14,8 +14,13 @@ function getResendClient(): Resend {
   return resendClient;
 }
 
-const FROM_EMAIL = process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hubents.com";
+function getFromEmail() {
+  return process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
+}
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://hubents.com";
+}
 
 interface SendEmailOptions {
   to: string;
@@ -28,7 +33,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
   try {
     const resend = getResendClient();
     const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to,
       subject,
       html,
@@ -111,7 +116,7 @@ export async function sendWelcomeEmail(
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="${APP_URL}/onboarding?welcome=true" 
+                    <a href="${getAppUrl()}/onboarding?welcome=true" 
                        style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                       Comenzar configuración
                     </a>
@@ -157,7 +162,7 @@ export async function sendWelcomeEmail(
     to,
     subject: `🎉 Bienvenido a HubEnts, ${name}!`,
     html,
-    text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita está activa hasta el ${trialEndDate}. Visita ${APP_URL}/onboarding para comenzar.`,
+    text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita está activa hasta el ${trialEndDate}. Visita ${getAppUrl()}/onboarding para comenzar.`,
   });
 }
 
@@ -422,7 +427,7 @@ export async function sendTenantWelcomeEmail(
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="${APP_URL}/auth/login" 
+                    <a href="${getAppUrl()}/auth/login" 
                        style="display: inline-block; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                       Iniciar sesión
                     </a>
@@ -468,7 +473,7 @@ export async function sendTenantWelcomeEmail(
     to,
     subject: `🎉 Tu cuenta en HubEnts está lista - ${organizationName}`,
     html,
-    text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en HubEnts. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${APP_URL}/auth/login`,
+    text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en HubEnts. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${getAppUrl()}/auth/login`,
   });
 }
 
