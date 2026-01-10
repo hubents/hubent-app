@@ -46,53 +46,55 @@ export async function POST(
       );
     }
 
-    await db.transaction(async (tx) => {
-      if (!user) {
-        if (!body.name || !body.password) {
-          throw new Error("Nombre y contraseña son requeridos para nuevos usuarios");
-        }
-
-        const passwordHash = await hashPassword(body.password);
-
-        const [newUser] = await tx
-          .insert(users)
-          .values({
-            name: body.name,
-            email: invitation.email.toLowerCase(),
-            passwordHash,
-            emailVerified: new Date(),
-            onboardingCompleted: true,
-          })
-          .returning();
-
-        user = newUser;
+    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    if (!user) {
+      if (!body.name || !body.password) {
+        return NextResponse.json(
+          { error: "Nombre y contraseña son requeridos para nuevos usuarios" },
+          { status: 400 }
+        );
       }
 
-      const existingMember = await tx.query.organizationMembers.findFirst({
-        where: and(
-          eq(organizationMembers.organizationId, invitation.organizationId),
-          eq(organizationMembers.userId, user!.id)
-        ),
-      });
+      const passwordHash = await hashPassword(body.password);
 
-      if (!existingMember) {
-        await tx.insert(organizationMembers).values({
-          organizationId: invitation.organizationId,
-          userId: user!.id,
-          roleId: invitation.roleId,
-          invitedBy: invitation.invitedBy,
-          joinedAt: new Date(),
-        });
-      }
-
-      await tx
-        .update(invitations)
-        .set({
-          status: "accepted",
-          acceptedAt: new Date(),
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          name: body.name,
+          email: invitation.email.toLowerCase(),
+          passwordHash,
+          emailVerified: new Date(),
+          onboardingCompleted: true,
         })
-        .where(eq(invitations.id, invitation.id));
+        .returning();
+
+      user = newUser;
+    }
+
+    const existingMember = await db.query.organizationMembers.findFirst({
+      where: and(
+        eq(organizationMembers.organizationId, invitation.organizationId),
+        eq(organizationMembers.userId, user!.id)
+      ),
     });
+
+    if (!existingMember) {
+      await db.insert(organizationMembers).values({
+        organizationId: invitation.organizationId,
+        userId: user!.id,
+        roleId: invitation.roleId,
+        invitedBy: invitation.invitedBy,
+        joinedAt: new Date(),
+      });
+    }
+
+    await db
+      .update(invitations)
+      .set({
+        status: "accepted",
+        acceptedAt: new Date(),
+      })
+      .where(eq(invitations.id, invitation.id));
 
     return NextResponse.json({
       success: true,
