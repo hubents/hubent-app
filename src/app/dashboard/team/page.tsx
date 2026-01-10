@@ -23,14 +23,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   RiUserAddLine,
   RiMailLine,
   RiTimeLine,
   RiTeamLine,
   RiDeleteBinLine,
+  RiMoreLine,
+  RiRefreshLine,
+  RiCloseLine,
 } from "@remixicon/react";
 import { useTeam } from "@/hooks/use-team";
 import { useState } from "react";
+import { toast } from "sonner";
 
 const roleLabels: Record<string, string> = {
   owner: "Propietario",
@@ -39,20 +49,78 @@ const roleLabels: Record<string, string> = {
   viewer: "Visualizador",
 };
 
+// Email validation regex
+const isValidEmail = (email: string) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
 export default function TeamPage() {
-  const { members, invitations, loading, inviteMember, removeMember, cancelInvitation } = useTeam();
+  const { members, invitations, loading, inviteMember, removeMember, cancelInvitation, resendInvitation } = useTeam();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newInvite, setNewInvite] = useState({
     email: "",
     role: "member",
   });
 
+  const handleEmailChange = (email: string) => {
+    setNewInvite({ ...newInvite, email });
+    if (email && !isValidEmail(email)) {
+      setEmailError("Ingresa un email válido");
+    } else {
+      setEmailError(null);
+    }
+  };
+
   const handleInvite = async () => {
-    if (!newInvite.email) return;
+    if (!newInvite.email || !isValidEmail(newInvite.email)) {
+      setEmailError("Ingresa un email válido");
+      return;
+    }
     
-    await inviteMember(newInvite);
-    setNewInvite({ email: "", role: "member" });
-    setIsDialogOpen(false);
+    setIsSubmitting(true);
+    try {
+      const result = await inviteMember(newInvite);
+      if (result) {
+        toast.success("Invitación enviada", {
+          description: `Se envió una invitación a ${newInvite.email}`,
+        });
+        setNewInvite({ email: "", role: "member" });
+        setEmailError(null);
+        setIsDialogOpen(false);
+      } else {
+        toast.error("Error al enviar invitación");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: number, email: string) => {
+    const result = await cancelInvitation(invitationId);
+    if (result.success) {
+      toast.success("Invitación cancelada", {
+        description: `La invitación a ${email} fue cancelada`,
+      });
+    } else {
+      toast.error("Error al cancelar", {
+        description: result.error,
+      });
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: number, email: string) => {
+    const result = await resendInvitation(invitationId);
+    if (result.success) {
+      toast.success("Invitación reenviada", {
+        description: `Se reenvió la invitación a ${email}`,
+      });
+    } else {
+      toast.error("Error al reenviar", {
+        description: result.error,
+      });
+    }
   };
 
   const getInitials = (name: string | null, email: string) => {
@@ -97,8 +165,12 @@ export default function TeamPage() {
                   type="email"
                   placeholder="email@ejemplo.com"
                   value={newInvite.email}
-                  onChange={(e) => setNewInvite({ ...newInvite, email: e.target.value })}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  className={emailError ? "border-red-500" : ""}
                 />
+                {emailError && (
+                  <p className="text-sm text-red-500">{emailError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Rol</label>
@@ -118,11 +190,14 @@ export default function TeamPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
                 Cancelar
               </Button>
-              <Button onClick={handleInvite} disabled={!newInvite.email}>
-                Enviar Invitación
+              <Button 
+                onClick={handleInvite} 
+                disabled={!newInvite.email || !!emailError || isSubmitting}
+              >
+                {isSubmitting ? "Enviando..." : "Enviar Invitación"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -218,14 +293,29 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <Badge variant="warning">Pendiente</Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-500"
-                    onClick={() => cancelInvitation(invitation.id)}
-                  >
-                    Cancelar
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <RiMoreLine className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem 
+                        onClick={() => handleResendInvitation(invitation.id, invitation.email)}
+                        className="gap-2"
+                      >
+                        <RiRefreshLine className="h-4 w-4" />
+                        Reenviar invitación
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleCancelInvitation(invitation.id, invitation.email)}
+                        className="gap-2 text-red-500 focus:text-red-500"
+                      >
+                        <RiCloseLine className="h-4 w-4" />
+                        Cancelar invitación
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </div>

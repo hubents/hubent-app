@@ -84,10 +84,31 @@ export function useTeam() {
 
   const cancelInvitation = useCallback(async (invitationId: number) => {
     try {
-      await fetch(`/api/invitations/${invitationId}`, { method: "DELETE" });
-      fetchTeam();
+      const response = await fetch(`/api/invitations/${invitationId}`, { method: "DELETE" });
+      const result = await response.json();
+      if (result.success) {
+        fetchTeam();
+        return { success: true };
+      }
+      return { success: false, error: result.error?.message || "Failed to cancel" };
     } catch (err) {
       console.error("Failed to cancel invitation:", err);
+      return { success: false, error: "Failed to cancel invitation" };
+    }
+  }, [fetchTeam]);
+
+  const resendInvitation = useCallback(async (invitationId: number) => {
+    try {
+      const response = await fetch(`/api/invitations/${invitationId}`, { method: "PUT" });
+      const result = await response.json();
+      if (result.success) {
+        fetchTeam();
+        return { success: true };
+      }
+      return { success: false, error: result.error?.message || "Failed to resend" };
+    } catch (err) {
+      console.error("Failed to resend invitation:", err);
+      return { success: false, error: "Failed to resend invitation" };
     }
   }, [fetchTeam]);
 
@@ -100,5 +121,6 @@ export function useTeam() {
     inviteMember,
     removeMember,
     cancelInvitation,
+    resendInvitation,
   };
 }

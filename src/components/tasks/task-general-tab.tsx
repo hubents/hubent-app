@@ -137,10 +137,14 @@ export function TaskGeneralTab({
         const teamData = await teamRes.json();
         const vendorsData = await vendorsRes.json();
         
-        if (teamData.success && teamData.data) {
+        if (teamData.success && teamData.data?.members) {
+          setTeamMembers(teamData.data.members);
+        } else if (teamData.success && Array.isArray(teamData.data)) {
           setTeamMembers(teamData.data);
         } else if (teamData.members) {
           setTeamMembers(teamData.members);
+        } else {
+          setTeamMembers([]);
         }
         
         if (vendorsData.success && vendorsData.data) {
