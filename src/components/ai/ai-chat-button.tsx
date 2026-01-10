@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AIChatPanel } from "./ai-chat-panel";
@@ -11,8 +12,15 @@ interface AIChatButtonProps {
 
 export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       {/* Floating Button - Centered at bottom */}
       <button
@@ -57,6 +65,7 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
         onClose={() => setIsOpen(false)}
         context={context}
       />
-    </>
+    </>,
+    document.body
   );
 }
