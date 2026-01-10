@@ -13,8 +13,7 @@ import {
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export const runtime = "edge";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
