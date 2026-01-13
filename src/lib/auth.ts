@@ -107,6 +107,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           console.log("Auth: Creating new user from OAuth/Magic Link:", user.email);
         }
       }
+      
+      // Mark email as verified on first login (for users created by admin)
+      if (user?.email) {
+        const dbUser = await db.query.users.findFirst({
+          where: eq(users.email, user.email.toLowerCase()),
+        });
+        if (dbUser && !dbUser.emailVerified) {
+          await db.update(users)
+            .set({ emailVerified: new Date() })
+            .where(eq(users.id, dbUser.id));
+          console.log("Auth: Email verified on first login:", user.email);
+        }
+      }
+      
       return true;
     },
   },

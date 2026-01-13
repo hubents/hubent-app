@@ -19,7 +19,7 @@ function getFromEmail() {
 }
 
 function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "https://hubents.com";
+  return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
 }
 
 function getLogoUrl() {

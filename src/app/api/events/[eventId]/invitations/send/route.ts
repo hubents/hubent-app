@@ -20,7 +20,7 @@ function getEmailFrom() {
 }
 
 function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "https://hubents-new.vercel.app";
+  return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
 }
 
 // POST /api/events/[eventId]/invitations/send - Send invitations to guests

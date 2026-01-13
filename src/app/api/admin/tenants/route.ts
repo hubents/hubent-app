@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
             name: ownerName || ownerEmail.split("@")[0],
             passwordHash: hashedPassword,
             mustChangePassword: true,
-            emailVerified: new Date(),
+            emailVerified: null, // Se verifica cuando el usuario hace login por primera vez
           })
           .returning();
 
