@@ -34,7 +34,7 @@ async function resetPassword() {
     // Agregar como platform admin
     await db.insert(platformAdmins).values({
       userId: newUser.id,
-      level: "super",
+      level: "super_admin",
     });
     
     console.log("Usuario creado y agregado como super admin");
@@ -57,7 +57,7 @@ async function resetPassword() {
       console.log("Agregando como super admin...");
       await db.insert(platformAdmins).values({
         userId: user.id,
-        level: "super",
+        level: "super_admin",
       });
     } else {
       console.log(`Ya es admin nivel: ${admin.level}`);
