@@ -14,7 +14,17 @@ import {
   RiDownloadLine,
   RiMoneyDollarCircleLine,
   RiVideoLine,
+  RiCalendarEventLine,
+  RiTimeLine,
+  RiCalendarLine,
+  RiArrowDownSLine,
 } from "@remixicon/react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/ui/file-uploader";
 import {
   Dialog,
@@ -53,16 +63,32 @@ interface TaskPayment {
   createdAt: string;
 }
 
+interface TaskScheduleItem {
+  id: number;
+  taskId: number;
+  title: string;
+  description: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  notes: string | null;
+  sortOrder: number;
+}
+
 interface TaskInfoTabProps {
   task: TaskDetail | null;
   attachments: TaskAttachment[];
   payments: TaskPayment[];
+  meetings: TaskScheduleItem[];
   loading: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddAttachment: (data: { name: string; url: string; type?: string }) => Promise<unknown>;
   onDeleteAttachment: (attachmentId: number) => Promise<boolean>;
   onAddPayment: (data: { description: string; amount: number; date?: string }) => Promise<unknown>;
   onDeletePayment: (paymentId: number) => Promise<boolean>;
+  onAddMeeting: (data: { title: string; date: string; startTime?: string; endTime?: string; description?: string }) => Promise<unknown>;
+  onDeleteMeeting: (meetingId: number) => Promise<boolean>;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -76,12 +102,15 @@ export function TaskInfoTab({
   task,
   attachments,
   payments,
+  meetings,
   loading,
   onUpdateTask,
   onAddAttachment,
   onDeleteAttachment,
   onAddPayment,
   onDeletePayment,
+  onAddMeeting,
+  onDeleteMeeting,
 }: TaskInfoTabProps) {
   const [attachmentTab, setAttachmentTab] = useState("files");
   const [newLinkUrl, setNewLinkUrl] = useState("");
@@ -93,6 +122,10 @@ export function TaskInfoTab({
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
+  const [showMeetingForm, setShowMeetingForm] = useState(false);
+  const [newMeeting, setNewMeeting] = useState({ title: "", date: "", startTime: "", endTime: "", description: "" });
+  const [addingMeeting, setAddingMeeting] = useState(false);
+  const [expandedMeetings, setExpandedMeetings] = useState<Set<number>>(new Set());
 
   const handleAddPayment = async () => {
     if (!newPayment.description || !newPayment.amount) return;
@@ -133,9 +166,46 @@ export function TaskInfoTab({
   // Filter attachments by type (with defensive check)
   const safeAttachments = attachments || [];
   const safePayments = payments || [];
+  const safeMeetings = meetings || [];
   const files = safeAttachments.filter((a) => a.type === "file" || a.type === "document");
   const images = safeAttachments.filter((a) => a.type === "image" || a.mimeType?.startsWith("image/"));
   const links = safeAttachments.filter((a) => a.type === "link");
+
+  const handleAddMeeting = async () => {
+    if (!newMeeting.title.trim() || !newMeeting.date) return;
+    setAddingMeeting(true);
+    try {
+      await onAddMeeting({
+        title: newMeeting.title.trim(),
+        date: newMeeting.date,
+        startTime: newMeeting.startTime || undefined,
+        endTime: newMeeting.endTime || undefined,
+        description: newMeeting.description.trim() || undefined,
+      });
+      setNewMeeting({ title: "", date: "", startTime: "", endTime: "", description: "" });
+      setShowMeetingForm(false);
+    } finally {
+      setAddingMeeting(false);
+    }
+  };
+
+  const toggleMeetingExpanded = (id: number) => {
+    const newExpanded = new Set(expandedMeetings);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedMeetings(newExpanded);
+  };
+
+  const formatMeetingDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   const handleAddLink = async () => {
     if (!newLinkUrl.trim()) return;
@@ -256,6 +326,182 @@ export function TaskInfoTab({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Meetings Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium flex items-center gap-2">
+            <RiCalendarEventLine className="h-4 w-4 text-muted-foreground" />
+            Meetings
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => setShowMeetingForm(!showMeetingForm)}
+          >
+            <RiAddLine className="h-4 w-4" />
+            Add Order
+          </Button>
+        </div>
+
+        {/* Add Meeting Form */}
+        {showMeetingForm && (
+          <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                placeholder="Descripción *"
+                value={newMeeting.title}
+                onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
+              />
+              <Input
+                type="date"
+                value={newMeeting.date}
+                onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="time"
+                  placeholder="Inicio"
+                  value={newMeeting.startTime}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, startTime: e.target.value })}
+                />
+                <Input
+                  type="time"
+                  placeholder="Fin"
+                  value={newMeeting.endTime}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, endTime: e.target.value })}
+                />
+              </div>
+            </div>
+            <Textarea
+              placeholder="Más detalles (opcional)"
+              value={newMeeting.description}
+              onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
+              rows={2}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowMeetingForm(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleAddMeeting}
+                disabled={addingMeeting || !newMeeting.title.trim() || !newMeeting.date}
+              >
+                {addingMeeting ? "Añadiendo..." : "Añadir"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Meetings List */}
+        {safeMeetings.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+            No hay meetings registrados
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {safeMeetings.map((meeting) => (
+              <Collapsible
+                key={meeting.id}
+                open={expandedMeetings.has(meeting.id)}
+                onOpenChange={() => toggleMeetingExpanded(meeting.id)}
+              >
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="flex items-center gap-4 p-4 bg-background">
+                    <div className="flex-1 min-w-0">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Descripción</p>
+                          <p className="font-medium">{meeting.title}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                            <RiCalendarLine className="h-3 w-3" />
+                            Fecha
+                          </p>
+                          <p className="font-medium">{formatMeetingDate(meeting.date)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                            <RiTimeLine className="h-3 w-3" />
+                            Hora
+                          </p>
+                          <p className="font-medium">
+                            {meeting.startTime || "--:--"}
+                            {meeting.endTime && ` - ${meeting.endTime}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-xs">
+                          {expandedMeetings.has(meeting.id) ? "Cerrar detalles" : "Más detalles"}
+                          <RiArrowDownSLine
+                            className={`h-4 w-4 ml-1 transition-transform ${
+                              expandedMeetings.has(meeting.id) ? "rotate-180" : ""
+                            }`}
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => onDeleteMeeting(meeting.id)}
+                      >
+                        <RiDeleteBinLine className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <CollapsibleContent>
+                    <div className="p-4 border-t border-border bg-muted/30">
+                      {meeting.description ? (
+                        <p className="text-sm whitespace-pre-wrap">{meeting.description}</p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          Sin descripción adicional
+                        </p>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            ))}
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        {safeMeetings.length > 0 && (
+          <div className="flex justify-between pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => {
+                if (confirm("¿Eliminar todos los meetings?")) {
+                  safeMeetings.forEach((m) => onDeleteMeeting(m.id));
+                }
+              }}
+            >
+              Remove Order
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMeetingForm(true)}
+            >
+              Add Order
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Attachments Section */}

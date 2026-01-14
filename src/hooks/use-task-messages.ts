@@ -59,16 +59,24 @@ export function useTaskMessages(taskId: number | null) {
     fetchMessages();
   }, [fetchMessages]);
 
-  // Polling: refresh messages every 30 seconds
+  // Polling: refresh messages every 60 seconds (reduced frequency for performance)
   useEffect(() => {
     if (!taskId) return;
     
     const interval = setInterval(() => {
-      fetchMessages();
-    }, 30000); // 30 seconds
+      // Silent fetch - don't show loading state
+      fetch(`/api/tasks/${taskId}/messages`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setMessages(data.data);
+          }
+        })
+        .catch(() => {}); // Silent fail for polling
+    }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
-  }, [taskId, fetchMessages]);
+  }, [taskId]);
 
   // Send message
   const sendMessage = useCallback(async (messageData: {

@@ -22,6 +22,7 @@ import {
   RiDeleteBinLine,
   RiGroupLine,
   RiStore2Line,
+  RiContactsLine,
 } from "@remixicon/react";
 import { TaskYoutubeEmbed } from "./task-youtube-embed";
 import { TaskRichEditor } from "./task-rich-editor";
@@ -88,7 +89,7 @@ interface TaskGeneralTabProps {
   onAddVideo: (data: { youtubeUrl: string; title?: string }) => Promise<unknown>;
   onDeleteVideo: (videoId: number) => Promise<boolean>;
   onSaveHtmlContent: (content: string) => Promise<unknown>;
-  onAddParticipant: (data: { userId?: string; vendorId?: number; type: string }) => Promise<unknown>;
+  onAddParticipant: (data: { userId?: string; vendorId?: number; contactId?: number; type: string }) => Promise<unknown>;
   onRemoveParticipant: (participantId: number) => Promise<boolean>;
 }
 
@@ -123,6 +124,7 @@ export function TaskGeneralTab({
   const [addingVideo, setAddingVideo] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [contacts, setContacts] = useState<{ id: number; name: string; email: string | null; type: string }[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   // Fetch team members and vendors for assignment
@@ -130,12 +132,14 @@ export function TaskGeneralTab({
     async function fetchData() {
       setLoadingMembers(true);
       try {
-        const [teamRes, vendorsRes] = await Promise.all([
+        const [teamRes, vendorsRes, contactsRes] = await Promise.all([
           fetch("/api/team"),
           fetch("/api/vendors"),
+          fetch("/api/contacts"),
         ]);
         const teamData = await teamRes.json();
         const vendorsData = await vendorsRes.json();
+        const contactsData = await contactsRes.json();
         
         if (teamData.success && teamData.data?.members) {
           setTeamMembers(teamData.data.members);
@@ -152,10 +156,17 @@ export function TaskGeneralTab({
         } else {
           setVendors([]);
         }
+        
+        if (contactsData.success && Array.isArray(contactsData.data)) {
+          setContacts(contactsData.data);
+        } else {
+          setContacts([]);
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setTeamMembers([]);
         setVendors([]);
+        setContacts([]);
       } finally {
         setLoadingMembers(false);
       }
@@ -182,6 +193,10 @@ export function TaskGeneralTab({
     await onAddParticipant({ vendorId: parseInt(vendorId, 10), type: "vendor" });
   };
 
+  const handleAddContactParticipant = async (contactId: string) => {
+    await onAddParticipant({ contactId: parseInt(contactId, 10), type: "contact" });
+  };
+
   // Filter out already added participants (with defensive checks)
   const safeTeamMembers = teamMembers || [];
   const safeVendors = vendors || [];
@@ -191,6 +206,10 @@ export function TaskGeneralTab({
   );
   const availableVendors = safeVendors.filter(
     (v) => !safeParticipants.some((p) => p.vendorId === v.id)
+  );
+  const safeContacts = contacts || [];
+  const availableContacts = safeContacts.filter(
+    (c) => !safeParticipants.some((p) => (p as any).contactId === c.id)
   );
 
   if (loading) {
@@ -382,6 +401,25 @@ export function TaskGeneralTab({
                 availableVendors.map((vendor) => (
                   <SelectItem key={vendor.id} value={vendor.id.toString()}>
                     {vendor.name} {vendor.category && `(${vendor.category})`}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <Select onValueChange={handleAddContactParticipant}>
+            <SelectTrigger className="w-auto h-7 text-xs">
+              <RiContactsLine className="h-3 w-3 mr-1" />
+              Contacto
+            </SelectTrigger>
+            <SelectContent>
+              {availableContacts.length === 0 ? (
+                <SelectItem value="__no_contacts__" disabled>
+                  {contacts.length === 0 ? "No hay contactos" : "Todos agregados"}
+                </SelectItem>
+              ) : (
+                availableContacts.map((contact) => (
+                  <SelectItem key={contact.id} value={contact.id.toString()}>
+                    {contact.name} {contact.type === "company" ? "(Empresa)" : ""}
                   </SelectItem>
                 ))
               )}

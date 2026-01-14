@@ -437,7 +437,7 @@ export function useTaskDetail(taskId: number | null) {
   }, [taskId]);
 
   // Add participant (user or vendor)
-  const addParticipant = useCallback(async (participantData: { userId?: string; vendorId?: number; type: string; canEdit?: boolean; canComment?: boolean }) => {
+  const addParticipant = useCallback(async (participantData: { userId?: string; vendorId?: number; contactId?: number; type: string; canEdit?: boolean; canComment?: boolean }) => {
     if (!taskId) return null;
     
     try {

@@ -171,7 +171,7 @@ export function TaskDrawer({
                   </TabsTrigger>
                   <TabsTrigger value="schedule" className="gap-2">
                     <RiCalendarScheduleLine className="h-4 w-4" />
-                    Meetings
+                    Orden del día
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -198,12 +198,15 @@ export function TaskDrawer({
                     task={task}
                     attachments={attachments}
                     payments={payments}
+                    meetings={scheduleItems}
                     loading={loading}
                     onUpdateTask={handleTaskUpdate}
                     onAddAttachment={addAttachment}
                     onDeleteAttachment={deleteAttachment}
                     onAddPayment={addPayment}
                     onDeletePayment={deletePayment}
+                    onAddMeeting={addScheduleItem}
+                    onDeleteMeeting={deleteScheduleItem}
                   />
                 </TabsContent>
 
