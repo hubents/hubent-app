@@ -152,15 +152,15 @@ function LoginContent() {
   return (
     <>
       {/* Logo arriba del card */}
-      <div className="flex items-center justify-center gap-2 mb-6">
+      <div className="flex justify-center mb-6">
         <Image
-          src="/images/isotipo-dark.png"
+          src="/images/logo-dark.png"
           alt="HubEnts"
-          width={32}
-          height={32}
-          className="rounded-lg"
+          width={140}
+          height={40}
+          className="h-10 w-auto"
+          priority
         />
-        <span className="text-xl font-bold">hubents</span>
       </div>
       
       <Card className="border-0 shadow-xl">
@@ -314,6 +314,25 @@ function LoginContent() {
         </p>
       </CardContent>
     </Card>
+    
+    {/* Powered by NapsixAI */}
+    <div className="flex items-center justify-center gap-2 mt-6">
+      <span className="text-xs text-muted-foreground">Powered by</span>
+      <a 
+        href="https://napsix.ai" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="opacity-70 hover:opacity-100 transition-opacity"
+      >
+        <Image
+          src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+          alt="NapsixAI"
+          width={70}
+          height={20}
+          className="h-4 w-auto"
+        />
+      </a>
+    </div>
     </>
   );
 }

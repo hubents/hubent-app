@@ -186,6 +186,27 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </button>
             )}
           </div>
+
+          {/* Powered by NapsixAI */}
+          {!isCollapsed && (
+            <div className="px-4 py-3 border-t border-[var(--border)]">
+              <a 
+                href="https://napsix.ai" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 opacity-50 hover:opacity-80 transition-opacity"
+              >
+                <span className="text-[10px] text-muted-foreground">Powered by</span>
+                <Image
+                  src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+                  alt="NapsixAI"
+                  width={55}
+                  height={16}
+                  className="h-3 w-auto"
+                />
+              </a>
+            </div>
+          )}
         </div>
       </aside>
     </TooltipProvider>
