@@ -8,8 +8,8 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 p-12 flex-col justify-between">
-        <Logo variant="full" size="lg" theme="dark" />
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/80 p-12 flex-col justify-between">
+        <Logo variant="full" size="md" theme="dark" />
         
         <div className="space-y-6">
           <h1 className="text-4xl font-bold text-white leading-tight">
@@ -42,7 +42,7 @@ export default function AuthLayout({
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
-            <Logo variant="full" size="md" theme="light" />
+            <Logo variant="full" size="sm" theme="light" />
           </div>
           
           {children}
