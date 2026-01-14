@@ -8,13 +8,13 @@ import { eq } from "drizzle-orm";
 // GET - List contacts linked to an event
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     await requireRole("viewer");
 
-    const { id } = await params;
-    const eventId = parseInt(id, 10);
+    const { eventId } = await params;
+    const eventIdNum = parseInt(eventId, 10);
 
     const linkedContacts = await db
       .select({
@@ -29,7 +29,7 @@ export async function GET(
       })
       .from(contactEvents)
       .innerJoin(contacts, eq(contactEvents.contactId, contacts.id))
-      .where(eq(contactEvents.eventId, eventId));
+      .where(eq(contactEvents.eventId, eventIdNum));
 
     return NextResponse.json({ success: true, data: linkedContacts });
   } catch (error) {
@@ -41,13 +41,13 @@ export async function GET(
 // POST - Link contact to event
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     await requireRole("planner");
 
-    const { id } = await params;
-    const eventId = parseInt(id, 10);
+    const { eventId } = await params;
+    const eventIdNum = parseInt(eventId, 10);
     const body = await request.json();
     const { contactId, role } = body;
 
@@ -55,7 +55,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "contactId is required" }, { status: 400 });
     }
 
-    const link = await linkContactToEvent(contactId, eventId, role);
+    const link = await linkContactToEvent(contactId, eventIdNum, role);
 
     return NextResponse.json({ success: true, data: link });
   } catch (error) {
@@ -67,13 +67,13 @@ export async function POST(
 // DELETE - Unlink contact from event
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     await requireRole("planner");
 
-    const { id } = await params;
-    const eventId = parseInt(id, 10);
+    const { eventId } = await params;
+    const eventIdNum = parseInt(eventId, 10);
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get("contactId");
 
@@ -81,7 +81,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "contactId is required" }, { status: 400 });
     }
 
-    await unlinkContactFromEvent(parseInt(contactId, 10), eventId);
+    await unlinkContactFromEvent(parseInt(contactId, 10), eventIdNum);
 
     return NextResponse.json({ success: true });
   } catch (error) {
