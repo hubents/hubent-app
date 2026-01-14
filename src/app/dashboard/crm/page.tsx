@@ -147,8 +147,9 @@ export default function CRMPage() {
     setIsStageDialogOpen(true);
   };
 
-  const handleEditStage = (stage: Stage) => {
-    setSelectedStage(stage);
+  const handleEditStage = (stage: { id: number; name: string; color: string | null; sortOrder: number | null; isDefault?: boolean | null; isWon: boolean | null; isLost: boolean | null }) => {
+    // Convert StageConfig to Stage for the dialog
+    setSelectedStage(stage as Stage);
     setIsStageDialogOpen(true);
   };
 

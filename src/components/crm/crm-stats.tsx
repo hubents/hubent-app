@@ -21,10 +21,22 @@ interface Stage {
     id: number;
     value: string | null;
     probability: number | null;
+    stageChangedAt?: Date | null;
+    createdAt?: Date | null;
   }>;
   totalValue: number;
   isWon?: boolean | null;
   isLost?: boolean | null;
+}
+
+// Helper to calculate days in stage
+function getDaysInStage(stageChangedAt: Date | null | undefined, createdAt: Date | null | undefined): number {
+  const referenceDate = stageChangedAt || createdAt;
+  if (!referenceDate) return 0;
+  const now = new Date();
+  const changed = new Date(referenceDate);
+  const diffTime = Math.abs(now.getTime() - changed.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
 interface CRMStatsProps {
