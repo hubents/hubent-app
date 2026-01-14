@@ -44,12 +44,15 @@ interface TaskParticipant {
   id: number;
   userId: string | null;
   vendorId: number | null;
+  contactId?: number | null;
   userName?: string | null;
   userEmail?: string | null;
   userImage?: string | null;
   vendorName?: string | null;
+  contactName?: string | null;
   name?: string | null;
   isVendor?: boolean;
+  isContact?: boolean;
   type: string;
   canEdit: boolean;
   canComment: boolean;
@@ -343,31 +346,43 @@ export function TaskGeneralTab({
           Participantes
         </label>
         <div className="flex flex-wrap gap-2">
-          {participants.map((p) => (
-            <Badge
-              key={p.id}
-              variant={p.isVendor ? "outline" : "secondary"}
-              className={`flex items-center gap-2 pr-1 ${p.isVendor ? "border-blue-500 text-blue-600" : ""}`}
-            >
-              {p.isVendor ? (
-                <RiStore2Line className="h-4 w-4" />
-              ) : (
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={p.userImage || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {(p.name || p.userName)?.charAt(0) || "?"}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              {p.name || p.userName || p.userEmail || p.vendorName}
-              <button
-                onClick={() => onRemoveParticipant(p.id)}
-                className="ml-1 hover:text-red-500"
+          {participants.map((p) => {
+            const isContact = p.isContact || p.type === "contact" || !!p.contactId;
+            const isVendor = p.isVendor || p.type === "vendor" || !!p.vendorId;
+            return (
+              <Badge
+                key={p.id}
+                variant="outline"
+                className={`flex items-center gap-2 pr-1 ${
+                  isContact 
+                    ? "border-green-500 text-green-600" 
+                    : isVendor 
+                      ? "border-blue-500 text-blue-600" 
+                      : "border-gray-300"
+                }`}
               >
-                ×
-              </button>
-            </Badge>
-          ))}
+                {isContact ? (
+                  <RiContactsLine className="h-4 w-4" />
+                ) : isVendor ? (
+                  <RiStore2Line className="h-4 w-4" />
+                ) : (
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={p.userImage || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {(p.name || p.userName)?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                {p.contactName || p.name || p.userName || p.userEmail || p.vendorName}
+                <button
+                  onClick={() => onRemoveParticipant(p.id)}
+                  className="ml-1 hover:text-red-500"
+                >
+                  ×
+                </button>
+              </Badge>
+            );
+          })}
           <Select onValueChange={handleAddParticipant}>
             <SelectTrigger className="w-auto h-7 text-xs">
               <RiAddLine className="h-3 w-3 mr-1" />

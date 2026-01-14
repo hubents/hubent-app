@@ -39,11 +39,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
-    const { userId, vendorId, type, canEdit, canComment } = body;
+    const { userId, vendorId, contactId, type, canEdit, canComment } = body;
 
-    if (!userId && !vendorId) {
+    if (!userId && !vendorId && !contactId) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "userId or vendorId is required" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "userId, vendorId, or contactId is required" } },
         { status: 400 }
       );
     }
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const participant = await addTaskParticipant(session, parseInt(taskId, 10), {
       userId,
       vendorId,
+      contactId,
       type,
       canEdit,
       canComment,

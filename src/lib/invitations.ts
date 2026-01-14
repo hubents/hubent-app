@@ -8,11 +8,14 @@ import {
   taskParticipants,
   events,
   tasks,
-  vendors
+  vendors,
+  contacts,
+  organizations
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { TenantSession } from "@/types";
 import { canInviteRole } from "@/lib/tenant";
+import { sendContactTaskNotificationEmail } from "@/lib/email";
 
 // ============================================
 // INVITATION HELPERS
@@ -281,14 +284,15 @@ export async function addTaskParticipant(
   params: {
     userId?: string;
     vendorId?: number;
-    type: "planner" | "vendor" | "client" | "assistant" | "guest";
+    contactId?: number;
+    type: "planner" | "vendor" | "client" | "assistant" | "guest" | "contact";
     canEdit?: boolean;
     canComment?: boolean;
   }
 ) {
-  // Must have either userId or vendorId
-  if (!params.userId && !params.vendorId) {
-    throw new Error("Either userId or vendorId is required");
+  // Must have either userId, vendorId, or contactId
+  if (!params.userId && !params.vendorId && !params.contactId) {
+    throw new Error("Either userId, vendorId, or contactId is required");
   }
 
   // Verify task belongs to organization
@@ -305,34 +309,63 @@ export async function addTaskParticipant(
   }
 
   // Check for existing participant
-  const existingConditions = [eq(taskParticipants.taskId, taskId)];
+  let existing = null;
   if (params.userId) {
-    existingConditions.push(eq(taskParticipants.userId, params.userId));
-  }
-  if (params.vendorId) {
-    existingConditions.push(eq(taskParticipants.vendorId, params.vendorId));
-  }
-
-  const existing = await db.query.taskParticipants.findFirst({
-    where: (p, { eq, and }) => 
-      params.userId 
-        ? and(eq(p.taskId, taskId), eq(p.userId, params.userId))
-        : and(eq(p.taskId, taskId), eq(p.vendorId, params.vendorId!)),
-  });
-
-  if (existing) {
-    throw new Error(params.userId ? "User is already a participant of this task" : "Vendor is already a participant of this task");
+    const userId = params.userId;
+    existing = await db.query.taskParticipants.findFirst({
+      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.userId, userId)),
+    });
+    if (existing) throw new Error("User is already a participant of this task");
+  } else if (params.vendorId) {
+    const vendorId = params.vendorId;
+    existing = await db.query.taskParticipants.findFirst({
+      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.vendorId, vendorId)),
+    });
+    if (existing) throw new Error("Vendor is already a participant of this task");
+  } else if (params.contactId) {
+    const contactId = params.contactId;
+    existing = await db.query.taskParticipants.findFirst({
+      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.contactId, contactId)),
+    });
+    if (existing) throw new Error("Contact is already a participant of this task");
   }
 
   const [participant] = await db.insert(taskParticipants).values({
     taskId,
     userId: params.userId,
     vendorId: params.vendorId,
+    contactId: params.contactId,
     type: params.type,
     canEdit: params.canEdit ?? false,
     canComment: params.canComment ?? true,
     addedBy: session.user.userId,
   }).returning();
+
+  // Send email notification to contact if contactId is provided
+  if (params.contactId) {
+    try {
+      const contact = await db.query.contacts.findFirst({
+        where: (c, { eq }) => eq(c.id, params.contactId!),
+      });
+      
+      const org = await db.query.organizations.findFirst({
+        where: (o, { eq }) => eq(o.id, session.organizationId),
+      });
+      
+      if (contact?.email && org) {
+        await sendContactTaskNotificationEmail(
+          contact.email,
+          contact.name,
+          task.title,
+          org.name,
+          session.user.name || session.user.email
+        );
+      }
+    } catch (emailError) {
+      // Don't fail the operation if email fails
+      console.error("Failed to send contact notification email:", emailError);
+    }
+  }
 
   return participant;
 }

@@ -36,6 +36,20 @@
       "when": 1768024657057,
       "tag": "0004_lame_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768422717293,
+      "tag": "0005_steep_red_wolf",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768423132387,
+      "tag": "0006_tiny_paladin",
+      "breakpoints": true
     }
   ]
 }

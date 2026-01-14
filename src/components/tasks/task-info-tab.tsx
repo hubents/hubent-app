@@ -342,7 +342,7 @@ export function TaskInfoTab({
             onClick={() => setShowMeetingForm(!showMeetingForm)}
           >
             <RiAddLine className="h-4 w-4" />
-            Add Order
+            Add Meeting
           </Button>
         </div>
 
@@ -491,14 +491,14 @@ export function TaskInfoTab({
                 }
               }}
             >
-              Remove Order
+              Remove Meeting
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowMeetingForm(true)}
             >
-              Add Order
+              Add Meeting
             </Button>
           </div>
         )}

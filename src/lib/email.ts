@@ -346,3 +346,35 @@ export async function sendPasswordResetEmail(
     text: `Recibimos una solicitud para restablecer tu contraseña. Visita este enlace para crear una nueva: ${resetUrl}. El enlace expira en 1 hora.`,
   });
 }
+
+// ============================================
+// CONTACT TASK NOTIFICATION EMAIL
+// ============================================
+
+export async function sendContactTaskNotificationEmail(
+  to: string,
+  contactName: string,
+  taskTitle: string,
+  organizationName: string,
+  addedByName: string
+) {
+  const content = `
+    ${heading("Has sido agregado a una tarea")}
+    ${paragraph(`Hola <strong>${contactName}</strong>,`)}
+    ${paragraph(`<strong>${addedByName}</strong> de <strong>${organizationName}</strong> te ha agregado como participante en la siguiente tarea:`)}
+    <div style="background: ${COLORS.successBg}; border: 1px solid ${COLORS.successBorder}; border-radius: 8px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 16px; font-weight: 600; color: ${COLORS.textPrimary};">
+        📋 ${taskTitle}
+      </p>
+    </div>
+    ${paragraph("Podrás recibir actualizaciones sobre el progreso de esta tarea.")}
+    ${mutedText("Este es un mensaje automático de HubEnts.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Te han agregado a una tarea: ${taskTitle}`,
+    html: emailWrapper(content),
+    text: `Hola ${contactName}, ${addedByName} de ${organizationName} te ha agregado como participante en la tarea: ${taskTitle}.`,
+  });
+}
