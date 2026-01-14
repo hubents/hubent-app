@@ -39,9 +39,10 @@ interface CreateTaskDialogProps {
   onOpenChange: (open: boolean) => void;
   onTaskCreated?: () => void;
   preselectedEventId?: number;
+  preselectedStatus?: string;
 }
 
-export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselectedEventId }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselectedEventId, preselectedStatus }: CreateTaskDialogProps) {
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -90,6 +91,7 @@ export function CreateTaskDialog({ open, onOpenChange, onTaskCreated, preselecte
           title: formData.title,
           description: formData.description || null,
           priority: formData.priority,
+          status: preselectedStatus || "pending",
           dueDate: formData.dueDate ? new Date(formData.dueDate) : null,
           eventId: parseInt(formData.eventId),
         }),

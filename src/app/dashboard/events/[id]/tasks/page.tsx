@@ -118,23 +118,36 @@ function DroppableColumn({
   title, 
   color, 
   tasks, 
-  onTaskClick 
+  onTaskClick,
+  onAddTask,
 }: { 
   id: string; 
   title: string; 
   color: string; 
   tasks: Task[];
   onTaskClick: (task: Task) => void;
+  onAddTask: (status: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <div className="flex flex-col">
       <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
-        <span>{title}</span>
-        <Badge variant="secondary" className="ml-2">
-          {tasks.length}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <Badge variant="secondary">
+            {tasks.length}
+          </Badge>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 hover:bg-white/50"
+          onClick={() => onAddTask(id)}
+          title={`Agregar tarea en ${title}`}
+        >
+          <RiAddLine className="h-4 w-4" />
+        </Button>
       </div>
       <div 
         ref={setNodeRef}
@@ -170,6 +183,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [preselectedStatus, setPreselectedStatus] = useState<string | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -220,6 +234,18 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
     setSelectedTaskId(task.id);
     setSelectedTaskTitle(task.title);
     setIsDrawerOpen(true);
+  };
+
+  const handleAddTaskFromColumn = (status: string) => {
+    setPreselectedStatus(status);
+    setIsCreateOpen(true);
+  };
+
+  const handleCreateDialogClose = (open: boolean) => {
+    setIsCreateOpen(open);
+    if (!open) {
+      setPreselectedStatus(undefined);
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -344,6 +370,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
                 color={column.color}
                 tasks={filteredTasks.filter((t) => t.status === column.id)}
                 onTaskClick={handleTaskClick}
+                onAddTask={handleAddTaskFromColumn}
               />
             ))}
           </div>
@@ -406,9 +433,10 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
       {/* Dialogs */}
       <CreateTaskDialog
         open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
+        onOpenChange={handleCreateDialogClose}
         onTaskCreated={fetchTasks}
         preselectedEventId={eventId}
+        preselectedStatus={preselectedStatus}
       />
 
       <TaskDrawer

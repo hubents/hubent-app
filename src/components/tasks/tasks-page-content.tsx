@@ -13,12 +13,28 @@ import {
   RiCheckboxBlankCircleLine,
   RiCalendarLine,
   RiFlag2Line,
+  RiLayoutGridLine,
+  RiListUnordered,
+  RiDraggable,
 } from "@remixicon/react";
 import { useTasks } from "@/hooks/use-tasks";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  useDroppable,
+} from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
 
 const priorityConfig = {
   high: { label: "Alta", variant: "destructive" as const, color: "text-red-500" },
@@ -32,12 +48,156 @@ const statusConfig = {
   completed: { label: "Completada", variant: "success" as const },
 };
 
+const columns = [
+  { id: "pending", title: "Por hacer", color: "bg-gray-100 dark:bg-gray-800" },
+  { id: "in_progress", title: "En progreso", color: "bg-yellow-100 dark:bg-yellow-900/30" },
+  { id: "completed", title: "Finalizado", color: "bg-green-100 dark:bg-green-900/30" },
+];
+
+interface Task {
+  id: number;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  eventName: string | null;
+}
+
+// Draggable Task Card Component
+function DraggableTaskCard({ 
+  task, 
+  onClick 
+}: { 
+  task: Task; 
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id.toString(),
+    data: { task },
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "cursor-grab active:cursor-grabbing transition-shadow",
+        isDragging ? "opacity-50 shadow-lg" : "hover:shadow-md"
+      )}
+      {...listeners}
+      {...attributes}
+    >
+      <CardContent className="p-3" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+          <RiDraggable className="h-4 w-4 text-muted-foreground shrink-0" />
+        </div>
+        {task.eventName && (
+          <p className="text-xs text-muted-foreground mt-1 truncate">{task.eventName}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <span className={cn(
+            "px-2 py-0.5 rounded text-xs font-medium border",
+            task.priority === "high" && "bg-red-100 text-red-700 border-red-200",
+            task.priority === "medium" && "bg-yellow-100 text-yellow-700 border-yellow-200",
+            task.priority === "low" && "bg-green-100 text-green-700 border-green-200"
+          )}>
+            {priorityConfig[task.priority as keyof typeof priorityConfig]?.label || task.priority}
+          </span>
+          {task.dueDate && (
+            <span className="text-xs text-muted-foreground">
+              📅 {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Droppable Column Component
+function DroppableColumn({ 
+  id, 
+  title, 
+  color, 
+  tasks, 
+  onTaskClick,
+  onAddTask,
+}: { 
+  id: string; 
+  title: string; 
+  color: string; 
+  tasks: Task[];
+  onTaskClick: (taskId: number) => void;
+  onAddTask: (status: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div className="flex flex-col">
+      <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <Badge variant="secondary">
+            {tasks.length}
+          </Badge>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 hover:bg-white/50"
+          onClick={() => onAddTask(id)}
+          title={`Agregar tarea en ${title}`}
+        >
+          <RiAddLine className="h-4 w-4" />
+        </Button>
+      </div>
+      <div 
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-[400px] space-y-2 transition-colors",
+          isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
+        )}
+      >
+        {tasks.map((task) => (
+          <DraggableTaskCard 
+            key={task.id} 
+            task={task} 
+            onClick={() => onTaskClick(task.id)} 
+          />
+        ))}
+        {tasks.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {isOver ? "Soltar aquí" : "No hay tareas"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TasksPageContent() {
   const { tasks: apiTasks, stats, loading, refetch } = useTasks();
   const searchParams = useSearchParams();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [preselectedStatus, setPreselectedStatus] = useState<string | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
   
   useEffect(() => {
     if (searchParams.get("new") === "true") {
@@ -46,11 +206,58 @@ export function TasksPageContent() {
   }, [searchParams]);
   
   const displayTasks = apiTasks.length > 0 ? apiTasks : [];
+  const filteredTasks = displayTasks.filter((task) =>
+    task.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   const completionRate = stats.completionRate;
 
   const handleTaskClick = (taskId: number) => {
     setSelectedTaskId(taskId);
     setIsDrawerOpen(true);
+  };
+
+  const handleAddTaskFromColumn = (status: string) => {
+    setPreselectedStatus(status);
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleCreateDialogClose = (open: boolean) => {
+    setIsCreateDialogOpen(open);
+    if (!open) {
+      setPreselectedStatus(undefined);
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const task = displayTasks.find((t) => t.id.toString() === active.id);
+    if (task) {
+      setActiveTask(task as Task);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = parseInt(active.id as string, 10);
+    const newStatus = over.id as string;
+    const task = displayTasks.find((t) => t.id === taskId);
+
+    if (!task || task.status === newStatus) return;
+
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      refetch();
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
   };
 
   return (
@@ -115,61 +322,147 @@ export function TasksPageContent() {
         )}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>Lista de Tareas</CardTitle>
-            <div className="relative w-64">
-              <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar tareas..." className="pl-9" />
-            </div>
+      {/* Filters and View Toggle */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="relative w-full sm:w-72">
+          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar tareas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex items-center gap-1 border rounded-lg p-1">
+          <Button
+            variant={viewMode === "kanban" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("kanban")}
+          >
+            <RiLayoutGridLine className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+          >
+            <RiListUnordered className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Kanban View */}
+      {viewMode === "kanban" ? (
+        loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-96" />
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+        ) : filteredTasks.length === 0 && displayTasks.length === 0 ? (
+          <div className="text-center py-12">
+            <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="font-medium mb-2">No hay tareas</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Crea tu primera tarea para comenzar
+            </p>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <RiAddLine className="h-4 w-4 mr-2" />
+              Nueva Tarea
+            </Button>
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {columns.map((column) => (
+                <DroppableColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  color={column.color}
+                  tasks={filteredTasks.filter((t) => t.status === column.id) as Task[]}
+                  onTaskClick={handleTaskClick}
+                  onAddTask={handleAddTaskFromColumn}
+                />
               ))}
             </div>
-          ) : displayTasks.length === 0 ? (
-            <div className="text-center py-12">
-              <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="font-medium mb-2">No hay tareas</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Crea tu primera tarea para comenzar
-              </p>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <RiAddLine className="h-4 w-4 mr-2" />
-                Nueva Tarea
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {displayTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => handleTaskClick(task.id)}
-                >
-                  <button
-                    className="flex-shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+            <DragOverlay>
+              {activeTask ? (
+                <Card className="shadow-xl rotate-3 cursor-grabbing">
+                  <CardContent className="p-3">
+                    <h4 className="font-medium text-sm">{activeTask.title}</h4>
+                    <span className={cn(
+                      "inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium border",
+                      activeTask.priority === "high" && "bg-red-100 text-red-700 border-red-200",
+                      activeTask.priority === "medium" && "bg-yellow-100 text-yellow-700 border-yellow-200",
+                      activeTask.priority === "low" && "bg-green-100 text-green-700 border-green-200"
+                    )}>
+                      {priorityConfig[activeTask.priority as keyof typeof priorityConfig]?.label || activeTask.priority}
+                    </span>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )
+      ) : (
+        /* List View */
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Lista de Tareas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="text-center py-12">
+                <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="font-medium mb-2">No hay tareas</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {displayTasks.length === 0 ? "Crea tu primera tarea para comenzar" : "No hay tareas que coincidan con la búsqueda"}
+                </p>
+                {displayTasks.length === 0 && (
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <RiAddLine className="h-4 w-4 mr-2" />
+                    Nueva Tarea
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => handleTaskClick(task.id)}
                   >
-                    {task.status === "completed" ? (
-                      <RiCheckboxCircleLine className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <RiCheckboxBlankCircleLine className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </button>
+                    <button
+                      className="shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      {task.status === "completed" ? (
+                        <RiCheckboxCircleLine className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <RiCheckboxBlankCircleLine className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </button>
 
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`font-medium truncate ${
-                        task.status === "completed"
-                          ? "line-through text-muted-foreground"
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`font-medium truncate ${
+                          task.status === "completed"
+                            ? "line-through text-muted-foreground"
                           : ""
                       }`}
                     >
@@ -214,12 +507,14 @@ export function TasksPageContent() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
 
       <CreateTaskDialog
         open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
+        onOpenChange={handleCreateDialogClose}
         onTaskCreated={refetch}
+        preselectedStatus={preselectedStatus}
       />
 
       <TaskDrawer

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar } from "@/components/ui/calendar";
 import {
   RiAddLine,
   RiDeleteBinLine,
@@ -84,9 +83,6 @@ export function TaskInfoTab({
   onAddPayment,
   onDeletePayment,
 }: TaskInfoTabProps) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    task?.dueDate ? new Date(task.dueDate) : undefined
-  );
   const [attachmentTab, setAttachmentTab] = useState("files");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkName, setNewLinkName] = useState("");
@@ -140,13 +136,6 @@ export function TaskInfoTab({
   const files = safeAttachments.filter((a) => a.type === "file" || a.type === "document");
   const images = safeAttachments.filter((a) => a.type === "image" || a.mimeType?.startsWith("image/"));
   const links = safeAttachments.filter((a) => a.type === "link");
-
-  const handleDateSelect = async (date: Date | undefined) => {
-    setSelectedDate(date);
-    if (date) {
-      await onUpdateTask({ dueDate: date });
-    }
-  };
 
   const handleAddLink = async () => {
     if (!newLinkUrl.trim()) return;
@@ -266,19 +255,6 @@ export function TaskInfoTab({
               ))}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Calendar Section */}
-      <div className="space-y-3">
-        <h3 className="font-medium">Calendario</h3>
-        <div className="flex justify-center">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDateSelect}
-            className="rounded-lg border border-border"
-          />
         </div>
       </div>
 

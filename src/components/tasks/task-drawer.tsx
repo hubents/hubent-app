@@ -171,7 +171,7 @@ export function TaskDrawer({
                   </TabsTrigger>
                   <TabsTrigger value="schedule" className="gap-2">
                     <RiCalendarScheduleLine className="h-4 w-4" />
-                    Orden del día
+                    Meetings
                   </TabsTrigger>
                 </TabsList>
               </div>

@@ -59,6 +59,17 @@ export function useTaskMessages(taskId: number | null) {
     fetchMessages();
   }, [fetchMessages]);
 
+  // Polling: refresh messages every 30 seconds
+  useEffect(() => {
+    if (!taskId) return;
+    
+    const interval = setInterval(() => {
+      fetchMessages();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [taskId, fetchMessages]);
+
   // Send message
   const sendMessage = useCallback(async (messageData: {
     content: string;

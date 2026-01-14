@@ -19,6 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ContactSelector } from "@/components/contacts/contact-selector";
+
+interface Contact {
+  id: number;
+  type: "person" | "company";
+  name: string;
+  email: string | null;
+  avatar: string | null;
+}
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -40,6 +49,7 @@ const eventTypes = [
 export function CreateEventDialog({ open, onOpenChange, onEventCreated }: CreateEventDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     eventType: "",
@@ -62,6 +72,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
       budget: "",
       description: "",
     });
+    setSelectedContact(null);
     setError(null);
   };
 
@@ -93,6 +104,18 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
       const data = await res.json();
 
       if (res.ok && data.success) {
+        // Si hay contacto seleccionado, vincularlo al evento
+        if (selectedContact && data.data?.id) {
+          try {
+            await fetch(`/api/events/${data.data.id}/contacts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contactId: selectedContact.id, role: "client" }),
+            });
+          } catch (linkError) {
+            console.error("Error linking contact to event:", linkError);
+          }
+        }
         resetForm();
         onOpenChange(false);
         onEventCreated?.();
@@ -216,6 +239,20 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Cliente (Contacto)</label>
+            <ContactSelector
+              selectedContacts={selectedContact ? [selectedContact] : []}
+              onSelect={(contact) => setSelectedContact(contact)}
+              onRemove={() => setSelectedContact(null)}
+              placeholder="Buscar cliente..."
+              multiple={false}
+            />
+            <p className="text-xs text-muted-foreground">
+              Vincula un contacto como cliente de este evento
+            </p>
           </div>
         </div>
         <DialogFooter>

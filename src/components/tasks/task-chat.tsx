@@ -11,6 +11,7 @@ import {
   RiAttachment2,
   RiLockLine,
   RiAtLine,
+  RiLoader4Line,
 } from "@remixicon/react";
 import { useTaskMessages } from "@/hooks/use-task-messages";
 import { TaskChatMessage } from "./task-chat-message";
@@ -38,6 +39,8 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const [mentionSearch, setMentionSearch] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Fetch team members for mentions
   useEffect(() => {
@@ -85,6 +88,56 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
     setNewMessage("");
     setIsPrivate(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !taskId) return;
+
+    setUploading(true);
+    try {
+      // Upload file to R2
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "chat-attachments");
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+
+      if (uploadData.success && uploadData.url) {
+        // Save attachment to task_attachments
+        await fetch(`/api/tasks/${taskId}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: file.name,
+            url: uploadData.url,
+            type: file.type.startsWith("image/") ? "image" : "file",
+            size: file.size,
+            mimeType: file.type,
+          }),
+        });
+
+        // Send message with attachment info
+        await sendMessage({
+          content: `📎 Archivo adjunto: ${file.name}`,
+          type: "attachment",
+          isPrivate,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    } finally {
+      setUploading(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -262,14 +315,27 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
             </Button>
 
             {/* Attachment button */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              onChange={handleFileUpload}
+            />
             <Button
               type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              disabled={sending}
+              disabled={sending || uploading}
+              onClick={() => fileInputRef.current?.click()}
+              title="Adjuntar archivo"
             >
-              <RiAttachment2 className="h-4 w-4" />
+              {uploading ? (
+                <RiLoader4Line className="h-4 w-4 animate-spin" />
+              ) : (
+                <RiAttachment2 className="h-4 w-4" />
+              )}
             </Button>
 
             {/* Send button */}
