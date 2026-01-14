@@ -50,8 +50,8 @@ const statusConfig = {
 
 const columns = [
   { id: "pending", title: "Por hacer", color: "bg-gray-100 dark:bg-gray-800" },
-  { id: "in_progress", title: "En progreso", color: "bg-sky-100 dark:bg-sky-900/30" },
-  { id: "completed", title: "Finalizado", color: "bg-emerald-100 dark:bg-emerald-900/30" },
+  { id: "in_progress", title: "En progreso", color: "bg-blue-100 dark:bg-blue-900/30" },
+  { id: "completed", title: "Finalizado", color: "bg-green-100 dark:bg-green-900/30" },
 ];
 
 interface Task {
