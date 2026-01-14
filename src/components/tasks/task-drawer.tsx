@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -11,11 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   RiDeleteBinLine,
   RiFileListLine,
   RiInformationLine,
   RiCalendarScheduleLine,
+  RiPencilLine,
+  RiCheckLine,
+  RiCloseLine,
 } from "@remixicon/react";
 import { useTaskDetail } from "@/hooks/use-task-detail";
 import { TaskGeneralTab } from "./task-general-tab";
@@ -50,6 +54,9 @@ export function TaskDrawer({
 }: TaskDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [deleting, setDeleting] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const {
     task,
@@ -108,6 +115,34 @@ export function TaskDrawer({
     return result;
   };
 
+  const startEditingTitle = () => {
+    setEditedTitle(task?.title || "");
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 0);
+  };
+
+  const cancelEditingTitle = () => {
+    setIsEditingTitle(false);
+    setEditedTitle("");
+  };
+
+  const saveTitle = async () => {
+    if (!editedTitle.trim() || editedTitle.trim() === task?.title) {
+      cancelEditingTitle();
+      return;
+    }
+    await handleTaskUpdate({ title: editedTitle.trim() });
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      saveTitle();
+    } else if (e.key === "Escape") {
+      cancelEditingTitle();
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -120,11 +155,31 @@ export function TaskDrawer({
             <div className="flex items-center gap-3">
               {loading ? (
                 <Skeleton className="h-7 w-64" />
+              ) : isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={titleInputRef}
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onKeyDown={handleTitleKeyDown}
+                    className="text-xl font-semibold h-9 w-64"
+                    placeholder="Título de la tarea"
+                  />
+                  <Button size="icon" variant="ghost" onClick={saveTitle} className="h-8 w-8">
+                    <RiCheckLine className="h-4 w-4 text-green-600" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={cancelEditingTitle} className="h-8 w-8">
+                    <RiCloseLine className="h-4 w-4 text-red-600" />
+                  </Button>
+                </div>
               ) : (
                 <>
-                  <SheetTitle className="text-xl font-semibold">
-                    {task?.title || initialTitle || "Cargando..."}
-                  </SheetTitle>
+                  <div className="flex items-center gap-2 group cursor-pointer" onClick={startEditingTitle}>
+                    <SheetTitle className="text-xl font-semibold">
+                      {task?.title || initialTitle || "Cargando..."}
+                    </SheetTitle>
+                    <RiPencilLine className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                   {task?.category && (
                     <Badge
                       className={`${categoryColors[task.category] || categoryColors.general} text-white`}
