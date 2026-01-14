@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Lock } from "lucide-react";
+import Image from "next/image";
 
 function LoginContent() {
   const router = useRouter();
@@ -149,9 +150,22 @@ function LoginContent() {
   }
 
   return (
-    <Card className="border-0 shadow-xl">
-      <CardHeader className="text-center space-y-2 pb-4">
-        <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
+    <>
+      {/* Logo arriba del card */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        <Image
+          src="/images/isotipo-dark.png"
+          alt="HubEnts"
+          width={32}
+          height={32}
+          className="rounded-lg"
+        />
+        <span className="text-xl font-bold">hubents</span>
+      </div>
+      
+      <Card className="border-0 shadow-xl">
+        <CardHeader className="text-center space-y-2 pb-4">
+          <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
         <CardDescription>
           Accede a tu cuenta de HubEnts
         </CardDescription>
@@ -300,6 +314,7 @@ function LoginContent() {
         </p>
       </CardContent>
     </Card>
+    </>
   );
 }
 

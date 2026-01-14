@@ -20,7 +20,9 @@ import {
   GripVertical,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  Clock,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ interface Lead {
   expectedCloseDate: Date | null;
   assignedTo: string | null;
   createdAt: Date | null;
+  stageChangedAt: Date | null;
   assignedUserName: string | null;
   assignedUserImage: string | null;
   contactId?: number | null;
@@ -46,15 +49,36 @@ interface Lead {
   contactAvatar?: string | null;
 }
 
+// Helper to calculate days in stage
+function getDaysInStage(stageChangedAt: Date | null, createdAt: Date | null): number {
+  const referenceDate = stageChangedAt || createdAt;
+  if (!referenceDate) return 0;
+  const now = new Date();
+  const changed = new Date(referenceDate);
+  const diffTime = Math.abs(now.getTime() - changed.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
 interface Stage {
   id: number;
   name: string;
   color: string | null;
   sortOrder: number | null;
+  isDefault?: boolean | null;
   isWon: boolean | null;
   isLost: boolean | null;
   leads: Lead[];
   totalValue: number;
+}
+
+interface StageConfig {
+  id: number;
+  name: string;
+  color: string | null;
+  sortOrder: number | null;
+  isDefault?: boolean | null;
+  isWon: boolean | null;
+  isLost: boolean | null;
 }
 
 interface LeadKanbanProps {
@@ -64,6 +88,8 @@ interface LeadKanbanProps {
   onAddLead?: (stageId: number) => void;
   onEditLead?: (lead: Lead) => void;
   onDeleteLead?: (leadId: number) => void;
+  onAddStage?: () => void;
+  onEditStage?: (stage: StageConfig) => void;
 }
 
 export function LeadKanban({
@@ -73,6 +99,8 @@ export function LeadKanban({
   onAddLead,
   onEditLead,
   onDeleteLead,
+  onAddStage,
+  onEditStage,
 }: LeadKanbanProps) {
   const [draggedLead, setDraggedLead] = React.useState<Lead | null>(null);
   const [dragOverStage, setDragOverStage] = React.useState<number | null>(null);
@@ -145,14 +173,26 @@ export function LeadKanban({
                   {stage.leads.length}
                 </Badge>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => onAddLead?.(stage.id)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onEditStage?.(stage)}
+                  title="Configurar etapa"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onAddLead?.(stage.id)}
+                  title="Añadir lead"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Stage Total */}
@@ -229,13 +269,33 @@ export function LeadKanban({
                         </div>
                       )}
 
-                      {/* Lead Value */}
-                      {lead.value && (
-                        <div className="flex items-center gap-1 text-sm font-medium text-primary">
-                          <DollarSign className="h-3 w-3" />
-                          {formatCurrency(lead.value, lead.currency)}
-                        </div>
-                      )}
+                      {/* Lead Value and Days in Stage */}
+                      <div className="flex items-center justify-between">
+                        {lead.value && (
+                          <div className="flex items-center gap-1 text-sm font-medium text-primary">
+                            <DollarSign className="h-3 w-3" />
+                            {formatCurrency(lead.value, lead.currency)}
+                          </div>
+                        )}
+                        {/* Days in Stage Badge */}
+                        {(() => {
+                          const days = getDaysInStage(lead.stageChangedAt, lead.createdAt);
+                          return (
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-xs gap-1",
+                                days > 7 && "border-red-500 bg-red-50 text-red-600 dark:bg-red-950",
+                                days > 3 && days <= 7 && "border-yellow-500 bg-yellow-50 text-yellow-600 dark:bg-yellow-950",
+                                days <= 3 && "border-muted-foreground/30"
+                              )}
+                            >
+                              <Clock className="h-3 w-3" />
+                              {days}d
+                            </Badge>
+                          );
+                        })()}
+                      </div>
 
                       {/* Lead Footer */}
                       <div className="flex items-center justify-between pt-1">
@@ -294,6 +354,7 @@ export function LeadKanban({
           <Button
             variant="outline"
             className="w-full h-12 border-dashed"
+            onClick={() => onAddStage?.()}
           >
             <Plus className="h-4 w-4 mr-2" />
             Añadir etapa

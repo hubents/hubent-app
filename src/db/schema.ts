@@ -519,9 +519,20 @@ export const leads = pgTable("leads", {
   createdBy: text("created_by").references(() => users.id),
   closedAt: timestamp("closed_at"),
   lostReason: text("lost_reason"),
+  stageChangedAt: timestamp("stage_changed_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
+});
+
+export const leadStageHistory = pgTable("lead_stage_history", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+  fromStageId: integer("from_stage_id").references(() => leadStages.id, { onDelete: "set null" }),
+  toStageId: integer("to_stage_id").references(() => leadStages.id, { onDelete: "set null" }),
+  changedBy: text("changed_by").references(() => users.id),
+  durationSeconds: integer("duration_seconds"),
+  changedAt: timestamp("changed_at").defaultNow(),
 });
 
 export const companies = pgTable("companies", {

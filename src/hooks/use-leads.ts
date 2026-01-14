@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-interface Lead {
+export interface Lead {
   id: number;
   title: string;
-  description: string | null;
+  description?: string | null;
   value: string | null;
   currency: string | null;
   stageId: number | null;
@@ -14,15 +14,23 @@ interface Lead {
   expectedCloseDate: Date | null;
   assignedTo: string | null;
   createdAt: Date | null;
+  stageChangedAt: Date | null;
   assignedUserName: string | null;
   assignedUserImage: string | null;
+  contactId?: number | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactType?: string | null;
+  contactAvatar?: string | null;
 }
 
-interface Stage {
+export interface Stage {
   id: number;
   name: string;
   color: string | null;
   sortOrder: number | null;
+  isDefault?: boolean | null;
   isWon: boolean | null;
   isLost: boolean | null;
   leads: Lead[];

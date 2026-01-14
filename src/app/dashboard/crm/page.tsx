@@ -4,27 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RiAddLine } from "@remixicon/react";
-import { useLeadsKanban } from "@/hooks/use-leads";
+import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
 import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
 import { LeadDetailDialog } from "@/components/crm/lead-detail-dialog";
+import { StageConfigDialog } from "@/components/crm/stage-config-dialog";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
 
-interface Lead {
-  id: number;
-  title: string;
-  value: string | null;
-  currency: string | null;
-  stageId: number | null;
-  status: string | null;
-  probability: number | null;
-  expectedCloseDate: Date | null;
-  assignedTo: string | null;
-  createdAt: Date | null;
-  assignedUserName: string | null;
-  assignedUserImage: string | null;
-}
+// Types are inferred from the hook and components
 
 const fallbackStages = [
   {
@@ -131,7 +119,9 @@ export default function CRMPage() {
   const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
   const [createStageId, setCreateStageId] = useState<number | undefined>(undefined);
 
   // Use API data if available, otherwise show empty state
@@ -150,6 +140,16 @@ export default function CRMPage() {
   const handleAddLead = (stageId: number) => {
     setCreateStageId(stageId);
     setIsCreateDialogOpen(true);
+  };
+
+  const handleAddStage = () => {
+    setSelectedStage(null);
+    setIsStageDialogOpen(true);
+  };
+
+  const handleEditStage = (stage: Stage) => {
+    setSelectedStage(stage);
+    setIsStageDialogOpen(true);
   };
 
   return (
@@ -190,6 +190,8 @@ export default function CRMPage() {
           onLeadClick={handleLeadClick}
           onEditLead={handleEditLead}
           onAddLead={handleAddLead}
+          onAddStage={handleAddStage}
+          onEditStage={handleEditStage}
         />
       ) : (
         <Card>
@@ -219,6 +221,16 @@ export default function CRMPage() {
         stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
         onLeadUpdated={refetch}
         onLeadDeleted={refetch}
+      />
+
+      <StageConfigDialog
+        open={isStageDialogOpen}
+        onOpenChange={setIsStageDialogOpen}
+        stage={selectedStage}
+        onStageCreated={refetch}
+        onStageUpdated={refetch}
+        onStageDeleted={refetch}
+        nextSortOrder={displayStages.length}
       />
     </div>
   );

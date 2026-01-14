@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { 
   leads, 
   leadStages, 
+  leadStageHistory,
   companies, 
   people, 
   peopleCompanies,
@@ -169,6 +170,7 @@ export async function getLeadsByStage(session: TenantSession) {
       expectedCloseDate: leads.expectedCloseDate,
       assignedTo: leads.assignedTo,
       createdAt: leads.createdAt,
+      stageChangedAt: leads.stageChangedAt,
       contactId: leads.contactId,
       assignedUserName: users.name,
       assignedUserImage: users.image,
@@ -332,9 +334,57 @@ export async function updateLead(
 export async function moveLead(
   session: TenantSession,
   leadId: number,
-  stageId: number
+  newStageId: number
 ) {
-  return updateLead(session, leadId, { stageId });
+  // Get current lead to record history
+  const currentLead = await db.query.leads.findFirst({
+    where: (l, { eq, and }) => 
+      and(
+        eq(l.id, leadId),
+        eq(l.organizationId, session.organizationId)
+      ),
+  });
+
+  if (!currentLead) return null;
+
+  const now = new Date();
+  const oldStageId = currentLead.stageId;
+
+  // Calculate duration in previous stage
+  let durationSeconds: number | null = null;
+  if (currentLead.stageChangedAt) {
+    durationSeconds = Math.floor(
+      (now.getTime() - new Date(currentLead.stageChangedAt).getTime()) / 1000
+    );
+  }
+
+  // Record stage change in history
+  if (oldStageId !== newStageId) {
+    await db.insert(leadStageHistory).values({
+      leadId,
+      fromStageId: oldStageId,
+      toStageId: newStageId,
+      changedBy: session.user.userId,
+      durationSeconds,
+    });
+  }
+
+  // Update lead with new stage and reset stageChangedAt
+  const [updated] = await db.update(leads)
+    .set({
+      stageId: newStageId,
+      stageChangedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(leads.id, leadId),
+        eq(leads.organizationId, session.organizationId)
+      )
+    )
+    .returning();
+
+  return updated;
 }
 
 export async function deleteLead(session: TenantSession, leadId: number) {
