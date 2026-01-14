@@ -34,7 +34,7 @@ function AdminLoginContent() {
 
     try {
       const result = await signIn("credentials", {
-        email: credentials.email,
+        email: credentials.email.toLowerCase(),
         password: credentials.password,
         redirect: false,
       });
@@ -86,7 +86,7 @@ function AdminLoginContent() {
       }
 
       await signIn("resend", {
-        email: magicEmail,
+        email: magicEmail.toLowerCase(),
         callbackUrl: "/admin",
         redirect: false,
       });
@@ -104,29 +104,29 @@ function AdminLoginContent() {
 
   if (magicLinkSent) {
     return (
-      <Card className="border-slate-700 bg-slate-800/50 backdrop-blur">
+      <Card className="border-0 shadow-xl">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="p-4 rounded-full bg-emerald-500/10">
-              <Mail className="h-8 w-8 text-emerald-400" />
+            <div className="p-4 rounded-full bg-[var(--primary)]/10">
+              <Mail className="h-8 w-8 text-[var(--primary)]" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-white">Revisa tu email</CardTitle>
-          <CardDescription className="text-slate-400">
-            Te enviamos un link de acceso a <strong className="text-white">{magicEmail}</strong>
+          <CardTitle className="text-2xl">Revisa tu email</CardTitle>
+          <CardDescription>
+            Te enviamos un link de acceso a <strong>{magicEmail}</strong>
             <br />
             Haz clic en el link para acceder al panel de administración.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-4 rounded-lg bg-slate-700/50 text-sm text-center">
-            <p className="text-slate-400">
-              El link expira en <strong className="text-white">24 horas</strong>.
+          <div className="p-4 rounded-lg bg-[var(--muted)] text-sm text-center">
+            <p className="text-[var(--muted-foreground)]">
+              El link expira en <strong>24 horas</strong>.
             </p>
           </div>
           <Button
             variant="outline"
-            className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+            className="w-full"
             onClick={() => setMagicLinkSent(false)}
           >
             Volver al login
@@ -137,35 +137,35 @@ function AdminLoginContent() {
   }
 
   return (
-    <Card className="border-slate-700 bg-slate-800/50 backdrop-blur">
+    <Card className="border-0 shadow-xl">
       <CardHeader className="text-center space-y-2 pb-4">
-        <CardTitle className="text-2xl text-white">Panel de Administración</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle className="text-2xl">Panel de Administración</CardTitle>
+        <CardDescription>
           Acceso restringido a administradores de la plataforma
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-4">
         {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
             {error}
           </div>
         )}
 
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-sm">
           <p className="font-medium">⚠️ Acceso solo por invitación</p>
-          <p className="text-xs mt-1 text-amber-400/80">
+          <p className="text-xs mt-1 text-amber-600/80">
             Solo usuarios invitados por un administrador pueden acceder.
           </p>
         </div>
 
         <Tabs defaultValue="password" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
-            <TabsTrigger value="password" className="gap-2 data-[state=active]:bg-slate-600">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="password" className="gap-2">
               <Lock className="h-4 w-4" />
               Contraseña
             </TabsTrigger>
-            <TabsTrigger value="magic" className="gap-2 data-[state=active]:bg-slate-600">
+            <TabsTrigger value="magic" className="gap-2">
               <Mail className="h-4 w-4" />
               Magic Link
             </TabsTrigger>
@@ -174,12 +174,11 @@ function AdminLoginContent() {
           <TabsContent value="password" className="space-y-4 mt-4">
             <form onSubmit={handleCredentialsLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="admin@hubents.com"
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
                   value={credentials.email}
                   onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
                   required
@@ -187,12 +186,11 @@ function AdminLoginContent() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">Contraseña</Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Tu contraseña"
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
                   value={credentials.password}
                   onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                   required
@@ -215,12 +213,11 @@ function AdminLoginContent() {
           <TabsContent value="magic" className="space-y-4 mt-4">
             <form onSubmit={handleMagicLink} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="magic-email" className="text-slate-300">Email</Label>
+                <Label htmlFor="magic-email">Email</Label>
                 <Input
                   id="magic-email"
                   type="email"
                   placeholder="admin@hubents.com"
-                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
                   value={magicEmail}
                   onChange={(e) => setMagicEmail(e.target.value)}
                   required
@@ -246,10 +243,10 @@ function AdminLoginContent() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-600" />
+            <span className="w-full border-t border-[var(--border)]" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-slate-800 px-2 text-slate-500">
+            <span className="bg-[var(--card)] px-2 text-[var(--muted-foreground)]">
               O continúa con
             </span>
           </div>
@@ -258,7 +255,7 @@ function AdminLoginContent() {
         <Button 
           type="button" 
           variant="outline" 
-          className="w-full gap-2 border-slate-600 text-slate-300 hover:bg-slate-700"
+          className="w-full gap-2"
           onClick={handleGoogleLogin}
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -282,9 +279,9 @@ function AdminLoginContent() {
           Google
         </Button>
 
-        <p className="text-center text-xs text-slate-500 pt-2">
+        <p className="text-center text-sm text-[var(--muted-foreground)] pt-2">
           ¿Eres usuario de la plataforma?{" "}
-          <Link href="/auth/login" className="text-slate-400 hover:text-slate-300 hover:underline">
+          <Link href="/auth/login" className="text-[var(--primary)] hover:underline font-medium">
             Ir al login de usuarios
           </Link>
         </p>
@@ -296,9 +293,9 @@ function AdminLoginContent() {
 export default function AdminLoginPage() {
   return (
     <Suspense fallback={
-      <Card className="border-slate-700 bg-slate-800/50">
+      <Card className="border-0 shadow-xl">
         <CardContent className="p-8 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
         </CardContent>
       </Card>
     }>

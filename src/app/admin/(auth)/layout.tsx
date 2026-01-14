@@ -37,11 +37,11 @@ export default function AdminAuthLayout({
       </div>
 
       {/* Right side - Auth forms */}
-      <div className="flex-1 flex items-center justify-center bg-slate-800 p-4 lg:p-8">
+      <div className="flex-1 flex items-center justify-center bg-muted p-4 lg:p-8">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
-            <Logo variant="full" size="md" theme="dark" />
+            <Logo variant="full" size="md" theme="light" />
           </div>
           
           {children}
