@@ -13,6 +13,14 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "HubEnts - Wedding & Event Management",
   description: "Plataforma integral para gestión de bodas y eventos",
+  icons: {
+    icon: [
+      { url: "/images/isotipo-dark.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/images/isotipo-dark.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

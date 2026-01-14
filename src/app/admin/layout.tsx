@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/ui/logo";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
@@ -53,14 +53,7 @@ export default function AdminLayout({
       <aside className="w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col">
         {/* Header with Logo */}
         <div className="flex h-16 items-center gap-3 px-6 border-b border-[var(--border)]">
-          <Image
-            src="/images/icon.png"
-            alt="HubEnts"
-            width={32}
-            height={32}
-            className="rounded-lg flex-shrink-0"
-          />
-          <span className="text-xl font-bold">hubents</span>
+          <Logo variant="full" size="md" theme="light" />
         </div>
 
         {/* Navigation */}

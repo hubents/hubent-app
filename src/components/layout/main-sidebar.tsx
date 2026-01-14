@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Logo } from "@/components/ui/logo";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEvent } from "@/contexts/event-context";
@@ -67,14 +68,17 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             "flex h-16 items-center border-b border-[var(--border)] transition-all duration-300",
             isCollapsed ? "justify-center px-2" : "gap-3 px-6"
           )}>
-            <Image
-              src="/images/icon.png"
-              alt="HubEnts"
-              width={32}
-              height={32}
-              className="rounded-lg flex-shrink-0"
-            />
-            {!isCollapsed && <span className="text-xl font-bold">hubents</span>}
+            {isCollapsed ? (
+              <Image
+                src="/images/isotipo-dark.png"
+                alt="HubEnts"
+                width={32}
+                height={32}
+                className="flex-shrink-0"
+              />
+            ) : (
+              <Logo variant="full" size="md" theme="light" />
+            )}
           </div>
 
           {/* Navigation */}
