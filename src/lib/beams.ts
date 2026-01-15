@@ -47,8 +47,8 @@ export async function sendPushToUsers(
         notification: {
           title: notification.title,
           body: notification.body,
-          icon: notification.icon || "/images/icon-192.png",
-          deep_link: notification.deep_link || "https://hubents.napsixai.com",
+          icon: notification.icon || "/images/icon.png",
+          deep_link: notification.deep_link || "https://app.hubents.com",
         },
         data: notification.data,
       },
@@ -77,7 +77,7 @@ export async function sendPushToInterest(
         notification: {
           title: notification.title,
           body: notification.body,
-          icon: notification.icon || "/images/icon-192.png",
+          icon: notification.icon || "/images/icon.png",
           deep_link: notification.deep_link,
         },
         data: notification.data,

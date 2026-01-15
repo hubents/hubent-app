@@ -9,7 +9,7 @@ import { tasks, taskParticipants, events, organizationMembers } from "@/db/schem
 import { eq } from "drizzle-orm";
 
 // Base URL for deep links
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hubents.napsixai.com";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
 
 /**
  * Get all planner+ users in an organization (for org-wide notifications)
