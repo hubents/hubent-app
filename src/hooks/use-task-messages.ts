@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePrivateChannel } from "./use-pusher";
 import { EVENTS } from "@/lib/pusher";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface TaskMessage {
   id: number;
@@ -31,13 +33,15 @@ interface TaskMessageAttachment {
   mimeType: string | null;
 }
 
-export function useTaskMessages(taskId: number | null) {
+export function useTaskMessages(taskId: number | null, options?: { showNotifications?: boolean }) {
   const [messages, setMessages] = useState<TaskMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isRealtime, setIsRealtime] = useState(false);
   const lastMessageIdRef = useRef<number | null>(null);
+  const { data: session } = useSession();
+  const showNotifications = options?.showNotifications ?? true;
 
   // Pusher channel for real-time updates
   const channelName = taskId ? `private-task-${taskId}` : null;
@@ -92,6 +96,19 @@ export function useTaskMessages(taskId: number | null) {
         return [...prev, newMessage];
       });
       lastMessageIdRef.current = newMessage.id;
+
+      // Show toast notification for messages from other users
+      if (showNotifications && newMessage.senderId !== session?.user?.id) {
+        const senderName = newMessage.senderName || newMessage.senderEmail?.split("@")[0] || "Alguien";
+        const preview = newMessage.content.length > 50 
+          ? newMessage.content.substring(0, 50) + "..." 
+          : newMessage.content;
+        
+        toast.message(`💬 ${senderName}`, {
+          description: preview,
+          duration: 4000,
+        });
+      }
     });
 
     // Message edited

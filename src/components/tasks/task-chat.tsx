@@ -320,18 +320,28 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat Header */}
-      <div className="px-4 py-3 border-b border-border shrink-0">
+      {/* Chat Header - Enhanced */}
+      <div className="px-4 py-3 border-b border-border shrink-0 bg-gradient-to-r from-background to-muted/30">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-sm">Comentarios</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-sm">Comentarios</h3>
             {/* Real-time indicator */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] ${isRealtime ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
+                    isRealtime 
+                      ? 'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20' 
+                      : 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20'
+                  }`}>
                     {isRealtime ? (
-                      <><RiWifiLine className="h-3 w-3" /><span>En vivo</span></>
+                      <>
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        <span>En vivo</span>
+                      </>
                     ) : (
                       <><RiWifiOffLine className="h-3 w-3" /><span>Offline</span></>
                     )}
@@ -345,32 +355,43 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
               </Tooltip>
             </TooltipProvider>
           </div>
-          {/* Active viewers */}
-          {activeViewers.length > 1 && (
+          {/* Active viewers - Enhanced */}
+          {activeViewers.length > 0 && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center -space-x-2">
-                    {activeViewers.slice(0, 3).map((viewer) => (
-                      <Avatar key={viewer.id} className="h-6 w-6 border-2 border-background">
-                        <AvatarImage src={viewer.info.image} />
-                        <AvatarFallback className="text-[10px] bg-primary/10">
-                          {viewer.info.name?.charAt(0) || "?"}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {activeViewers.length > 3 && (
-                      <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium">
-                        +{activeViewers.length - 3}
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2 bg-muted/50 rounded-full pl-1 pr-2.5 py-1">
+                    <div className="flex items-center -space-x-2">
+                      {activeViewers.slice(0, 3).map((viewer) => (
+                        <Avatar key={viewer.id} className="h-6 w-6 border-2 border-background ring-1 ring-primary/10">
+                          <AvatarImage src={viewer.info.image} />
+                          <AvatarFallback className="text-[10px] bg-primary/10 font-medium">
+                            {viewer.info.name?.charAt(0) || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {activeViewers.length > 3 && (
+                        <div className="h-6 w-6 rounded-full bg-primary/10 border-2 border-background flex items-center justify-center text-[10px] font-semibold text-primary">
+                          +{activeViewers.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {activeViewers.length === 1 ? "1 viendo" : `${activeViewers.length} viendo`}
+                    </span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="font-medium mb-1">{activeViewers.length} personas viendo</p>
-                  <ul className="text-xs space-y-0.5">
+                <TooltipContent side="bottom" className="p-3">
+                  <p className="font-semibold mb-2 text-sm">👀 {activeViewers.length} {activeViewers.length === 1 ? "persona" : "personas"} viendo</p>
+                  <ul className="text-xs space-y-1.5">
                     {activeViewers.map((v) => (
-                      <li key={v.id}>{v.info.name || v.info.email}</li>
+                      <li key={v.id} className="flex items-center gap-2">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={v.info.image} />
+                          <AvatarFallback className="text-[8px]">{v.info.name?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span>{v.info.name || v.info.email}</span>
+                      </li>
                     ))}
                   </ul>
                 </TooltipContent>
@@ -408,27 +429,27 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
                 onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
               />
             ))}
-            {/* Typing indicator */}
+            {/* Typing indicator - Enhanced */}
             {typingUsers.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-full px-3 py-1.5 w-fit animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex -space-x-1">
                   {typingUsers.slice(0, 2).map((user) => (
-                    <Avatar key={user.userId} className="h-5 w-5 border border-background">
-                      <AvatarFallback className="text-[8px] bg-primary/10">
+                    <Avatar key={user.userId} className="h-5 w-5 border-2 border-background ring-2 ring-primary/20">
+                      <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
                         {user.userName?.charAt(0) || "?"}
                       </AvatarFallback>
                     </Avatar>
                   ))}
                 </div>
-                <span>
+                <span className="font-medium">
                   {typingUsers.length === 1 
-                    ? `${typingUsers[0].userName} está escribiendo...`
-                    : `${typingUsers.length} personas escribiendo...`}
+                    ? `${typingUsers[0].userName} está escribiendo`
+                    : `${typingUsers.length} personas escribiendo`}
                 </span>
-                <span className="flex gap-0.5">
-                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="flex gap-1 items-center">
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.6s' }} />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '0.6s' }} />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '0.6s' }} />
                 </span>
               </div>
             )}
