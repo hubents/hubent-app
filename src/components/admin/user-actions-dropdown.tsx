@@ -41,7 +41,9 @@ interface User {
   id: string;
   name: string | null;
   email: string;
+  image?: string | null;
   emailVerified: string | null;
+  createdAt?: string;
   isAdmin: boolean;
   adminLevel?: string | null;
   status?: string;

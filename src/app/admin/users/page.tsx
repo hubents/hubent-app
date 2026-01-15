@@ -42,9 +42,9 @@ interface User {
   id: string;
   name: string | null;
   email: string;
-  image: string | null;
+  image?: string | null;
   emailVerified: string | null;
-  createdAt: string;
+  createdAt?: string;
   isAdmin: boolean;
   adminLevel?: string;
   status?: string;
