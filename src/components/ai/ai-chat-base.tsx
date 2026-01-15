@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AIMessage } from "./ai-message";
 import { useAIChat, Message } from "@/hooks/use-ai-chat";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import Link from "next/link";
 
 interface AIChatBaseProps {
   context: string;
@@ -22,7 +24,7 @@ interface AIChatBaseProps {
 export function AIChatBase({
   context,
   title = "Enti",
-  subtitle = "Tu asistente IA • by NapsixAI",
+  subtitle = "Tu asistente IA",
   suggestions: customSuggestions,
   onClose,
   showHeader = true,
@@ -66,7 +68,26 @@ export function AIChatBase({
             </div>
             <div>
               <h2 className="font-semibold text-[var(--foreground)]">{title}</h2>
-              <p className="text-xs text-[var(--muted-foreground)]">{subtitle}</p>
+              <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-1">
+                {subtitle} •{" "}
+                <Link href="https://napsix.ai" target="_blank" className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity">
+                  <span>by</span>
+                  <Image
+                    src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+                    alt="NapsixAI"
+                    width={50}
+                    height={14}
+                    className="dark:hidden"
+                  />
+                  <Image
+                    src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
+                    alt="NapsixAI"
+                    width={50}
+                    height={14}
+                    className="hidden dark:block"
+                  />
+                </Link>
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -180,6 +201,27 @@ export function AIChatBase({
         <p className="text-[10px] text-center text-[var(--muted-foreground)] mt-2">
           Enti puede cometer errores. Verifica la información importante.
         </p>
+        <Link 
+          href="https://napsix.ai" 
+          target="_blank" 
+          className="flex items-center justify-center gap-1 mt-1 hover:opacity-80 transition-opacity"
+        >
+          <span className="text-[10px] text-[var(--muted-foreground)]">Powered by</span>
+          <Image
+            src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+            alt="NapsixAI"
+            width={45}
+            height={12}
+            className="dark:hidden"
+          />
+          <Image
+            src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
+            alt="NapsixAI"
+            width={45}
+            height={12}
+            className="hidden dark:block"
+          />
+        </Link>
       </div>
     </div>
   );
