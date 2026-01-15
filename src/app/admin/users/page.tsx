@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,16 @@ import {
   Search, 
   Shield,
   Mail,
-  MoreVertical,
   UserPlus,
   Loader2,
   CheckCircle2,
-  Clock
+  Clock,
+  XCircle
 } from "lucide-react";
+import { UserActionsDropdown } from "@/components/admin/user-actions-dropdown";
+import { UserDetailModal } from "@/components/admin/user-detail-modal";
+import { EditUserDialog } from "@/components/admin/edit-user-dialog";
+import { Toaster } from "sonner";
 
 interface User {
   id: string;
@@ -42,6 +47,7 @@ interface User {
   createdAt: string;
   isAdmin: boolean;
   adminLevel?: string;
+  status?: string;
 }
 
 interface PendingAdminInvitation {
@@ -53,6 +59,7 @@ interface PendingAdminInvitation {
 }
 
 export default function UsersPage() {
+  const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingAdminInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +69,8 @@ export default function UsersPage() {
   const [inviteForm, setInviteForm] = useState({ email: "", level: "support" });
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -353,11 +362,18 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      {user.emailVerified ? (
-                        <Badge variant="default" className="bg-green-500/10 text-green-500">Verificado</Badge>
-                      ) : (
-                        <Badge variant="secondary">Pendiente</Badge>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {user.status === "suspended" ? (
+                          <Badge variant="destructive" className="gap-1 w-fit">
+                            <XCircle className="h-3 w-3" />
+                            Suspendido
+                          </Badge>
+                        ) : user.emailVerified ? (
+                          <Badge variant="default" className="bg-green-500/10 text-green-500 w-fit">Verificado</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="w-fit">Pendiente</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4">
                       {user.isAdmin ? (
@@ -374,9 +390,13 @@ export default function UsersPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end">
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <UserActionsDropdown
+                          user={user}
+                          currentUserId={session?.user?.id || ""}
+                          onViewDetails={(u) => setDetailUserId(u.id)}
+                          onEdit={(u) => setEditUser(u)}
+                          onRefresh={fetchData}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -386,6 +406,21 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+      {/* Modals */}
+      <UserDetailModal
+        userId={detailUserId}
+        open={!!detailUserId}
+        onOpenChange={(open) => !open && setDetailUserId(null)}
+      />
+
+      <EditUserDialog
+        user={editUser}
+        open={!!editUser}
+        onOpenChange={(open) => !open && setEditUser(null)}
+        onSuccess={fetchData}
+      />
+
+      <Toaster position="top-right" />
     </div>
   );
 }

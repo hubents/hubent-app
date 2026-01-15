@@ -8,6 +8,7 @@ import {
   RiDeleteBinLine,
   RiFileTextLine,
   RiDownloadLine,
+  RiImageLine,
 } from "@remixicon/react";
 
 interface TaskMessageAttachment {
@@ -122,40 +123,66 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
 
           {message.type === "file" && message.attachments && (
             <div className="space-y-2 mt-2">
-              {message.attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/50"
-                >
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <RiFileTextLine className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {attachment.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(attachment.size)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    asChild
+              {message.attachments.map((attachment) => {
+                const isImage = attachment.mimeType?.startsWith("image/") || attachment.type === "image";
+                
+                if (isImage) {
+                  return (
+                    <div key={attachment.id} className="space-y-2">
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        <img
+                          src={attachment.url}
+                          alt={attachment.name}
+                          className="max-w-xs max-h-64 rounded-lg border border-border object-cover hover:opacity-90 transition-opacity"
+                        />
+                      </a>
+                      <p className="text-xs text-muted-foreground">
+                        {attachment.name} · {formatFileSize(attachment.size)}
+                      </p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/50"
                   >
-                    <a
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <RiFileTextLine className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {attachment.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatFileSize(attachment.size)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      asChild
                     >
-                      <RiDownloadLine className="h-4 w-4 mr-1" />
-                      Descargarlo
-                    </a>
-                  </Button>
-                </div>
-              ))}
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                      >
+                        <RiDownloadLine className="h-4 w-4 mr-1" />
+                        Descargar
+                      </a>
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

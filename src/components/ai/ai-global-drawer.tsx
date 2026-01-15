@@ -16,6 +16,20 @@ interface AIGlobalDrawerProps {
 }
 
 function getPageContext(pathname: string): { context: string; title: string; suggestions: string[] } {
+  // Detectar si estamos en un evento específico (ej: /dashboard/events/123)
+  const eventMatch = pathname.match(/\/events\/(\d+)/);
+  if (eventMatch) {
+    const eventId = eventMatch[1];
+    return {
+      context: `event:${eventId}`,
+      title: "Asistente de Eventos",
+      suggestions: [
+        "¿Qué tareas tiene este evento?",
+        "Resume los proveedores",
+        "¿Cuántos invitados confirmaron?",
+      ],
+    };
+  }
   if (pathname.includes("/events/")) {
     return {
       context: "event-page",

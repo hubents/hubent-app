@@ -143,6 +143,11 @@ export const vendorClaimStatusEnum = pgEnum("vendor_claim_status", [
 // NEXTAUTH TABLES
 // ============================================
 
+export const userStatusEnum = pgEnum("user_status", [
+  "active",
+  "suspended",
+]);
+
 export const users = pgTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name"),
@@ -152,6 +157,10 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   mustChangePassword: boolean("must_change_password").default(false),
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  status: userStatusEnum("status").default("active"),
+  suspendedAt: timestamp("suspended_at"),
+  suspendedBy: text("suspended_by"),
+  suspendedReason: text("suspended_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

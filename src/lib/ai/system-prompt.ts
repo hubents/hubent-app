@@ -152,6 +152,11 @@ export function buildSystemPrompt(options: {
     const taskId = context.split(":")[1];
     fullPrompt += "\n" + CONTEXT_PROMPTS["task-detail"];
     fullPrompt += `\n\n**IMPORTANTE**: El usuario está viendo la tarea con ID ${taskId}. Cuando pregunte sobre "esta tarea", "la tarea", o pida un resumen, usa getTaskDetails con taskId: ${taskId}`;
+  } else if (context?.startsWith("event:")) {
+    // Manejar contexto de evento específico (formato: "event:123")
+    const eventId = context.split(":")[1];
+    fullPrompt += "\n" + CONTEXT_PROMPTS["event"];
+    fullPrompt += `\n\n**IMPORTANTE**: El usuario está viendo el evento con ID ${eventId}. Cuando pregunte sobre "este evento", "las tareas", "los proveedores", etc., usa getEventDetails con eventId: ${eventId} para obtener toda la información del evento incluyendo sus tareas.`;
   } else if (context && CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS]) {
     // Agregar prompt de contexto normal
     fullPrompt += "\n" + CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS];

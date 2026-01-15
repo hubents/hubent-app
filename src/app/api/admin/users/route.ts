@@ -21,14 +21,7 @@ export async function GET() {
     }
 
     const allUsers = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        image: users.image,
-        emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
-      })
+      .select()
       .from(users)
       .orderBy(users.createdAt);
 
@@ -36,9 +29,13 @@ export async function GET() {
     const adminMap = new Map(admins.map((a) => [a.userId, a.level]));
 
     const usersWithAdminInfo = allUsers.map((user) => ({
-      ...user,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
       emailVerified: user.emailVerified?.toISOString() || null,
       createdAt: user.createdAt?.toISOString() || null,
+      status: (user as any).status || "active",
       isAdmin: adminMap.has(user.id),
       adminLevel: adminMap.get(user.id) || null,
     }));
