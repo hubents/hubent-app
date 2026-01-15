@@ -189,15 +189,25 @@ export function TaskGeneralTab({
   };
 
   const handleAddParticipant = async (userId: string) => {
+    // Ignore placeholder values
+    if (!userId || userId.startsWith("__")) return;
     await onAddParticipant({ userId, type: "planner" });
   };
 
   const handleAddVendorParticipant = async (vendorId: string) => {
-    await onAddParticipant({ vendorId: parseInt(vendorId, 10), type: "vendor" });
+    // Ignore placeholder values
+    if (!vendorId || vendorId.startsWith("__")) return;
+    const id = parseInt(vendorId, 10);
+    if (isNaN(id)) return;
+    await onAddParticipant({ vendorId: id, type: "vendor" });
   };
 
   const handleAddContactParticipant = async (contactId: string) => {
-    await onAddParticipant({ contactId: parseInt(contactId, 10), type: "contact" });
+    // Ignore placeholder values
+    if (!contactId || contactId.startsWith("__")) return;
+    const id = parseInt(contactId, 10);
+    if (isNaN(id)) return;
+    await onAddParticipant({ contactId: id, type: "contact" });
   };
 
   // Filter out already added participants (with defensive checks)

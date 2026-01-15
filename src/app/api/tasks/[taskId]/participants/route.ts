@@ -39,9 +39,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
+    console.log("POST /api/tasks/[taskId]/participants - body:", JSON.stringify(body));
+
     const { userId, vendorId, contactId, type, canEdit, canComment } = body;
 
     if (!userId && !vendorId && !contactId) {
+      console.log("Validation failed: no userId, vendorId, or contactId");
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "userId, vendorId, or contactId is required" } },
         { status: 400 }
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!type) {
+      console.log("Validation failed: no type");
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "type is required" } },
         { status: 400 }
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error) {
     console.error("POST /api/tasks/[taskId]/participants error:", error);
     const message = error instanceof Error ? error.message : "Failed to add participant";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : message.includes("already") ? 409 : 400;
     return NextResponse.json(
       { success: false, error: { code: "CREATE_ERROR", message } },
       { status }
