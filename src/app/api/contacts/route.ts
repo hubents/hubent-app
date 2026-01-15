@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { getContacts, createContact, findDuplicateContacts } from "@/lib/contacts";
+import { notifyNewContact } from "@/lib/push-notifications";
 
 // GET /api/contacts - List contacts
 export async function GET(request: NextRequest) {
@@ -104,6 +105,14 @@ export async function POST(request: NextRequest) {
       isLead: body.isLead,
       notes: body.notes,
     });
+
+    // Send push notification for new contact
+    notifyNewContact(
+      session.organizationId.toString(),
+      name,
+      type,
+      session.user.userId
+    ).catch(err => console.error("Push notification failed:", err));
 
     return NextResponse.json({
       success: true,

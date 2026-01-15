@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { notifyGuestRsvp } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -221,6 +222,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: message || null,
         respondedAt: new Date(),
       });
+    }
+
+    // Send push notification for RSVP response
+    const eventData = await db
+      .select({ name: events.name, organizationId: events.organizationId })
+      .from(events)
+      .where(eq(events.id, eventIdNum))
+      .limit(1);
+
+    if (eventData.length > 0) {
+      const guestName = lastName ? `${firstName} ${lastName}` : firstName;
+      const guestCount = plusOne ? 2 : 1;
+      const response = statusMap[attending] === "confirmed" ? "confirmed" 
+        : statusMap[attending] === "declined" ? "declined" 
+        : "maybe";
+
+      notifyGuestRsvp(
+        eventData[0].organizationId.toString(),
+        eventIdNum,
+        eventData[0].name,
+        guestName,
+        response,
+        guestCount
+      ).catch(err => console.error("Push notification failed:", err));
     }
 
     return NextResponse.json({

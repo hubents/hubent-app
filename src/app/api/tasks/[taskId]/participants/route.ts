@@ -6,6 +6,10 @@ import {
   updateTaskParticipant,
   getTaskParticipants 
 } from "@/lib/invitations";
+import { db } from "@/db";
+import { tasks } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { notifyAddedAsParticipant } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -67,6 +71,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       canEdit,
       canComment,
     });
+
+    // Send push notification if a user was added (not vendor/contact)
+    if (userId) {
+      const task = await db.query.tasks.findFirst({
+        where: (t, { eq }) => eq(t.id, parseInt(taskId, 10)),
+        columns: { title: true },
+      });
+      if (task) {
+        const addedByName = session.user.name || "Alguien";
+        notifyAddedAsParticipant(
+          parseInt(taskId, 10),
+          task.title,
+          userId,
+          addedByName
+        ).catch(err => console.error("Push notification failed:", err));
+      }
+    }
 
     return NextResponse.json({
       success: true,

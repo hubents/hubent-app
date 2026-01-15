@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
+import { tasks, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -61,6 +62,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Get current task to compare changes
+    const currentTask = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) => and(
+        eq(t.id, parseInt(taskId, 10)),
+        eq(t.organizationId, session.organizationId)
+      ),
+      columns: { assignedTo: true, status: true, title: true },
+    });
+
     const [updated] = await db.update(tasks)
       .set({ ...cleanBody, updatedAt: new Date() })
       .where(
@@ -76,6 +86,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    // Send push notifications for relevant changes (async, don't wait)
+    const taskIdNum = parseInt(taskId, 10);
+    const userName = session.user.name || "Alguien";
+
+    // Notify if assignee changed
+    if (cleanBody.assignedTo && cleanBody.assignedTo !== currentTask?.assignedTo) {
+      notifyTaskAssigned(
+        taskIdNum,
+        updated.title,
+        cleanBody.assignedTo as string,
+        userName
+      ).catch(err => console.error("Push notification failed:", err));
+    }
+
+    // Notify if status changed
+    if (cleanBody.status && cleanBody.status !== currentTask?.status) {
+      notifyTaskStatusChanged(
+        taskIdNum,
+        updated.title,
+        cleanBody.status as string,
+        session.user.userId,
+        userName
+      ).catch(err => console.error("Push notification failed:", err));
     }
 
     return NextResponse.json({

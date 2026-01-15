@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { getLeads, getLeadsByStage, createLead } from "@/lib/crm";
-import { updateContact } from "@/lib/contacts";
+import { updateContact, getContact } from "@/lib/contacts";
+import { notifyNewLead } from "@/lib/push-notifications";
 
 // GET /api/crm/leads - List leads
 export async function GET(request: NextRequest) {
@@ -78,6 +79,18 @@ export async function POST(request: NextRequest) {
 
     // Mark contact as lead
     await updateContact(session, contactId, { isLead: true }).catch(() => {});
+
+    // Send push notification for new lead
+    const contact = await getContact(session, contactId).catch(() => null);
+    notifyNewLead(
+      session.organizationId.toString(),
+      title,
+      contact?.name || "Contacto",
+      value,
+      currency,
+      session.user.userId,
+      assignedTo
+    ).catch(err => console.error("Push notification failed:", err));
 
     return NextResponse.json({
       success: true,

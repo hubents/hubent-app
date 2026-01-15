@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { getEvents, createEvent } from "@/lib/events";
+import { notifyNewEvent } from "@/lib/push-notifications";
 
 // GET /api/events - List events
 export async function GET(request: NextRequest) {
@@ -56,6 +57,17 @@ export async function POST(request: NextRequest) {
       clientId: body.clientId,
       templateId: body.templateId,
     });
+
+    // Send push notification for new event
+    if (event.date) {
+      notifyNewEvent(
+        session.organizationId.toString(),
+        event.id,
+        event.name,
+        new Date(event.date),
+        session.user.userId
+      ).catch(err => console.error("Push notification failed:", err));
+    }
 
     return NextResponse.json({
       success: true,
