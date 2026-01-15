@@ -125,6 +125,7 @@ export function TaskGeneralTab({
 }: TaskGeneralTabProps) {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [addingVideo, setAddingVideo] = useState(false);
+  const [addingParticipant, setAddingParticipant] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [contacts, setContacts] = useState<{ id: number; name: string; email: string | null; type: string }[]>([]);
@@ -189,25 +190,40 @@ export function TaskGeneralTab({
   };
 
   const handleAddParticipant = async (userId: string) => {
-    // Ignore placeholder values
-    if (!userId || userId.startsWith("__")) return;
-    await onAddParticipant({ userId, type: "planner" });
+    // Ignore placeholder values and prevent double-clicks
+    if (!userId || userId.startsWith("__") || addingParticipant) return;
+    setAddingParticipant(true);
+    try {
+      await onAddParticipant({ userId, type: "planner" });
+    } finally {
+      setAddingParticipant(false);
+    }
   };
 
   const handleAddVendorParticipant = async (vendorId: string) => {
-    // Ignore placeholder values
-    if (!vendorId || vendorId.startsWith("__")) return;
+    // Ignore placeholder values and prevent double-clicks
+    if (!vendorId || vendorId.startsWith("__") || addingParticipant) return;
     const id = parseInt(vendorId, 10);
     if (isNaN(id)) return;
-    await onAddParticipant({ vendorId: id, type: "vendor" });
+    setAddingParticipant(true);
+    try {
+      await onAddParticipant({ vendorId: id, type: "vendor" });
+    } finally {
+      setAddingParticipant(false);
+    }
   };
 
   const handleAddContactParticipant = async (contactId: string) => {
-    // Ignore placeholder values
-    if (!contactId || contactId.startsWith("__")) return;
+    // Ignore placeholder values and prevent double-clicks
+    if (!contactId || contactId.startsWith("__") || addingParticipant) return;
     const id = parseInt(contactId, 10);
     if (isNaN(id)) return;
-    await onAddParticipant({ contactId: id, type: "contact" });
+    setAddingParticipant(true);
+    try {
+      await onAddParticipant({ contactId: id, type: "contact" });
+    } finally {
+      setAddingParticipant(false);
+    }
   };
 
   // Filter out already added participants (with defensive checks)
