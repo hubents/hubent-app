@@ -351,3 +351,35 @@ export async function deleteTaskAttachment(
   await db.delete(taskAttachments)
     .where(eq(taskAttachments.id, attachmentId));
 }
+
+/**
+ * Get all user IDs that should receive notifications for a task
+ * Includes: assignee + all participants with userId
+ */
+export async function getTaskParticipantUserIds(taskId: number): Promise<string[]> {
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq }) => eq(t.id, taskId),
+    columns: { assignedTo: true },
+  });
+
+  const participants = await db
+    .select({ userId: taskParticipants.userId })
+    .from(taskParticipants)
+    .where(eq(taskParticipants.taskId, taskId));
+
+  const userIds = new Set<string>();
+  
+  // Add assignee
+  if (task?.assignedTo) {
+    userIds.add(task.assignedTo);
+  }
+  
+  // Add participants with userId
+  for (const p of participants) {
+    if (p.userId) {
+      userIds.add(p.userId);
+    }
+  }
+
+  return Array.from(userIds);
+}

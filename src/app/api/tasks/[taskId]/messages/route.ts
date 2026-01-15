@@ -5,9 +5,11 @@ import {
   sendTaskMessage, 
   editTaskMessage,
   deleteTaskMessage,
-  canAccessTaskChat
+  canAccessTaskChat,
+  getTaskParticipantUserIds
 } from "@/lib/task-chat";
 import { triggerTaskMessage, EVENTS } from "@/lib/pusher";
+import { sendPushToUsers } from "@/lib/beams";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -89,6 +91,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // Don't fail the request if Pusher fails - message is already saved
       console.error("Pusher trigger failed:", pusherError);
     }
+
+    // Send push notifications to other participants (async, don't wait)
+    getTaskParticipantUserIds(parseInt(taskId, 10)).then(async (userIds) => {
+      // Exclude the sender from push notifications
+      const recipients = userIds.filter(id => id !== session.user.userId);
+      if (recipients.length === 0) return;
+
+      const senderName = message.senderName || session.user.name || "Alguien";
+      const preview = message.content.length > 100 
+        ? message.content.substring(0, 100) + "..." 
+        : message.content;
+
+      await sendPushToUsers(recipients, {
+        title: `💬 ${senderName}`,
+        body: preview,
+        deep_link: `https://hubents.napsixai.com/dashboard/tareas?task=${taskId}`,
+        data: {
+          type: "new_message",
+          taskId: taskId.toString(),
+          messageId: message.id.toString(),
+        },
+      });
+    }).catch(err => console.error("Push notification failed:", err));
 
     return NextResponse.json({
       success: true,
