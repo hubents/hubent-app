@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { X, Send, Sparkles, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,22 @@ export function AIChatBase({
   showHeader = true,
   className,
 }: AIChatBaseProps) {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check initial dark mode
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+    checkDarkMode();
+
+    // Observe changes to the class
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+    return () => observer.disconnect();
+  }, []);
+
   const {
     messages,
     input,
@@ -73,18 +89,13 @@ export function AIChatBase({
                 <Link href="https://napsix.ai" target="_blank" className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity">
                   <span>by</span>
                   <Image
-                    src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+                    src={isDarkMode 
+                      ? "/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
+                      : "/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+                    }
                     alt="NapsixAI"
                     width={50}
                     height={14}
-                    className="block dark:hidden"
-                  />
-                  <Image
-                    src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
-                    alt="NapsixAI"
-                    width={50}
-                    height={14}
-                    className="hidden dark:block"
                   />
                 </Link>
               </p>
@@ -208,18 +219,13 @@ export function AIChatBase({
         >
           <span className="text-[10px] text-[var(--muted-foreground)]">Powered by</span>
           <Image
-            src="/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+            src={isDarkMode 
+              ? "/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
+              : "/images/logos_napsixai/NAPSIX AI LOGO COLOR para fondos claros.png"
+            }
             alt="NapsixAI"
             width={45}
             height={12}
-            className="block dark:hidden"
-          />
-          <Image
-            src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
-            alt="NapsixAI"
-            width={45}
-            height={12}
-            className="hidden dark:block"
           />
         </Link>
       </div>
