@@ -3,6 +3,8 @@
  * 
  * Authorizes users to subscribe to private and presence channels.
  * CRITICAL: Only task participants can access task channels.
+ * 
+ * Pusher sends data as application/x-www-form-urlencoded
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,62 +12,91 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { taskParticipants, tasks, organizationMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getPusherServer } from "@/lib/pusher";
+import Pusher from "pusher";
+
+// Create Pusher instance inside the handler to ensure env vars are available
+function createPusherServer(): Pusher | null {
+  const appId = process.env.PUSHER_APP_ID;
+  const key = process.env.PUSHER_KEY;
+  const secret = process.env.PUSHER_SECRET;
+  const cluster = process.env.PUSHER_CLUSTER;
+
+  if (!appId || !key || !secret || !cluster) {
+    console.error("Pusher config missing:", { appId: !!appId, key: !!key, secret: !!secret, cluster: !!cluster });
+    return null;
+  }
+
+  return new Pusher({
+    appId,
+    key,
+    secret,
+    cluster,
+    useTLS: true,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const formData = await request.formData();
-    const socketId = formData.get("socket_id") as string;
-    const channelName = formData.get("channel_name") as string;
+    // Parse the request body - Pusher sends as application/x-www-form-urlencoded
+    const text = await request.text();
+    const params = new URLSearchParams(text);
+    const socketId = params.get("socket_id");
+    const channelName = params.get("channel_name");
 
     if (!socketId || !channelName) {
-      return NextResponse.json(
-        { error: "Missing socket_id or channel_name" },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "Missing socket_id or channel_name" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const pusher = getPusherServer();
+    const pusher = createPusherServer();
+    if (!pusher) {
+      return new Response(JSON.stringify({ error: "Pusher not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     // Handle different channel types
     if (channelName.startsWith("private-task-")) {
-      // Task chat channel - verify participant access
       const taskId = parseInt(channelName.replace("private-task-", ""), 10);
       const hasAccess = await verifyTaskAccess(session.user.id, taskId);
       
       if (!hasAccess) {
-        return NextResponse.json(
-          { error: "Not authorized to access this task" },
-          { status: 403 }
-        );
+        return new Response(JSON.stringify({ error: "Not authorized" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       const authResponse = pusher.authorizeChannel(socketId, channelName);
-      return NextResponse.json(authResponse);
+      return new Response(JSON.stringify(authResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     if (channelName.startsWith("presence-task-")) {
-      // Task presence channel - verify participant access
       const taskId = parseInt(channelName.replace("presence-task-", ""), 10);
       const hasAccess = await verifyTaskAccess(session.user.id, taskId);
       
       if (!hasAccess) {
-        return NextResponse.json(
-          { error: "Not authorized to access this task" },
-          { status: 403 }
-        );
+        return new Response(JSON.stringify({ error: "Not authorized" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
-      // For presence channels, include user info
       const presenceData = {
         user_id: session.user.id,
         user_info: {
@@ -76,53 +107,59 @@ export async function POST(request: NextRequest) {
       };
 
       const authResponse = pusher.authorizeChannel(socketId, channelName, presenceData);
-      return NextResponse.json(authResponse);
+      return new Response(JSON.stringify(authResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     if (channelName.startsWith("private-user-")) {
-      // User notification channel - only the user themselves
       const userId = channelName.replace("private-user-", "");
       
       if (userId !== session.user.id) {
-        return NextResponse.json(
-          { error: "Not authorized to access this channel" },
-          { status: 403 }
-        );
+        return new Response(JSON.stringify({ error: "Not authorized" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       const authResponse = pusher.authorizeChannel(socketId, channelName);
-      return NextResponse.json(authResponse);
+      return new Response(JSON.stringify(authResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     if (channelName.startsWith("private-org-")) {
-      // Organization channel - verify membership
       const orgId = parseInt(channelName.replace("private-org-", ""), 10);
       const hasAccess = await verifyOrgAccess(session.user.id, orgId);
       
       if (!hasAccess) {
-        return NextResponse.json(
-          { error: "Not authorized to access this organization" },
-          { status: 403 }
-        );
+        return new Response(JSON.stringify({ error: "Not authorized" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
       }
 
       const authResponse = pusher.authorizeChannel(socketId, channelName);
-      return NextResponse.json(authResponse);
+      return new Response(JSON.stringify(authResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Unknown channel type
-    return NextResponse.json(
-      { error: "Unknown channel type" },
-      { status: 400 }
-    );
+    // Unknown channel type - return 403 instead of 400 to avoid Pusher retries
+    return new Response(JSON.stringify({ error: "Unknown channel type" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
 
   } catch (error) {
     console.error("Pusher auth error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { error: "Authentication failed", details: errorMessage },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: "Authentication failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 

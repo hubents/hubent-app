@@ -5,37 +5,50 @@
  * 
  * Provides real-time connection to Pusher channels for task chat,
  * presence tracking, and notifications.
+ * 
+ * IMPORTANT: All Pusher functionality is OPTIONAL and fails silently.
+ * The app must work without Pusher.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Pusher, { Channel, PresenceChannel } from "pusher-js";
+import type Pusher from "pusher-js";
+import type { Channel, PresenceChannel } from "pusher-js";
 import { useSession } from "next-auth/react";
 
 // Singleton Pusher instance
 let pusherInstance: Pusher | null = null;
+let pusherInitFailed = false;
 
-function getPusherClient(): Pusher {
+function getPusherClient(): Pusher | null {
+  // If init already failed, don't retry
+  if (pusherInitFailed) return null;
+  
   if (!pusherInstance) {
     const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
 
     if (!key || !cluster) {
-      throw new Error("Pusher client configuration is missing");
+      console.warn("Pusher not configured - real-time features disabled");
+      pusherInitFailed = true;
+      return null;
     }
 
-    pusherInstance = new Pusher(key, {
-      cluster,
-      authEndpoint: "/api/pusher/auth",
-      auth: {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    });
+    try {
+      // Dynamic import to avoid issues if pusher-js has problems
+      const PusherJS = require("pusher-js");
+      pusherInstance = new PusherJS(key, {
+        cluster,
+        authEndpoint: "/api/pusher/auth",
+      });
 
-    // Enable logging in development
-    if (process.env.NODE_ENV === "development") {
-      Pusher.logToConsole = true;
+      // Disable logging in production
+      if (process.env.NODE_ENV !== "development") {
+        PusherJS.logToConsole = false;
+      }
+    } catch (error) {
+      console.warn("Failed to initialize Pusher:", error);
+      pusherInitFailed = true;
+      return null;
     }
   }
   return pusherInstance;
@@ -52,6 +65,7 @@ export function usePusherConnection() {
     if (!session?.user) return;
 
     const pusher = getPusherClient();
+    if (!pusher) return;
 
     pusher.connection.bind("state_change", (states: { current: string }) => {
       setState(states.current as ConnectionState);
@@ -77,8 +91,10 @@ export function usePrivateChannel(channelName: string | null) {
   useEffect(() => {
     if (!channelName || !session?.user) return;
 
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
     try {
-      const pusher = getPusherClient();
       const channel = pusher.subscribe(channelName);
       channelRef.current = channel;
 
@@ -91,7 +107,6 @@ export function usePrivateChannel(channelName: string | null) {
       channel.bind("pusher:subscription_error", (error: { status: number }) => {
         console.warn(`Pusher subscription failed for ${channelName}:`, error.status);
         setSubscribed(false);
-        // Don't throw - just silently fail for unauthorized access
       });
 
       return () => {
@@ -139,15 +154,16 @@ export function usePresenceChannel(channelName: string | null) {
   useEffect(() => {
     if (!channelName || !session?.user) return;
 
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
     try {
-      const pusher = getPusherClient();
       const channel = pusher.subscribe(channelName) as PresenceChannel;
       channelRef.current = channel;
 
       // Handle subscription error (e.g., user not authorized)
       channel.bind("pusher:subscription_error", (error: { status: number }) => {
         console.warn(`Pusher presence subscription failed for ${channelName}:`, error.status);
-        // Silently fail - user may not have access
       });
 
       // When subscription succeeds, get initial members
@@ -204,8 +220,10 @@ export function useUserNotifications(onNotification?: (data: unknown) => void) {
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
     try {
-      const pusher = getPusherClient();
       const channelName = `private-user-${session.user.id}`;
       const channel = pusher.subscribe(channelName);
       channelRef.current = channel;
