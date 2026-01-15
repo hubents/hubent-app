@@ -1,7 +1,8 @@
 "use client";
 
-import { RiSearchLine, RiNotification3Line, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
+import { RiSearchLine, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
 import { AIHeaderButton } from "@/components/ai/ai-header-button";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,10 +74,7 @@ export function Header() {
         </Button>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <RiNotification3Line className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[var(--destructive)]" />
-        </Button>
+        <NotificationCenter />
 
         {/* User Dropdown */}
         <DropdownMenu>
