@@ -56,6 +56,14 @@ El usuario está en la sección de tareas. Prioriza:
 - Tareas próximas a vencer
 - Tareas asignadas al usuario
 `,
+  "task-detail": `
+## Contexto: Detalle de Tarea Específica
+El usuario está viendo una tarea específica. Cuando pregunte sobre "esta tarea" o pida un resumen:
+1. PRIMERO usa la herramienta getTaskDetails con el taskId proporcionado
+2. Luego responde con la información obtenida
+- Prioriza información de la tarea actual
+- Puedes sugerir acciones relacionadas con la tarea
+`,
   finance: `
 ## Contexto: Vista de Finanzas
 El usuario está revisando finanzas. Prioriza:
@@ -139,8 +147,13 @@ export function buildSystemPrompt(options: {
     fullPrompt += "\n" + ROLE_PROMPTS[userRole as keyof typeof ROLE_PROMPTS];
   }
 
-  // Agregar prompt de contexto
-  if (context && CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS]) {
+  // Manejar contexto de tarea específica (formato: "task:123")
+  if (context?.startsWith("task:")) {
+    const taskId = context.split(":")[1];
+    fullPrompt += "\n" + CONTEXT_PROMPTS["task-detail"];
+    fullPrompt += `\n\n**IMPORTANTE**: El usuario está viendo la tarea con ID ${taskId}. Cuando pregunte sobre "esta tarea", "la tarea", o pida un resumen, usa getTaskDetails con taskId: ${taskId}`;
+  } else if (context && CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS]) {
+    // Agregar prompt de contexto normal
     fullPrompt += "\n" + CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS];
   }
 

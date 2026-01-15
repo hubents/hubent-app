@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages, UIMessage } from "ai";
+import { streamText, convertToModelMessages, UIMessage, stepCountIs } from "ai";
 import { getGeminiModel, defaultChatConfig } from "@/lib/ai/gemini";
 import { buildSystemPrompt, INITIAL_SUGGESTIONS } from "@/lib/ai/system-prompt";
 import { createAITools } from "@/lib/ai/tools";
@@ -87,6 +87,7 @@ export async function POST(req: Request) {
       system: systemPrompt,
       messages,
       tools,
+      stopWhen: stepCountIs(5), // Permitir hasta 5 pasos de tool calls
       temperature: defaultChatConfig.temperature,
       onFinish: async ({ text, usage }) => {
         // Guardar mensaje del asistente
