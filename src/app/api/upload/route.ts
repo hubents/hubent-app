@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { uploadToR2, deleteFromR2, isR2Configured } from "@/lib/r2";
 
-// POST /api/upload - Upload a file to Cloudflare R2
+// NOTE: For large files, use /api/upload/presign instead to upload directly to R2
+// This endpoint is kept for backwards compatibility but has Vercel's 4.5MB body limit
+
+// POST /api/upload - Upload a file to Cloudflare R2 (limited to ~4MB due to Vercel)
 export async function POST(request: NextRequest) {
   try {
     // Check if R2 is configured

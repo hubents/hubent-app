@@ -128,27 +128,42 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
     setUploadProgress(10);
 
     try {
-      // 1. Upload file to R2
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "task-attachments");
+      // 1. Get presigned URL from server (avoids Vercel 4.5MB body limit)
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+          folder: "task-attachments",
+        }),
+      });
+
+      const presignData = await presignRes.json();
+
+      if (!presignData.success) {
+        throw new Error(presignData.error?.message || "Error al obtener URL de subida");
+      }
 
       setUploadProgress(30);
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      // 2. Upload directly to R2 using presigned URL
+      const uploadRes = await fetch(presignData.data.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
       });
 
-      const uploadData = await uploadRes.json();
-
-      if (!uploadData.success) {
-        throw new Error(uploadData.error?.message || "Error al subir archivo");
+      if (!uploadRes.ok) {
+        throw new Error("Error al subir archivo a R2");
       }
 
       setUploadProgress(60);
 
-      // 2. Send message FIRST to get messageId
+      // 3. Send message FIRST to get messageId
       const isImage = file.type.startsWith("image/");
       const messageResult = await sendMessage({
         content: file.name,
@@ -158,7 +173,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
       setUploadProgress(80);
 
-      // 3. Save attachment WITH messageId (links to message AND appears in Información tab)
+      // 4. Save attachment WITH messageId (links to message AND appears in Información tab)
       if (messageResult?.id) {
         const attachmentRes = await fetch(`/api/tasks/${taskId}/attachments`, {
           method: "POST",
@@ -166,7 +181,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
           body: JSON.stringify({
             messageId: messageResult.id,
             name: file.name,
-            url: uploadData.data?.url || uploadData.url,
+            url: presignData.data.publicUrl,
             type: isImage ? "image" : "file",
             size: file.size,
             mimeType: file.type,
@@ -180,7 +195,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
       setUploadProgress(100);
 
-      // 4. Refetch messages to show attachment
+      // 5. Refetch messages to show attachment
       await refetch();
 
       toast.success("Archivo subido correctamente", {

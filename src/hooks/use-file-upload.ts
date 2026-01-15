@@ -50,37 +50,60 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
       setProgress(10);
 
-      // Use FormData for upload
-      const formData = new FormData();
-      formData.append("file", file);
-      if (options.folder) {
-        formData.append("folder", options.folder);
+      // 1. Get presigned URL from server (avoids Vercel 4.5MB body limit)
+      const presignResponse = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+          folder: options.folder,
+        }),
+      });
+
+      const presignData = await presignResponse.json();
+
+      if (!presignData.success) {
+        throw new Error(presignData.error?.message || "Error al obtener URL de subida");
       }
 
       setProgress(30);
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      // 2. Upload directly to R2 using presigned URL
+      const uploadResponse = await fetch(presignData.data.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
       });
 
-      setProgress(90);
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error?.message || "Error al subir archivo");
+      if (!uploadResponse.ok) {
+        throw new Error("Error al subir archivo a R2");
       }
 
       setProgress(100);
 
+      // Determine file type category
+      let fileType = "file";
+      if (file.type.startsWith("image/")) {
+        fileType = "image";
+      } else if (file.type.startsWith("video/")) {
+        fileType = "video";
+      } else if (file.type.startsWith("audio/")) {
+        fileType = "audio";
+      } else if (file.type === "application/pdf") {
+        fileType = "document";
+      }
+
       const result: UploadResult = {
-        url: data.data.url,
-        pathname: data.data.pathname,
-        contentType: data.data.contentType,
-        size: data.data.size || file.size,
-        name: data.data.name || file.name,
-        type: data.data.type,
+        url: presignData.data.publicUrl,
+        pathname: presignData.data.key,
+        contentType: file.type,
+        size: file.size,
+        name: file.name,
+        type: fileType,
       };
 
       options.onSuccess?.(result);

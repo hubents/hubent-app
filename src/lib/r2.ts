@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Helper function to get env vars at RUNTIME (not build time)
 function getR2Config() {
@@ -102,4 +103,37 @@ export async function deleteFromR2(key: string): Promise<boolean> {
 export function isR2Configured(): boolean {
   const config = getR2Config();
   return !!(config.accountId && config.accessKeyId && config.secretAccessKey && config.bucketName && config.publicUrl);
+}
+
+// Generate a presigned URL for direct client upload to R2
+export async function getPresignedUploadUrl(
+  filename: string,
+  contentType: string
+): Promise<{ uploadUrl: string; publicUrl: string; key: string } | null> {
+  const config = getR2Config();
+  const client = getR2Client();
+  
+  if (!client || !config.bucketName || !config.publicUrl) {
+    console.error("R2 is not configured for presigned URL");
+    return null;
+  }
+
+  const key = `uploads/${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: config.bucketName,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    // Generate presigned URL valid for 10 minutes
+    const uploadUrl = await getSignedUrl(client, command, { expiresIn: 600 });
+    const publicUrl = `${config.publicUrl}/${key}`;
+
+    return { uploadUrl, publicUrl, key };
+  } catch (error) {
+    console.error("Error generating presigned URL:", error);
+    return null;
+  }
 }
