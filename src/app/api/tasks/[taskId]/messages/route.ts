@@ -10,6 +10,10 @@ import {
 } from "@/lib/task-chat";
 import { triggerTaskMessage, EVENTS } from "@/lib/pusher";
 import { sendPushToUsers } from "@/lib/beams";
+import { notifyMentions } from "@/lib/push-notifications";
+import { db } from "@/db";
+import { tasks, organizationMembers, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -106,7 +110,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await sendPushToUsers(recipients, {
         title: `💬 ${senderName}`,
         body: preview,
-        deep_link: `https://hubents.napsixai.com/dashboard/tareas?task=${taskId}`,
+        deep_link: `https://app.hubents.com/dashboard/tareas?task=${taskId}`,
         data: {
           type: "new_message",
           taskId: taskId.toString(),
@@ -114,6 +118,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
     }).catch(err => console.error("Push notification failed:", err));
+
+    // Check for mentions and notify mentioned users
+    if (message.content.includes("@")) {
+      // Get task info and team members for mention matching
+      const taskIdNum = parseInt(taskId, 10);
+      const taskInfo = await db.query.tasks.findFirst({
+        where: (t, { eq }) => eq(t.id, taskIdNum),
+        columns: { title: true, organizationId: true },
+      });
+
+      if (taskInfo) {
+        // Get team members
+        const members = await db
+          .select({ 
+            id: users.id, 
+            name: users.name, 
+            email: users.email 
+          })
+          .from(organizationMembers)
+          .innerJoin(users, eq(users.id, organizationMembers.userId))
+          .where(eq(organizationMembers.organizationId, taskInfo.organizationId));
+
+        const teamMembers = members.map(m => ({
+          id: m.id,
+          name: m.name || "",
+          email: m.email || "",
+        }));
+
+        notifyMentions(
+          taskIdNum,
+          taskInfo.title,
+          message.content,
+          message.senderName || session.user.name || "Alguien",
+          session.user.userId,
+          teamMembers
+        ).catch(err => console.error("Mention notification failed:", err));
+      }
+    }
 
     return NextResponse.json({
       success: true,

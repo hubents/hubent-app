@@ -1397,6 +1397,23 @@ export const aiFeedback = pgTable("ai_feedback", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // task_assigned, new_message, mention, payment, rsvp, event_reminder
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  data: json("data").$type<Record<string, string>>(),
+  link: text("link"),
+  read: boolean("read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Métricas agregadas diarias
 export const aiAnalytics = pgTable("ai_analytics", {
   id: serial("id").primaryKey(),
@@ -1507,6 +1524,10 @@ export type VendorProfile = typeof vendorProfiles.$inferSelect;
 export type VendorPortfolioItem = typeof vendorPortfolio.$inferSelect;
 export type VendorReview = typeof vendorReviews.$inferSelect;
 export type VendorClaim = typeof vendorClaims.$inferSelect;
+
+// Notifications Types
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
 
 // AI Assistant Types
 export type AiConfig = typeof aiConfig.$inferSelect;

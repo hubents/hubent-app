@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, taskPayments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { notifyPaymentRegistered } from "@/lib/push-notifications";
 
 // GET /api/tasks/[taskId]/payments - List payments for a task
 export async function GET(
@@ -86,6 +87,12 @@ export async function POST(
       );
     }
 
+    // Get task title for notification
+    const [taskData] = await db
+      .select({ title: tasks.title })
+      .from(tasks)
+      .where(eq(tasks.id, taskIdNum));
+
     const [payment] = await db
       .insert(taskPayments)
       .values({
@@ -96,6 +103,16 @@ export async function POST(
         createdBy: session.user.userId,
       })
       .returning();
+
+    // Send push notification for new payment
+    notifyPaymentRegistered(
+      session.organizationId.toString(),
+      description,
+      amount.toString(),
+      "ARS",
+      taskData?.title,
+      session.user.userId
+    ).catch(err => console.error("Push notification failed:", err));
 
     return NextResponse.json({ success: true, data: payment });
   } catch (error) {

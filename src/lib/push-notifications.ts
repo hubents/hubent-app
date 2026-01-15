@@ -5,8 +5,37 @@
 
 import { sendPushToUsers } from "./beams";
 import { db } from "@/db";
-import { tasks, taskParticipants, events, organizationMembers } from "@/db/schema";
+import { tasks, taskParticipants, events, organizationMembers, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
+
+/**
+ * Save notification to database for history
+ */
+async function saveNotification(
+  userIds: string[],
+  organizationId: number,
+  type: string,
+  title: string,
+  body: string,
+  link?: string,
+  data?: Record<string, string>
+): Promise<void> {
+  try {
+    for (const userId of userIds) {
+      await db.insert(notifications).values({
+        userId,
+        organizationId,
+        type,
+        title,
+        body,
+        link,
+        data,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to save notification to DB:", error);
+  }
+}
 
 // Base URL for deep links
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
@@ -58,14 +87,20 @@ export async function notifyTaskAssigned(
   taskId: number,
   taskTitle: string,
   assignedToUserId: string,
-  assignedByName: string
+  assignedByName: string,
+  organizationId?: number
 ): Promise<void> {
-  await sendPushToUsers([assignedToUserId], {
-    title: "📋 Nueva tarea asignada",
-    body: `${assignedByName} te asignó: ${taskTitle}`,
-    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
-    data: { type: "task_assigned", taskId: taskId.toString() },
-  });
+  const title = "📋 Nueva tarea asignada";
+  const body = `${assignedByName} te asignó: ${taskTitle}`;
+  const link = `${BASE_URL}/dashboard/tareas?task=${taskId}`;
+  const data = { type: "task_assigned", taskId: taskId.toString() };
+
+  await sendPushToUsers([assignedToUserId], { title, body, deep_link: link, data });
+  
+  // Save to DB if organizationId provided
+  if (organizationId) {
+    saveNotification([assignedToUserId], organizationId, "task_assigned", title, body, link, data);
+  }
 }
 
 /**
@@ -313,6 +348,62 @@ export async function notifyEventReminder(
     body: `${eventName} comienza ${timeLabel}`,
     deep_link: `${BASE_URL}/dashboard/eventos/${eventId}`,
     data: { type: "event_reminder", eventId: eventId.toString() },
+  });
+}
+
+// ============================================
+// MENTION NOTIFICATIONS
+// ============================================
+
+/**
+ * Parse mentions from message content and notify mentioned users
+ * Mentions format: @Username or @"Full Name"
+ */
+export async function notifyMentions(
+  taskId: number,
+  taskTitle: string,
+  messageContent: string,
+  senderName: string,
+  senderUserId: string,
+  teamMembers: Array<{ id: string; name: string; email: string }>
+): Promise<void> {
+  // Extract mentions from message - matches @word or @"multiple words"
+  const mentionRegex = /@(\w+|"[^"]+"|'[^']+')/g;
+  const mentions = messageContent.match(mentionRegex);
+  
+  if (!mentions || mentions.length === 0) return;
+
+  // Find mentioned users
+  const mentionedUserIds: string[] = [];
+  
+  for (const mention of mentions) {
+    // Remove @ and quotes
+    const mentionName = mention.slice(1).replace(/["']/g, "").toLowerCase();
+    
+    // Find matching team member
+    const member = teamMembers.find(m => 
+      m.name?.toLowerCase().includes(mentionName) ||
+      m.email?.split("@")[0].toLowerCase() === mentionName
+    );
+    
+    if (member && member.id !== senderUserId) {
+      mentionedUserIds.push(member.id);
+    }
+  }
+
+  // Remove duplicates and send notifications
+  const uniqueUserIds = [...new Set(mentionedUserIds)];
+  if (uniqueUserIds.length === 0) return;
+
+  const preview = messageContent.length > 80 
+    ? messageContent.substring(0, 80) + "..." 
+    : messageContent;
+
+  await sendPushToUsers(uniqueUserIds, {
+    title: `🔔 ${senderName} te mencionó`,
+    body: preview,
+    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    data: { type: "mention", taskId: taskId.toString() },
   });
 }
 

@@ -9,6 +9,7 @@ interface UserPreferences {
   notifications: {
     email: boolean;
     push: boolean;
+    sound: boolean;
     taskReminders: boolean;
     eventUpdates: boolean;
     teamActivity: boolean;
@@ -36,6 +37,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   notifications: {
     email: true,
     push: true,
+    sound: true,
     taskReminders: true,
     eventUpdates: true,
     teamActivity: true,
