@@ -76,10 +76,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: message,
     });
   } catch (error) {
+    console.error("POST /api/tasks/[taskId]/messages error:", error);
     const message = error instanceof Error ? error.message : "Failed to send message";
+    // Use 403 for permission errors, 400 for validation, 500 for others
+    let status = 500;
+    if (message.includes("access") || message.includes("permission")) {
+      status = 403;
+    } else if (message.includes("required") || message.includes("invalid")) {
+      status = 400;
+    }
     return NextResponse.json(
       { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
+      { status }
     );
   }
 }

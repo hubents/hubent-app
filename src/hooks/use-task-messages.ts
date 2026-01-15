@@ -100,10 +100,12 @@ export function useTaskMessages(taskId: number | null) {
         await fetchMessages();
         return data.data;
       }
-      return null;
+      // Log error for debugging
+      console.error("Failed to send message - API error:", data.error);
+      throw new Error(data.error?.message || "Failed to send message");
     } catch (err) {
       console.error("Failed to send message:", err);
-      return null;
+      throw err; // Re-throw so caller can handle
     } finally {
       setSending(false);
     }
