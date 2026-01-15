@@ -308,26 +308,29 @@ export async function addTaskParticipant(
     throw new Error("Task not found");
   }
 
-  // Check for existing participant
+  // Check for existing participant using standard query builder
   let existing = null;
   if (params.userId) {
-    const userId = params.userId;
-    existing = await db.query.taskParticipants.findFirst({
-      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.userId, userId)),
-    });
-    if (existing) throw new Error("User is already a participant of this task");
+    const [found] = await db
+      .select({ id: taskParticipants.id })
+      .from(taskParticipants)
+      .where(and(eq(taskParticipants.taskId, taskId), eq(taskParticipants.userId, params.userId)))
+      .limit(1);
+    if (found) throw new Error("User is already a participant of this task");
   } else if (params.vendorId) {
-    const vendorId = params.vendorId;
-    existing = await db.query.taskParticipants.findFirst({
-      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.vendorId, vendorId)),
-    });
-    if (existing) throw new Error("Vendor is already a participant of this task");
+    const [found] = await db
+      .select({ id: taskParticipants.id })
+      .from(taskParticipants)
+      .where(and(eq(taskParticipants.taskId, taskId), eq(taskParticipants.vendorId, params.vendorId)))
+      .limit(1);
+    if (found) throw new Error("Vendor is already a participant of this task");
   } else if (params.contactId) {
-    const contactId = params.contactId;
-    existing = await db.query.taskParticipants.findFirst({
-      where: (p, { eq, and }) => and(eq(p.taskId, taskId), eq(p.contactId, contactId)),
-    });
-    if (existing) throw new Error("Contact is already a participant of this task");
+    const [found] = await db
+      .select({ id: taskParticipants.id })
+      .from(taskParticipants)
+      .where(and(eq(taskParticipants.taskId, taskId), eq(taskParticipants.contactId, params.contactId)))
+      .limit(1);
+    if (found) throw new Error("Contact is already a participant of this task");
   }
 
   const [participant] = await db.insert(taskParticipants).values({
