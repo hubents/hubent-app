@@ -77,7 +77,7 @@ export function AIChatBase({
                     alt="NapsixAI"
                     width={50}
                     height={14}
-                    className="dark:hidden"
+                    className="block dark:hidden"
                   />
                   <Image
                     src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
@@ -212,7 +212,7 @@ export function AIChatBase({
             alt="NapsixAI"
             width={45}
             height={12}
-            className="dark:hidden"
+            className="block dark:hidden"
           />
           <Image
             src="/images/logos_napsixai/NAPSIX AI LOGO BLANCO para fondos oscuros.png"
