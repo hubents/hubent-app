@@ -1,6 +1,7 @@
 "use client";
 
 import { RiSearchLine, RiNotification3Line, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
+import { AIHeaderButton } from "@/components/ai/ai-header-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,9 @@ export function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-4">
+        {/* AI Assistant */}
+        <AIHeaderButton />
+
         {/* Theme toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {isDark ? (

@@ -26,6 +26,8 @@ import { TaskGeneralTab } from "./task-general-tab";
 import { TaskInfoTab } from "./task-info-tab";
 import { TaskScheduleTab } from "./task-schedule-tab";
 import { TaskChat } from "./task-chat";
+import { TaskAIDrawer } from "./task-ai-drawer";
+import { Sparkles } from "lucide-react";
 
 interface TaskDrawerProps {
   taskId: number | null;
@@ -56,6 +58,7 @@ export function TaskDrawer({
   const [deleting, setDeleting] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -190,7 +193,17 @@ export function TaskDrawer({
                 </>
               )}
             </div>
-            <div className="flex items-center gap-4 mr-8">
+            <div className="flex items-center gap-2 mr-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAiDrawerOpen(true)}
+                disabled={loading}
+                className="gap-2 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
+              >
+                <Sparkles className="h-4 w-4" />
+                Enti
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -283,6 +296,14 @@ export function TaskDrawer({
             <TaskChat taskId={taskId} />
           </div>
         </div>
+
+        {/* AI Drawer - Opens as secondary sheet */}
+        <TaskAIDrawer
+          open={aiDrawerOpen}
+          onOpenChange={setAiDrawerOpen}
+          task={task}
+          taskId={taskId}
+        />
       </SheetContent>
     </Sheet>
   );

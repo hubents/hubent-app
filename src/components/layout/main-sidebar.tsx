@@ -18,6 +18,7 @@ import {
   RiContactsBookLine,
   RiArrowLeftSLine,
   RiArrowRightSLine,
+  RiSparklingLine,
 } from "@remixicon/react";
 import { useState } from "react";
 import {
@@ -36,6 +37,7 @@ const navigation = [
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
   { name: "Pagos", href: "/dashboard/payments", icon: RiMoneyDollarCircleLine },
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
+  { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine },
 ];
 
 const bottomNavigation = [

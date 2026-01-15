@@ -6,7 +6,6 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 import { EventProvider } from "@/contexts/event-context";
 import { DashboardContent } from "@/components/layout/dashboard-content";
-import { AIChatButton } from "@/components/ai";
 
 export default function DashboardLayout({
   children,
@@ -36,9 +35,6 @@ export default function DashboardLayout({
         
         {/* Mobile Bottom Navigation */}
         <BottomNav />
-        
-        {/* AI Assistant Button */}
-        <AIChatButton />
       </div>
     </EventProvider>
   );
