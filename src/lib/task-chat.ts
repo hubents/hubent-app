@@ -37,13 +37,16 @@ export async function canAccessTaskChat(
   }
 
   // For others, check if they're participants
-  const participant = await db.query.taskParticipants.findFirst({
-    where: (p, { eq, and }) => 
+  const [participant] = await db
+    .select()
+    .from(taskParticipants)
+    .where(
       and(
-        eq(p.taskId, taskId),
-        eq(p.userId, session.user.userId)
-      ),
-  });
+        eq(taskParticipants.taskId, taskId),
+        eq(taskParticipants.userId, session.user.userId)
+      )
+    )
+    .limit(1);
 
   return !!participant;
 }
@@ -163,13 +166,16 @@ export async function sendTaskMessage(
   }
 
   // Check if user can comment
-  const participant = await db.query.taskParticipants.findFirst({
-    where: (p, { eq, and }) => 
+  const [participant] = await db
+    .select()
+    .from(taskParticipants)
+    .where(
       and(
-        eq(p.taskId, taskId),
-        eq(p.userId, session.user.userId)
-      ),
-  });
+        eq(taskParticipants.taskId, taskId),
+        eq(taskParticipants.userId, session.user.userId)
+      )
+    )
+    .limit(1);
 
   // If participant exists but can't comment, deny
   if (participant && !participant.canComment) {
