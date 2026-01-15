@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   RiSendPlaneLine,
   RiAttachment2,
@@ -15,9 +16,12 @@ import {
   RiImageLine,
   RiCheckLine,
   RiErrorWarningLine,
+  RiWifiLine,
+  RiWifiOffLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useTaskMessages } from "@/hooks/use-task-messages";
+import { useTypingIndicator, usePresenceChannel } from "@/hooks/use-pusher";
 import { TaskChatMessage } from "./task-chat-message";
 import { useSession } from "next-auth/react";
 
@@ -35,7 +39,7 @@ interface TaskChatProps {
 
 export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const { data: session } = useSession();
-  const { messages, loading, sending, sendMessage, deleteMessage, refetch } = useTaskMessages(taskId);
+  const { messages, loading, sending, sendMessage, deleteMessage, refetch, isRealtime } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,6 +52,12 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Real-time features
+  const channelName = taskId ? `private-task-${taskId}` : null;
+  const presenceChannelName = taskId ? `presence-task-${taskId}` : null;
+  const { typingUsers, setTyping } = useTypingIndicator(channelName);
+  const { members: activeViewers } = usePresenceChannel(presenceChannelName);
 
   // Fetch team members for mentions
   useEffect(() => {
@@ -260,6 +270,13 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const handleMessageChange = (value: string) => {
     setNewMessage(value);
     
+    // Trigger typing indicator
+    if (value.length > 0) {
+      setTyping(true);
+    } else {
+      setTyping(false);
+    }
+    
     // Check for @ mentions
     const lastAtIndex = value.lastIndexOf("@");
     if (lastAtIndex !== -1) {
@@ -305,7 +322,62 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
     <div className="flex flex-col h-full">
       {/* Chat Header */}
       <div className="px-4 py-3 border-b border-border shrink-0">
-        <h3 className="font-medium text-sm">Comentarios</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-sm">Comentarios</h3>
+            {/* Real-time indicator */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] ${isRealtime ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}`}>
+                    {isRealtime ? (
+                      <><RiWifiLine className="h-3 w-3" /><span>En vivo</span></>
+                    ) : (
+                      <><RiWifiOffLine className="h-3 w-3" /><span>Offline</span></>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isRealtime 
+                    ? "Mensajes en tiempo real activos" 
+                    : "Modo offline - los mensajes se actualizan cada 60s"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          {/* Active viewers */}
+          {activeViewers.length > 1 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center -space-x-2">
+                    {activeViewers.slice(0, 3).map((viewer) => (
+                      <Avatar key={viewer.id} className="h-6 w-6 border-2 border-background">
+                        <AvatarImage src={viewer.info.image} />
+                        <AvatarFallback className="text-[10px] bg-primary/10">
+                          {viewer.info.name?.charAt(0) || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {activeViewers.length > 3 && (
+                      <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-medium">
+                        +{activeViewers.length - 3}
+                      </div>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium mb-1">{activeViewers.length} personas viendo</p>
+                  <ul className="text-xs space-y-0.5">
+                    {activeViewers.map((v) => (
+                      <li key={v.id}>{v.info.name || v.info.email}</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -336,6 +408,30 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
                 onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
               />
             ))}
+            {/* Typing indicator */}
+            {typingUsers.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+                <div className="flex -space-x-1">
+                  {typingUsers.slice(0, 2).map((user) => (
+                    <Avatar key={user.userId} className="h-5 w-5 border border-background">
+                      <AvatarFallback className="text-[8px] bg-primary/10">
+                        {user.userName?.charAt(0) || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                </div>
+                <span>
+                  {typingUsers.length === 1 
+                    ? `${typingUsers[0].userName} está escribiendo...`
+                    : `${typingUsers.length} personas escribiendo...`}
+                </span>
+                <span className="flex gap-0.5">
+                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </>
         )}

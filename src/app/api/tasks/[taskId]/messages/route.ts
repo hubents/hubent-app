@@ -7,6 +7,7 @@ import {
   deleteTaskMessage,
   canAccessTaskChat
 } from "@/lib/task-chat";
+import { triggerTaskMessage, EVENTS } from "@/lib/pusher";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -71,6 +72,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       visibleTo,
     });
 
+    // Trigger real-time event via Pusher
+    try {
+      await triggerTaskMessage(parseInt(taskId, 10), EVENTS.MESSAGE_NEW, {
+        id: message.id,
+        taskId: message.taskId,
+        senderId: message.senderId,
+        senderName: message.senderName || undefined,
+        senderImage: message.senderImage || undefined,
+        content: message.content,
+        type: message.type || "text",
+        isPrivate: message.isPrivate ?? false,
+        createdAt: message.createdAt?.toISOString() || new Date().toISOString(),
+      });
+    } catch (pusherError) {
+      // Don't fail the request if Pusher fails - message is already saved
+      console.error("Pusher trigger failed:", pusherError);
+    }
+
     return NextResponse.json({
       success: true,
       data: message,
@@ -109,6 +128,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const updated = await editTaskMessage(session, messageId, content);
 
+    // Trigger real-time event via Pusher
+    try {
+      if (updated) {
+        await triggerTaskMessage(updated.taskId, EVENTS.MESSAGE_EDITED, {
+          id: updated.id,
+          taskId: updated.taskId,
+          senderId: updated.senderId,
+          senderName: undefined,
+          senderImage: undefined,
+          content: updated.content,
+          type: updated.type || "text",
+          isPrivate: updated.isPrivate ?? false,
+          createdAt: updated.createdAt?.toISOString() || new Date().toISOString(),
+        });
+      }
+    } catch (pusherError) {
+      console.error("Pusher trigger failed:", pusherError);
+    }
+
     return NextResponse.json({
       success: true,
       data: updated,
@@ -136,7 +174,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const taskIdNum = parseInt((await params).taskId, 10);
     await deleteTaskMessage(session, parseInt(messageId, 10));
+
+    // Trigger real-time event via Pusher
+    try {
+      await triggerTaskMessage(taskIdNum, EVENTS.MESSAGE_DELETED, {
+        id: parseInt(messageId, 10),
+      } as never);
+    } catch (pusherError) {
+      console.error("Pusher trigger failed:", pusherError);
+    }
 
     return NextResponse.json({
       success: true,

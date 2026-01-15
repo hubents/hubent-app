@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 import { EventProvider } from "@/contexts/event-context";
 import { DashboardContent } from "@/components/layout/dashboard-content";
+import { RealtimeNotifications } from "@/components/notifications/realtime-notifications";
 
 export default function DashboardLayout({
   children,
@@ -16,6 +17,7 @@ export default function DashboardLayout({
     <EventProvider>
       <div className="min-h-screen bg-[var(--background)]">
         <OrgCookieSetter />
+        <RealtimeNotifications />
         
         {/* Desktop Sidebars */}
         <MainSidebar />

@@ -1,4 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { usePrivateChannel } from "./use-pusher";
+import { EVENTS } from "@/lib/pusher";
 
 interface TaskMessage {
   id: number;
@@ -32,6 +36,12 @@ export function useTaskMessages(taskId: number | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [isRealtime, setIsRealtime] = useState(false);
+  const lastMessageIdRef = useRef<number | null>(null);
+
+  // Pusher channel for real-time updates
+  const channelName = taskId ? `private-task-${taskId}` : null;
+  const { channel, bind } = usePrivateChannel(channelName);
 
   const fetchMessages = useCallback(async () => {
     if (!taskId) return;
@@ -44,6 +54,10 @@ export function useTaskMessages(taskId: number | null) {
       const data = await res.json();
       if (data.success) {
         setMessages(data.data);
+        // Track last message ID for deduplication
+        if (data.data.length > 0) {
+          lastMessageIdRef.current = data.data[data.data.length - 1].id;
+        }
       } else {
         setError(data.error?.message || "Failed to fetch messages");
       }
@@ -59,9 +73,56 @@ export function useTaskMessages(taskId: number | null) {
     fetchMessages();
   }, [fetchMessages]);
 
-  // Polling: refresh messages every 60 seconds (reduced frequency for performance)
+  // Real-time message updates via Pusher
   useEffect(() => {
-    if (!taskId) return;
+    if (!channel) {
+      setIsRealtime(false);
+      return;
+    }
+
+    setIsRealtime(true);
+
+    // New message received
+    const unbindNew = bind<TaskMessage>(EVENTS.MESSAGE_NEW, (newMessage) => {
+      // Avoid duplicates - check if we already have this message
+      setMessages(prev => {
+        if (prev.some(m => m.id === newMessage.id)) {
+          return prev;
+        }
+        return [...prev, newMessage];
+      });
+      lastMessageIdRef.current = newMessage.id;
+    });
+
+    // Message edited
+    const unbindEdit = bind<TaskMessage>(EVENTS.MESSAGE_EDITED, (editedMessage) => {
+      setMessages(prev => 
+        prev.map(m => m.id === editedMessage.id ? editedMessage : m)
+      );
+    });
+
+    // Message deleted
+    const unbindDelete = bind<{ id: number }>(EVENTS.MESSAGE_DELETED, (data) => {
+      setMessages(prev => prev.filter(m => m.id !== data.id));
+    });
+
+    // File uploaded (refresh to get attachment info)
+    const unbindFile = bind<{ messageId: number }>(EVENTS.FILE_UPLOADED, () => {
+      // Refetch to get full attachment data
+      fetchMessages();
+    });
+
+    return () => {
+      unbindNew?.();
+      unbindEdit?.();
+      unbindDelete?.();
+      unbindFile?.();
+    };
+  }, [channel, bind, fetchMessages]);
+
+  // Fallback polling: only if Pusher is not connected (every 60 seconds)
+  useEffect(() => {
+    if (!taskId || isRealtime) return;
     
     const interval = setInterval(() => {
       // Silent fetch - don't show loading state
@@ -76,7 +137,7 @@ export function useTaskMessages(taskId: number | null) {
     }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
-  }, [taskId]);
+  }, [taskId, isRealtime]);
 
   // Send message
   const sendMessage = useCallback(async (messageData: {
@@ -158,6 +219,7 @@ export function useTaskMessages(taskId: number | null) {
     loading,
     error,
     sending,
+    isRealtime,
     refetch: fetchMessages,
     sendMessage,
     editMessage,
