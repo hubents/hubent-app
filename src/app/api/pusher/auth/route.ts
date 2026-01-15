@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("Pusher auth error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Authentication failed" },
+      { error: "Authentication failed", details: errorMessage },
       { status: 500 }
     );
   }

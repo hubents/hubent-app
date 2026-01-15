@@ -71,19 +71,38 @@ export function usePusherConnection() {
 // Subscribe to a private channel (for task chat)
 export function usePrivateChannel(channelName: string | null) {
   const channelRef = useRef<Channel | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
   const { data: session } = useSession();
 
   useEffect(() => {
     if (!channelName || !session?.user) return;
 
-    const pusher = getPusherClient();
-    const channel = pusher.subscribe(channelName);
-    channelRef.current = channel;
+    try {
+      const pusher = getPusherClient();
+      const channel = pusher.subscribe(channelName);
+      channelRef.current = channel;
 
-    return () => {
-      pusher.unsubscribe(channelName);
-      channelRef.current = null;
-    };
+      // Handle subscription success
+      channel.bind("pusher:subscription_succeeded", () => {
+        setSubscribed(true);
+      });
+
+      // Handle subscription error (e.g., user not authorized)
+      channel.bind("pusher:subscription_error", (error: { status: number }) => {
+        console.warn(`Pusher subscription failed for ${channelName}:`, error.status);
+        setSubscribed(false);
+        // Don't throw - just silently fail for unauthorized access
+      });
+
+      return () => {
+        pusher.unsubscribe(channelName);
+        channelRef.current = null;
+        setSubscribed(false);
+      };
+    } catch (error) {
+      console.warn("Pusher client not available:", error);
+      return;
+    }
   }, [channelName, session]);
 
   const bind = useCallback(<T>(event: string, callback: (data: T) => void) => {
@@ -120,36 +139,47 @@ export function usePresenceChannel(channelName: string | null) {
   useEffect(() => {
     if (!channelName || !session?.user) return;
 
-    const pusher = getPusherClient();
-    const channel = pusher.subscribe(channelName) as PresenceChannel;
-    channelRef.current = channel;
+    try {
+      const pusher = getPusherClient();
+      const channel = pusher.subscribe(channelName) as PresenceChannel;
+      channelRef.current = channel;
 
-    // When subscription succeeds, get initial members
-    channel.bind("pusher:subscription_succeeded", (data: { members: Record<string, PresenceMember["info"]>; me: { id: string; info: PresenceMember["info"] } }) => {
-      const memberList: PresenceMember[] = [];
-      Object.entries(data.members).forEach(([id, info]) => {
-        memberList.push({ id, info });
+      // Handle subscription error (e.g., user not authorized)
+      channel.bind("pusher:subscription_error", (error: { status: number }) => {
+        console.warn(`Pusher presence subscription failed for ${channelName}:`, error.status);
+        // Silently fail - user may not have access
       });
-      setMembers(memberList);
-      setMe({ id: data.me.id, info: data.me.info });
-    });
 
-    // When someone joins
-    channel.bind("pusher:member_added", (member: PresenceMember) => {
-      setMembers(prev => [...prev.filter(m => m.id !== member.id), member]);
-    });
+      // When subscription succeeds, get initial members
+      channel.bind("pusher:subscription_succeeded", (data: { members: Record<string, PresenceMember["info"]>; me: { id: string; info: PresenceMember["info"] } }) => {
+        const memberList: PresenceMember[] = [];
+        Object.entries(data.members).forEach(([id, info]) => {
+          memberList.push({ id, info });
+        });
+        setMembers(memberList);
+        setMe({ id: data.me.id, info: data.me.info });
+      });
 
-    // When someone leaves
-    channel.bind("pusher:member_removed", (member: PresenceMember) => {
-      setMembers(prev => prev.filter(m => m.id !== member.id));
-    });
+      // When someone joins
+      channel.bind("pusher:member_added", (member: PresenceMember) => {
+        setMembers(prev => [...prev.filter(m => m.id !== member.id), member]);
+      });
 
-    return () => {
-      pusher.unsubscribe(channelName);
-      channelRef.current = null;
-      setMembers([]);
-      setMe(null);
-    };
+      // When someone leaves
+      channel.bind("pusher:member_removed", (member: PresenceMember) => {
+        setMembers(prev => prev.filter(m => m.id !== member.id));
+      });
+
+      return () => {
+        pusher.unsubscribe(channelName);
+        channelRef.current = null;
+        setMembers([]);
+        setMe(null);
+      };
+    } catch (error) {
+      console.warn("Pusher client not available:", error);
+      return;
+    }
   }, [channelName, session]);
 
   const bind = useCallback(<T>(event: string, callback: (data: T) => void) => {
@@ -174,29 +204,39 @@ export function useUserNotifications(onNotification?: (data: unknown) => void) {
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    const pusher = getPusherClient();
-    const channelName = `private-user-${session.user.id}`;
-    const channel = pusher.subscribe(channelName);
-    channelRef.current = channel;
+    try {
+      const pusher = getPusherClient();
+      const channelName = `private-user-${session.user.id}`;
+      const channel = pusher.subscribe(channelName);
+      channelRef.current = channel;
 
-    // Bind to all notification events
-    const events = [
-      "task:assigned",
-      "task:updated",
-      "task:comment",
-      "event:updated",
-    ];
-
-    events.forEach(event => {
-      channel.bind(event, (data: unknown) => {
-        onNotification?.(data);
+      // Handle subscription error
+      channel.bind("pusher:subscription_error", (error: { status: number }) => {
+        console.warn(`Pusher user notifications subscription failed:`, error.status);
       });
-    });
 
-    return () => {
-      pusher.unsubscribe(channelName);
-      channelRef.current = null;
-    };
+      // Bind to all notification events
+      const events = [
+        "task:assigned",
+        "task:updated",
+        "task:comment",
+        "event:updated",
+      ];
+
+      events.forEach(event => {
+        channel.bind(event, (data: unknown) => {
+          onNotification?.(data);
+        });
+      });
+
+      return () => {
+        pusher.unsubscribe(channelName);
+        channelRef.current = null;
+      };
+    } catch (error) {
+      console.warn("Pusher client not available:", error);
+      return;
+    }
   }, [session?.user?.id, onNotification]);
 
   return channelRef.current;

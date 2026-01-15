@@ -19,20 +19,21 @@ function getPusherConfig() {
   };
 }
 
-// Lazy initialization - creates client only when needed
-let pusherInstance: Pusher | null = null;
-
+// Create a new Pusher instance each time in serverless environment
 export function getPusherServer(): Pusher {
-  if (!pusherInstance) {
-    const config = getPusherConfig();
-    
-    if (!config.appId || !config.key || !config.secret || !config.cluster) {
-      throw new Error("Pusher configuration is incomplete. Check environment variables.");
-    }
-    
-    pusherInstance = new Pusher(config);
+  const config = getPusherConfig();
+  
+  if (!config.appId || !config.key || !config.secret || !config.cluster) {
+    console.error("Pusher config missing:", {
+      hasAppId: !!config.appId,
+      hasKey: !!config.key,
+      hasSecret: !!config.secret,
+      hasCluster: !!config.cluster,
+    });
+    throw new Error("Pusher configuration is incomplete. Check environment variables.");
   }
-  return pusherInstance;
+  
+  return new Pusher(config);
 }
 
 // Channel naming conventions
