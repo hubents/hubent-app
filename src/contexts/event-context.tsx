@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 interface Event {
   id: number;
@@ -22,6 +23,7 @@ const EventContext = createContext<EventContextType | undefined>(undefined);
 export function EventProvider({ children }: { children: ReactNode }) {
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [isEventView, setIsEventView] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     // Load last active event from localStorage
@@ -34,6 +36,16 @@ export function EventProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  // Limpiar activeEvent cuando se navega fuera de la ruta del evento
+  useEffect(() => {
+    if (activeEvent) {
+      const eventPath = `/dashboard/events/${activeEvent.id}`;
+      if (!pathname.startsWith(eventPath)) {
+        setActiveEvent(null);
+      }
+    }
+  }, [pathname, activeEvent]);
 
   useEffect(() => {
     // Persist active event
