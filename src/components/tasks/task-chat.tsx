@@ -1,27 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import {
   RiSendPlaneLine,
   RiAttachment2,
   RiLockLine,
   RiAtLine,
   RiLoader4Line,
-  RiCloseLine,
   RiImageLine,
-  RiFileTextLine,
+  RiCheckLine,
+  RiErrorWarningLine,
 } from "@remixicon/react";
+import { toast } from "sonner";
 import { useTaskMessages } from "@/hooks/use-task-messages";
 import { TaskChatMessage } from "./task-chat-message";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface TeamMember {
   id: string;
@@ -48,8 +46,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // Fetch team members for mentions
@@ -100,19 +97,35 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
     setIsPrivate(false);
   };
 
-  const uploadFile = useCallback(async (file: File) => {
-    if (!taskId) return;
+  const processFileUpload = async (file: File) => {
+    if (!file || !taskId) return;
 
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error("El archivo excede el límite de 10MB");
+      toast.error("El archivo excede el límite de 10MB", {
+        description: "Para archivos más grandes, usa un enlace externo.",
+      });
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+      "application/pdf",
+      "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+    ];
+    if (!allowedTypes.some(type => file.type === type || file.type.startsWith("image/"))) {
+      toast.error("Tipo de archivo no permitido", {
+        description: "Formatos permitidos: imágenes, PDF, Word, Excel, texto.",
+      });
       return;
     }
 
     setUploading(true);
     setUploadProgress(10);
-    setPendingFile(null);
 
     try {
       // 1. Upload file to R2
@@ -145,22 +158,22 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
       setUploadProgress(80);
 
-      // 3. Save attachment WITH messageId to task_attachments (shows in "Información" tab)
+      // 3. Save attachment WITH messageId (links to message AND appears in Información tab)
       if (messageResult?.id) {
-        const attachRes = await fetch(`/api/tasks/${taskId}/attachments`, {
+        const attachmentRes = await fetch(`/api/tasks/${taskId}/attachments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messageId: messageResult.id,
             name: file.name,
-            url: uploadData.data.url,
+            url: uploadData.data?.url || uploadData.url,
             type: isImage ? "image" : "file",
             size: file.size,
             mimeType: file.type,
           }),
         });
 
-        if (!attachRes.ok) {
+        if (!attachmentRes.ok) {
           console.error("Failed to save attachment metadata");
         }
       }
@@ -170,11 +183,18 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
       // 4. Refetch messages to show attachment
       await refetch();
 
-      toast.success(isImage ? "Imagen subida correctamente" : "Archivo subido correctamente");
+      toast.success("Archivo subido correctamente", {
+        description: file.name,
+        icon: isImage ? <RiImageLine className="h-4 w-4" /> : <RiCheckLine className="h-4 w-4" />,
+      });
+
     } catch (error) {
       console.error("Failed to upload file:", error);
-      const message = error instanceof Error ? error.message : "Error al subir archivo";
-      toast.error(message);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      toast.error("Error al subir archivo", {
+        description: errorMessage,
+        icon: <RiErrorWarningLine className="h-4 w-4" />,
+      });
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -182,51 +202,35 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
         fileInputRef.current.value = "";
       }
     }
-  }, [taskId, isPrivate, sendMessage, refetch]);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    await uploadFile(file);
+    if (file) {
+      await processFileUpload(file);
+    }
   };
 
   // Drag and drop handlers
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set to false if we're leaving the drop zone entirely
-    if (e.currentTarget === e.target) {
-      setIsDragging(false);
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
-  }, []);
+  };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+    setDragActive(false);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const file = files[0];
-      // Show preview for images, upload directly for other files
-      if (file.type.startsWith("image/")) {
-        setPendingFile(file);
-      } else {
-        uploadFile(file);
-      }
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await processFileUpload(e.dataTransfer.files[0]);
     }
-  }, [uploadFile]);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && !showMentions) {
@@ -283,24 +287,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   }
 
   return (
-    <div 
-      className="flex flex-col h-full"
-      ref={dropZoneRef}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      {/* Drag overlay */}
-      {isDragging && (
-        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center">
-          <div className="text-center">
-            <RiImageLine className="h-12 w-12 text-primary mx-auto mb-2" />
-            <p className="text-sm font-medium text-primary">Suelta el archivo aquí</p>
-          </div>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full">
       {/* Chat Header */}
       <div className="px-4 py-3 border-b border-border shrink-0">
         <h3 className="font-medium text-sm">Comentarios</h3>
@@ -339,57 +326,34 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-border shrink-0 space-y-3 relative">
-        {/* Upload progress */}
-        {uploading && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Subiendo archivo...</span>
-              <span>{uploadProgress}%</span>
+      {/* Input Area with Drag & Drop */}
+      <div 
+        ref={dropZoneRef}
+        className={`p-4 border-t border-border shrink-0 space-y-3 relative transition-colors ${
+          dragActive ? "bg-primary/5 border-primary" : ""
+        }`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {dragActive && (
+          <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-40 pointer-events-none">
+            <div className="text-center">
+              <RiAttachment2 className="h-8 w-8 mx-auto text-primary mb-2" />
+              <p className="text-sm font-medium text-primary">Suelta el archivo aquí</p>
             </div>
-            <Progress value={uploadProgress} className="h-1" />
           </div>
         )}
 
-        {/* Pending file preview (for images) */}
-        {pendingFile && (
-          <div className="relative bg-muted rounded-lg p-3">
-            <button
-              onClick={() => setPendingFile(null)}
-              className="absolute top-2 right-2 p-1 rounded-full bg-background/80 hover:bg-background"
-            >
-              <RiCloseLine className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-3">
-              {pendingFile.type.startsWith("image/") ? (
-                <img
-                  src={URL.createObjectURL(pendingFile)}
-                  alt="Preview"
-                  className="h-16 w-16 object-cover rounded-lg"
-                />
-              ) : (
-                <div className="h-16 w-16 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <RiFileTextLine className="h-8 w-8 text-primary" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{pendingFile.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(pendingFile.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => uploadFile(pendingFile)}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <RiLoader4Line className="h-4 w-4 animate-spin mr-1" />
-                ) : null}
-                Subir
-              </Button>
-            </div>
+        {/* Upload progress bar */}
+        {uploading && uploadProgress > 0 && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-muted overflow-hidden">
+            <div 
+              className="h-full bg-primary transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            />
           </div>
         )}
 
@@ -483,13 +447,20 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 relative"
               disabled={sending || uploading}
               onClick={() => fileInputRef.current?.click()}
-              title="Adjuntar archivo"
+              title="Adjuntar archivo (o arrastra y suelta)"
             >
               {uploading ? (
-                <RiLoader4Line className="h-4 w-4 animate-spin" />
+                <>
+                  <RiLoader4Line className="h-4 w-4 animate-spin" />
+                  {uploadProgress > 0 && (
+                    <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-primary text-primary-foreground rounded-full h-4 w-4 flex items-center justify-center">
+                      {Math.round(uploadProgress / 10)}
+                    </span>
+                  )}
+                </>
               ) : (
                 <RiAttachment2 className="h-4 w-4" />
               )}

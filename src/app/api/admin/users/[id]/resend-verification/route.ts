@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, platformAdmins, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -54,8 +54,8 @@ export async function POST(
 
     const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
 
-    // Send welcome email with verification link
-    await sendWelcomeEmail(user.email, user.name || "Usuario", verifyUrl);
+    // Send verification email
+    await sendPasswordResetEmail(user.email, verifyUrl);
 
     return NextResponse.json({ 
       success: true, 

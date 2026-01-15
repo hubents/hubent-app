@@ -46,7 +46,7 @@ interface User {
   emailVerified: string | null;
   createdAt?: string;
   isAdmin: boolean;
-  adminLevel?: string;
+  adminLevel?: string | null;
   status?: string;
 }
 

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
-import { Toaster } from "sonner";
 import { SessionProvider } from "@/components/providers/session-provider";
 import "./globals.css";
 
@@ -35,7 +34,6 @@ export default function RootLayout({
         <SessionProvider>
           {children}
         </SessionProvider>
-        <Toaster position="top-right" richColors closeButton />
         <Analytics />
       </body>
     </html>

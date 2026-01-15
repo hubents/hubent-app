@@ -9,6 +9,9 @@ import {
   RiFileTextLine,
   RiDownloadLine,
   RiImageLine,
+  RiFilePdfLine,
+  RiFileWordLine,
+  RiFileExcelLine,
 } from "@remixicon/react";
 
 interface TaskMessageAttachment {
@@ -73,6 +76,15 @@ function formatFileSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getFileIcon(mimeType: string | null) {
+  if (!mimeType) return <RiFileTextLine className="h-5 w-5 text-primary" />;
+  if (mimeType.startsWith("image/")) return <RiImageLine className="h-5 w-5 text-blue-500" />;
+  if (mimeType === "application/pdf") return <RiFilePdfLine className="h-5 w-5 text-red-500" />;
+  if (mimeType.includes("word") || mimeType.includes("document")) return <RiFileWordLine className="h-5 w-5 text-blue-600" />;
+  if (mimeType.includes("excel") || mimeType.includes("spreadsheet")) return <RiFileExcelLine className="h-5 w-5 text-green-600" />;
+  return <RiFileTextLine className="h-5 w-5 text-primary" />;
+}
+
 export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
   const initials = message.senderName
     ? message.senderName
@@ -121,29 +133,32 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
             </p>
           )}
 
-          {message.type === "file" && message.attachments && (
+          {message.type === "file" && message.attachments && message.attachments.length > 0 && (
             <div className="space-y-2 mt-2">
               {message.attachments.map((attachment) => {
-                const isImage = attachment.mimeType?.startsWith("image/") || attachment.type === "image";
+                const isImage = attachment.mimeType?.startsWith("image/");
                 
                 if (isImage) {
                   return (
                     <div key={attachment.id} className="space-y-2">
-                      <a
-                        href={attachment.url}
-                        target="_blank"
+                      <a 
+                        href={attachment.url} 
+                        target="_blank" 
                         rel="noopener noreferrer"
                         className="block"
                       >
-                        <img
-                          src={attachment.url}
+                        <img 
+                          src={attachment.url} 
                           alt={attachment.name}
-                          className="max-w-xs max-h-64 rounded-lg border border-border object-cover hover:opacity-90 transition-opacity"
+                          className="max-w-xs max-h-48 rounded-lg border border-border object-cover hover:opacity-90 transition-opacity"
+                          loading="lazy"
                         />
                       </a>
-                      <p className="text-xs text-muted-foreground">
-                        {attachment.name} · {formatFileSize(attachment.size)}
-                      </p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <RiImageLine className="h-3 w-3" />
+                        <span className="truncate">{attachment.name}</span>
+                        {attachment.size && <span>({formatFileSize(attachment.size)})</span>}
+                      </div>
                     </div>
                   );
                 }
@@ -154,7 +169,7 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
                     className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/50"
                   >
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <RiFileTextLine className="h-5 w-5 text-primary" />
+                      {getFileIcon(attachment.mimeType)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
@@ -183,6 +198,14 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Fallback for file messages without attachments yet (loading state) */}
+          {message.type === "file" && (!message.attachments || message.attachments.length === 0) && (
+            <div className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/30 text-sm text-muted-foreground">
+              <RiFileTextLine className="h-4 w-4" />
+              <span className="truncate">{message.content}</span>
             </div>
           )}
         </div>
