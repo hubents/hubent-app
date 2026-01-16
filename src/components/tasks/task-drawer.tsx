@@ -69,6 +69,7 @@ export function TaskDrawer({
     scheduleItems,
     htmlContent,
     payments,
+    meetings,
     loading,
     refetch,
     updateTask,
@@ -84,6 +85,8 @@ export function TaskDrawer({
     removeParticipant,
     addPayment,
     deletePayment,
+    addMeeting,
+    deleteMeeting,
   } = useTaskDetail(taskId);
 
   useEffect(() => {
@@ -266,15 +269,15 @@ export function TaskDrawer({
                     task={task}
                     attachments={attachments}
                     payments={payments}
-                    meetings={scheduleItems}
+                    meetings={meetings}
                     loading={loading}
                     onUpdateTask={handleTaskUpdate}
                     onAddAttachment={addAttachment}
                     onDeleteAttachment={deleteAttachment}
                     onAddPayment={addPayment}
                     onDeletePayment={deletePayment}
-                    onAddMeeting={addScheduleItem}
-                    onDeleteMeeting={deleteScheduleItem}
+                    onAddMeeting={addMeeting}
+                    onDeleteMeeting={deleteMeeting}
                   />
                 </TabsContent>
 

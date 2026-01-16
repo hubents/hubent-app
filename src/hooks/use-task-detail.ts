@@ -92,6 +92,21 @@ interface TaskPayment {
   createdAt: string;
 }
 
+interface TaskMeeting {
+  id: number;
+  taskId: number;
+  title: string;
+  description: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  notes: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function useTaskDetail(taskId: number | null) {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [participants, setParticipants] = useState<TaskParticipant[]>([]);
@@ -100,6 +115,7 @@ export function useTaskDetail(taskId: number | null) {
   const [scheduleItems, setScheduleItems] = useState<TaskScheduleItem[]>([]);
   const [htmlContent, setHtmlContent] = useState<TaskHtmlContent | null>(null);
   const [payments, setPayments] = useState<TaskPayment[]>([]);
+  const [meetings, setMeetings] = useState<TaskMeeting[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -216,6 +232,23 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId]);
 
+  const fetchMeetings = useCallback(async () => {
+    if (!taskId) return;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/meetings`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setMeetings(data.data);
+      } else {
+        setMeetings([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch meetings:", err);
+      setMeetings([]);
+    }
+  }, [taskId]);
+
   const fetchAll = useCallback(async () => {
     if (!taskId) return;
     
@@ -231,6 +264,7 @@ export function useTaskDetail(taskId: number | null) {
         fetchScheduleItems(),
         fetchHtmlContent(),
         fetchPayments(),
+        fetchMeetings(),
       ]);
     } catch (err) {
       setError("Failed to load task details");
@@ -238,7 +272,7 @@ export function useTaskDetail(taskId: number | null) {
     } finally {
       setLoading(false);
     }
-  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent, fetchPayments]);
+  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent, fetchPayments, fetchMeetings]);
 
   useEffect(() => {
     fetchAll();
@@ -520,6 +554,70 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId, fetchPayments]);
 
+  // Add meeting
+  const addMeeting = useCallback(async (meetingData: { title: string; date: string; startTime?: string; endTime?: string; description?: string; location?: string }) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/meetings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(meetingData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchMeetings();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to add meeting:", err);
+      return null;
+    }
+  }, [taskId, fetchMeetings]);
+
+  // Update meeting
+  const updateMeeting = useCallback(async (meetingId: number, updates: Partial<TaskMeeting>) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/meetings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId, ...updates }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchMeetings();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to update meeting:", err);
+      return null;
+    }
+  }, [taskId, fetchMeetings]);
+
+  // Delete meeting
+  const deleteMeeting = useCallback(async (meetingId: number) => {
+    if (!taskId) return false;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/meetings?meetingId=${meetingId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchMeetings();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to delete meeting:", err);
+      return false;
+    }
+  }, [taskId, fetchMeetings]);
+
   return {
     task,
     participants,
@@ -528,6 +626,7 @@ export function useTaskDetail(taskId: number | null) {
     scheduleItems,
     htmlContent,
     payments,
+    meetings,
     loading,
     error,
     refetch: fetchAll,
@@ -544,5 +643,8 @@ export function useTaskDetail(taskId: number | null) {
     removeParticipant,
     addPayment,
     deletePayment,
+    addMeeting,
+    updateMeeting,
+    deleteMeeting,
   };
 }

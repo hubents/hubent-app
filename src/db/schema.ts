@@ -940,6 +940,21 @@ export const taskScheduleItems = pgTable("task_schedule_items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const taskMeetings = pgTable("task_meetings", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  location: text("location"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const taskHtmlContent = pgTable("task_html_content", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),

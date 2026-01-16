@@ -50,6 +50,13 @@
       "when": 1768423132387,
       "tag": "0006_tiny_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768569594177,
+      "tag": "0007_lying_kang",
+      "breakpoints": true
     }
   ]
 }
