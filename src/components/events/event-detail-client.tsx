@@ -22,7 +22,6 @@ import {
   RiDeleteBinLine,
 } from "@remixicon/react";
 import Link from "next/link";
-import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { EditEventDialog } from "@/components/events/edit-event-dialog";
 import { useEvent } from "@/contexts/event-context";
@@ -83,11 +82,10 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [event, setEvent] = useState<Event | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
   const [vendors, setVendors] = useState<Array<{ id: number; vendorId: number; vendorName: string; service: string }>>([])
   const [allVendors, setAllVendors] = useState<Array<{ id: number; name: string; category: string | null }>>([])
   const [showAddVendorDialog, setShowAddVendorDialog] = useState(false)
@@ -193,11 +191,19 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTaskId(task.id);
-    setSelectedTaskTitle(task.title);
+    setDrawerMode("view");
     setIsDrawerOpen(true);
   };
 
-  const handleTaskCreated = () => {
+  const openCreateDrawer = () => {
+    setSelectedTaskId(null);
+    setDrawerMode("create");
+    setIsDrawerOpen(true);
+  };
+
+  const handleTaskCreated = (newTaskId: number) => {
+    setSelectedTaskId(newTaskId);
+    setDrawerMode("view");
     fetchTasks();
   };
 
@@ -432,7 +438,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => setIsCreateTaskOpen(true)}
+                onClick={openCreateDrawer}
               >
                 <RiAddLine className="h-4 w-4" />
                 Nueva
@@ -493,7 +499,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   variant="outline"
                   size="sm"
                   className="gap-1"
-                  onClick={() => setIsCreateTaskOpen(true)}
+                  onClick={openCreateDrawer}
                 >
                   <RiAddLine className="h-4 w-4" />
                   Crear primera tarea
@@ -804,22 +810,16 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         </Card>
       </div>
 
-      {/* Create Task Dialog */}
-      <CreateTaskDialog
-        open={isCreateTaskOpen}
-        onOpenChange={setIsCreateTaskOpen}
-        onTaskCreated={handleTaskCreated}
-        preselectedEventId={eventId}
-      />
-
-      {/* Task Drawer */}
+      {/* Task Drawer - for both view and create */}
       <TaskDrawer
         taskId={selectedTaskId}
-        taskTitle={selectedTaskTitle}
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
-        onTaskDeleted={handleTaskCreated}
-        onTaskUpdated={handleTaskCreated}
+        onTaskDeleted={() => fetchTasks()}
+        onTaskUpdated={() => fetchTasks()}
+        onTaskCreated={handleTaskCreated}
+        mode={drawerMode}
+        initialData={{ eventId }}
       />
 
       {/* Edit Event Dialog */}

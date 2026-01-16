@@ -14,7 +14,6 @@ import {
   RiLayoutGridLine,
   RiDraggable,
 } from "@remixicon/react";
-import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { cn } from "@/lib/utils";
 import {
@@ -182,11 +181,10 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [preselectedStatus, setPreselectedStatus] = useState<string | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [selectedTaskTitle, setSelectedTaskTitle] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
+  const [drawerInitialData, setDrawerInitialData] = useState<{ eventId?: number; status?: string } | undefined>(undefined);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -232,20 +230,28 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
 
   const handleTaskClick = (task: Task) => {
     setSelectedTaskId(task.id);
-    setSelectedTaskTitle(task.title);
+    setDrawerMode("view");
     setIsDrawerOpen(true);
   };
 
-  const handleAddTaskFromColumn = (status: string) => {
-    setPreselectedStatus(status);
-    setIsCreateOpen(true);
+  const openCreateDrawer = (status?: string) => {
+    setSelectedTaskId(null);
+    setDrawerMode("create");
+    setDrawerInitialData({ eventId, status });
+    setIsDrawerOpen(true);
   };
 
-  const handleCreateDialogClose = (open: boolean) => {
-    setIsCreateOpen(open);
+  const handleDrawerClose = (open: boolean) => {
+    setIsDrawerOpen(open);
     if (!open) {
-      setPreselectedStatus(undefined);
+      setDrawerInitialData(undefined);
     }
+  };
+
+  const handleTaskCreated = (newTaskId: number) => {
+    setSelectedTaskId(newTaskId);
+    setDrawerMode("view");
+    fetchTasks();
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -318,7 +324,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
             {tasks.length} tareas en total
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+        <Button className="gap-2" onClick={() => openCreateDrawer()}>
           <RiAddLine className="h-4 w-4" />
           Nueva Tarea
         </Button>
@@ -370,7 +376,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
                 color={column.color}
                 tasks={filteredTasks.filter((t) => t.status === column.id)}
                 onTaskClick={handleTaskClick}
-                onAddTask={handleAddTaskFromColumn}
+                onAddTask={openCreateDrawer}
               />
             ))}
           </div>
@@ -430,22 +436,16 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         </Card>
       )}
 
-      {/* Dialogs */}
-      <CreateTaskDialog
-        open={isCreateOpen}
-        onOpenChange={handleCreateDialogClose}
-        onTaskCreated={fetchTasks}
-        preselectedEventId={eventId}
-        preselectedStatus={preselectedStatus}
-      />
-
+      {/* Task Drawer - for both view and create */}
       <TaskDrawer
         taskId={selectedTaskId}
-        taskTitle={selectedTaskTitle}
         open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={handleDrawerClose}
         onTaskDeleted={fetchTasks}
         onTaskUpdated={fetchTasks}
+        onTaskCreated={handleTaskCreated}
+        mode={drawerMode}
+        initialData={drawerInitialData}
       />
     </div>
   );

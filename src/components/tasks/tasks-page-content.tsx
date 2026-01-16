@@ -18,9 +18,8 @@ import {
   RiDraggable,
 } from "@remixicon/react";
 import { useTasks } from "@/hooks/use-tasks";
-import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -119,7 +118,7 @@ function DraggableTaskCard({
   );
 }
 
-// Droppable Column Component
+// Droppable Column Component with Quick Add
 function DroppableColumn({ 
   id, 
   title, 
@@ -127,6 +126,7 @@ function DroppableColumn({
   tasks, 
   onTaskClick,
   onAddTask,
+  onQuickAdd,
 }: { 
   id: string; 
   title: string; 
@@ -134,8 +134,30 @@ function DroppableColumn({
   tasks: Task[];
   onTaskClick: (taskId: number) => void;
   onAddTask: (status: string) => void;
+  onQuickAdd: (title: string, status: string) => Promise<void>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const quickAddInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleQuickAdd = async () => {
+    if (!quickAddTitle.trim()) return;
+    setIsCreating(true);
+    try {
+      await onQuickAdd(quickAddTitle.trim(), id);
+      setQuickAddTitle("");
+      setIsQuickAddOpen(false);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const openQuickAdd = () => {
+    setIsQuickAddOpen(true);
+    setTimeout(() => quickAddInputRef.current?.focus(), 50);
+  };
 
   return (
     <div className="flex flex-col">
@@ -150,7 +172,7 @@ function DroppableColumn({
           variant="ghost"
           size="icon"
           className="h-7 w-7 hover:bg-white/50"
-          onClick={() => onAddTask(id)}
+          onClick={openQuickAdd}
           title={`Agregar tarea en ${title}`}
         >
           <RiAddLine className="h-4 w-4" />
@@ -163,6 +185,52 @@ function DroppableColumn({
           isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
         )}
       >
+        {/* Quick Add Input */}
+        {isQuickAddOpen && (
+          <Card className="border-primary border-2">
+            <CardContent className="p-2">
+              <Input
+                ref={quickAddInputRef}
+                value={quickAddTitle}
+                onChange={(e) => setQuickAddTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && quickAddTitle.trim()) {
+                    handleQuickAdd();
+                  } else if (e.key === "Escape") {
+                    setIsQuickAddOpen(false);
+                    setQuickAddTitle("");
+                  }
+                }}
+                placeholder="Título de la tarea..."
+                className="h-8 text-sm"
+                disabled={isCreating}
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs flex-1"
+                  onClick={handleQuickAdd}
+                  disabled={!quickAddTitle.trim() || isCreating}
+                >
+                  {isCreating ? "Creando..." : "Crear"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setIsQuickAddOpen(false);
+                    setQuickAddTitle("");
+                  }}
+                  disabled={isCreating}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {tasks.map((task) => (
           <DraggableTaskCard 
             key={task.id} 
@@ -170,7 +238,7 @@ function DroppableColumn({
             onClick={() => onTaskClick(task.id)} 
           />
         ))}
-        {tasks.length === 0 && (
+        {tasks.length === 0 && !isQuickAddOpen && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {isOver ? "Soltar aquí" : "No hay tareas"}
           </div>
@@ -183,10 +251,10 @@ function DroppableColumn({
 export function TasksPageContent() {
   const { tasks: apiTasks, stats, loading, refetch } = useTasks();
   const searchParams = useSearchParams();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [preselectedStatus, setPreselectedStatus] = useState<string | undefined>(undefined);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
+  const [drawerInitialData, setDrawerInitialData] = useState<{ status?: string } | undefined>(undefined);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -201,7 +269,7 @@ export function TasksPageContent() {
   
   useEffect(() => {
     if (searchParams.get("new") === "true") {
-      setIsCreateDialogOpen(true);
+      openCreateDrawer();
     }
   }, [searchParams]);
   
@@ -213,18 +281,47 @@ export function TasksPageContent() {
 
   const handleTaskClick = (taskId: number) => {
     setSelectedTaskId(taskId);
+    setDrawerMode("view");
     setIsDrawerOpen(true);
   };
 
-  const handleAddTaskFromColumn = (status: string) => {
-    setPreselectedStatus(status);
-    setIsCreateDialogOpen(true);
+  const openCreateDrawer = (status?: string) => {
+    setSelectedTaskId(null);
+    setDrawerMode("create");
+    setDrawerInitialData(status ? { status } : undefined);
+    setIsDrawerOpen(true);
   };
 
-  const handleCreateDialogClose = (open: boolean) => {
-    setIsCreateDialogOpen(open);
+  const handleDrawerClose = (open: boolean) => {
+    setIsDrawerOpen(open);
     if (!open) {
-      setPreselectedStatus(undefined);
+      setDrawerInitialData(undefined);
+    }
+  };
+
+  const handleTaskCreated = (newTaskId: number) => {
+    setSelectedTaskId(newTaskId);
+    setDrawerMode("view");
+    refetch();
+  };
+
+  // Quick Add function for inline creation in Kanban columns
+  const handleQuickAdd = async (title: string, status: string) => {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          status,
+          priority: "medium",
+        }),
+      });
+      if (res.ok) {
+        refetch();
+      }
+    } catch (error) {
+      console.error("Failed to create task:", error);
     }
   };
 
@@ -269,7 +366,7 @@ export function TasksPageContent() {
             Gestiona las tareas de todos tus eventos
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+        <Button className="gap-2" onClick={() => openCreateDrawer()}>
           <RiAddLine className="h-4 w-4" />
           Nueva Tarea
         </Button>
@@ -366,7 +463,7 @@ export function TasksPageContent() {
             <p className="text-sm text-muted-foreground mb-4">
               Crea tu primera tarea para comenzar
             </p>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Button onClick={() => openCreateDrawer()}>
               <RiAddLine className="h-4 w-4 mr-2" />
               Nueva Tarea
             </Button>
@@ -387,7 +484,8 @@ export function TasksPageContent() {
                   color={column.color}
                   tasks={filteredTasks.filter((t) => t.status === column.id) as Task[]}
                   onTaskClick={handleTaskClick}
-                  onAddTask={handleAddTaskFromColumn}
+                  onAddTask={openCreateDrawer}
+                  onQuickAdd={handleQuickAdd}
                 />
               ))}
             </div>
@@ -431,7 +529,7 @@ export function TasksPageContent() {
                   {displayTasks.length === 0 ? "Crea tu primera tarea para comenzar" : "No hay tareas que coincidan con la búsqueda"}
                 </p>
                 {displayTasks.length === 0 && (
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Button onClick={() => openCreateDrawer()}>
                     <RiAddLine className="h-4 w-4 mr-2" />
                     Nueva Tarea
                   </Button>
@@ -510,19 +608,15 @@ export function TasksPageContent() {
         </Card>
       )}
 
-      <CreateTaskDialog
-        open={isCreateDialogOpen}
-        onOpenChange={handleCreateDialogClose}
-        onTaskCreated={refetch}
-        preselectedStatus={preselectedStatus}
-      />
-
       <TaskDrawer
         taskId={selectedTaskId}
         open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={handleDrawerClose}
         onTaskDeleted={refetch}
         onTaskUpdated={refetch}
+        onTaskCreated={handleTaskCreated}
+        mode={drawerMode}
+        initialData={drawerInitialData}
       />
     </div>
   );

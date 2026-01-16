@@ -20,6 +20,7 @@ import {
   RiPencilLine,
   RiCheckLine,
   RiCloseLine,
+  RiFileCopyLine,
 } from "@remixicon/react";
 import { useTaskDetail } from "@/hooks/use-task-detail";
 import { TaskGeneralTab } from "./task-general-tab";
@@ -36,6 +37,14 @@ interface TaskDrawerProps {
   onOpenChange: (open: boolean) => void;
   onTaskDeleted?: () => void;
   onTaskUpdated?: () => void;
+  onTaskCreated?: (taskId: number) => void;
+  mode?: "view" | "create";
+  initialData?: {
+    eventId?: number;
+    eventName?: string;
+    status?: string;
+    title?: string;
+  };
 }
 
 const categoryColors: Record<string, string> = {
@@ -53,6 +62,9 @@ export function TaskDrawer({
   onOpenChange,
   onTaskDeleted,
   onTaskUpdated,
+  onTaskCreated,
+  mode = "view",
+  initialData,
 }: TaskDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [deleting, setDeleting] = useState(false);
@@ -60,6 +72,31 @@ export function TaskDrawer({
   const [editedTitle, setEditedTitle] = useState("");
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  
+  // Create mode state
+  const [isCreateMode, setIsCreateMode] = useState(mode === "create");
+  const [creating, setCreating] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState(initialData?.title || "");
+  const [internalTaskId, setInternalTaskId] = useState<number | null>(taskId);
+  const newTaskInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when mode changes or drawer opens
+  useEffect(() => {
+    if (open) {
+      if (mode === "create") {
+        setIsCreateMode(true);
+        setNewTaskTitle(initialData?.title || "");
+        setInternalTaskId(null);
+        setTimeout(() => newTaskInputRef.current?.focus(), 100);
+      } else {
+        setIsCreateMode(false);
+        setInternalTaskId(taskId);
+      }
+    }
+  }, [open, mode, taskId, initialData?.title]);
+
+  // Use internal taskId for the hook
+  const effectiveTaskId = isCreateMode ? internalTaskId : taskId;
 
   const {
     task,
@@ -87,20 +124,81 @@ export function TaskDrawer({
     deletePayment,
     addMeeting,
     deleteMeeting,
-  } = useTaskDetail(taskId);
+  } = useTaskDetail(effectiveTaskId);
 
   useEffect(() => {
-    if (open && taskId) {
+    if (open && effectiveTaskId && !isCreateMode) {
       refetch();
     }
-  }, [open, taskId, refetch]);
+  }, [open, effectiveTaskId, refetch, isCreateMode]);
+
+  // Create task function
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    
+    setCreating(true);
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTaskTitle.trim(),
+          eventId: initialData?.eventId || null,
+          status: initialData?.status || "pending",
+          priority: "medium",
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const newTaskId = data.data.id;
+        setInternalTaskId(newTaskId);
+        setIsCreateMode(false);
+        onTaskCreated?.(newTaskId);
+        // Refetch will happen automatically due to effectiveTaskId change
+      }
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Duplicate task function
+  const handleDuplicateTask = async () => {
+    if (!task) return;
+    
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Copia de ${task.title}`,
+          description: task.description,
+          eventId: task.eventId,
+          status: "pending",
+          priority: task.priority,
+          category: task.category,
+          dueDate: task.dueDate,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const newTaskId = data.data.id;
+        setInternalTaskId(newTaskId);
+        onTaskCreated?.(newTaskId);
+      }
+    } catch (error) {
+      console.error("Failed to duplicate task:", error);
+    }
+  };
 
   const handleDelete = async () => {
-    if (!taskId || !confirm("¿Estás seguro de eliminar esta tarea?")) return;
+    const idToDelete = effectiveTaskId;
+    if (!idToDelete || !confirm("¿Estás seguro de eliminar esta tarea?")) return;
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      const res = await fetch(`/api/tasks/${idToDelete}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         onOpenChange(false);
@@ -159,7 +257,36 @@ export function TaskDrawer({
         <SheetHeader className="px-6 py-4 border-b border-[var(--border)] flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {loading ? (
+              {isCreateMode ? (
+                /* Create Mode Header */
+                <div className="flex items-center gap-3 flex-1">
+                  <Input
+                    ref={newTaskInputRef}
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newTaskTitle.trim()) {
+                        handleCreateTask();
+                      } else if (e.key === "Escape") {
+                        onOpenChange(false);
+                      }
+                    }}
+                    className="text-xl font-semibold h-10 w-80"
+                    placeholder="Título de la nueva tarea..."
+                    disabled={creating}
+                  />
+                  {initialData?.eventName && (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {initialData.eventName}
+                    </Badge>
+                  )}
+                  {!initialData?.eventId && (
+                    <Badge variant="secondary" className="text-muted-foreground">
+                      Tarea General
+                    </Badge>
+                  )}
+                </div>
+              ) : loading ? (
                 <Skeleton className="h-7 w-64" />
               ) : isEditingTitle ? (
                 <div className="flex items-center gap-2">
@@ -197,26 +324,62 @@ export function TaskDrawer({
               )}
             </div>
             <div className="flex items-center gap-2 mr-8">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAiDrawerOpen(true)}
-                disabled={loading}
-                className="gap-2 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
-              >
-                <Sparkles className="h-4 w-4" />
-                Enti
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleting || loading}
-                className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground gap-2"
-              >
-                <RiDeleteBinLine className="h-4 w-4" />
-                {deleting ? "Eliminando..." : "Eliminar tarea"}
-              </Button>
+              {isCreateMode ? (
+                /* Create Mode Actions */
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenChange(false)}
+                    disabled={creating}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateTask}
+                    disabled={creating || !newTaskTitle.trim()}
+                    className="gap-2"
+                  >
+                    {creating ? "Creando..." : "Crear Tarea"}
+                  </Button>
+                </>
+              ) : (
+                /* View Mode Actions */
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiDrawerOpen(true)}
+                    disabled={loading}
+                    className="gap-2 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Enti
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDuplicateTask}
+                    disabled={loading || !task}
+                    className="gap-2"
+                    title="Duplicar tarea"
+                  >
+                    <RiFileCopyLine className="h-4 w-4" />
+                    Duplicar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={deleting || loading}
+                    className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground gap-2"
+                  >
+                    <RiDeleteBinLine className="h-4 w-4" />
+                    {deleting ? "Eliminando..." : "Eliminar"}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </SheetHeader>
@@ -225,78 +388,112 @@ export function TaskDrawer({
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column - Tabs Content (60%) */}
           <div className="flex-1 flex flex-col overflow-hidden border-r border-[var(--border)]">
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="flex-1 flex flex-col overflow-hidden"
-            >
-              <div className="px-6 pt-4 flex-shrink-0">
-                <TabsList className="w-full justify-start">
-                  <TabsTrigger value="general" className="gap-2">
-                    <RiFileListLine className="h-4 w-4" />
-                    General
-                  </TabsTrigger>
-                  <TabsTrigger value="info" className="gap-2">
-                    <RiInformationLine className="h-4 w-4" />
-                    Información
-                  </TabsTrigger>
-                  <TabsTrigger value="schedule" className="gap-2">
-                    <RiCalendarScheduleLine className="h-4 w-4" />
-                    Orden del día
-                  </TabsTrigger>
-                </TabsList>
+            {isCreateMode && !effectiveTaskId ? (
+              /* Create Mode - Show placeholder */
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center max-w-md">
+                  <RiFileListLine className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Nueva Tarea</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Escribe un título arriba y presiona <kbd className="px-2 py-1 bg-muted rounded text-xs">Enter</kbd> o haz clic en "Crear Tarea" para comenzar.
+                  </p>
+                  {initialData?.eventName ? (
+                    <p className="text-sm text-muted-foreground">
+                      Se creará en el evento: <strong>{initialData.eventName}</strong>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Se creará como <strong>Tarea General</strong> (sin evento asociado)
+                    </p>
+                  )}
+                  {initialData?.status && initialData.status !== "pending" && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Estado inicial: <strong>{initialData.status === "in_progress" ? "En progreso" : initialData.status === "completed" ? "Completado" : initialData.status}</strong>
+                    </p>
+                  )}
+                </div>
               </div>
+            ) : (
+              /* View/Edit Mode - Show tabs */
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="flex-1 flex flex-col overflow-hidden"
+              >
+                <div className="px-6 pt-4 shrink-0">
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="general" className="gap-2">
+                      <RiFileListLine className="h-4 w-4" />
+                      General
+                    </TabsTrigger>
+                    <TabsTrigger value="info" className="gap-2">
+                      <RiInformationLine className="h-4 w-4" />
+                      Información
+                    </TabsTrigger>
+                    <TabsTrigger value="schedule" className="gap-2">
+                      <RiCalendarScheduleLine className="h-4 w-4" />
+                      Orden del día
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-              <div className="flex-1 overflow-y-auto">
-                <TabsContent value="general" className="h-full m-0">
-                  <TaskGeneralTab
-                    task={task}
-                    participants={participants}
-                    videos={videos}
-                    htmlContent={htmlContent}
-                    loading={loading}
-                    onUpdateTask={handleTaskUpdate}
-                    onAddVideo={addVideo}
-                    onDeleteVideo={deleteVideo}
-                    onSaveHtmlContent={saveHtmlContent}
-                    onAddParticipant={addParticipant}
-                    onRemoveParticipant={removeParticipant}
-                  />
-                </TabsContent>
+                <div className="flex-1 overflow-y-auto">
+                  <TabsContent value="general" className="h-full m-0">
+                    <TaskGeneralTab
+                      task={task}
+                      participants={participants}
+                      videos={videos}
+                      htmlContent={htmlContent}
+                      loading={loading}
+                      onUpdateTask={handleTaskUpdate}
+                      onAddVideo={addVideo}
+                      onDeleteVideo={deleteVideo}
+                      onSaveHtmlContent={saveHtmlContent}
+                      onAddParticipant={addParticipant}
+                      onRemoveParticipant={removeParticipant}
+                    />
+                  </TabsContent>
 
-                <TabsContent value="info" className="h-full m-0">
-                  <TaskInfoTab
-                    task={task}
-                    attachments={attachments}
-                    payments={payments}
-                    meetings={meetings}
-                    loading={loading}
-                    onUpdateTask={handleTaskUpdate}
-                    onAddAttachment={addAttachment}
-                    onDeleteAttachment={deleteAttachment}
-                    onAddPayment={addPayment}
-                    onDeletePayment={deletePayment}
-                    onAddMeeting={addMeeting}
-                    onDeleteMeeting={deleteMeeting}
-                  />
-                </TabsContent>
+                  <TabsContent value="info" className="h-full m-0">
+                    <TaskInfoTab
+                      task={task}
+                      attachments={attachments}
+                      payments={payments}
+                      meetings={meetings}
+                      loading={loading}
+                      onUpdateTask={handleTaskUpdate}
+                      onAddAttachment={addAttachment}
+                      onDeleteAttachment={deleteAttachment}
+                      onAddPayment={addPayment}
+                      onDeletePayment={deletePayment}
+                      onAddMeeting={addMeeting}
+                      onDeleteMeeting={deleteMeeting}
+                    />
+                  </TabsContent>
 
-                <TabsContent value="schedule" className="h-full m-0">
-                  <TaskScheduleTab
-                    scheduleItems={scheduleItems}
-                    loading={loading}
-                    onAddScheduleItem={addScheduleItem}
-                    onUpdateScheduleItem={updateScheduleItem}
-                    onDeleteScheduleItem={deleteScheduleItem}
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
+                  <TabsContent value="schedule" className="h-full m-0">
+                    <TaskScheduleTab
+                      scheduleItems={scheduleItems}
+                      loading={loading}
+                      onAddScheduleItem={addScheduleItem}
+                      onUpdateScheduleItem={updateScheduleItem}
+                      onDeleteScheduleItem={deleteScheduleItem}
+                    />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            )}
           </div>
 
           {/* Right Column - Chat (40%) */}
-          <div className="w-[400px] flex-shrink-0 flex flex-col overflow-hidden">
-            <TaskChat taskId={taskId} />
+          <div className="w-[400px] shrink-0 flex flex-col overflow-hidden">
+            {effectiveTaskId ? (
+              <TaskChat taskId={effectiveTaskId} />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+                El chat estará disponible después de crear la tarea
+              </div>
+            )}
           </div>
         </div>
 
@@ -305,7 +502,7 @@ export function TaskDrawer({
           open={aiDrawerOpen}
           onOpenChange={setAiDrawerOpen}
           task={task}
-          taskId={taskId}
+          taskId={effectiveTaskId}
         />
       </SheetContent>
     </Sheet>
