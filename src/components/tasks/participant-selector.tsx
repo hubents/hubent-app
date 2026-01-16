@@ -199,10 +199,12 @@ export function ParticipantSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-0"
-        align="start"
+        className="w-80 p-0 max-h-[400px] flex flex-col"
+        align="end"
         side="bottom"
         sideOffset={4}
+        avoidCollisions={true}
+        collisionPadding={10}
       >
         {/* Search Input */}
         <div className="p-3 border-b">
@@ -282,7 +284,7 @@ export function ParticipantSelector({
         </div>
 
         {/* Results */}
-        <div className="max-h-[300px] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {totalAvailable === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {search
