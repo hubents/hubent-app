@@ -24,7 +24,6 @@ import {
   RiSearchLine,
   RiCloseLine,
 } from "@remixicon/react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TeamMember {
   id: string;
@@ -285,7 +284,10 @@ export function ParticipantSelector({
         </div>
 
         {/* Results - scrollable container */}
-        <ScrollArea className="h-[250px]">
+        <div 
+          className="h-[250px] overflow-y-auto"
+          onWheel={(e) => e.stopPropagation()}
+        >
           {totalAvailable === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {search
@@ -394,7 +396,7 @@ export function ParticipantSelector({
               )}
             </>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
