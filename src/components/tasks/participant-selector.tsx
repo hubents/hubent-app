@@ -283,8 +283,11 @@ export function ParticipantSelector({
           )}
         </div>
 
-        {/* Results */}
-        <div className="max-h-64 overflow-y-auto">
+        {/* Results - scrollable container */}
+        <div 
+          className="overflow-y-scroll overscroll-contain"
+          style={{ maxHeight: '250px' }}
+        >
           {totalAvailable === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {search
