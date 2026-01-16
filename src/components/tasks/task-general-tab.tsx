@@ -26,6 +26,7 @@ import {
 } from "@remixicon/react";
 import { TaskYoutubeEmbed } from "./task-youtube-embed";
 import { TaskRichEditor } from "./task-rich-editor";
+import { ParticipantSelector } from "./participant-selector";
 
 interface TaskDetail {
   id: number;
@@ -367,106 +368,80 @@ export function TaskGeneralTab({
 
       {/* Participantes */}
       <div className="space-y-3">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <RiGroupLine className="h-4 w-4 text-muted-foreground" />
-          Participantes
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {participants.map((p) => {
-            const isContact = p.isContact || p.type === "contact" || !!p.contactId;
-            const isVendor = p.isVendor || p.type === "vendor" || !!p.vendorId;
-            return (
-              <Badge
-                key={p.id}
-                variant="outline"
-                className={`flex items-center gap-2 pr-1 ${
-                  isContact 
-                    ? "border-green-500 text-green-600" 
-                    : isVendor 
-                      ? "border-blue-500 text-blue-600" 
-                      : "border-gray-300"
-                }`}
-              >
-                {isContact ? (
-                  <RiContactsLine className="h-4 w-4" />
-                ) : isVendor ? (
-                  <RiStore2Line className="h-4 w-4" />
-                ) : (
-                  <Avatar className="h-5 w-5">
-                    <AvatarImage src={p.userImage || undefined} />
-                    <AvatarFallback className="text-xs">
-                      {(p.name || p.userName)?.charAt(0) || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                {p.contactName || p.name || p.userName || p.userEmail || p.vendorName}
-                <button
-                  onClick={() => onRemoveParticipant(p.id)}
-                  className="ml-1 hover:text-red-500"
-                >
-                  ×
-                </button>
-              </Badge>
-            );
-          })}
-          <Select onValueChange={handleAddParticipant}>
-            <SelectTrigger className="w-auto h-7 text-xs">
-              <RiAddLine className="h-3 w-3 mr-1" />
-              Miembro
-            </SelectTrigger>
-            <SelectContent>
-              {availableMembers.length === 0 ? (
-                <SelectItem value="__no_available__" disabled>
-                  {teamMembers.length === 0 ? "No hay miembros" : "Todos agregados"}
-                </SelectItem>
-              ) : (
-                availableMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name || member.email}
-                    </SelectItem>
-                  ))
-              )}
-            </SelectContent>
-          </Select>
-          <Select onValueChange={handleAddVendorParticipant}>
-            <SelectTrigger className="w-auto h-7 text-xs">
-              <RiStore2Line className="h-3 w-3 mr-1" />
-              Proveedor
-            </SelectTrigger>
-            <SelectContent>
-              {availableVendors.length === 0 ? (
-                <SelectItem value="__no_vendors__" disabled>
-                  {vendors.length === 0 ? "No hay proveedores" : "Todos agregados"}
-                </SelectItem>
-              ) : (
-                availableVendors.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                    {vendor.name} {vendor.category && `(${vendor.category})`}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Select onValueChange={handleAddContactParticipant}>
-            <SelectTrigger className="w-auto h-7 text-xs">
-              <RiContactsLine className="h-3 w-3 mr-1" />
-              Contacto
-            </SelectTrigger>
-            <SelectContent>
-              {availableContacts.length === 0 ? (
-                <SelectItem value="__no_contacts__" disabled>
-                  {contacts.length === 0 ? "No hay contactos" : "Todos agregados"}
-                </SelectItem>
-              ) : (
-                availableContacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id.toString()}>
-                    {contact.name} {contact.type === "company" ? "(Empresa)" : ""}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <RiGroupLine className="h-4 w-4 text-muted-foreground" />
+            Participantes {participants.length > 0 && `(${participants.length})`}
+          </label>
+          <ParticipantSelector
+            teamMembers={teamMembers}
+            vendors={vendors}
+            contacts={contacts}
+            excludedMemberIds={safeParticipants.filter(p => p.userId).map(p => p.userId!)}
+            excludedVendorIds={safeParticipants.filter(p => p.vendorId).map(p => p.vendorId!)}
+            excludedContactIds={safeParticipants.filter(p => (p as any).contactId).map(p => (p as any).contactId)}
+            onAddMember={handleAddParticipant}
+            onAddVendor={(id) => handleAddVendorParticipant(id.toString())}
+            onAddContact={(id) => handleAddContactParticipant(id.toString())}
+            disabled={addingParticipant || loadingMembers}
+          />
         </div>
+        
+        {/* Participant List - Vertical Layout */}
+        {participants.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
+            No hay participantes asignados
+          </div>
+        ) : (
+          <div className="border rounded-lg divide-y">
+            {participants.map((p) => {
+              const isContact = p.isContact || p.type === "contact" || !!(p as any).contactId;
+              const isVendor = p.isVendor || p.type === "vendor" || !!p.vendorId;
+              const displayName = p.contactName || p.name || p.userName || p.userEmail || p.vendorName;
+              const typeLabel = isContact ? "Contacto" : isVendor ? "Proveedor" : "Miembro";
+              
+              return (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 transition-colors"
+                >
+                  {/* Icon/Avatar */}
+                  {isContact ? (
+                    <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <RiContactsLine className="h-4 w-4 text-green-600" />
+                    </div>
+                  ) : isVendor ? (
+                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <RiStore2Line className="h-4 w-4 text-blue-600" />
+                    </div>
+                  ) : (
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage src={p.userImage || undefined} />
+                      <AvatarFallback className="text-xs bg-gray-100">
+                        {displayName?.charAt(0) || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
+                  {/* Name and Type */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">{typeLabel}</p>
+                  </div>
+                  
+                  {/* Remove Button */}
+                  <button
+                    onClick={() => onRemoveParticipant(p.id)}
+                    className="p-1 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+                    title="Eliminar participante"
+                  >
+                    <RiDeleteBinLine className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* YouTube Videos */}

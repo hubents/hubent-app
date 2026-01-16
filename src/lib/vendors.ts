@@ -7,7 +7,7 @@ import {
   vendorClaims,
   users
 } from "@/db/schema";
-import { eq, and, desc, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, isNull, ilike } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 // ============================================
@@ -22,6 +22,10 @@ export async function getVendors(
   const offset = (page - 1) * limit;
 
   let whereClause = eq(vendors.organizationId, session.organizationId);
+
+  if (search) {
+    whereClause = and(whereClause, ilike(vendors.name, `%${search}%`))!;
+  }
 
   if (category) {
     whereClause = and(whereClause, eq(vendors.category, category))!;
