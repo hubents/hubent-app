@@ -199,7 +199,7 @@ export function ParticipantSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-0 max-h-[400px] flex flex-col"
+        className="w-80 p-0"
         align="end"
         side="bottom"
         sideOffset={4}
@@ -207,7 +207,7 @@ export function ParticipantSelector({
         collisionPadding={10}
       >
         {/* Search Input */}
-        <div className="p-3 border-b">
+        <div className="p-3 border-b shrink-0">
           <div className="relative">
             <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -229,7 +229,7 @@ export function ParticipantSelector({
         </div>
 
         {/* Filters */}
-        <div className="p-2 border-b flex gap-2 flex-wrap">
+        <div className="p-2 border-b flex gap-2 flex-wrap shrink-0">
           <Select
             value={typeFilter}
             onValueChange={(v) => setTypeFilter(v as FilterType)}
@@ -284,7 +284,7 @@ export function ParticipantSelector({
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto">
           {totalAvailable === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {search
