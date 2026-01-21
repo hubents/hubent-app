@@ -844,7 +844,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <div>
                 <p className="font-medium">Permitir acompañantes</p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  Los invitados pueden traer acompañantes
+                  {settings.allowPlusOne 
+                    ? `Máximo ${settings.maxCompanionsPerGuest} acompañante${settings.maxCompanionsPerGuest > 1 ? "s" : ""} por invitado`
+                    : "Los invitados no pueden traer acompañantes"}
                 </p>
               </div>
               <Switch
@@ -856,17 +858,17 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             {settings.allowPlusOne && (
               <div className="space-y-2 pl-4 border-l-2 border-[var(--primary)]/20">
                 <Label>Máximo de acompañantes por invitado</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={settings.maxCompanionsPerGuest}
-                  onChange={(e) => setSettings({ ...settings, maxCompanionsPerGuest: parseInt(e.target.value) || 1 })}
-                  className="w-24"
-                />
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Cada invitado podrá agregar hasta {settings.maxCompanionsPerGuest} acompañante{settings.maxCompanionsPerGuest > 1 ? "s" : ""}
-                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={settings.maxCompanionsPerGuest}
+                    onChange={(e) => setSettings({ ...settings, maxCompanionsPerGuest: parseInt(e.target.value) || 1 })}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-muted-foreground">persona{settings.maxCompanionsPerGuest > 1 ? "s" : ""}</span>
+                </div>
               </div>
             )}
 
@@ -894,70 +896,6 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           </CardContent>
         </Card>
 
-        {/* Page Sections */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Secciones de la página RSVP</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className={cn(
-                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showItinerary ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
-              )}
-              onClick={() => setSettings({ ...settings, showItinerary: !settings.showItinerary })}
-              >
-                <RiCalendarLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">Itinerario</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Cronograma del evento</p>
-              </div>
-
-              <div className={cn(
-                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showHotels ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
-              )}
-              onClick={() => setSettings({ ...settings, showHotels: !settings.showHotels })}
-              >
-                <RiHotelLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">Hoteles</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Hoteles recomendados</p>
-              </div>
-
-              <div className={cn(
-                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showNearbyPlans ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
-              )}
-              onClick={() => setSettings({ ...settings, showNearbyPlans: !settings.showNearbyPlans })}
-              >
-                <RiCompassLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">Planes cercanos</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Actividades y lugares</p>
-              </div>
-
-              <div className={cn(
-                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showLocation ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
-              )}
-              onClick={() => setSettings({ ...settings, showLocation: !settings.showLocation })}
-              >
-                <RiMapPinLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">Ubicación</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Mapa y direcciones</p>
-              </div>
-
-              <div className={cn(
-                "p-4 rounded-lg border-2 cursor-pointer transition-colors",
-                settings.showFaqs ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-[var(--border)]"
-              )}
-              onClick={() => setSettings({ ...settings, showFaqs: !settings.showFaqs })}
-              >
-                <RiQuestionLine className="h-6 w-6 mb-2 text-[var(--primary)]" />
-                <p className="font-medium">FAQs</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Preguntas frecuentes</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Cover Image */}
         <Card className="lg:col-span-2">
@@ -1043,6 +981,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             </Button>
           </CardHeader>
           <CardContent>
+            {settings.showItinerary && itinerary.length === 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
+              </div>
+            )}
             {itinerary.length > 0 ? (
               <div className="space-y-3">
                 {itinerary.map((item) => (
@@ -1098,6 +1041,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             </Button>
           </CardHeader>
           <CardContent>
+            {settings.showHotels && hotels.length === 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
+              </div>
+            )}
             {hotels.length > 0 ? (
               <div className="space-y-3">
                 {hotels.map((hotel) => (
@@ -1147,6 +1095,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             </Button>
           </CardHeader>
           <CardContent>
+            {settings.showNearbyPlans && nearbyPlans.length === 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
+              </div>
+            )}
             {nearbyPlans.length > 0 ? (
               <div className="space-y-3">
                 {nearbyPlans.map((plan) => (
@@ -1196,6 +1149,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             </Button>
           </CardHeader>
           <CardContent>
+            {settings.showTransport && transportOptions.length === 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
+              </div>
+            )}
             {transportOptions.length > 0 ? (
               <div className="space-y-3">
                 {transportOptions.map((transport) => (
@@ -1254,6 +1212,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             </Button>
           </CardHeader>
           <CardContent>
+            {settings.showFaqs && faqs.length === 0 && (
+              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
+              </div>
+            )}
             {faqs.length > 0 ? (
               <div className="space-y-3">
                 {faqs.map((faq) => (
