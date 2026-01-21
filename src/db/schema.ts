@@ -1088,6 +1088,16 @@ export const rsvpResponses = pgTable("rsvp_responses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const guestCompanions = pgTable("guest_companions", {
+  id: serial("id").primaryKey(),
+  guestId: integer("guest_id").notNull().references(() => guests.id, { onDelete: "cascade" }),
+  fullName: text("full_name").notNull(),
+  menuPreference: text("menu_preference"),
+  dietaryRestrictions: text("dietary_restrictions"),
+  needsTransport: boolean("needs_transport").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const rsvpLandingPages = pgTable("rsvp_landing_pages", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
@@ -1108,6 +1118,7 @@ export const rsvpSettings = pgTable("rsvp_settings", {
   enabled: boolean("enabled").default(true),
   deadline: timestamp("deadline"),
   allowPlusOne: boolean("allow_plus_one").default(false),
+  maxCompanionsPerGuest: integer("max_companions_per_guest").default(1),
   askDietaryRestrictions: boolean("ask_dietary_restrictions").default(true),
   customMessage: text("custom_message"),
   showItinerary: boolean("show_itinerary").default(true),
@@ -1115,6 +1126,7 @@ export const rsvpSettings = pgTable("rsvp_settings", {
   showNearbyPlans: boolean("show_nearby_plans").default(true),
   showFaqs: boolean("show_faqs").default(true),
   showLocation: boolean("show_location").default(true),
+  showTransport: boolean("show_transport").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1169,6 +1181,34 @@ export const rsvpFaqs = pgTable("rsvp_faqs", {
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Transport options for RSVP
+export const rsvpTransportOptions = pgTable("rsvp_transport_options", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  departureLocation: text("departure_location"),
+  departureAddress: text("departure_address"),
+  departureTime: text("departure_time"),
+  returnTime: text("return_time"),
+  capacity: integer("capacity"),
+  price: decimal("price", { precision: 10, scale: 2 }).default("0"),
+  mapImageUrl: text("map_image_url"),
+  isActive: boolean("is_active").default(true),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Transport bookings per guest
+export const rsvpTransportBookings = pgTable("rsvp_transport_bookings", {
+  id: serial("id").primaryKey(),
+  guestId: integer("guest_id").notNull().references(() => guests.id, { onDelete: "cascade" }),
+  transportOptionId: integer("transport_option_id").notNull().references(() => rsvpTransportOptions.id, { onDelete: "cascade" }),
+  seats: integer("seats").default(1),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

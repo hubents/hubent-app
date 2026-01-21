@@ -73,9 +73,17 @@ interface RsvpSettings {
   showNearbyPlans: boolean;
   showFaqs: boolean;
   showLocation: boolean;
+  showTransport: boolean;
   allowPlusOne: boolean;
+  maxCompanionsPerGuest: number;
   askDietaryRestrictions: boolean;
   customMessage: string | null;
+}
+
+interface Companion {
+  fullName: string;
+  menuPreference: string;
+  dietaryRestrictions: string;
 }
 
 interface EventData {
@@ -128,6 +136,7 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
     dietaryRestrictions: "",
     message: "",
   });
+  const [companions, setCompanions] = useState<Companion[]>([]);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -162,7 +171,7 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
       const res = await fetch(`/api/rsvp/event/${eventIdNum}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, companions }),
       });
       const data = await res.json();
       if (data.success) {
@@ -399,32 +408,88 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
 
               {formData.attending === "yes" && (
                 <>
-                  {/* Plus One */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="plusOne"
-                        checked={formData.plusOne}
-                        onChange={(e) => setFormData({ ...formData, plusOne: e.target.checked })}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <Label htmlFor="plusOne" className="cursor-pointer">
-                        Llevaré acompañante
-                      </Label>
+                  {/* Companions Section */}
+                  {event?.settings?.allowPlusOne && (
+                    <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Acompañantes</p>
+                          <p className="text-sm text-muted-foreground">
+                            Puedes agregar hasta {event.settings.maxCompanionsPerGuest || 1} acompañante{(event.settings.maxCompanionsPerGuest || 1) > 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        {companions.length < (event.settings.maxCompanionsPerGuest || 1) && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCompanions([...companions, { fullName: "", menuPreference: "", dietaryRestrictions: "" }])}
+                          >
+                            + Agregar
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {companions.map((companion, index) => (
+                        <div key={index} className="space-y-3 p-3 bg-background rounded-lg border">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Acompañante {index + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCompanions(companions.filter((_, i) => i !== index))}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              Eliminar
+                            </Button>
+                          </div>
+                          <Input
+                            placeholder="Nombre completo"
+                            value={companion.fullName}
+                            onChange={(e) => {
+                              const updated = [...companions];
+                              updated[index].fullName = e.target.value;
+                              setCompanions(updated);
+                            }}
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={companion.menuPreference}
+                              onValueChange={(value) => {
+                                const updated = [...companions];
+                                updated[index].menuPreference = value;
+                                setCompanions(updated);
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Menú" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="regular">Regular</SelectItem>
+                                <SelectItem value="vegetariano">Vegetariano</SelectItem>
+                                <SelectItem value="vegano">Vegano</SelectItem>
+                                <SelectItem value="celiaco">Celíaco</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              placeholder="Restricciones"
+                              value={companion.dietaryRestrictions}
+                              onChange={(e) => {
+                                const updated = [...companions];
+                                updated[index].dietaryRestrictions = e.target.value;
+                                setCompanions(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    {formData.plusOne && (
-                      <Input
-                        placeholder="Nombre del acompañante"
-                        value={formData.plusOneName}
-                        onChange={(e) => setFormData({ ...formData, plusOneName: e.target.value })}
-                      />
-                    )}
-                  </div>
+                  )}
 
-                  {/* Menu Preference */}
+                  {/* Menu Preference (for main guest) */}
                   <div className="space-y-2">
-                    <Label>Preferencia de menú</Label>
+                    <Label>Tu preferencia de menú</Label>
                     <Select
                       value={formData.menuPreference}
                       onValueChange={(value) => setFormData({ ...formData, menuPreference: value })}
@@ -442,9 +507,9 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
                     </Select>
                   </div>
 
-                  {/* Dietary Restrictions */}
+                  {/* Dietary Restrictions (for main guest) */}
                   <div className="space-y-2">
-                    <Label>Alergias o restricciones alimentarias</Label>
+                    <Label>Tus alergias o restricciones alimentarias</Label>
                     <Input
                       placeholder="Ej: Alergia a mariscos, intolerancia a lactosa..."
                       value={formData.dietaryRestrictions}

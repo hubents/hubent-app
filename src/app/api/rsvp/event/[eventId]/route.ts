@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs } from "@/db/schema";
+import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs, guestCompanions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyGuestRsvp } from "@/lib/push-notifications";
 
@@ -75,7 +75,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       showNearbyPlans: true,
       showFaqs: true,
       showLocation: true,
+      showTransport: false,
       allowPlusOne: false,
+      maxCompanionsPerGuest: 1,
       askDietaryRestrictions: true,
       customMessage: null,
     };
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       menuPreference,
       dietaryRestrictions,
       message,
+      companions,
     } = body;
 
     if (!firstName || !email || !attending) {
@@ -224,6 +227,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Handle companions (multiple guests)
+    if (companions && Array.isArray(companions) && companions.length > 0) {
+      // Delete existing companions for this guest
+      await db.delete(guestCompanions).where(eq(guestCompanions.guestId, guestId));
+      
+      // Insert new companions
+      for (const companion of companions) {
+        if (companion.fullName) {
+          await db.insert(guestCompanions).values({
+            guestId,
+            fullName: companion.fullName,
+            menuPreference: companion.menuPreference || null,
+            dietaryRestrictions: companion.dietaryRestrictions || null,
+            needsTransport: companion.needsTransport || false,
+          });
+        }
+      }
+    }
+
     // Send push notification for RSVP response
     const eventData = await db
       .select({ name: events.name, organizationId: events.organizationId })
@@ -233,7 +255,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (eventData.length > 0) {
       const guestName = lastName ? `${firstName} ${lastName}` : firstName;
-      const guestCount = plusOne ? 2 : 1;
+      const companionCount = companions && Array.isArray(companions) ? companions.filter((c: { fullName?: string }) => c.fullName).length : 0;
+      const guestCount = 1 + companionCount;
       const response = statusMap[attending] === "confirmed" ? "confirmed" 
         : statusMap[attending] === "declined" ? "declined" 
         : "maybe";

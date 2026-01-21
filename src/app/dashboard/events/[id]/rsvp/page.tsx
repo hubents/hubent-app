@@ -36,6 +36,7 @@ import {
   RiImageAddLine,
   RiCompassLine,
   RiTimeLine,
+  RiBusLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -45,6 +46,7 @@ interface RsvpSettings {
   enabled: boolean;
   deadline: string | null;
   allowPlusOne: boolean;
+  maxCompanionsPerGuest: number;
   askDietaryRestrictions: boolean;
   customMessage: string;
   showItinerary: boolean;
@@ -52,6 +54,7 @@ interface RsvpSettings {
   showNearbyPlans: boolean;
   showLocation: boolean;
   showFaqs: boolean;
+  showTransport: boolean;
 }
 
 interface ItineraryItem {
@@ -95,6 +98,21 @@ interface Faq {
   orderIndex: number;
 }
 
+interface TransportOption {
+  id: number;
+  name: string;
+  description: string | null;
+  departureLocation: string | null;
+  departureAddress: string | null;
+  departureTime: string | null;
+  returnTime: string | null;
+  capacity: number | null;
+  price: string | null;
+  mapImageUrl: string | null;
+  isActive: boolean;
+  orderIndex: number;
+}
+
 interface Guest {
   id: number;
   firstName: string;
@@ -112,6 +130,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     enabled: true,
     deadline: null,
     allowPlusOne: false,
+    maxCompanionsPerGuest: 1,
     askDietaryRestrictions: true,
     customMessage: "",
     showItinerary: true,
@@ -119,14 +138,16 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     showNearbyPlans: true,
     showLocation: true,
     showFaqs: true,
+    showTransport: false,
   });
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [nearbyPlans, setNearbyPlans] = useState<NearbyPlan[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [transportOptions, setTransportOptions] = useState<TransportOption[]>([]);
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<ItineraryItem | Hotel | NearbyPlan | Faq | null>(null);
+  const [editingItem, setEditingItem] = useState<ItineraryItem | Hotel | NearbyPlan | Faq | TransportOption | null>(null);
   const [copied, setCopied] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -177,6 +198,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               enabled: rsvpData.data.settings.enabled ?? true,
               deadline: rsvpData.data.settings.deadline || null,
               allowPlusOne: rsvpData.data.settings.allowPlusOne ?? false,
+              maxCompanionsPerGuest: rsvpData.data.settings.maxCompanionsPerGuest ?? 1,
               askDietaryRestrictions: rsvpData.data.settings.askDietaryRestrictions ?? true,
               customMessage: rsvpData.data.settings.customMessage || "",
               showItinerary: rsvpData.data.settings.showItinerary ?? true,
@@ -184,12 +206,20 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               showNearbyPlans: rsvpData.data.settings.showNearbyPlans ?? true,
               showLocation: rsvpData.data.settings.showLocation ?? true,
               showFaqs: rsvpData.data.settings.showFaqs ?? true,
+              showTransport: rsvpData.data.settings.showTransport ?? false,
             });
           }
           setItinerary(rsvpData.data.itinerary || []);
           setHotels(rsvpData.data.hotels || []);
           setNearbyPlans(rsvpData.data.nearbyPlans || []);
           setFaqs(rsvpData.data.faqs || []);
+        }
+
+        // Fetch transport options
+        const transportRes = await fetch(`/api/events/${eventId}/rsvp/transport`);
+        const transportData = await transportRes.json();
+        if (transportData.success) {
+          setTransportOptions(transportData.data || []);
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -350,6 +380,24 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleEditHotel = async (item: Hotel) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHotels(hotels.map((h) => (h.id === item.id ? item : h)));
+        setEditingSection(null);
+        setEditingItem(null);
+      }
+    } catch (error) {
+      console.error("Failed to edit hotel:", error);
+    }
+  };
+
   // CRUD functions for nearby plans
   const handleAddNearbyPlan = async (item: Partial<NearbyPlan>) => {
     try {
@@ -377,6 +425,24 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleEditNearbyPlan = async (item: NearbyPlan) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNearbyPlans(nearbyPlans.map((p) => (p.id === item.id ? item : p)));
+        setEditingSection(null);
+        setEditingItem(null);
+      }
+    } catch (error) {
+      console.error("Failed to edit nearby plan:", error);
+    }
+  };
+
   // CRUD functions for FAQs
   const handleAddFaq = async (item: Partial<Faq>) => {
     try {
@@ -401,6 +467,51 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
       setFaqs(faqs.filter((f) => f.id !== id));
     } catch (error) {
       console.error("Failed to delete FAQ:", error);
+    }
+  };
+
+  // CRUD functions for transport
+  const handleAddTransport = async (item: Partial<TransportOption>) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTransportOptions([...transportOptions, data.data]);
+        setEditingSection(null);
+      }
+    } catch (error) {
+      console.error("Failed to add transport:", error);
+    }
+  };
+
+  const handleDeleteTransport = async (id: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/rsvp/transport?id=${id}`, { method: "DELETE" });
+      setTransportOptions(transportOptions.filter((t) => t.id !== id));
+    } catch (error) {
+      console.error("Failed to delete transport:", error);
+    }
+  };
+
+  const handleEditTransport = async (item: TransportOption) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTransportOptions(transportOptions.map((t) => (t.id === item.id ? item : t)));
+        setEditingSection(null);
+        setEditingItem(null);
+      }
+    } catch (error) {
+      console.error("Failed to edit transport:", error);
     }
   };
 
@@ -643,9 +754,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">Permitir acompañante</p>
+                <p className="font-medium">Permitir acompañantes</p>
                 <p className="text-sm text-[var(--muted-foreground)]">
-                  Los invitados pueden traer +1
+                  Los invitados pueden traer acompañantes
                 </p>
               </div>
               <Switch
@@ -653,6 +764,23 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, allowPlusOne: checked })}
               />
             </div>
+
+            {settings.allowPlusOne && (
+              <div className="space-y-2 pl-4 border-l-2 border-[var(--primary)]/20">
+                <Label>Máximo de acompañantes por invitado</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={settings.maxCompanionsPerGuest}
+                  onChange={(e) => setSettings({ ...settings, maxCompanionsPerGuest: parseInt(e.target.value) || 1 })}
+                  className="w-24"
+                />
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Cada invitado podrá agregar hasta {settings.maxCompanionsPerGuest} acompañante{settings.maxCompanionsPerGuest > 1 ? "s" : ""}
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               <div>
@@ -891,9 +1019,17 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                       {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
                       {hotel.priceRange && <p className="text-xs text-muted-foreground">{hotel.priceRange}</p>}
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>
-                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingItem(hotel);
+                        setEditingSection("hotel-edit");
+                      }}>
+                        <RiEditLine className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>
+                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -932,9 +1068,17 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                       {plan.category && <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>}
                       {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteNearbyPlan(plan.id)}>
-                      <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingItem(plan);
+                        setEditingSection("nearbyPlan-edit");
+                      }}>
+                        <RiEditLine className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteNearbyPlan(plan.id)}>
+                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -942,6 +1086,64 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <div className="text-center py-8 text-muted-foreground">
                 <RiCompassLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>Sugiere actividades cercanas</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Transport Section */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiBusLine className="h-5 w-5" />
+              Transporte
+              <Switch
+                checked={settings.showTransport}
+                onCheckedChange={(checked) => setSettings({ ...settings, showTransport: checked })}
+              />
+            </CardTitle>
+            <Button size="sm" className="gap-1" onClick={() => setEditingSection("transport")}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {transportOptions.length > 0 ? (
+              <div className="space-y-3">
+                {transportOptions.map((transport) => (
+                  <div key={transport.id} className="flex items-start gap-3 p-3 rounded-lg border">
+                    <div className="flex-1">
+                      <p className="font-medium">{transport.name}</p>
+                      {transport.departureLocation && (
+                        <p className="text-sm text-muted-foreground">
+                          Salida: {transport.departureLocation} {transport.departureTime && `- ${transport.departureTime}`}
+                        </p>
+                      )}
+                      {transport.returnTime && (
+                        <p className="text-sm text-muted-foreground">Regreso: {transport.returnTime}</p>
+                      )}
+                      {transport.capacity && (
+                        <p className="text-xs text-muted-foreground">Capacidad: {transport.capacity} personas</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setEditingItem(transport);
+                        setEditingSection("transport-edit");
+                      }}>
+                        <RiEditLine className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteTransport(transport.id)}>
+                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <RiBusLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Configura opciones de transporte</p>
               </div>
             )}
           </CardContent>
@@ -1195,6 +1397,76 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </DialogContent>
       </Dialog>
 
+      {/* Edit Hotel Dialog */}
+      <Dialog open={editingSection === "hotel-edit"} onOpenChange={(open) => {
+        if (!open) {
+          setEditingSection(null);
+          setEditingItem(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar hotel</DialogTitle>
+          </DialogHeader>
+          {editingItem && "priceRange" in editingItem && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              handleEditHotel({
+                ...(editingItem as Hotel),
+                name: formData.get("name") as string,
+                description: formData.get("description") as string,
+                address: formData.get("address") as string,
+                phone: formData.get("phone") as string,
+                website: formData.get("website") as string,
+                priceRange: formData.get("priceRange") as string,
+                distance: formData.get("distance") as string,
+              });
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input name="name" required defaultValue={(editingItem as Hotel).name} placeholder="Nombre del hotel" />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Textarea name="description" defaultValue={(editingItem as Hotel).description || ""} placeholder="Descripción breve..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Dirección</Label>
+                <Input name="address" defaultValue={(editingItem as Hotel).address || ""} placeholder="Dirección completa" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Teléfono</Label>
+                  <Input name="phone" defaultValue={(editingItem as Hotel).phone || ""} placeholder="+54 11 1234-5678" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rango de precios</Label>
+                  <Input name="priceRange" defaultValue={(editingItem as Hotel).priceRange || ""} placeholder="$$$ - $$$$" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Sitio web</Label>
+                  <Input name="website" defaultValue={(editingItem as Hotel).website || ""} placeholder="https://..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>Distancia</Label>
+                  <Input name="distance" defaultValue={(editingItem as Hotel).distance || ""} placeholder="A 5 min del evento" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditingSection(null);
+                  setEditingItem(null);
+                }}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Add Nearby Plan Dialog */}
       <Dialog open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
         <DialogContent>
@@ -1240,6 +1512,62 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </DialogContent>
       </Dialog>
 
+      {/* Edit Nearby Plan Dialog */}
+      <Dialog open={editingSection === "nearbyPlan-edit"} onOpenChange={(open) => {
+        if (!open) {
+          setEditingSection(null);
+          setEditingItem(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar plan cercano</DialogTitle>
+          </DialogHeader>
+          {editingItem && "category" in editingItem && !("priceRange" in editingItem) && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              handleEditNearbyPlan({
+                ...(editingItem as NearbyPlan),
+                name: formData.get("name") as string,
+                description: formData.get("description") as string,
+                category: formData.get("category") as string,
+                address: formData.get("address") as string,
+                website: formData.get("website") as string,
+              });
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input name="name" required defaultValue={(editingItem as NearbyPlan).name} placeholder="Nombre del lugar" />
+              </div>
+              <div className="space-y-2">
+                <Label>Categoría</Label>
+                <Input name="category" defaultValue={(editingItem as NearbyPlan).category || ""} placeholder="Restaurante, Bar, Museo..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Textarea name="description" defaultValue={(editingItem as NearbyPlan).description || ""} placeholder="Por qué lo recomiendas..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Dirección</Label>
+                <Input name="address" defaultValue={(editingItem as NearbyPlan).address || ""} placeholder="Dirección" />
+              </div>
+              <div className="space-y-2">
+                <Label>Sitio web</Label>
+                <Input name="website" defaultValue={(editingItem as NearbyPlan).website || ""} placeholder="https://..." />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditingSection(null);
+                  setEditingItem(null);
+                }}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Add FAQ Dialog */}
       <Dialog open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
         <DialogContent>
@@ -1267,6 +1595,135 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Transport Dialog */}
+      <Dialog open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir opción de transporte</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleAddTransport({
+              name: formData.get("name") as string,
+              description: formData.get("description") as string,
+              departureLocation: formData.get("departureLocation") as string,
+              departureAddress: formData.get("departureAddress") as string,
+              departureTime: formData.get("departureTime") as string,
+              returnTime: formData.get("returnTime") as string,
+              capacity: parseInt(formData.get("capacity") as string) || null,
+            });
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input name="name" required placeholder="Ej: Bus desde Capital Federal" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descripción</Label>
+              <Textarea name="description" placeholder="Detalles del servicio..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Punto de salida</Label>
+                <Input name="departureLocation" placeholder="Ej: Obelisco" />
+              </div>
+              <div className="space-y-2">
+                <Label>Dirección de salida</Label>
+                <Input name="departureAddress" placeholder="Av. 9 de Julio..." />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Hora salida</Label>
+                <Input name="departureTime" type="time" />
+              </div>
+              <div className="space-y-2">
+                <Label>Hora regreso</Label>
+                <Input name="returnTime" type="time" />
+              </div>
+              <div className="space-y-2">
+                <Label>Capacidad</Label>
+                <Input name="capacity" type="number" placeholder="50" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
+              <Button type="submit">Añadir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Transport Dialog */}
+      <Dialog open={editingSection === "transport-edit"} onOpenChange={(open) => {
+        if (!open) {
+          setEditingSection(null);
+          setEditingItem(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar opción de transporte</DialogTitle>
+          </DialogHeader>
+          {editingItem && "departureLocation" in editingItem && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              handleEditTransport({
+                ...(editingItem as TransportOption),
+                name: formData.get("name") as string,
+                description: formData.get("description") as string,
+                departureLocation: formData.get("departureLocation") as string,
+                departureAddress: formData.get("departureAddress") as string,
+                departureTime: formData.get("departureTime") as string,
+                returnTime: formData.get("returnTime") as string,
+                capacity: parseInt(formData.get("capacity") as string) || null,
+              });
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input name="name" required defaultValue={(editingItem as TransportOption).name} placeholder="Ej: Bus desde Capital Federal" />
+              </div>
+              <div className="space-y-2">
+                <Label>Descripción</Label>
+                <Textarea name="description" defaultValue={(editingItem as TransportOption).description || ""} placeholder="Detalles del servicio..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Punto de salida</Label>
+                  <Input name="departureLocation" defaultValue={(editingItem as TransportOption).departureLocation || ""} placeholder="Ej: Obelisco" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Dirección de salida</Label>
+                  <Input name="departureAddress" defaultValue={(editingItem as TransportOption).departureAddress || ""} placeholder="Av. 9 de Julio..." />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Hora salida</Label>
+                  <Input name="departureTime" type="time" defaultValue={(editingItem as TransportOption).departureTime || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Hora regreso</Label>
+                  <Input name="returnTime" type="time" defaultValue={(editingItem as TransportOption).returnTime || ""} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Capacidad</Label>
+                  <Input name="capacity" type="number" defaultValue={(editingItem as TransportOption).capacity || ""} placeholder="50" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditingSection(null);
+                  setEditingItem(null);
+                }}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
