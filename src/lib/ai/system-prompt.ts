@@ -100,6 +100,98 @@ Si se ofrece transporte:
 ### Notificaciones
 Cada vez que un invitado confirma, el organizador recibe una notificación push con el nombre y cantidad de personas.
 `,
+
+  guests: `
+## 📋 Módulo Lista de Invitados
+
+### ¿Qué es?
+El módulo de Lista de Invitados permite gestionar todos los invitados de un evento, organizar mesas, asignar menús y controlar confirmaciones de asistencia.
+
+### 📊 Panel de Estadísticas
+En la parte superior se muestran 4 tarjetas:
+- **Total**: Cantidad total de invitados registrados
+- **Confirmados**: Invitados con RSVP confirmado (verde)
+- **Pendientes**: Invitados sin respuesta (amarillo)
+- **Cancelados**: Invitados que declinaron (rojo)
+
+### 👥 Gestión de Invitados
+
+**Agregar Invitado:**
+1. Clic en "+ Añadir Invitado"
+2. Completar: Nombre, Apellido, Email, Teléfono, Menú, Grupo
+3. Clic en "Agregar"
+
+**Editar Estado RSVP:**
+Cada invitado tiene un dropdown con estados:
+- ✅ Confirmada
+- ⏳ Pendiente
+- ❌ Cancelada
+
+**Asignar Menú:**
+Opciones disponibles: Regular, Vegetariano, Vegano, Celíaco, Infantil
+
+**Asignar Mesa:**
+Dropdown que muestra mesas con capacidad (ej: "Mesa 1 (3/8)")
+
+### 👁️ Vistas: Lista vs Plano
+- **Lista**: Vista tradicional en tabla
+- **Plano**: Canvas interactivo con mesas (React Flow)
+
+### 🪑 Canvas de Mesas (Vista Plano)
+
+**Crear Mesa:**
+1. Cambiar a vista "Plano"
+2. Clic en "+ Añadir Mesa"
+3. Seleccionar tipo: Redonda (8), Redonda (10), Rectangular (8), Presidencial (12)
+
+**Mover Mesas:**
+Arrastrar para reposicionar. La posición se guarda automáticamente.
+
+**Asignar Invitados:**
+- Desde el sidebar izquierdo: seleccionar invitado → elegir mesa
+- Desde vista Lista: usar dropdown "Mesa"
+
+**Visualización:**
+Cada mesa muestra nombre, capacidad (ej: "3/8") e iniciales de invitados.
+
+### 📥📤 Importar/Exportar CSV
+
+**Importar:**
+1. Clic en "Importar CSV"
+2. Arrastrar archivo o seleccionar
+3. Formato: nombre,apellido,email,telefono,grupo,menu
+
+**Columnas soportadas:**
+- nombre (firstname, first_name, name)
+- apellido (lastname, last_name)
+- email (correo, mail)
+- telefono (phone, tel, celular)
+- grupo (group, mesa, table)
+- menu (menupreference, dieta)
+
+**Exportar:**
+Clic en "Exportar CSV" para descargar toda la lista.
+
+### 👨‍👩‍👧‍👦 Grupos de Invitados
+- Crear grupos: Clic en "+ Grupo", ingresar nombre
+- Ejemplos: "Familia Novia", "Compañeros Trabajo", "Amigos Universidad"
+
+### 🔌 APIs Disponibles
+- GET/POST /api/events/{eventId}/guests - Listar/Crear invitados
+- POST /api/events/{eventId}/guests/import - Importar CSV
+- GET /api/events/{eventId}/guests/export - Exportar CSV
+- GET /api/events/{eventId}/guests/menu-report - Reporte de menús
+- GET/POST /api/events/{eventId}/tables - Listar/Crear mesas
+- POST /api/events/{eventId}/tables/{tableId}/assign - Asignar invitado a mesa
+- POST /api/events/{eventId}/guests/{guestId}/checkin - Check-in
+
+### 💡 Tips
+1. Importa primero si tienes lista existente
+2. Organiza por grupos para facilitar asignación
+3. Usa el canvas para visualizar distribución de mesas
+4. Revisa reporte de menús antes del evento
+5. Mantén actualizado el estado RSVP
+`,
 };
 
 // Prompts específicos por contexto
@@ -153,6 +245,19 @@ El usuario está en el dashboard. Ofrece un resumen general:
 - Próximos eventos
 - Tareas urgentes
 - Recordatorios importantes
+`,
+  guests: `
+## Contexto: Vista de Lista de Invitados
+El usuario está en la sección de Lista de Invitados de un evento. Puedes ayudar con:
+- Cómo agregar invitados manualmente o importar CSV
+- Cómo crear y organizar mesas en el canvas
+- Cómo asignar invitados a mesas
+- Cómo cambiar estados RSVP y menús
+- Cómo usar la vista de plano interactivo
+- Cómo exportar la lista de invitados
+- Cómo crear grupos de invitados
+
+Usa la documentación de FEATURE_DOCS.guests para responder preguntas sobre Lista de Invitados.
 `,
 };
 
@@ -243,6 +348,16 @@ export function buildSystemPrompt(options: {
     // Contexto RSVP general (sin evento específico)
     fullPrompt += "\n" + CONTEXT_PROMPTS["rsvp"];
     fullPrompt += "\n\n" + FEATURE_DOCS.rsvp;
+  } else if (context?.startsWith("guests:")) {
+    // Manejar contexto de Lista de Invitados específico (formato: "guests:123")
+    const eventId = context.split(":")[1];
+    fullPrompt += "\n" + CONTEXT_PROMPTS["guests"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.guests;
+    fullPrompt += `\n\n**IMPORTANTE**: El usuario está en la Lista de Invitados del evento con ID ${eventId}. Usa esta documentación para responder preguntas sobre cómo gestionar invitados, mesas, importar CSV, etc.`;
+  } else if (context === "guests") {
+    // Contexto guests general (sin evento específico)
+    fullPrompt += "\n" + CONTEXT_PROMPTS["guests"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.guests;
   } else if (context && CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS]) {
     // Agregar prompt de contexto normal
     fullPrompt += "\n" + CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS];
@@ -282,6 +397,11 @@ export const INITIAL_SUGGESTIONS = {
     "¿Cómo configuro el transporte para invitados?",
     "¿Cómo exporto la lista de invitados?",
     "¿Cómo funciona la fecha límite de confirmación?",
+  ],
+  guests: [
+    "¿Cómo importo invitados desde un CSV?",
+    "¿Cómo creo y organizo mesas?",
+    "¿Cómo asigno invitados a una mesa?",
   ],
   general: [
     "¿Cómo puedo crear un evento?",
