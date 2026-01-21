@@ -93,7 +93,7 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
     [tables]
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
 
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes);
@@ -129,8 +129,8 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
           capacity: template.capacity,
           width: template.width,
           height: template.height,
-          positionX: 100 + Math.random() * 200,
-          positionY: 100 + Math.random() * 200,
+          positionX: 100 + (tableCounter % 5) * 150,
+          positionY: 100 + Math.floor(tableCounter / 5) * 150,
         }),
       });
       const data = await res.json();
@@ -155,7 +155,7 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
     }
   };
 
-  const handleRemoveGuest = async (guestId: number, tableId: number) => {
+  const _handleRemoveGuest = async (guestId: number, tableId: number) => {
     try {
       await fetch(`/api/events/${eventId}/tables/${tableId}/assign?guestId=${guestId}`, {
         method: "DELETE",
@@ -165,6 +165,7 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
       console.error("Failed to remove guest:", error);
     }
   };
+  void _handleRemoveGuest;
 
   const unseatedGuests = guests.filter((g) => !g.tableId);
 

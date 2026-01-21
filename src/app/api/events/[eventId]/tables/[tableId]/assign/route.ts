@@ -36,9 +36,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 }
 
 // DELETE /api/events/[eventId]/tables/[tableId]/assign - Remove guest from table
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params: _params }: RouteParams) {
   try {
     await requireRole("planner");
+    void _params;
     const { searchParams } = new URL(request.url);
     const guestId = searchParams.get("guestId");
 

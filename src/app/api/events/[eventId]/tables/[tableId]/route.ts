@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
-import { updateEventTable, deleteEventTable, assignGuestToTable } from "@/lib/guests";
+import { updateEventTable, deleteEventTable } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; tableId: string }> };
 
