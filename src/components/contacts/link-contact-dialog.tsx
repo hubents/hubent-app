@@ -111,17 +111,12 @@ export function LinkContactDialog({
 
     setLinking(true);
     try {
-      const res = await fetch(`/api/contacts/${contact.id}/activities`, {
+      const res = await fetch(`/api/contacts/${contact.id}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "event_linked",
-          title: `Vinculado al evento`,
-          description: `Contacto vinculado al evento ID ${selectedEventId}${role ? ` como ${role}` : ""}`,
-          metadata: {
-            eventId: parseInt(selectedEventId),
-            role: role || null,
-          },
+          eventId: parseInt(selectedEventId),
+          role: role || undefined,
         }),
       });
 
@@ -144,17 +139,12 @@ export function LinkContactDialog({
 
     setLinking(true);
     try {
-      const res = await fetch(`/api/contacts/${contact.id}/activities`, {
+      const res = await fetch(`/api/contacts/${contact.id}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "task_created",
-          title: `Vinculado a tarea`,
-          description: `Contacto vinculado a la tarea ID ${selectedTaskId}${role ? ` como ${role}` : ""}`,
-          metadata: {
-            taskId: parseInt(selectedTaskId),
-            role: role || null,
-          },
+          taskId: parseInt(selectedTaskId),
+          role: role || undefined,
         }),
       });
 
