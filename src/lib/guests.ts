@@ -7,7 +7,9 @@ import {
   events,
   guestCompanions,
   rsvpTransportBookings,
-  rsvpTransportOptions
+  rsvpTransportOptions,
+  eventTables,
+  guestCheckins
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { TenantSession, PaginationParams } from "@/types";
@@ -92,6 +94,9 @@ export async function getGuests(
       email: guests.email,
       phone: guests.phone,
       groupId: guests.groupId,
+      tableId: guests.tableId,
+      ageGroup: guests.ageGroup,
+      menuPreference: guests.menuPreference,
       plusOne: guests.plusOne,
       plusOneName: guests.plusOneName,
       dietaryRestrictions: guests.dietaryRestrictions,
@@ -102,10 +107,13 @@ export async function getGuests(
       plusOneConfirmed: rsvpResponses.plusOneConfirmed,
       groupName: guestGroups.name,
       tableNumber: guestGroups.tableNumber,
+      tableName: eventTables.name,
+      tableCapacity: eventTables.capacity,
     })
     .from(guests)
     .leftJoin(rsvpResponses, eq(guests.id, rsvpResponses.guestId))
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
+    .leftJoin(eventTables, eq(guests.tableId, eventTables.id))
     .where(whereClause)
     .orderBy(guests.lastName, guests.firstName)
     .limit(limit)
@@ -158,10 +166,25 @@ export async function getGuests(
       pending: sql<number>`count(*) filter (where ${rsvpResponses.status} = 'pending' or ${rsvpResponses.status} is null)`,
       plusOnes: sql<number>`count(*) filter (where ${guests.plusOne} = true)`,
       plusOnesConfirmed: sql<number>`count(*) filter (where ${rsvpResponses.plusOneConfirmed} = true)`,
+      adults: sql<number>`count(*) filter (where ${guests.ageGroup} = 'adult' or ${guests.ageGroup} is null)`,
+      children: sql<number>`count(*) filter (where ${guests.ageGroup} = 'child')`,
+      babies: sql<number>`count(*) filter (where ${guests.ageGroup} = 'baby')`,
+      seated: sql<number>`count(*) filter (where ${guests.tableId} is not null)`,
     })
     .from(guests)
     .leftJoin(rsvpResponses, eq(guests.id, rsvpResponses.guestId))
     .where(eq(guests.eventId, eventId));
+
+  // Get companion count
+  const companionStats = await db
+    .select({
+      count: sql<number>`count(*)`,
+    })
+    .from(guestCompanions)
+    .innerJoin(guests, eq(guestCompanions.guestId, guests.id))
+    .where(eq(guests.eventId, eventId));
+
+  const totalCompanions = Number(companionStats[0]?.count || 0);
 
   return {
     data: guestsWithCompanions,
@@ -172,7 +195,12 @@ export async function getGuests(
       pending: Number(stats.pending),
       plusOnes: Number(stats.plusOnes),
       plusOnesConfirmed: Number(stats.plusOnesConfirmed),
-      totalAttending: Number(stats.confirmed) + Number(stats.plusOnesConfirmed),
+      adults: Number(stats.adults),
+      children: Number(stats.children),
+      babies: Number(stats.babies),
+      seated: Number(stats.seated),
+      totalCompanions,
+      totalAttending: Number(stats.confirmed) + totalCompanions,
     },
   };
 }
@@ -407,4 +435,142 @@ export async function updateRsvpLandingPage(
     .returning();
 
   return updated;
+}
+
+// ============================================
+// EVENT TABLES (Floor Plan)
+// ============================================
+
+export async function getEventTables(eventId: number) {
+  const tables = await db
+    .select()
+    .from(eventTables)
+    .where(eq(eventTables.eventId, eventId))
+    .orderBy(eventTables.name);
+
+  const tablesWithGuests = await Promise.all(
+    tables.map(async (table) => {
+      const guestCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(guests)
+        .where(eq(guests.tableId, table.id));
+
+      const tableGuests = await db
+        .select({
+          id: guests.id,
+          firstName: guests.firstName,
+          lastName: guests.lastName,
+          ageGroup: guests.ageGroup,
+          menuPreference: guests.menuPreference,
+        })
+        .from(guests)
+        .where(eq(guests.tableId, table.id));
+
+      return {
+        ...table,
+        guestCount: Number(guestCount[0]?.count || 0),
+        guests: tableGuests,
+      };
+    })
+  );
+
+  return tablesWithGuests;
+}
+
+export async function createEventTable(
+  eventId: number,
+  data: {
+    name: string;
+    shape?: string;
+    capacity?: number;
+    positionX?: number;
+    positionY?: number;
+    width?: number;
+    height?: number;
+    color?: string;
+  }
+) {
+  const [table] = await db.insert(eventTables).values({
+    eventId,
+    name: data.name,
+    shape: data.shape || "round",
+    capacity: data.capacity || 8,
+    positionX: data.positionX || 100,
+    positionY: data.positionY || 100,
+    width: data.width || 120,
+    height: data.height || 120,
+    color: data.color || "#ffffff",
+  }).returning();
+
+  return table;
+}
+
+export async function updateEventTable(
+  tableId: number,
+  data: Partial<{
+    name: string;
+    shape: string;
+    capacity: number;
+    positionX: number;
+    positionY: number;
+    width: number;
+    height: number;
+    rotation: number;
+    color: string;
+  }>
+) {
+  const [updated] = await db.update(eventTables)
+    .set(data)
+    .where(eq(eventTables.id, tableId))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteEventTable(tableId: number) {
+  await db.update(guests)
+    .set({ tableId: null })
+    .where(eq(guests.tableId, tableId));
+
+  await db.delete(eventTables)
+    .where(eq(eventTables.id, tableId));
+}
+
+export async function assignGuestToTable(guestId: number, tableId: number | null) {
+  const [updated] = await db.update(guests)
+    .set({ tableId, updatedAt: new Date() })
+    .where(eq(guests.id, guestId))
+    .returning();
+
+  return updated;
+}
+
+// ============================================
+// GUEST CHECK-IN
+// ============================================
+
+export async function checkInGuest(guestId: number, checkedInBy?: string, notes?: string) {
+  const [checkin] = await db.insert(guestCheckins).values({
+    guestId,
+    checkedInBy,
+    notes,
+  }).returning();
+
+  return checkin;
+}
+
+export async function getCheckedInGuests(eventId: number) {
+  const checkins = await db
+    .select({
+      guestId: guestCheckins.guestId,
+      checkedInAt: guestCheckins.checkedInAt,
+      firstName: guests.firstName,
+      lastName: guests.lastName,
+    })
+    .from(guestCheckins)
+    .innerJoin(guests, eq(guestCheckins.guestId, guests.id))
+    .where(eq(guests.eventId, eventId))
+    .orderBy(desc(guestCheckins.checkedInAt));
+
+  return checkins;
 }

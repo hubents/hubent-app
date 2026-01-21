@@ -1073,6 +1073,25 @@ export const briefingResponses = pgTable("briefing_responses", {
 });
 
 // ============================================
+// EVENT TABLES (Floor Plan / Seating Chart)
+// ============================================
+
+export const eventTables = pgTable("event_tables", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  shape: text("shape").default("round"),
+  capacity: integer("capacity").default(8),
+  positionX: integer("position_x").default(100),
+  positionY: integer("position_y").default(100),
+  width: integer("width").default(120),
+  height: integer("height").default(120),
+  rotation: integer("rotation").default(0),
+  color: text("color").default("#ffffff"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
 // GUESTS AND RSVP
 // ============================================
 
@@ -1089,10 +1108,13 @@ export const guests = pgTable("guests", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
   groupId: integer("group_id").references(() => guestGroups.id),
+  tableId: integer("table_id").references(() => eventTables.id, { onDelete: "set null" }),
   firstName: text("first_name").notNull(),
   lastName: text("last_name"),
   email: text("email"),
   phone: text("phone"),
+  ageGroup: text("age_group").default("adult"),
+  menuPreference: text("menu_preference"),
   plusOne: boolean("plus_one").default(false),
   plusOneName: text("plus_one_name"),
   dietaryRestrictions: text("dietary_restrictions"),
@@ -1120,6 +1142,14 @@ export const guestCompanions = pgTable("guest_companions", {
   dietaryRestrictions: text("dietary_restrictions"),
   needsTransport: boolean("needs_transport").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const guestCheckins = pgTable("guest_checkins", {
+  id: serial("id").primaryKey(),
+  guestId: integer("guest_id").notNull().references(() => guests.id, { onDelete: "cascade" }),
+  checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
+  checkedInBy: text("checked_in_by").references(() => users.id),
+  notes: text("notes"),
 });
 
 export const rsvpLandingPages = pgTable("rsvp_landing_pages", {
