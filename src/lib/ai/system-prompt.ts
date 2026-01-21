@@ -39,6 +39,69 @@ Puedes ayudar a los usuarios con:
 
 Recuerda: Eres una herramienta clave que acompaña a los usuarios en su día a día. Tu objetivo es hacer su trabajo más fácil y eficiente.`;
 
+// Documentación de funcionalidades para que Enti pueda explicar
+export const FEATURE_DOCS = {
+  rsvp: `
+## Módulo RSVP - Confirmación de Asistencia
+
+### ¿Qué es RSVP?
+RSVP es el módulo de confirmación de asistencia de HubEnts. Permite:
+- Enviar invitaciones digitales a invitados
+- Recibir confirmaciones de asistencia online
+- Gestionar acompañantes y preferencias alimentarias
+- Organizar transporte para invitados
+- Compartir información útil (hoteles, itinerario, FAQs)
+
+### Configuración General
+- **Activar/Desactivar RSVP**: Switch en la parte superior para habilitar o deshabilitar confirmaciones
+- **Fecha límite**: Se puede establecer un deadline. Después de esa fecha el formulario se bloquea automáticamente
+- **Máximo de acompañantes**: Configurar cuántos acompañantes puede traer cada invitado (0, 1, 2, 3...)
+
+### Dashboard de Estadísticas
+En la página RSVP se muestra un panel con:
+- Total de invitados registrados
+- Confirmados (dijeron "Sí")
+- Pendientes (no respondieron)
+- Rechazados (dijeron "No")
+- Total de acompañantes confirmados
+- Total de asistentes (confirmados + acompañantes)
+- Estadísticas de ocupación de transporte con barras de progreso
+
+### Secciones de Contenido
+Se pueden activar/desactivar:
+- **Itinerario**: Cronograma del evento con horarios y ubicaciones
+- **Hoteles**: Sugerencias de alojamiento con precios y distancias
+- **Planes cercanos**: Restaurantes y actividades cerca del evento
+- **FAQs**: Preguntas frecuentes (código de vestimenta, estacionamiento, etc.)
+- **Ubicación**: Mapa con la dirección del evento
+
+### Transporte
+Si se ofrece transporte:
+1. Configurar opciones (nombre, lugar de salida, horarios, capacidad)
+2. Los invitados ven las opciones disponibles con lugares restantes
+3. Al confirmar, se reservan automáticamente los lugares
+4. Si se agotan los lugares, la opción aparece como "agotada"
+
+### Lista de Invitados
+- Ver todos los invitados con su estado de confirmación
+- Ver acompañantes de cada invitado
+- Ver qué transporte reservó cada uno
+- **Exportar a CSV**: Botón para descargar toda la lista con todos los datos
+
+### Enviar Invitaciones
+- Por email: Seleccionar invitados y enviar con mensaje personalizado
+- Compartir link: Copiar el link de RSVP para compartir por WhatsApp, redes, etc.
+
+### Formulario Público (lo que ven los invitados)
+1. Información del evento (nombre, fecha, imagen)
+2. Formulario: datos personales, confirmación, acompañantes, menú, restricciones, transporte
+3. Información adicional: itinerario, mapa, hoteles, FAQs
+
+### Notificaciones
+Cada vez que un invitado confirma, el organizador recibe una notificación push con el nombre y cantidad de personas.
+`,
+};
+
 // Prompts específicos por contexto
 export const CONTEXT_PROMPTS = {
   event: `
@@ -48,6 +111,19 @@ El usuario está viendo un evento específico. Prioriza información relacionada
 - Proveedores asignados
 - Pagos y presupuesto del evento
 - Invitados y RSVP
+`,
+  rsvp: `
+## Contexto: Vista de RSVP
+El usuario está en la sección de RSVP de un evento. Puedes ayudar con:
+- Explicar cómo configurar las confirmaciones
+- Cómo agregar opciones de transporte
+- Cómo exportar la lista de invitados
+- Cómo editar FAQs e itinerario
+- Interpretar las estadísticas del dashboard
+- Cómo enviar invitaciones
+- Cómo funciona el formulario público para los invitados
+
+Usa la documentación de FEATURE_DOCS.rsvp para responder preguntas sobre RSVP.
 `,
   task: `
 ## Contexto: Vista de Tareas
@@ -157,6 +233,16 @@ export function buildSystemPrompt(options: {
     const eventId = context.split(":")[1];
     fullPrompt += "\n" + CONTEXT_PROMPTS["event"];
     fullPrompt += `\n\n**IMPORTANTE**: El usuario está viendo el evento con ID ${eventId}. Cuando pregunte sobre "este evento", "las tareas", "los proveedores", etc., usa getEventDetails con eventId: ${eventId} para obtener toda la información del evento incluyendo sus tareas.`;
+  } else if (context?.startsWith("rsvp:")) {
+    // Manejar contexto de RSVP específico (formato: "rsvp:123")
+    const eventId = context.split(":")[1];
+    fullPrompt += "\n" + CONTEXT_PROMPTS["rsvp"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.rsvp;
+    fullPrompt += `\n\n**IMPORTANTE**: El usuario está en la sección RSVP del evento con ID ${eventId}. Usa esta documentación para responder preguntas sobre cómo usar RSVP.`;
+  } else if (context === "rsvp") {
+    // Contexto RSVP general (sin evento específico)
+    fullPrompt += "\n" + CONTEXT_PROMPTS["rsvp"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.rsvp;
   } else if (context && CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS]) {
     // Agregar prompt de contexto normal
     fullPrompt += "\n" + CONTEXT_PROMPTS[context as keyof typeof CONTEXT_PROMPTS];
@@ -191,6 +277,11 @@ export const INITIAL_SUGGESTIONS = {
     "¿Cuánto falta por cobrar?",
     "¿Hay pagos próximos a vencer?",
     "Dame un resumen financiero",
+  ],
+  rsvp: [
+    "¿Cómo configuro el transporte para invitados?",
+    "¿Cómo exporto la lista de invitados?",
+    "¿Cómo funciona la fecha límite de confirmación?",
   ],
   general: [
     "¿Cómo puedo crear un evento?",
