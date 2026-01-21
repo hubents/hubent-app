@@ -408,6 +408,24 @@ export async function notifyMentions(
 }
 
 /**
+ * Notify when someone is assigned to a checklist item
+ */
+export async function notifyChecklistAssigned(
+  taskId: number,
+  taskTitle: string,
+  checklistItemTitle: string,
+  assignedToUserId: string,
+  assignedByName: string
+): Promise<void> {
+  await sendPushToUsers([assignedToUserId], {
+    title: "✅ Nuevo ítem asignado",
+    body: `${assignedByName} te asignó: "${checklistItemTitle}" en la tarea "${taskTitle}"`,
+    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    data: { type: "checklist_assigned", taskId: taskId.toString() },
+  });
+}
+
+/**
  * Notify when a new event is created
  */
 export async function notifyNewEvent(

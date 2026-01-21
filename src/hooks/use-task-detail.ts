@@ -107,6 +107,32 @@ interface TaskMeeting {
   updatedAt: string;
 }
 
+interface ChecklistAssignee {
+  id: number;
+  participantId: number;
+  type: string | null;
+  name: string;
+  isUser: boolean;
+  isVendor: boolean;
+  isContact: boolean;
+  assignedAt: string | null;
+}
+
+interface TaskChecklistItem {
+  id: number;
+  taskId: number;
+  title: string;
+  isCompleted: boolean;
+  dueDate: string | null;
+  sortOrder: number;
+  completedAt: string | null;
+  completedBy: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignees: ChecklistAssignee[];
+}
+
 export function useTaskDetail(taskId: number | null) {
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [participants, setParticipants] = useState<TaskParticipant[]>([]);
@@ -116,6 +142,7 @@ export function useTaskDetail(taskId: number | null) {
   const [htmlContent, setHtmlContent] = useState<TaskHtmlContent | null>(null);
   const [payments, setPayments] = useState<TaskPayment[]>([]);
   const [meetings, setMeetings] = useState<TaskMeeting[]>([]);
+  const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -249,6 +276,23 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId]);
 
+  const fetchChecklist = useCallback(async () => {
+    if (!taskId) return;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setChecklistItems(data.data);
+      } else {
+        setChecklistItems([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch checklist:", err);
+      setChecklistItems([]);
+    }
+  }, [taskId]);
+
   const fetchAll = useCallback(async () => {
     if (!taskId) return;
     
@@ -265,6 +309,7 @@ export function useTaskDetail(taskId: number | null) {
         fetchHtmlContent(),
         fetchPayments(),
         fetchMeetings(),
+        fetchChecklist(),
       ]);
     } catch (err) {
       setError("Failed to load task details");
@@ -272,7 +317,7 @@ export function useTaskDetail(taskId: number | null) {
     } finally {
       setLoading(false);
     }
-  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent, fetchPayments, fetchMeetings]);
+  }, [taskId, fetchTask, fetchParticipants, fetchVideos, fetchAttachments, fetchScheduleItems, fetchHtmlContent, fetchPayments, fetchMeetings, fetchChecklist]);
 
   useEffect(() => {
     fetchAll();
@@ -618,6 +663,117 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId, fetchMeetings]);
 
+  // Add checklist item
+  const addChecklistItem = useCallback(async (itemData: { title: string; dueDate?: string; assigneeIds?: number[] }) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(itemData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchChecklist();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to add checklist item:", err);
+      return null;
+    }
+  }, [taskId, fetchChecklist]);
+
+  // Update checklist item
+  const updateChecklistItem = useCallback(async (itemId: number, updates: { title?: string; isCompleted?: boolean; dueDate?: string | null; sortOrder?: number }) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchChecklist();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to update checklist item:", err);
+      return null;
+    }
+  }, [taskId, fetchChecklist]);
+
+  // Toggle checklist item completion
+  const toggleChecklistItem = useCallback(async (itemId: number, isCompleted: boolean) => {
+    return updateChecklistItem(itemId, { isCompleted });
+  }, [updateChecklistItem]);
+
+  // Delete checklist item
+  const deleteChecklistItem = useCallback(async (itemId: number) => {
+    if (!taskId) return false;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist/${itemId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchChecklist();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to delete checklist item:", err);
+      return false;
+    }
+  }, [taskId, fetchChecklist]);
+
+  // Add assignee to checklist item
+  const addChecklistAssignee = useCallback(async (itemId: number, participantId: number) => {
+    if (!taskId) return null;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist/${itemId}/assignees`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchChecklist();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to add checklist assignee:", err);
+      return null;
+    }
+  }, [taskId, fetchChecklist]);
+
+  // Remove assignee from checklist item
+  const removeChecklistAssignee = useCallback(async (itemId: number, participantId: number) => {
+    if (!taskId) return false;
+    
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/checklist/${itemId}/assignees?participantId=${participantId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchChecklist();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to remove checklist assignee:", err);
+      return false;
+    }
+  }, [taskId, fetchChecklist]);
+
   return {
     task,
     participants,
@@ -646,5 +802,12 @@ export function useTaskDetail(taskId: number | null) {
     addMeeting,
     updateMeeting,
     deleteMeeting,
+    checklistItems,
+    addChecklistItem,
+    updateChecklistItem,
+    toggleChecklistItem,
+    deleteChecklistItem,
+    addChecklistAssignee,
+    removeChecklistAssignee,
   };
 }

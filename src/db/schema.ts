@@ -974,6 +974,30 @@ export const taskPayments = pgTable("task_payments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Task Checklist Items (To-Do List)
+export const taskChecklistItems = pgTable("task_checklist_items", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  isCompleted: boolean("is_completed").default(false),
+  dueDate: timestamp("due_date"),
+  sortOrder: integer("sort_order").default(0),
+  completedAt: timestamp("completed_at"),
+  completedBy: text("completed_by").references(() => users.id),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task Checklist Assignees (N:N with task_participants)
+export const taskChecklistAssignees = pgTable("task_checklist_assignees", {
+  id: serial("id").primaryKey(),
+  checklistItemId: integer("checklist_item_id").notNull().references(() => taskChecklistItems.id, { onDelete: "cascade" }),
+  participantId: integer("participant_id").notNull().references(() => taskParticipants.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: text("assigned_by").references(() => users.id),
+});
+
 // ============================================
 // EVENT TEMPLATES
 // ============================================
@@ -1554,6 +1578,10 @@ export type TaskAttachment = typeof taskAttachments.$inferSelect;
 export type TaskVideo = typeof taskVideos.$inferSelect;
 export type TaskScheduleItem = typeof taskScheduleItems.$inferSelect;
 export type TaskHtmlContent = typeof taskHtmlContent.$inferSelect;
+export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;
+export type NewTaskChecklistItem = typeof taskChecklistItems.$inferInsert;
+export type TaskChecklistAssignee = typeof taskChecklistAssignees.$inferSelect;
+export type NewTaskChecklistAssignee = typeof taskChecklistAssignees.$inferInsert;
 
 // Event Template Types
 export type EventTemplate = typeof eventTemplates.$inferSelect;

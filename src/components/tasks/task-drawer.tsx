@@ -107,6 +107,7 @@ export function TaskDrawer({
     htmlContent,
     payments,
     meetings,
+    checklistItems,
     loading,
     refetch,
     updateTask,
@@ -124,6 +125,12 @@ export function TaskDrawer({
     deletePayment,
     addMeeting,
     deleteMeeting,
+    addChecklistItem,
+    updateChecklistItem,
+    toggleChecklistItem,
+    deleteChecklistItem,
+    addChecklistAssignee,
+    removeChecklistAssignee,
   } = useTaskDetail(effectiveTaskId);
 
   useEffect(() => {
@@ -444,6 +451,7 @@ export function TaskDrawer({
                       participants={participants}
                       videos={videos}
                       htmlContent={htmlContent}
+                      checklistItems={checklistItems}
                       loading={loading}
                       onUpdateTask={handleTaskUpdate}
                       onAddVideo={addVideo}
@@ -451,6 +459,12 @@ export function TaskDrawer({
                       onSaveHtmlContent={saveHtmlContent}
                       onAddParticipant={addParticipant}
                       onRemoveParticipant={removeParticipant}
+                      onAddChecklistItem={addChecklistItem}
+                      onUpdateChecklistItem={updateChecklistItem}
+                      onToggleChecklistItem={toggleChecklistItem}
+                      onDeleteChecklistItem={deleteChecklistItem}
+                      onAddChecklistAssignee={addChecklistAssignee}
+                      onRemoveChecklistAssignee={removeChecklistAssignee}
                     />
                   </TabsContent>
 

@@ -27,6 +27,7 @@ import {
 import { TaskYoutubeEmbed } from "./task-youtube-embed";
 import { TaskRichEditor } from "./task-rich-editor";
 import { ParticipantSelector } from "./participant-selector";
+import { TaskChecklistSection } from "./task-checklist-section";
 
 interface TaskDetail {
   id: number;
@@ -70,6 +71,32 @@ interface TaskHtmlContent {
   content: string;
 }
 
+interface ChecklistAssignee {
+  id: number;
+  participantId: number;
+  type: string | null;
+  name: string;
+  isUser: boolean;
+  isVendor: boolean;
+  isContact: boolean;
+  assignedAt: string | null;
+}
+
+interface TaskChecklistItem {
+  id: number;
+  taskId: number;
+  title: string;
+  isCompleted: boolean;
+  dueDate: string | null;
+  sortOrder: number;
+  completedAt: string | null;
+  completedBy: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignees: ChecklistAssignee[];
+}
+
 interface TeamMember {
   id: string;
   name: string;
@@ -88,6 +115,7 @@ interface TaskGeneralTabProps {
   participants: TaskParticipant[];
   videos: TaskVideo[];
   htmlContent: TaskHtmlContent | null;
+  checklistItems: TaskChecklistItem[];
   loading: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddVideo: (data: { youtubeUrl: string; title?: string }) => Promise<unknown>;
@@ -95,6 +123,12 @@ interface TaskGeneralTabProps {
   onSaveHtmlContent: (content: string) => Promise<unknown>;
   onAddParticipant: (data: { userId?: string; vendorId?: number; contactId?: number; type: string }) => Promise<unknown>;
   onRemoveParticipant: (participantId: number) => Promise<boolean>;
+  onAddChecklistItem: (data: { title: string; dueDate?: string; assigneeIds?: number[] }) => Promise<unknown>;
+  onUpdateChecklistItem: (itemId: number, updates: { title?: string; isCompleted?: boolean; dueDate?: string | null }) => Promise<unknown>;
+  onToggleChecklistItem: (itemId: number, isCompleted: boolean) => Promise<unknown>;
+  onDeleteChecklistItem: (itemId: number) => Promise<boolean>;
+  onAddChecklistAssignee: (itemId: number, participantId: number) => Promise<unknown>;
+  onRemoveChecklistAssignee: (itemId: number, participantId: number) => Promise<boolean>;
 }
 
 const priorityOptions = [
@@ -116,6 +150,7 @@ export function TaskGeneralTab({
   participants,
   videos,
   htmlContent,
+  checklistItems,
   loading,
   onUpdateTask,
   onAddVideo,
@@ -123,6 +158,12 @@ export function TaskGeneralTab({
   onSaveHtmlContent,
   onAddParticipant,
   onRemoveParticipant,
+  onAddChecklistItem,
+  onUpdateChecklistItem,
+  onToggleChecklistItem,
+  onDeleteChecklistItem,
+  onAddChecklistAssignee,
+  onRemoveChecklistAssignee,
 }: TaskGeneralTabProps) {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [addingVideo, setAddingVideo] = useState(false);
@@ -489,6 +530,21 @@ export function TaskGeneralTab({
         <TaskRichEditor
           content={htmlContent?.content || ""}
           onSave={onSaveHtmlContent}
+        />
+      </div>
+
+      {/* Checklist / To-Do List */}
+      <div className="border-t pt-6">
+        <TaskChecklistSection
+          checklistItems={checklistItems}
+          participants={participants}
+          loading={loading}
+          onAddItem={onAddChecklistItem}
+          onUpdateItem={onUpdateChecklistItem}
+          onToggleItem={onToggleChecklistItem}
+          onDeleteItem={onDeleteChecklistItem}
+          onAddAssignee={onAddChecklistAssignee}
+          onRemoveAssignee={onRemoveChecklistAssignee}
         />
       </div>
     </div>
