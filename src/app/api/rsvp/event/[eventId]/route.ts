@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs, guestCompanions } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs, guestCompanions, rsvpTransportOptions, rsvpTransportBookings } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { notifyGuestRsvp } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -69,6 +69,47 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(rsvpFaqs.eventId, eventIdNum))
       .orderBy(rsvpFaqs.orderIndex);
 
+    // Get transport options with booking counts
+    const transportOptions = await db
+      .select({
+        id: rsvpTransportOptions.id,
+        name: rsvpTransportOptions.name,
+        description: rsvpTransportOptions.description,
+        departureLocation: rsvpTransportOptions.departureLocation,
+        departureAddress: rsvpTransportOptions.departureAddress,
+        departureTime: rsvpTransportOptions.departureTime,
+        returnTime: rsvpTransportOptions.returnTime,
+        capacity: rsvpTransportOptions.capacity,
+        price: rsvpTransportOptions.price,
+        mapImageUrl: rsvpTransportOptions.mapImageUrl,
+        isActive: rsvpTransportOptions.isActive,
+      })
+      .from(rsvpTransportOptions)
+      .where(and(
+        eq(rsvpTransportOptions.eventId, eventIdNum),
+        eq(rsvpTransportOptions.isActive, true)
+      ))
+      .orderBy(rsvpTransportOptions.orderIndex);
+
+    // Get booking counts for each transport option
+    const transportWithCounts = await Promise.all(
+      transportOptions.map(async (option) => {
+        const bookings = await db
+          .select({ totalSeats: sql<number>`COALESCE(SUM(${rsvpTransportBookings.seats}), 0)` })
+          .from(rsvpTransportBookings)
+          .where(eq(rsvpTransportBookings.transportOptionId, option.id));
+        
+        const bookedSeats = Number(bookings[0]?.totalSeats) || 0;
+        const availableSeats = option.capacity ? option.capacity - bookedSeats : null;
+        
+        return {
+          ...option,
+          bookedSeats,
+          availableSeats,
+        };
+      })
+    );
+
     const rsvpConfig = settings[0] || {
       showItinerary: true,
       showHotels: true,
@@ -80,6 +121,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       maxCompanionsPerGuest: 1,
       askDietaryRestrictions: true,
       customMessage: null,
+      deadline: null,
+      enabled: true,
     };
 
     return NextResponse.json({
@@ -91,6 +134,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         hotels: rsvpConfig.showHotels ? hotels : [],
         nearbyPlans: rsvpConfig.showNearbyPlans ? nearbyPlans : [],
         faqs: rsvpConfig.showFaqs ? faqs : [],
+        transportOptions: rsvpConfig.showTransport ? transportWithCounts : [],
       },
     });
   } catch (error) {
@@ -121,6 +165,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       dietaryRestrictions,
       message,
       companions,
+      selectedTransport,
     } = body;
 
     if (!firstName || !email || !attending) {
@@ -244,6 +289,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
         }
       }
+    }
+
+    // Handle transport booking
+    if (selectedTransport && typeof selectedTransport === "number") {
+      // Delete existing transport bookings for this guest
+      await db.delete(rsvpTransportBookings).where(eq(rsvpTransportBookings.guestId, guestId));
+      
+      // Calculate seats needed (guest + companions)
+      const companionCount = companions && Array.isArray(companions) ? companions.filter((c: { fullName?: string }) => c.fullName).length : 0;
+      const seatsNeeded = 1 + companionCount;
+      
+      // Create new booking
+      await db.insert(rsvpTransportBookings).values({
+        guestId,
+        transportOptionId: selectedTransport,
+        seats: seatsNeeded,
+      });
+    } else if (selectedTransport === null) {
+      // User explicitly selected "no transport" - delete any existing booking
+      await db.delete(rsvpTransportBookings).where(eq(rsvpTransportBookings.guestId, guestId));
     }
 
     // Send push notification for RSVP response

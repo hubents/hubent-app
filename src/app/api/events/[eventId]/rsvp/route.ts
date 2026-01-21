@@ -6,9 +6,14 @@ import {
   rsvpItinerary, 
   rsvpHotels, 
   rsvpNearbyPlans, 
-  rsvpFaqs 
+  rsvpFaqs,
+  guests,
+  rsvpResponses,
+  guestCompanions,
+  rsvpTransportBookings,
+  rsvpTransportOptions
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -76,6 +81,55 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(rsvpFaqs.eventId, eventIdNum))
       .orderBy(rsvpFaqs.orderIndex);
 
+    // Get RSVP statistics
+    const [guestStats] = await db
+      .select({
+        totalGuests: sql<number>`count(distinct ${guests.id})`,
+        confirmed: sql<number>`count(distinct ${guests.id}) filter (where ${rsvpResponses.status} = 'confirmed')`,
+        declined: sql<number>`count(distinct ${guests.id}) filter (where ${rsvpResponses.status} = 'declined')`,
+        pending: sql<number>`count(distinct ${guests.id}) filter (where ${rsvpResponses.status} = 'pending' or ${rsvpResponses.status} is null)`,
+      })
+      .from(guests)
+      .leftJoin(rsvpResponses, eq(guests.id, rsvpResponses.guestId))
+      .where(eq(guests.eventId, eventIdNum));
+
+    // Get companion count
+    const [companionStats] = await db
+      .select({
+        totalCompanions: sql<number>`count(*)`,
+      })
+      .from(guestCompanions)
+      .innerJoin(guests, eq(guestCompanions.guestId, guests.id))
+      .where(eq(guests.eventId, eventIdNum));
+
+    // Get transport bookings
+    const transportStats = await db
+      .select({
+        optionId: rsvpTransportOptions.id,
+        optionName: rsvpTransportOptions.name,
+        capacity: rsvpTransportOptions.capacity,
+        bookedSeats: sql<number>`COALESCE(SUM(${rsvpTransportBookings.seats}), 0)`,
+      })
+      .from(rsvpTransportOptions)
+      .leftJoin(rsvpTransportBookings, eq(rsvpTransportOptions.id, rsvpTransportBookings.transportOptionId))
+      .where(eq(rsvpTransportOptions.eventId, eventIdNum))
+      .groupBy(rsvpTransportOptions.id, rsvpTransportOptions.name, rsvpTransportOptions.capacity);
+
+    const stats = {
+      totalGuests: Number(guestStats?.totalGuests) || 0,
+      confirmed: Number(guestStats?.confirmed) || 0,
+      declined: Number(guestStats?.declined) || 0,
+      pending: Number(guestStats?.pending) || 0,
+      totalCompanions: Number(companionStats?.totalCompanions) || 0,
+      totalAttending: (Number(guestStats?.confirmed) || 0) + (Number(companionStats?.totalCompanions) || 0),
+      transport: transportStats.map(t => ({
+        name: t.optionName,
+        capacity: t.capacity,
+        booked: Number(t.bookedSeats) || 0,
+        available: t.capacity ? t.capacity - (Number(t.bookedSeats) || 0) : null,
+      })),
+    };
+
     return NextResponse.json({
       success: true,
       data: {
@@ -85,6 +139,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         hotels,
         nearbyPlans,
         faqs,
+        stats,
       },
     });
   } catch (error) {

@@ -27,6 +27,7 @@ import {
   RiPhoneLine,
   RiGlobalLine,
   RiArrowDownSLine,
+  RiBusLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -78,12 +79,28 @@ interface RsvpSettings {
   maxCompanionsPerGuest: number;
   askDietaryRestrictions: boolean;
   customMessage: string | null;
+  deadline: string | null;
+  enabled: boolean;
 }
 
 interface Companion {
   fullName: string;
   menuPreference: string;
   dietaryRestrictions: string;
+}
+
+interface TransportOption {
+  id: number;
+  name: string;
+  description: string | null;
+  departureLocation: string | null;
+  departureAddress: string | null;
+  departureTime: string | null;
+  returnTime: string | null;
+  capacity: number | null;
+  price: string | null;
+  bookedSeats: number;
+  availableSeats: number | null;
 }
 
 interface EventData {
@@ -100,6 +117,7 @@ interface EventData {
   hotels: Hotel[];
   nearbyPlans: NearbyPlan[];
   faqs: Faq[];
+  transportOptions: TransportOption[];
 }
 
 interface RsvpFormData {
@@ -137,6 +155,7 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
     message: "",
   });
   const [companions, setCompanions] = useState<Companion[]>([]);
+  const [selectedTransport, setSelectedTransport] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -171,7 +190,7 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
       const res = await fetch(`/api/rsvp/event/${eventIdNum}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, companions }),
+        body: JSON.stringify({ ...formData, companions, selectedTransport }),
       });
       const data = await res.json();
       if (data.success) {
@@ -208,6 +227,51 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
             <RiCloseLine className="h-16 w-16 mx-auto text-destructive mb-4" />
             <h1 className="text-2xl font-bold mb-2">Evento no disponible</h1>
             <p className="text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check if deadline has passed
+  const isDeadlinePassed = event?.settings?.deadline 
+    ? new Date(event.settings.deadline) < new Date() 
+    : false;
+
+  const isRsvpDisabled = !event?.settings?.enabled || isDeadlinePassed;
+
+  if (isRsvpDisabled && !submitted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg text-center">
+          <CardContent className="p-8">
+            <RiTimeLine className="h-16 w-16 mx-auto text-amber-500 mb-4" />
+            <h1 className="text-2xl font-bold mb-2">
+              {isDeadlinePassed ? "Plazo de confirmación vencido" : "RSVP no disponible"}
+            </h1>
+            <p className="text-muted-foreground mb-4">
+              {isDeadlinePassed 
+                ? `El plazo para confirmar asistencia venció el ${new Date(event!.settings!.deadline!).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}.`
+                : "Las confirmaciones para este evento no están habilitadas en este momento."}
+            </p>
+            {event && (
+              <div className="p-4 bg-muted rounded-lg text-left mt-4">
+                <h3 className="font-semibold">{event.name}</h3>
+                {event.date && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2">
+                    <RiCalendarLine className="h-4 w-4" />
+                    {new Date(event.date).toLocaleDateString("es-ES", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground mt-4">
+              Si tenés alguna consulta, contactá a los organizadores del evento.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -516,6 +580,92 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
                       onChange={(e) => setFormData({ ...formData, dietaryRestrictions: e.target.value })}
                     />
                   </div>
+
+                  {/* Transport Selection */}
+                  {event?.settings?.showTransport && event?.transportOptions && event.transportOptions.length > 0 && (
+                    <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="font-medium flex items-center gap-2">
+                          <RiBusLine className="h-4 w-4" />
+                          Transporte
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          ¿Necesitás transporte para el evento?
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <div
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            selectedTransport === null ? "border-primary bg-primary/5" : "hover:bg-muted"
+                          )}
+                          onClick={() => setSelectedTransport(null)}
+                        >
+                          <p className="font-medium">No necesito transporte</p>
+                          <p className="text-sm text-muted-foreground">Voy por mi cuenta</p>
+                        </div>
+                        {event.transportOptions.map((option) => {
+                          const isAvailable = option.availableSeats === null || option.availableSeats > 0;
+                          const seatsNeeded = 1 + companions.filter(c => c.fullName).length;
+                          const hasEnoughSeats = option.availableSeats === null || option.availableSeats >= seatsNeeded;
+                          
+                          return (
+                            <div
+                              key={option.id}
+                              className={cn(
+                                "p-3 rounded-lg border transition-colors",
+                                !isAvailable || !hasEnoughSeats 
+                                  ? "opacity-50 cursor-not-allowed" 
+                                  : selectedTransport === option.id 
+                                    ? "border-primary bg-primary/5 cursor-pointer" 
+                                    : "hover:bg-muted cursor-pointer"
+                              )}
+                              onClick={() => {
+                                if (isAvailable && hasEnoughSeats) {
+                                  setSelectedTransport(option.id);
+                                }
+                              }}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium">{option.name}</p>
+                                  {option.departureLocation && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Salida: {option.departureLocation}
+                                      {option.departureTime && ` - ${option.departureTime}`}
+                                    </p>
+                                  )}
+                                  {option.returnTime && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Regreso: {option.returnTime}
+                                    </p>
+                                  )}
+                                </div>
+                                {option.capacity && (
+                                  <span className={cn(
+                                    "text-xs px-2 py-1 rounded",
+                                    !isAvailable ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                                  )}>
+                                    {option.availableSeats !== null 
+                                      ? `${option.availableSeats} lugares` 
+                                      : "Disponible"}
+                                  </span>
+                                )}
+                              </div>
+                              {option.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
+                              )}
+                              {!hasEnoughSeats && isAvailable && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  No hay suficientes lugares para tu grupo ({seatsNeeded} personas)
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

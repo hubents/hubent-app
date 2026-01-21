@@ -155,6 +155,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const [inviteMessage, setInviteMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [rsvpStats, setRsvpStats] = useState<{
+    totalGuests: number;
+    confirmed: number;
+    declined: number;
+    pending: number;
+    totalCompanions: number;
+    totalAttending: number;
+    transport: { name: string; capacity: number | null; booked: number; available: number | null }[];
+  } | null>(null);
 
   // File upload hook for cover image
   const { upload: uploadImage, uploading: uploadingImage, error: uploadError } = useFileUpload({
@@ -213,6 +222,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           setHotels(rsvpData.data.hotels || []);
           setNearbyPlans(rsvpData.data.nearbyPlans || []);
           setFaqs(rsvpData.data.faqs || []);
+          if (rsvpData.data.stats) {
+            setRsvpStats(rsvpData.data.stats);
+          }
         }
 
         // Fetch transport options
@@ -470,6 +482,24 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleEditFaq = async (item: Faq) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFaqs(faqs.map((f) => (f.id === item.id ? item : f)));
+        setEditingSection(null);
+        setEditingItem(null);
+      }
+    } catch (error) {
+      console.error("Failed to update FAQ:", error);
+    }
+  };
+
   // CRUD functions for transport
   const handleAddTransport = async (item: Partial<TransportOption>) => {
     try {
@@ -563,6 +593,64 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           </Button>
         </div>
       </div>
+
+      {/* Stats Dashboard */}
+      {rsvpStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Total Invitados</p>
+            <p className="text-2xl font-bold">{rsvpStats.totalGuests}</p>
+          </Card>
+          <Card className="p-4 border-green-200 bg-green-50">
+            <p className="text-sm text-green-700">Confirmados</p>
+            <p className="text-2xl font-bold text-green-700">{rsvpStats.confirmed}</p>
+          </Card>
+          <Card className="p-4 border-yellow-200 bg-yellow-50">
+            <p className="text-sm text-yellow-700">Pendientes</p>
+            <p className="text-2xl font-bold text-yellow-700">{rsvpStats.pending}</p>
+          </Card>
+          <Card className="p-4 border-red-200 bg-red-50">
+            <p className="text-sm text-red-700">Rechazados</p>
+            <p className="text-2xl font-bold text-red-700">{rsvpStats.declined}</p>
+          </Card>
+          <Card className="p-4 border-blue-200 bg-blue-50">
+            <p className="text-sm text-blue-700">Acompañantes</p>
+            <p className="text-2xl font-bold text-blue-700">{rsvpStats.totalCompanions}</p>
+          </Card>
+          <Card className="p-4 border-purple-200 bg-purple-50">
+            <p className="text-sm text-purple-700">Total Asistentes</p>
+            <p className="text-2xl font-bold text-purple-700">{rsvpStats.totalAttending}</p>
+          </Card>
+        </div>
+      )}
+
+      {/* Transport Stats */}
+      {rsvpStats && rsvpStats.transport && rsvpStats.transport.length > 0 && settings.showTransport && (
+        <Card className="p-4">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <RiBusLine className="h-4 w-4" />
+            Reservas de Transporte
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {rsvpStats.transport.map((t, i) => (
+              <div key={i} className="p-3 rounded-lg border bg-muted/30">
+                <p className="font-medium">{t.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary rounded-full" 
+                      style={{ width: t.capacity ? `${(t.booked / t.capacity) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {t.booked}/{t.capacity || '∞'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Send Invitations Dialog */}
       <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
@@ -1175,9 +1263,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <p className="font-medium">{faq.question}</p>
                         <p className="text-sm text-muted-foreground mt-1">{faq.answer}</p>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteFaq(faq.id)}>
-                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingItem(faq); setEditingSection("faq-edit"); }}>
+                          <RiEditLine className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteFaq(faq.id)}>
+                          <RiDeleteBinLine className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1595,6 +1688,39 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit FAQ Dialog */}
+      <Dialog open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar pregunta frecuente</DialogTitle>
+          </DialogHeader>
+          {editingItem && "question" in editingItem && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              handleEditFaq({
+                ...(editingItem as Faq),
+                question: formData.get("question") as string,
+                answer: formData.get("answer") as string,
+              });
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Pregunta *</Label>
+                <Input name="question" required defaultValue={(editingItem as Faq).question} />
+              </div>
+              <div className="space-y-2">
+                <Label>Respuesta *</Label>
+                <Textarea name="answer" required defaultValue={(editingItem as Faq).answer} rows={3} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => { setEditingSection(null); setEditingItem(null); }}>Cancelar</Button>
+                <Button type="submit">Guardar</Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

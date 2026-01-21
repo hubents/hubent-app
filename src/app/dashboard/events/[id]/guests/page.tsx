@@ -32,8 +32,16 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiTimeLine,
+  RiDownloadLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+
+interface Companion {
+  id: number;
+  fullName: string;
+  menuPreference: string | null;
+  dietaryRestrictions: string | null;
+}
 
 interface Guest {
   id: number;
@@ -41,10 +49,13 @@ interface Guest {
   lastName: string | null;
   email: string | null;
   phone: string | null;
-  status: string;
+  rsvpStatus: string | null;
   menuPreference: string | null;
   groupName: string | null;
   notes: string | null;
+  companions: Companion[];
+  companionCount: number;
+  transport: { transportName: string | null; seats: number | null } | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof RiCheckLine }> = {
@@ -144,7 +155,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (guest.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
       (guest.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    const matchesStatus = statusFilter === "all" || guest.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || guest.rsvpStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -158,9 +169,10 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
 
   const stats = {
     total: guests.length,
-    confirmed: guests.filter((g) => g.status === "confirmed").length,
-    pending: guests.filter((g) => g.status === "pending").length,
-    declined: guests.filter((g) => g.status === "declined").length,
+    confirmed: guests.filter((g) => g.rsvpStatus === "confirmed").length,
+    pending: guests.filter((g) => g.rsvpStatus === "pending" || !g.rsvpStatus).length,
+    declined: guests.filter((g) => g.rsvpStatus === "declined").length,
+    totalCompanions: guests.reduce((sum, g) => sum + (g.companionCount || 0), 0),
   };
 
   if (loading) {
@@ -187,13 +199,22 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             Gestiona los invitados de tu evento
           </p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <RiAddLine className="h-4 w-4" />
-              Añadir Invitado
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => window.open(`/api/events/${eventId}/guests/export`, '_blank')}
+          >
+            <RiDownloadLine className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <RiAddLine className="h-4 w-4" />
+                Añadir Invitado
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Añadir Invitado</DialogTitle>
@@ -274,7 +295,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
@@ -341,23 +363,35 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div className="divide-y">
                   {groupGuests.map((guest) => {
-                    const status = statusConfig[guest.status] || statusConfig.pending;
+                    const status = statusConfig[guest.rsvpStatus || "pending"] || statusConfig.pending;
                     return (
                       <div
                         key={guest.id}
-                        className="flex items-center justify-between p-4 hover:bg-[var(--muted)]/50 transition-colors"
+                        className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-[var(--primary)]/10 flex items-center justify-center">
-                            <span className="font-medium text-[var(--primary)]">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="font-medium text-primary">
                               {guest.firstName.charAt(0)}{guest.lastName?.charAt(0) || ""}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium">
-                              {guest.firstName} {guest.lastName}
-                            </p>
-                            <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)]">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">
+                                {guest.firstName} {guest.lastName}
+                              </p>
+                              {guest.companionCount > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{guest.companionCount} acompañante{guest.companionCount > 1 ? "s" : ""}
+                                </Badge>
+                              )}
+                              {guest.transport && (
+                                <Badge variant="outline" className="text-xs">
+                                  🚌 {guest.transport.transportName}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
                               {guest.email && (
                                 <span className="flex items-center gap-1">
                                   <RiMailLine className="h-3 w-3" />
@@ -371,6 +405,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                                 </span>
                               )}
                             </div>
+                            {guest.companions && guest.companions.length > 0 && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Acompañantes: {guest.companions.map(c => c.fullName).join(", ")}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -378,7 +417,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                             <Badge variant="outline">{guest.menuPreference}</Badge>
                           )}
                           <Select
-                            value={guest.status}
+                            value={guest.rsvpStatus || "pending"}
                             onValueChange={(value) => handleStatusChange(guest.id, value)}
                           >
                             <SelectTrigger className={cn("w-32 h-8", status.color)}>

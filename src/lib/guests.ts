@@ -4,7 +4,10 @@ import {
   guestGroups,
   rsvpResponses,
   rsvpLandingPages,
-  events
+  events,
+  guestCompanions,
+  rsvpTransportBookings,
+  rsvpTransportOptions
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import type { TenantSession, PaginationParams } from "@/types";
@@ -113,6 +116,39 @@ export async function getGuests(
     ? guestList.filter(g => g.rsvpStatus === rsvpStatus)
     : guestList;
 
+  // Get companions for each guest
+  const guestsWithCompanions = await Promise.all(
+    filteredGuests.map(async (guest) => {
+      const companions = await db
+        .select({
+          id: guestCompanions.id,
+          fullName: guestCompanions.fullName,
+          menuPreference: guestCompanions.menuPreference,
+          dietaryRestrictions: guestCompanions.dietaryRestrictions,
+        })
+        .from(guestCompanions)
+        .where(eq(guestCompanions.guestId, guest.id));
+
+      // Get transport booking if any
+      const transportBooking = await db
+        .select({
+          transportName: rsvpTransportOptions.name,
+          seats: rsvpTransportBookings.seats,
+        })
+        .from(rsvpTransportBookings)
+        .leftJoin(rsvpTransportOptions, eq(rsvpTransportBookings.transportOptionId, rsvpTransportOptions.id))
+        .where(eq(rsvpTransportBookings.guestId, guest.id))
+        .limit(1);
+
+      return {
+        ...guest,
+        companions,
+        companionCount: companions.length,
+        transport: transportBooking[0] || null,
+      };
+    })
+  );
+
   // Get stats
   const [stats] = await db
     .select({
@@ -128,7 +164,7 @@ export async function getGuests(
     .where(eq(guests.eventId, eventId));
 
   return {
-    data: filteredGuests,
+    data: guestsWithCompanions,
     stats: {
       total: Number(stats.total),
       confirmed: Number(stats.confirmed),
