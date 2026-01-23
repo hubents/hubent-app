@@ -272,7 +272,10 @@ export async function updateGuest(
     lastName: string;
     email: string;
     phone: string;
-    groupId: number;
+    groupId: number | null;
+    tableId: number | null;
+    menuPreference: string | null;
+    ageGroup: string;
     plusOne: boolean;
     plusOneName: string;
     dietaryRestrictions: string;
@@ -282,6 +285,33 @@ export async function updateGuest(
   const [updated] = await db.update(guests)
     .set({ ...data, updatedAt: new Date() })
     .where(eq(guests.id, guestId))
+    .returning();
+
+  return updated;
+}
+
+export async function updateGuestRsvpStatus(
+  guestId: number,
+  status: "confirmed" | "pending" | "declined" | "maybe"
+) {
+  const existing = await db
+    .select({ id: rsvpResponses.id })
+    .from(rsvpResponses)
+    .where(eq(rsvpResponses.guestId, guestId))
+    .limit(1);
+
+  if (existing.length === 0) {
+    const [created] = await db.insert(rsvpResponses).values({
+      guestId,
+      status,
+      respondedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  const [updated] = await db.update(rsvpResponses)
+    .set({ status, respondedAt: new Date() })
+    .where(eq(rsvpResponses.guestId, guestId))
     .returning();
 
   return updated;

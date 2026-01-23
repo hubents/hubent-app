@@ -39,6 +39,8 @@ import {
   RiRestaurantLine,
   RiUserHeartLine,
   RiParentLine,
+  RiDeleteBinLine,
+  RiPencilLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -264,6 +266,33 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       fetchGuests();
     } catch (error) {
       console.error("Failed to update table:", error);
+    }
+  };
+
+  // Handle name change
+  const handleNameChange = async (guestId: number, firstName: string, lastName: string) => {
+    try {
+      await fetch(`/api/events/${eventId}/guests/${guestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName }),
+      });
+      fetchGuests();
+    } catch (error) {
+      console.error("Failed to update name:", error);
+    }
+  };
+
+  // Handle delete guest
+  const handleDeleteGuest = async (guestId: number) => {
+    if (!confirm("¿Estás seguro de eliminar este invitado?")) return;
+    try {
+      await fetch(`/api/events/${eventId}/guests/${guestId}`, {
+        method: "DELETE",
+      });
+      fetchGuests();
+    } catch (error) {
+      console.error("Failed to delete guest:", error);
     }
   };
 
@@ -559,6 +588,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
                           onTableChange={handleTableChange}
+                          onNameChange={handleNameChange}
+                          onDelete={handleDeleteGuest}
                         />
                       ))}
                     </div>
@@ -588,6 +619,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                     onStatusChange={handleStatusChange}
                     onMenuChange={handleMenuChange}
                     onTableChange={handleTableChange}
+                    onNameChange={handleNameChange}
+                    onDelete={handleDeleteGuest}
                   />
                 ))
               ) : (
@@ -621,6 +654,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
                           onTableChange={handleTableChange}
+                          onNameChange={handleNameChange}
+                          onDelete={handleDeleteGuest}
                         />
                       ))}
                     </div>
@@ -657,6 +692,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
                           onTableChange={handleTableChange}
+                          onNameChange={handleNameChange}
+                          onDelete={handleDeleteGuest}
                         />
                       ))}
                     </div>
@@ -718,18 +755,43 @@ function GuestRow({
   tables,
   onStatusChange, 
   onMenuChange,
-  onTableChange 
+  onTableChange,
+  onNameChange,
+  onDelete,
 }: { 
   guest: Guest; 
   tables: EventTable[];
   onStatusChange: (guestId: number, status: string) => void;
   onMenuChange: (guestId: number, menu: string) => void;
   onTableChange: (guestId: number, tableId: string) => void;
+  onNameChange: (guestId: number, firstName: string, lastName: string) => void;
+  onDelete: (guestId: number) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFirstName, setEditFirstName] = useState(guest.firstName);
+  const [editLastName, setEditLastName] = useState(guest.lastName || "");
+  
   const status = statusConfig[guest.rsvpStatus || "pending"] || statusConfig.pending;
+
+  const handleSaveName = () => {
+    if (editFirstName.trim()) {
+      onNameChange(guest.id, editFirstName.trim(), editLastName.trim());
+      setIsEditing(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveName();
+    } else if (e.key === "Escape") {
+      setEditFirstName(guest.firstName);
+      setEditLastName(guest.lastName || "");
+      setIsEditing(false);
+    }
+  };
   
   return (
-    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group">
       <div className="flex items-center gap-4">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
           <span className="font-medium text-primary">
@@ -738,9 +800,35 @@ function GuestRow({
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-medium">
-              {guest.firstName} {guest.lastName}
-            </p>
+            {isEditing ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={editFirstName}
+                  onChange={(e) => setEditFirstName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleSaveName}
+                  className="h-7 w-24 text-sm"
+                  placeholder="Nombre"
+                  autoFocus
+                />
+                <Input
+                  value={editLastName}
+                  onChange={(e) => setEditLastName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleSaveName}
+                  className="h-7 w-24 text-sm"
+                  placeholder="Apellido"
+                />
+              </div>
+            ) : (
+              <p 
+                className="font-medium cursor-pointer hover:text-primary flex items-center gap-1"
+                onClick={() => setIsEditing(true)}
+              >
+                {guest.firstName} {guest.lastName}
+                <RiPencilLine className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+              </p>
+            )}
             {guest.ageGroup === "child" && (
               <Badge variant="secondary" className="text-xs">
                 <RiParentLine className="h-3 w-3 mr-1" />
@@ -825,6 +913,16 @@ function GuestRow({
             <SelectItem value="declined">Cancelada</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Delete Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => onDelete(guest.id)}
+        >
+          <RiDeleteBinLine className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
