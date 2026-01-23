@@ -17,9 +17,11 @@ import {
   RiShieldLine,
   RiCheckLine,
   RiErrorWarningLine,
+  RiFileList3Line,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface ProfileData {
   user: {
@@ -83,6 +85,13 @@ const settingsSections = [
     icon: RiTeamLine,
   },
   {
+    id: "templates",
+    title: "Templates",
+    description: "Plantillas de eventos",
+    icon: RiFileList3Line,
+    href: "/dashboard/settings/templates",
+  },
+  {
     id: "privacy",
     title: "Privacidad",
     description: "Datos y configuración de privacidad",
@@ -91,6 +100,7 @@ const settingsSections = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,7 +228,13 @@ export default function SettingsPage() {
               {settingsSections.map((section) => (
                 <button
                   key={section.id}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => {
+                    if ('href' in section && section.href) {
+                      router.push(section.href as string);
+                    } else {
+                      setActiveSection(section.id);
+                    }
+                  }}
                   className={`flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-left text-sm transition-colors ${
                     activeSection === section.id
                       ? "bg-[var(--primary)] text-white"
