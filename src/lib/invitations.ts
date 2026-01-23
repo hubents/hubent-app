@@ -445,15 +445,15 @@ export async function updateTaskParticipant(
 }
 
 /**
- * Get all participants of a task (users and vendors)
+ * Get all participants of a task (users, vendors, and contacts)
  */
 export async function getTaskParticipants(taskId: number) {
-  // Get user participants
-  const userParticipants = await db
+  const allParticipants = await db
     .select({
       id: taskParticipants.id,
       userId: taskParticipants.userId,
       vendorId: taskParticipants.vendorId,
+      contactId: taskParticipants.contactId,
       type: taskParticipants.type,
       canEdit: taskParticipants.canEdit,
       canComment: taskParticipants.canComment,
@@ -462,15 +462,18 @@ export async function getTaskParticipants(taskId: number) {
       userEmail: users.email,
       userImage: users.image,
       vendorName: vendors.name,
+      contactName: contacts.name,
     })
     .from(taskParticipants)
     .leftJoin(users, eq(taskParticipants.userId, users.id))
     .leftJoin(vendors, eq(taskParticipants.vendorId, vendors.id))
+    .leftJoin(contacts, eq(taskParticipants.contactId, contacts.id))
     .where(eq(taskParticipants.taskId, taskId));
 
-  return userParticipants.map(p => ({
+  return allParticipants.map(p => ({
     ...p,
-    name: p.userName || p.vendorName,
+    name: p.userName || p.vendorName || p.contactName,
     isVendor: !!p.vendorId,
+    isContact: !!p.contactId,
   }));
 }

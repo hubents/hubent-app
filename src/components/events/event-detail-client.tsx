@@ -23,6 +23,7 @@ import {
   RiMoreLine,
   RiFileCopyLine,
   RiFileList3Line,
+  RiContactsLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -116,6 +117,19 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [newDoc, setNewDoc] = useState({ name: "", url: "" });
   const [addingGuest, setAddingGuest] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
+  const [linkedContacts, setLinkedContacts] = useState<Array<{
+    id: number;
+    contactId: number;
+    role: string | null;
+    contactName: string;
+    contactEmail: string | null;
+    contactType: string;
+  }>>([]);
+  const [allContacts, setAllContacts] = useState<Array<{ id: number; name: string; type: string; email: string | null }>>([]);
+  const [showAddContactDialog, setShowAddContactDialog] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [contactRole, setContactRole] = useState("");
+  const [addingContact, setAddingContact] = useState(false);
 
   // Set active event when loaded
   useEffect(() => {
@@ -196,10 +210,34 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
+  const fetchLinkedContacts = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/contacts`);
+      const data = await res.json();
+      if (data.success) {
+        setLinkedContacts(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch linked contacts:", error);
+    }
+  };
+
+  const fetchAllContacts = async () => {
+    try {
+      const res = await fetch("/api/contacts?limit=100");
+      const data = await res.json();
+      if (data.success) {
+        setAllContacts(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch all contacts:", error);
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchLinkedContacts(), fetchAllContacts()]);
       setLoading(false);
     }
     loadData();
@@ -262,6 +300,46 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const availableVendors = allVendors.filter(
     (v) => !vendors.some((ev) => ev.vendorId === v.id)
   );
+
+  // Filter out contacts already linked to this event
+  const availableContacts = allContacts.filter(
+    (c) => !linkedContacts.some((lc) => lc.contactId === c.id)
+  );
+
+  const handleAddContactToEvent = async () => {
+    if (!selectedContactId) return;
+    setAddingContact(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId: selectedContactId,
+          role: contactRole || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedContactId(null);
+        setContactRole("");
+        setShowAddContactDialog(false);
+        fetchLinkedContacts();
+      }
+    } finally {
+      setAddingContact(false);
+    }
+  };
+
+  const handleRemoveContact = async (contactId: number) => {
+    try {
+      await fetch(`/api/events/${eventId}/contacts?contactId=${contactId}`, {
+        method: "DELETE",
+      });
+      fetchLinkedContacts();
+    } catch (error) {
+      console.error("Failed to remove contact:", error);
+    }
+  };
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
@@ -649,6 +727,132 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No hay proveedores asignados
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Linked Contacts */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiContactsLine className="h-5 w-5" />
+              Contactos ({linkedContacts.length})
+            </CardTitle>
+            <div className="flex gap-2">
+              <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <RiAddLine className="h-4 w-4" />
+                    Vincular
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Vincular Contacto al Evento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Seleccionar Contacto</Label>
+                      {availableContacts.length > 0 ? (
+                        <Select
+                          value={selectedContactId?.toString() || ""}
+                          onValueChange={(value) => setSelectedContactId(parseInt(value, 10))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegir contacto..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableContacts.map((c) => (
+                              <SelectItem key={c.id} value={c.id.toString()}>
+                                {c.name} {c.email && `(${c.email})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No hay contactos disponibles.{" "}
+                          <Link href="/dashboard/contacts" className="text-primary underline">
+                            Crear nuevo contacto
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Rol (opcional)</Label>
+                      <Select
+                        value={contactRole}
+                        onValueChange={setContactRole}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rol..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="client">Cliente</SelectItem>
+                          <SelectItem value="organizer">Organizador</SelectItem>
+                          <SelectItem value="sponsor">Patrocinador</SelectItem>
+                          <SelectItem value="speaker">Ponente</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowAddContactDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleAddContactToEvent} disabled={addingContact || !selectedContactId}>
+                        {addingContact ? "Vinculando..." : "Vincular Contacto"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Link href="/dashboard/contacts">
+                <Button variant="ghost" size="sm">
+                  + Nuevo
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {linkedContacts.length > 0 ? (
+              <div className="space-y-2">
+                {linkedContacts.map((contact) => (
+                  <div key={contact.id} className="flex items-center justify-between p-2 rounded border group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-medium text-green-700">
+                        {contact.contactName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-medium">{contact.contactName}</span>
+                        {contact.role && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {contact.role === "client" ? "Cliente" : 
+                             contact.role === "organizer" ? "Organizador" :
+                             contact.role === "sponsor" ? "Patrocinador" :
+                             contact.role === "speaker" ? "Ponente" : contact.role}
+                          </Badge>
+                        )}
+                        {contact.contactEmail && (
+                          <p className="text-xs text-muted-foreground">{contact.contactEmail}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                      onClick={() => handleRemoveContact(contact.contactId)}
+                    >
+                      <RiDeleteBinLine className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay contactos vinculados
               </div>
             )}
           </CardContent>
