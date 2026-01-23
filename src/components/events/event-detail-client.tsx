@@ -546,6 +546,132 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
       {/* Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Linked Contacts */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiContactsLine className="h-5 w-5" />
+              Contactos ({linkedContacts.length})
+            </CardTitle>
+            <div className="flex gap-2">
+              <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <RiAddLine className="h-4 w-4" />
+                    Vincular
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Vincular Contacto al Evento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Seleccionar Contacto</Label>
+                      {availableContacts.length > 0 ? (
+                        <Select
+                          value={selectedContactId?.toString() || ""}
+                          onValueChange={(value) => setSelectedContactId(parseInt(value, 10))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Elegir contacto..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableContacts.map((c) => (
+                              <SelectItem key={c.id} value={c.id.toString()}>
+                                {c.name} {c.email && `(${c.email})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No hay contactos disponibles.{" "}
+                          <Link href="/dashboard/contacts" className="text-primary underline">
+                            Crear nuevo contacto
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Rol (opcional)</Label>
+                      <Select
+                        value={contactRole}
+                        onValueChange={setContactRole}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rol..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="client">Cliente</SelectItem>
+                          <SelectItem value="organizer">Organizador</SelectItem>
+                          <SelectItem value="sponsor">Patrocinador</SelectItem>
+                          <SelectItem value="speaker">Ponente</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowAddContactDialog(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleAddContactToEvent} disabled={addingContact || !selectedContactId}>
+                        {addingContact ? "Vinculando..." : "Vincular Contacto"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Link href="/dashboard/contacts">
+                <Button variant="ghost" size="sm">
+                  + Nuevo
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {linkedContacts.length > 0 ? (
+              <div className="space-y-2">
+                {linkedContacts.map((contact) => (
+                  <div key={contact.id} className="flex items-center justify-between p-2 rounded border group">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-medium text-green-700">
+                        {contact.contactName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-medium">{contact.contactName}</span>
+                        {contact.role && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {contact.role === "client" ? "Cliente" : 
+                             contact.role === "organizer" ? "Organizador" :
+                             contact.role === "sponsor" ? "Patrocinador" :
+                             contact.role === "speaker" ? "Ponente" : contact.role}
+                          </Badge>
+                        )}
+                        {contact.contactEmail && (
+                          <p className="text-xs text-muted-foreground">{contact.contactEmail}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                      onClick={() => handleRemoveContact(contact.contactId)}
+                    >
+                      <RiDeleteBinLine className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay contactos vinculados
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tasks */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -732,218 +858,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           </CardContent>
         </Card>
 
-        {/* Linked Contacts */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiContactsLine className="h-5 w-5" />
-              Contactos ({linkedContacts.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <RiAddLine className="h-4 w-4" />
-                    Vincular
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Vincular Contacto al Evento</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Seleccionar Contacto</Label>
-                      {availableContacts.length > 0 ? (
-                        <Select
-                          value={selectedContactId?.toString() || ""}
-                          onValueChange={(value) => setSelectedContactId(parseInt(value, 10))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Elegir contacto..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableContacts.map((c) => (
-                              <SelectItem key={c.id} value={c.id.toString()}>
-                                {c.name} {c.email && `(${c.email})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No hay contactos disponibles.{" "}
-                          <Link href="/dashboard/contacts" className="text-primary underline">
-                            Crear nuevo contacto
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Rol (opcional)</Label>
-                      <Select
-                        value={contactRole}
-                        onValueChange={setContactRole}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar rol..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="client">Cliente</SelectItem>
-                          <SelectItem value="organizer">Organizador</SelectItem>
-                          <SelectItem value="sponsor">Patrocinador</SelectItem>
-                          <SelectItem value="speaker">Ponente</SelectItem>
-                          <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowAddContactDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddContactToEvent} disabled={addingContact || !selectedContactId}>
-                        {addingContact ? "Vinculando..." : "Vincular Contacto"}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <Link href="/dashboard/contacts">
-                <Button variant="ghost" size="sm">
-                  + Nuevo
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {linkedContacts.length > 0 ? (
-              <div className="space-y-2">
-                {linkedContacts.map((contact) => (
-                  <div key={contact.id} className="flex items-center justify-between p-2 rounded border group">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-medium text-green-700">
-                        {contact.contactName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <span className="font-medium">{contact.contactName}</span>
-                        {contact.role && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {contact.role === "client" ? "Cliente" : 
-                             contact.role === "organizer" ? "Organizador" :
-                             contact.role === "sponsor" ? "Patrocinador" :
-                             contact.role === "speaker" ? "Ponente" : contact.role}
-                          </Badge>
-                        )}
-                        {contact.contactEmail && (
-                          <p className="text-xs text-muted-foreground">{contact.contactEmail}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
-                      onClick={() => handleRemoveContact(contact.contactId)}
-                    >
-                      <RiDeleteBinLine className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay contactos vinculados
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Documents */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiFileTextLine className="h-5 w-5" />
-              Documentos ({documents.length})
-            </CardTitle>
-            <Dialog open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <RiUploadLine className="h-4 w-4" />
-                  Subir
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Subir Documento</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <FileUploader
-                    folder="event-documents"
-                    onUpload={async (result) => {
-                      await handleAddDocument({ name: result.name, url: result.url });
-                      setShowAddDocDialog(false);
-                    }}
-                  />
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nombre del documento</Label>
-                    <Input
-                      placeholder="Ej: Contrato de servicios"
-                      value={newDoc.name}
-                      onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>URL del documento</Label>
-                    <Input
-                      placeholder="https://..."
-                      value={newDoc.url}
-                      onChange={(e) => setNewDoc({ ...newDoc, url: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowAddDocDialog(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={() => handleAddDocument()} disabled={addingDoc || !newDoc.name || !newDoc.url}>
-                      {addingDoc ? "Guardando..." : "Guardar enlace"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            {documents.length > 0 ? (
-              <div className="space-y-2">
-                {documents.map((doc) => (
-                  <a
-                    key={doc.id}
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors"
-                  >
-                    <RiFileTextLine className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{doc.name}</span>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay documentos
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Guests / Invitados */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -1032,6 +946,92 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No hay invitados registrados
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Documents */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiFileTextLine className="h-5 w-5" />
+              Documentos ({documents.length})
+            </CardTitle>
+            <Dialog open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <RiUploadLine className="h-4 w-4" />
+                  Subir
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Subir Documento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <FileUploader
+                    folder="event-documents"
+                    onUpload={async (result) => {
+                      await handleAddDocument({ name: result.name, url: result.url });
+                      setShowAddDocDialog(false);
+                    }}
+                  />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nombre del documento</Label>
+                    <Input
+                      placeholder="Ej: Contrato de servicios"
+                      value={newDoc.name}
+                      onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>URL del documento</Label>
+                    <Input
+                      placeholder="https://..."
+                      value={newDoc.url}
+                      onChange={(e) => setNewDoc({ ...newDoc, url: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowAddDocDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={() => handleAddDocument()} disabled={addingDoc || !newDoc.name || !newDoc.url}>
+                      {addingDoc ? "Guardando..." : "Guardar enlace"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {documents.length > 0 ? (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <a
+                    key={doc.id}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors"
+                  >
+                    <RiFileTextLine className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{doc.name}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay documentos
               </div>
             )}
           </CardContent>
