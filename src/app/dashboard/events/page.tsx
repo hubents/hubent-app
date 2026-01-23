@@ -15,9 +15,18 @@ import {
   RiGridLine,
   RiListUnordered,
   RiSearchLine,
+  RiMoreLine,
+  RiFileCopyLine,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
 import { CreateEventDialog } from "@/components/events/create-event-dialog";
+import { DuplicateEventDialog } from "@/components/events/duplicate-event-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Event {
   id: number;
@@ -67,6 +76,7 @@ export default function EventsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
+  const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -171,12 +181,30 @@ export default function EventsPage() {
               const typeColor = typeColors[event.type] || typeColors.other;
 
               return (
-                <Link key={event.id} href={`/dashboard/events/${event.id}`}>
-                  <Card className="h-full transition-all hover:shadow-md hover:border-[var(--primary)]">
+                <Card key={event.id} className="h-full transition-all hover:shadow-md hover:border-[var(--primary)] relative">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8 z-10"
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        <RiMoreLine className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
+                        <RiFileCopyLine className="h-4 w-4 mr-2" />
+                        Duplicar evento
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Link href={`/dashboard/events/${event.id}`}>
                     <CardContent className="p-6">
                       <div className="space-y-4">
                         {/* Header */}
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between pr-8">
                           <div className="space-y-1">
                             <h3 className="font-semibold">{event.name}</h3>
                             <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${typeColor}`}>
@@ -227,8 +255,8 @@ export default function EventsPage() {
                         )}
                       </div>
                     </CardContent>
-                  </Card>
-                </Link>
+                  </Link>
+                </Card>
               );
             })}
           </div>
@@ -245,6 +273,7 @@ export default function EventsPage() {
                     <th className="text-left p-4 font-medium">Invitados</th>
                     <th className="text-left p-4 font-medium">Tipo</th>
                     <th className="text-left p-4 font-medium">Estado</th>
+                    <th className="text-left p-4 font-medium w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -273,6 +302,21 @@ export default function EventsPage() {
                         </td>
                         <td className="p-4">
                           <Badge variant={status.variant}>{status.label}</Badge>
+                        </td>
+                        <td className="p-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <RiMoreLine className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
+                                <RiFileCopyLine className="h-4 w-4 mr-2" />
+                                Duplicar evento
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     );
@@ -312,6 +356,16 @@ export default function EventsPage() {
         onOpenChange={setIsCreateDialogOpen}
         onEventCreated={loadEvents}
       />
+
+      {duplicateEvent && (
+        <DuplicateEventDialog
+          open={!!duplicateEvent}
+          onOpenChange={(open) => !open && setDuplicateEvent(null)}
+          eventId={duplicateEvent.id}
+          eventName={duplicateEvent.name}
+          onDuplicated={loadEvents}
+        />
+      )}
     </div>
   );
 }

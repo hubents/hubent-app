@@ -148,7 +148,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Nuevo Evento</DialogTitle>
           <DialogDescription>
