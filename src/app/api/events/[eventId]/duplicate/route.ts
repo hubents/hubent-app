@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { duplicateEvent } from "@/lib/events";
 
-// POST /api/events/[id]/duplicate - Duplicate an event
+// POST /api/events/[eventId]/duplicate - Duplicate an event
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     const session = await requireRole("planner");
-    const { id } = await params;
+    const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 
     if (isNaN(eventId)) {

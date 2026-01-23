@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { saveEventAsTemplate } from "@/lib/events";
 
-// POST /api/events/[id]/save-as-template - Save event as template
+// POST /api/events/[eventId]/save-as-template - Save event as template
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
     const session = await requireRole("admin");
-    const { id } = await params;
+    const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 
     if (isNaN(eventId)) {
