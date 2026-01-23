@@ -17,10 +17,12 @@ import {
   RiSearchLine,
   RiMoreLine,
   RiFileCopyLine,
+  RiFileList3Line,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
 import { CreateEventDialog } from "@/components/events/create-event-dialog";
 import { DuplicateEventDialog } from "@/components/events/duplicate-event-dialog";
+import { SaveAsTemplateDialog } from "@/components/events/save-as-template-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +79,7 @@ export default function EventsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
+  const [saveAsTemplateEvent, setSaveAsTemplateEvent] = useState<Event | null>(null);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -198,6 +201,10 @@ export default function EventsPage() {
                         <RiFileCopyLine className="h-4 w-4 mr-2" />
                         Duplicar evento
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
+                        <RiFileList3Line className="h-4 w-4 mr-2" />
+                        Guardar como template
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Link href={`/dashboard/events/${event.id}`}>
@@ -315,6 +322,10 @@ export default function EventsPage() {
                                 <RiFileCopyLine className="h-4 w-4 mr-2" />
                                 Duplicar evento
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
+                                <RiFileList3Line className="h-4 w-4 mr-2" />
+                                Guardar como template
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -364,6 +375,15 @@ export default function EventsPage() {
           eventId={duplicateEvent.id}
           eventName={duplicateEvent.name}
           onDuplicated={loadEvents}
+        />
+      )}
+
+      {saveAsTemplateEvent && (
+        <SaveAsTemplateDialog
+          open={!!saveAsTemplateEvent}
+          onOpenChange={(open) => !open && setSaveAsTemplateEvent(null)}
+          eventId={saveAsTemplateEvent.id}
+          eventName={saveAsTemplateEvent.name}
         />
       )}
     </div>
