@@ -19,7 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ContactSelector } from "@/components/contacts/contact-selector";
+import { TemplateSelector } from "@/components/events/template-selector";
+import { Sparkles } from "lucide-react";
 
 interface Contact {
   id: number;
@@ -50,6 +58,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     eventType: "",
@@ -73,6 +82,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
       description: "",
     });
     setSelectedContact(null);
+    setSelectedTemplateId(null);
     setError(null);
   };
 
@@ -98,6 +108,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
           guestCount: formData.guestCount ? parseInt(formData.guestCount) : undefined,
           budget: formData.budget ? parseFloat(formData.budget) : undefined,
           description: formData.description || undefined,
+          templateId: selectedTemplateId || undefined,
         }),
       });
 
@@ -151,7 +162,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
           </div>
         )}
         
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nombre del Evento *</label>
@@ -180,6 +191,32 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
               </Select>
             </div>
           </div>
+
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="template" className="border rounded-lg">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Usar Template</span>
+                  {selectedTemplateId && (
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                      Template seleccionado
+                    </span>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Selecciona un template para pre-cargar tareas y checklists
+                </p>
+                <TemplateSelector
+                  selectedTemplateId={selectedTemplateId}
+                  onSelect={setSelectedTemplateId}
+                  eventType={formData.eventType || undefined}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

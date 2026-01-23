@@ -1020,12 +1020,20 @@ export const taskTemplates = pgTable("task_templates", {
   eventTemplateId: integer("event_template_id").notNull().references(() => eventTemplates.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
+  htmlContent: text("html_content"),
   category: text("category"),
   daysBeforeEvent: integer("days_before_event"),
   daysAfterEvent: integer("days_after_event"),
   assignToRole: text("assign_to_role"),
   priority: text("priority").default("medium"),
   estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const taskTemplateChecklists = pgTable("task_template_checklists", {
+  id: serial("id").primaryKey(),
+  taskTemplateId: integer("task_template_id").notNull().references(() => taskTemplates.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
   sortOrder: integer("sort_order").default(0),
 });
 
@@ -1615,7 +1623,11 @@ export type NewTaskChecklistAssignee = typeof taskChecklistAssignees.$inferInser
 
 // Event Template Types
 export type EventTemplate = typeof eventTemplates.$inferSelect;
+export type NewEventTemplate = typeof eventTemplates.$inferInsert;
 export type TaskTemplate = typeof taskTemplates.$inferSelect;
+export type NewTaskTemplate = typeof taskTemplates.$inferInsert;
+export type TaskTemplateChecklist = typeof taskTemplateChecklists.$inferSelect;
+export type NewTaskTemplateChecklist = typeof taskTemplateChecklists.$inferInsert;
 export type EventParticipant = typeof eventParticipants.$inferSelect;
 export type BriefingForm = typeof briefingForms.$inferSelect;
 export type BriefingResponse = typeof briefingResponses.$inferSelect;

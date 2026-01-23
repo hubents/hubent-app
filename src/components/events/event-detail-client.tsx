@@ -20,11 +20,24 @@ import {
   RiUserAddLine,
   RiUploadLine,
   RiDeleteBinLine,
+  RiMoreLine,
+  RiFileCopyLine,
+  RiFileList3Line,
 } from "@remixicon/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { EditEventDialog } from "@/components/events/edit-event-dialog";
+import { DuplicateEventDialog } from "@/components/events/duplicate-event-dialog";
+import { SaveAsTemplateDialog } from "@/components/events/save-as-template-dialog";
 import { useEvent } from "@/contexts/event-context";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -78,11 +91,14 @@ interface EventDetailClientProps {
 }
 
 export function EventDetailClient({ eventId }: EventDetailClientProps) {
+  const router = useRouter();
   const { setActiveEvent } = useEvent();
   const [event, setEvent] = useState<Event | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
+  const [isDuplicateOpen, setIsDuplicateOpen] = useState(false);
+  const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
@@ -341,10 +357,36 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             <p className="text-lg text-muted-foreground">{event.description}</p>
           )}
         </div>
-        <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
-          <RiEditLine className="h-4 w-4" />
-          Editar Evento
-        </Button>
+        <div className="flex gap-2">
+          <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
+            <RiEditLine className="h-4 w-4" />
+            Editar Evento
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <RiMoreLine className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsDuplicateOpen(true)}>
+                <RiFileCopyLine className="h-4 w-4 mr-2" />
+                Duplicar Evento
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsSaveTemplateOpen(true)}>
+                <RiFileList3Line className="h-4 w-4 mr-2" />
+                Guardar como Template
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/events/${eventId}/tasks`}>
+                  <RiFileListLine className="h-4 w-4 mr-2" />
+                  Ver todas las tareas
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -828,6 +870,23 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onOpenChange={setIsEditEventOpen}
         event={event}
         onEventUpdated={fetchEvent}
+      />
+
+      {/* Duplicate Event Dialog */}
+      <DuplicateEventDialog
+        open={isDuplicateOpen}
+        onOpenChange={setIsDuplicateOpen}
+        eventId={eventId}
+        eventName={event.name}
+        onDuplicated={(newEventId) => router.push(`/dashboard/events/${newEventId}`)}
+      />
+
+      {/* Save as Template Dialog */}
+      <SaveAsTemplateDialog
+        open={isSaveTemplateOpen}
+        onOpenChange={setIsSaveTemplateOpen}
+        eventId={eventId}
+        eventName={event.name}
       />
     </div>
   );

@@ -3,12 +3,15 @@ import {
   events, 
   eventTemplates,
   taskTemplates,
+  taskTemplateChecklists,
   eventParticipants,
   tasks,
+  taskChecklistItems,
+  taskHtmlContent,
   clients,
   users
 } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, asc } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 // ============================================
@@ -240,14 +243,27 @@ export async function getEventTemplate(session: TenantSession, templateId: numbe
   if (!template) return null;
 
   // Get task templates
-  const taskTpls = await db.query.taskTemplates.findMany({
-    where: (t, { eq }) => eq(t.eventTemplateId, templateId),
-    orderBy: (t, { asc }) => [asc(t.sortOrder)],
-  });
+  const taskTpls = await db
+    .select()
+    .from(taskTemplates)
+    .where(eq(taskTemplates.eventTemplateId, templateId))
+    .orderBy(asc(taskTemplates.sortOrder));
+
+  // Get checklists for each task template
+  const tasksWithChecklists = await Promise.all(
+    taskTpls.map(async (task) => {
+      const checklists = await db
+        .select()
+        .from(taskTemplateChecklists)
+        .where(eq(taskTemplateChecklists.taskTemplateId, task.id))
+        .orderBy(asc(taskTemplateChecklists.sortOrder));
+      return { ...task, checklists };
+    })
+  );
 
   return {
     ...template,
-    tasks: taskTpls,
+    tasks: tasksWithChecklists,
   };
 }
 
@@ -255,19 +271,21 @@ export async function createEventTemplate(
   session: TenantSession,
   data: {
     name: string;
-    eventType?: "wedding" | "birthday" | "corporate" | "social" | "other";
+    eventType?: "wedding" | "pre_wedding" | "post_wedding" | "birthday" | "corporate" | "social" | "other";
     description?: string;
     defaultBudget?: number;
     isGlobal?: boolean;
     tasks?: Array<{
       title: string;
       description?: string;
+      htmlContent?: string;
       category?: string;
       daysBeforeEvent?: number;
       daysAfterEvent?: number;
       assignToRole?: string;
       priority?: string;
       estimatedHours?: number;
+      checklists?: string[];
     }>;
   }
 ) {
@@ -280,14 +298,15 @@ export async function createEventTemplate(
     isGlobal: data.isGlobal || false,
   }).returning();
 
-  // Create task templates
+  // Create task templates with checklists
   if (data.tasks && data.tasks.length > 0) {
     for (let i = 0; i < data.tasks.length; i++) {
       const task = data.tasks[i];
-      await db.insert(taskTemplates).values({
+      const [taskTpl] = await db.insert(taskTemplates).values({
         eventTemplateId: template.id,
         title: task.title,
         description: task.description,
+        htmlContent: task.htmlContent,
         category: task.category,
         daysBeforeEvent: task.daysBeforeEvent,
         daysAfterEvent: task.daysAfterEvent,
@@ -295,11 +314,161 @@ export async function createEventTemplate(
         priority: task.priority || "medium",
         estimatedHours: task.estimatedHours?.toString(),
         sortOrder: i,
-      });
+      }).returning();
+
+      // Create checklist items for this task template
+      if (task.checklists && task.checklists.length > 0) {
+        for (let j = 0; j < task.checklists.length; j++) {
+          await db.insert(taskTemplateChecklists).values({
+            taskTemplateId: taskTpl.id,
+            title: task.checklists[j],
+            sortOrder: j,
+          });
+        }
+      }
     }
   }
 
   return getEventTemplate(session, template.id);
+}
+
+export async function updateEventTemplate(
+  session: TenantSession,
+  templateId: number,
+  data: {
+    name?: string;
+    eventType?: string;
+    description?: string;
+    defaultBudget?: number;
+    isActive?: boolean;
+  }
+) {
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.eventType !== undefined) updateData.eventType = data.eventType;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.defaultBudget !== undefined) updateData.defaultBudget = data.defaultBudget?.toString();
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+  const [updated] = await db.update(eventTemplates)
+    .set(updateData)
+    .where(eq(eventTemplates.id, templateId))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteEventTemplate(templateId: number) {
+  await db.delete(eventTemplates).where(eq(eventTemplates.id, templateId));
+}
+
+export async function addTaskToTemplate(
+  templateId: number,
+  data: {
+    title: string;
+    description?: string;
+    htmlContent?: string;
+    category?: string;
+    daysBeforeEvent?: number;
+    daysAfterEvent?: number;
+    priority?: string;
+    checklists?: string[];
+  }
+) {
+  // Get max sort order
+  const existingTasks = await db
+    .select({ sortOrder: taskTemplates.sortOrder })
+    .from(taskTemplates)
+    .where(eq(taskTemplates.eventTemplateId, templateId))
+    .orderBy(desc(taskTemplates.sortOrder))
+    .limit(1);
+
+  const newSortOrder = (existingTasks[0]?.sortOrder || 0) + 1;
+
+  const [taskTpl] = await db.insert(taskTemplates).values({
+    eventTemplateId: templateId,
+    title: data.title,
+    description: data.description,
+    htmlContent: data.htmlContent,
+    category: data.category,
+    daysBeforeEvent: data.daysBeforeEvent,
+    daysAfterEvent: data.daysAfterEvent,
+    priority: data.priority || "medium",
+    sortOrder: newSortOrder,
+  }).returning();
+
+  // Create checklist items
+  if (data.checklists && data.checklists.length > 0) {
+    for (let j = 0; j < data.checklists.length; j++) {
+      await db.insert(taskTemplateChecklists).values({
+        taskTemplateId: taskTpl.id,
+        title: data.checklists[j],
+        sortOrder: j,
+      });
+    }
+  }
+
+  return taskTpl;
+}
+
+export async function updateTaskTemplate(
+  taskTemplateId: number,
+  data: {
+    title?: string;
+    description?: string;
+    htmlContent?: string;
+    category?: string;
+    daysBeforeEvent?: number;
+    daysAfterEvent?: number;
+    priority?: string;
+    sortOrder?: number;
+  }
+) {
+  const updateData: Record<string, unknown> = {};
+  
+  if (data.title !== undefined) updateData.title = data.title;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.htmlContent !== undefined) updateData.htmlContent = data.htmlContent;
+  if (data.category !== undefined) updateData.category = data.category;
+  if (data.daysBeforeEvent !== undefined) updateData.daysBeforeEvent = data.daysBeforeEvent;
+  if (data.daysAfterEvent !== undefined) updateData.daysAfterEvent = data.daysAfterEvent;
+  if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+
+  const [updated] = await db.update(taskTemplates)
+    .set(updateData)
+    .where(eq(taskTemplates.id, taskTemplateId))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteTaskTemplate(taskTemplateId: number) {
+  await db.delete(taskTemplates).where(eq(taskTemplates.id, taskTemplateId));
+}
+
+export async function addChecklistToTaskTemplate(taskTemplateId: number, title: string) {
+  const existing = await db
+    .select({ sortOrder: taskTemplateChecklists.sortOrder })
+    .from(taskTemplateChecklists)
+    .where(eq(taskTemplateChecklists.taskTemplateId, taskTemplateId))
+    .orderBy(desc(taskTemplateChecklists.sortOrder))
+    .limit(1);
+
+  const newSortOrder = (existing[0]?.sortOrder || 0) + 1;
+
+  const [item] = await db.insert(taskTemplateChecklists).values({
+    taskTemplateId,
+    title,
+    sortOrder: newSortOrder,
+  }).returning();
+
+  return item;
+}
+
+export async function deleteChecklistFromTaskTemplate(checklistId: number) {
+  await db.delete(taskTemplateChecklists).where(eq(taskTemplateChecklists.id, checklistId));
 }
 
 // ============================================
@@ -329,17 +498,237 @@ async function createTasksFromTemplate(
       dueDate.setDate(dueDate.getDate() + taskTpl.daysAfterEvent);
     }
 
-    await db.insert(tasks).values({
+    const [newTask] = await db.insert(tasks).values({
       organizationId: session.organizationId,
       title: taskTpl.title,
       description: taskTpl.description,
+      category: taskTpl.category,
       status: "pending",
       priority: taskTpl.priority || "medium",
       dueDate,
       eventId,
       createdBy: session.user.userId,
-    });
+    }).returning();
+
+    // Create HTML content if exists
+    if (taskTpl.htmlContent) {
+      await db.insert(taskHtmlContent).values({
+        taskId: newTask.id,
+        content: taskTpl.htmlContent,
+        updatedBy: session.user.userId,
+      });
+    }
+
+    // Create checklist items from template
+    if (taskTpl.checklists && taskTpl.checklists.length > 0) {
+      for (let i = 0; i < taskTpl.checklists.length; i++) {
+        await db.insert(taskChecklistItems).values({
+          taskId: newTask.id,
+          title: taskTpl.checklists[i].title,
+          sortOrder: i,
+          createdBy: session.user.userId,
+        });
+      }
+    }
   }
+}
+
+// ============================================
+// DUPLICATE EVENT
+// ============================================
+
+export async function duplicateEvent(
+  session: TenantSession,
+  eventId: number,
+  options: {
+    newName?: string;
+    newDate?: Date;
+    includeTasks?: boolean;
+    includeChecklists?: boolean;
+  } = {}
+) {
+  const { 
+    newName, 
+    newDate, 
+    includeTasks = true, 
+    includeChecklists = true 
+  } = options;
+
+  // Get original event
+  const originalEvent = await getEvent(session, eventId);
+  if (!originalEvent) {
+    throw new Error("Event not found");
+  }
+
+  // Create new event
+  const [newEvent] = await db.insert(events).values({
+    organizationId: session.organizationId,
+    name: newName || `${originalEvent.name} (copia)`,
+    type: originalEvent.type,
+    status: "draft",
+    date: newDate || null,
+    endDate: null,
+    location: originalEvent.location,
+    guestCount: originalEvent.guestCount,
+    budget: originalEvent.budget,
+    description: originalEvent.description,
+    clientId: originalEvent.clientId,
+    createdBy: session.user.userId,
+  }).returning();
+
+  // Duplicate tasks if requested
+  if (includeTasks) {
+    const originalTasks = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.eventId, eventId))
+      .orderBy(asc(tasks.id));
+
+    for (const task of originalTasks) {
+      // Calculate new due date if both original event date and task due date exist
+      let newDueDate: Date | null = null;
+      if (newDate && originalEvent.date && task.dueDate) {
+        const daysDiff = Math.floor(
+          (task.dueDate.getTime() - originalEvent.date.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        newDueDate = new Date(newDate);
+        newDueDate.setDate(newDueDate.getDate() + daysDiff);
+      }
+
+      const [newTask] = await db.insert(tasks).values({
+        organizationId: session.organizationId,
+        title: task.title,
+        description: task.description,
+        category: task.category,
+        status: "pending",
+        priority: task.priority,
+        dueDate: newDueDate,
+        eventId: newEvent.id,
+        createdBy: session.user.userId,
+      }).returning();
+
+      // Duplicate HTML content
+      const [htmlContent] = await db
+        .select()
+        .from(taskHtmlContent)
+        .where(eq(taskHtmlContent.taskId, task.id))
+        .limit(1);
+
+      if (htmlContent) {
+        await db.insert(taskHtmlContent).values({
+          taskId: newTask.id,
+          content: htmlContent.content,
+          updatedBy: session.user.userId,
+        });
+      }
+
+      // Duplicate checklists if requested
+      if (includeChecklists) {
+        const checklists = await db
+          .select()
+          .from(taskChecklistItems)
+          .where(eq(taskChecklistItems.taskId, task.id))
+          .orderBy(asc(taskChecklistItems.sortOrder));
+
+        for (const checklist of checklists) {
+          await db.insert(taskChecklistItems).values({
+            taskId: newTask.id,
+            title: checklist.title,
+            sortOrder: checklist.sortOrder,
+            isCompleted: false,
+            createdBy: session.user.userId,
+          });
+        }
+      }
+    }
+  }
+
+  return newEvent;
+}
+
+// ============================================
+// SAVE EVENT AS TEMPLATE
+// ============================================
+
+export async function saveEventAsTemplate(
+  session: TenantSession,
+  eventId: number,
+  options: {
+    templateName: string;
+    description?: string;
+    isGlobal?: boolean;
+  }
+) {
+  const event = await getEvent(session, eventId);
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  // Create event template
+  const [template] = await db.insert(eventTemplates).values({
+    organizationId: options.isGlobal ? null : session.organizationId,
+    name: options.templateName,
+    eventType: event.type,
+    description: options.description || event.description,
+    defaultBudget: event.budget,
+    isGlobal: options.isGlobal || false,
+  }).returning();
+
+  // Get tasks for this event
+  const eventTasks = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.eventId, eventId))
+    .orderBy(asc(tasks.id));
+
+  // Create task templates from tasks
+  for (let i = 0; i < eventTasks.length; i++) {
+    const task = eventTasks[i];
+
+    // Calculate days before event
+    let daysBeforeEvent: number | null = null;
+    if (event.date && task.dueDate) {
+      daysBeforeEvent = Math.floor(
+        (event.date.getTime() - task.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+    }
+
+    // Get HTML content
+    const [htmlContent] = await db
+      .select()
+      .from(taskHtmlContent)
+      .where(eq(taskHtmlContent.taskId, task.id))
+      .limit(1);
+
+    const [taskTpl] = await db.insert(taskTemplates).values({
+      eventTemplateId: template.id,
+      title: task.title,
+      description: task.description,
+      htmlContent: htmlContent?.content,
+      category: task.category,
+      daysBeforeEvent: daysBeforeEvent && daysBeforeEvent > 0 ? daysBeforeEvent : null,
+      daysAfterEvent: daysBeforeEvent && daysBeforeEvent < 0 ? Math.abs(daysBeforeEvent) : null,
+      priority: task.priority,
+      sortOrder: i,
+    }).returning();
+
+    // Get checklists and create template checklists
+    const checklists = await db
+      .select()
+      .from(taskChecklistItems)
+      .where(eq(taskChecklistItems.taskId, task.id))
+      .orderBy(asc(taskChecklistItems.sortOrder));
+
+    for (let j = 0; j < checklists.length; j++) {
+      await db.insert(taskTemplateChecklists).values({
+        taskTemplateId: taskTpl.id,
+        title: checklists[j].title,
+        sortOrder: j,
+      });
+    }
+  }
+
+  return getEventTemplate(session, template.id);
 }
 
 // ============================================

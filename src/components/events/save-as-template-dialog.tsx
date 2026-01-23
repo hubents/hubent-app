@@ -1,0 +1,139 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { FileText, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+interface SaveAsTemplateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  eventId: number;
+  eventName: string;
+  onSaved?: (templateId: number) => void;
+}
+
+export function SaveAsTemplateDialog({
+  open,
+  onOpenChange,
+  eventId,
+  eventName,
+  onSaved,
+}: SaveAsTemplateDialogProps) {
+  const [loading, setLoading] = useState(false);
+  const [templateName, setTemplateName] = useState(`Template: ${eventName}`);
+  const [description, setDescription] = useState("");
+
+  const handleSave = async () => {
+    if (!templateName.trim()) {
+      toast.error("El nombre del template es requerido");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/save-as-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateName: templateName.trim(),
+          description: description.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Template guardado correctamente");
+        onOpenChange(false);
+        onSaved?.(data.data.id);
+      } else {
+        toast.error(data.error?.message || "Error al guardar template");
+      }
+    } catch (error) {
+      console.error("Error saving template:", error);
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Guardar como Template
+          </DialogTitle>
+          <DialogDescription>
+            Convierte &quot;{eventName}&quot; en un template reutilizable para futuros eventos.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="templateName">Nombre del template *</Label>
+            <Input
+              id="templateName"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Ej: Boda Completa"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción (opcional)</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe qué incluye este template..."
+              rows={3}
+            />
+          </div>
+
+          <div className="bg-muted/50 rounded-lg p-3 text-sm">
+            <p className="font-medium mb-1">Se incluirá:</p>
+            <ul className="text-muted-foreground space-y-1">
+              <li>• Todas las tareas del evento</li>
+              <li>• Checklists de cada tarea</li>
+              <li>• Contenido HTML/Explicaciones</li>
+              <li>• Días relativos a la fecha del evento</li>
+            </ul>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={loading || !templateName.trim()}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <FileText className="mr-2 h-4 w-4" />
+                Guardar Template
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
