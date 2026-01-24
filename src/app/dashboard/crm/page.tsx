@@ -8,6 +8,7 @@ import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
 import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
 import { LeadDetailDialog } from "@/components/crm/lead-detail-dialog";
+import { LeadDrawer } from "@/components/crm/lead-drawer";
 import { StageConfigDialog } from "@/components/crm/stage-config-dialog";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
@@ -119,6 +120,8 @@ export default function CRMPage() {
   const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
@@ -128,13 +131,13 @@ export default function CRMPage() {
   const displayStages = stages.length > 0 ? stages : [];
 
   const handleLeadClick = (lead: Lead) => {
-    setSelectedLead(lead);
-    setIsDetailDialogOpen(true);
+    setSelectedLeadId(lead.id);
+    setIsDrawerOpen(true);
   };
 
   const handleEditLead = (lead: Lead) => {
-    setSelectedLead(lead);
-    setIsDetailDialogOpen(true);
+    setSelectedLeadId(lead.id);
+    setIsDrawerOpen(true);
   };
 
   const handleAddLead = (stageId: number) => {
@@ -219,6 +222,15 @@ export default function CRMPage() {
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         lead={selectedLead}
+        stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
+        onLeadUpdated={refetch}
+        onLeadDeleted={refetch}
+      />
+
+      <LeadDrawer
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        leadId={selectedLeadId}
         stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
         onLeadUpdated={refetch}
         onLeadDeleted={refetch}

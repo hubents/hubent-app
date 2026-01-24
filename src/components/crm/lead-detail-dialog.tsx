@@ -111,9 +111,11 @@ export function LeadDetailDialog({
         description: fullLead.description || "",
         value: fullLead.value || "",
         probability: fullLead.probability?.toString() || "50",
-        expectedCloseDate: fullLead.expectedCloseDate 
-          ? new Date(fullLead.expectedCloseDate).toISOString().split("T")[0] 
-          : "",
+        expectedCloseDate: (() => {
+          if (!fullLead.expectedCloseDate) return "";
+          const d = new Date(fullLead.expectedCloseDate);
+          return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+        })(),
         source: fullLead.source || "",
         stageId: fullLead.stageId?.toString() || "",
       });

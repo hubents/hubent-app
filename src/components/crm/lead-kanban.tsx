@@ -212,21 +212,33 @@ export function LeadKanban({
                     onDragStart={(e) => handleDragStart(e, lead)}
                     onDragEnd={handleDragEnd}
                     className={cn(
-                      "cursor-grab active:cursor-grabbing transition-all",
+                      "cursor-grab active:cursor-grabbing transition-all group",
                       draggedLead?.id === lead.id && "opacity-50 scale-95"
                     )}
                   >
                     <CardContent className="p-3 space-y-2">
                       {/* Lead Header */}
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-1">
                         <div 
                           className="flex-1 cursor-pointer"
                           onClick={() => onLeadClick?.(lead)}
                         >
-                          <h4 className="font-medium text-sm line-clamp-2">
+                          <h4 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
                             {lead.title}
                           </h4>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onLeadClick?.(lead);
+                          }}
+                          title="Ver detalles"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1">

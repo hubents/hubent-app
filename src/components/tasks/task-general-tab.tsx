@@ -376,7 +376,11 @@ export function TaskGeneralTab({
           </label>
           <Input
             type="date"
-            value={task?.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""}
+            value={(() => {
+              if (!task?.dueDate) return "";
+              const d = new Date(task.dueDate);
+              return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+            })()}
             onChange={(e) =>
               onUpdateTask({ dueDate: e.target.value ? new Date(e.target.value) : null })
             }
