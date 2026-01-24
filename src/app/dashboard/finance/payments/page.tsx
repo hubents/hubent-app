@@ -131,14 +131,37 @@ export default function PaymentsPage() {
 
   async function fetchDocuments() {
     try {
-      // Fetch pending invoices and quotes that can receive payments
-      const res = await fetch("/api/finance/documents?status=sent&limit=100");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setDocuments(data.data || []);
+      // Fetch invoices and quotes that can receive payments (draft or sent status)
+      const [invoicesRes, quotesRes] = await Promise.all([
+        fetch("/api/finance/documents?type=invoice&limit=100"),
+        fetch("/api/finance/documents?type=quote&limit=100"),
+      ]);
+      
+      const allDocs: FinancialDocument[] = [];
+      
+      if (invoicesRes.ok) {
+        const data = await invoicesRes.json();
+        if (data.success && data.data) {
+          // Filter to only pending invoices (draft or sent)
+          const pending = data.data.filter((d: FinancialDocument) => 
+            d.status === "draft" || d.status === "sent"
+          );
+          allDocs.push(...pending);
         }
       }
+      
+      if (quotesRes.ok) {
+        const data = await quotesRes.json();
+        if (data.success && data.data) {
+          // Filter to only accepted quotes
+          const accepted = data.data.filter((d: FinancialDocument) => 
+            d.status === "accepted"
+          );
+          allDocs.push(...accepted);
+        }
+      }
+      
+      setDocuments(allDocs);
     } catch (error) {
       console.error("Failed to fetch documents:", error);
     }

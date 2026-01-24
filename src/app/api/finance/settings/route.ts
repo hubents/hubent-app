@@ -99,6 +99,15 @@ export async function PATCH(request: NextRequest) {
       "defaultPaymentTerms",
       "defaultTermsAndConditions",
       "quoteValidityDays",
+      // Fiscal data
+      "companyName",
+      "taxId",
+      "fiscalAddress",
+      "fiscalCity",
+      "fiscalPostalCode",
+      "fiscalCountry",
+      "fiscalEmail",
+      "fiscalPhone",
     ];
 
     for (const field of allowedFields) {

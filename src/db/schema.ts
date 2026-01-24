@@ -796,6 +796,16 @@ export const organizationFinanceSettings = pgTable("organization_finance_setting
   defaultTermsAndConditions: text("default_terms_and_conditions"),
   quoteValidityDays: integer("quote_validity_days").default(30),
   
+  // Fiscal data
+  companyName: text("company_name"),
+  taxId: text("tax_id"),
+  fiscalAddress: text("fiscal_address"),
+  fiscalCity: text("fiscal_city"),
+  fiscalPostalCode: text("fiscal_postal_code"),
+  fiscalCountry: text("fiscal_country").default("España"),
+  fiscalEmail: text("fiscal_email"),
+  fiscalPhone: text("fiscal_phone"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
