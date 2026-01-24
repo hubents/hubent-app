@@ -159,6 +159,35 @@ export default function InvoicesPage() {
       if (res.ok) {
         toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
         fetchInvoices();
+        
+        // If marking as paid, ask if user wants to register the payment
+        if (status === "paid") {
+          const invoice = invoices.find(inv => inv.id === id);
+          if (invoice) {
+            const registerPayment = confirm(
+              `¿Deseas registrar el pago de ${formatCurrency(invoice.total, invoice.currency)}?`
+            );
+            if (registerPayment) {
+              // Create payment record
+              const paymentRes = await fetch("/api/finance/payments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  documentId: id,
+                  amount: parseFloat(invoice.total),
+                  currency: invoice.currency || "EUR",
+                  direction: "incoming",
+                  method: "bank_transfer",
+                  date: new Date().toISOString(),
+                  reference: `Pago ${invoice.number}`,
+                }),
+              });
+              if (paymentRes.ok) {
+                toast.success("Pago registrado correctamente");
+              }
+            }
+          }
+        }
       } else {
         toast.error("Error al actualizar estado");
       }

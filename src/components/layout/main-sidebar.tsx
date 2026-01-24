@@ -33,13 +33,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const navigation = [
+const navigationBeforeFinance = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
   { name: "Contactos", href: "/dashboard/contacts", icon: RiContactsBookLine },
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
   { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
+];
+
+const navigationAfterFinance = [
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
   { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine },
 ];
@@ -47,9 +50,9 @@ const navigation = [
 const financeSubNav = [
   { name: "Panel de Control", href: "/dashboard/finance", icon: RiDashboardLine },
   { name: "Presupuestos", href: "/dashboard/finance/quotes", icon: RiFileTextLine },
+  { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
   { name: "Facturas", href: "/dashboard/finance/invoices", icon: RiFileList2Line },
   { name: "Pagos", href: "/dashboard/finance/payments", icon: RiMoneyDollarCircleLine },
-  { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
   { name: "Configuración", href: "/dashboard/finance/settings", icon: RiSettings4Line },
 ];
 
@@ -108,7 +111,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
-            {navigation.map((item) => {
+            {/* Items before Finance */}
+            {navigationBeforeFinance.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               
               if (isCollapsed) {
@@ -220,6 +224,50 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               </div>
             )}
+
+            {/* Items after Finance */}
+            {navigationAfterFinance.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              
+              if (isCollapsed) {
+                return (
+                  <Tooltip key={item.name}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center justify-center rounded-lg p-3 transition-colors",
+                          isActive
+                            ? "bg-primary text-white"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {item.name}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-white"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Bottom Navigation */}

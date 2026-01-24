@@ -177,6 +177,14 @@ export default function QuotesPage() {
       if (res.ok) {
         toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
         fetchQuotes();
+        
+        // If accepted, ask if user wants to generate invoice
+        if (status === "accepted") {
+          const generateInvoice = confirm("¿Deseas generar una factura a partir de este presupuesto?");
+          if (generateInvoice) {
+            await convertToInvoice(id);
+          }
+        }
       } else {
         toast.error("Error al actualizar estado");
       }
