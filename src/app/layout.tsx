@@ -15,10 +15,10 @@ export const metadata: Metadata = {
   description: "Plataforma integral para gestión de bodas y eventos",
   icons: {
     icon: [
-      { url: "/images/isotipo-dark.png", type: "image/png" },
+      { url: "/images/icon.png", type: "image/png" },
     ],
     apple: [
-      { url: "/images/isotipo-dark.png", sizes: "180x180", type: "image/png" },
+      { url: "/images/icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };
