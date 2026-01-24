@@ -19,8 +19,13 @@ import {
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiSparklingLine,
+  RiArrowDownSLine,
+  RiFileTextLine,
+  RiFileList2Line,
+  RiTruckLine,
+  RiBankLine,
 } from "@remixicon/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -35,9 +40,17 @@ const navigation = [
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
   { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
-  { name: "Pagos", href: "/dashboard/payments", icon: RiMoneyDollarCircleLine },
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
   { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine },
+];
+
+const financeSubNav = [
+  { name: "Panel de Control", href: "/dashboard/finance", icon: RiDashboardLine },
+  { name: "Presupuestos", href: "/dashboard/finance/quotes", icon: RiFileTextLine },
+  { name: "Facturas", href: "/dashboard/finance/invoices", icon: RiFileList2Line },
+  { name: "Pagos", href: "/dashboard/finance/payments", icon: RiMoneyDollarCircleLine },
+  { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
+  { name: "Configuración", href: "/dashboard/finance/settings", icon: RiSettings4Line },
 ];
 
 const bottomNavigation = [
@@ -52,6 +65,16 @@ interface MainSidebarProps {
 export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const pathname = usePathname();
   const { isEventView } = useEvent();
+  const [financeExpanded, setFinanceExpanded] = useState(false);
+  
+  // Auto-expand finance menu if we're on a finance page
+  const isFinancePage = pathname.startsWith("/dashboard/finance");
+  
+  useEffect(() => {
+    if (isFinancePage) {
+      setFinanceExpanded(true);
+    }
+  }, [isFinancePage]);
   
   // Auto-collapse when in event view on desktop
   const isCollapsed = collapsed || isEventView;
@@ -84,7 +107,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-2 py-4">
+          <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               
@@ -127,6 +150,76 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 </Link>
               );
             })}
+
+            {/* Finance Menu with Submenu */}
+            {isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/dashboard/finance"
+                    className={cn(
+                      "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                      isFinancePage
+                        ? "bg-[var(--primary)] text-white"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    <RiBankLine className="h-5 w-5" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Finanzas
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setFinanceExpanded(!financeExpanded)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isFinancePage
+                      ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <RiBankLine className="h-5 w-5" />
+                    Finanzas
+                  </div>
+                  <RiArrowDownSLine 
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      financeExpanded && "rotate-180"
+                    )} 
+                  />
+                </button>
+                
+                {financeExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
+                    {financeSubNav.map((subItem) => {
+                      const isSubActive = pathname === subItem.href || 
+                        (subItem.href !== "/dashboard/finance" && pathname.startsWith(subItem.href));
+                      
+                      return (
+                        <Link
+                          key={subItem.name}
+                          href={subItem.href}
+                          className={cn(
+                            "flex items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-sm transition-colors",
+                            isSubActive
+                              ? "bg-[var(--primary)] text-white"
+                              : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          <subItem.icon className="h-4 w-4" />
+                          {subItem.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
 
           {/* Bottom Navigation */}

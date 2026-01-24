@@ -1,0 +1,380 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  RiAddLine,
+  RiSearchLine,
+  RiMoreLine,
+  RiEyeLine,
+  RiEditLine,
+  RiMailLine,
+  RiFileCopyLine,
+  RiDeleteBinLine,
+  RiDownloadLine,
+  RiExchangeLine,
+} from "@remixicon/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface Quote {
+  id: number;
+  type: string;
+  number: string;
+  status: string;
+  companyId: number | null;
+  personId: number | null;
+  contactId: number | null;
+  eventId: number | null;
+  issueDate: string;
+  validUntil: string | null;
+  total: string;
+  currency: string;
+  companyName: string | null;
+  personFirstName: string | null;
+  personLastName: string | null;
+  eventName: string | null;
+}
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
+  sent: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
+  accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
+  rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
+  cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
+};
+
+export default function QuotesPage() {
+  const router = useRouter();
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    fetchQuotes();
+  }, [page, statusFilter]);
+
+  async function fetchQuotes() {
+    try {
+      const params = new URLSearchParams({
+        type: "quote",
+        page: page.toString(),
+        limit: "20",
+      });
+      if (statusFilter !== "all") {
+        params.set("status", statusFilter);
+      }
+
+      const res = await fetch(`/api/finance/documents?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setQuotes(data.data || []);
+          setTotalPages(data.meta?.totalPages || 1);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch quotes:", error);
+      toast.error("Error al cargar presupuestos");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteQuote(id: number) {
+    if (!confirm("¿Estás seguro de eliminar este presupuesto?")) return;
+
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Presupuesto eliminado");
+        fetchQuotes();
+      } else {
+        toast.error("Error al eliminar");
+      }
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  }
+
+  async function convertToInvoice(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ convertTo: "invoice" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success("Convertido a factura");
+        router.push(`/dashboard/finance/invoices/${data.data.id}`);
+      } else {
+        toast.error("Error al convertir");
+      }
+    } catch (error) {
+      toast.error("Error al convertir");
+    }
+  }
+
+  const formatCurrency = (amount: string, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency,
+    }).format(parseFloat(amount || "0"));
+  };
+
+  const getClientName = (quote: Quote) => {
+    if (quote.companyName) return quote.companyName;
+    if (quote.personFirstName) {
+      return `${quote.personFirstName} ${quote.personLastName || ""}`.trim();
+    }
+    return "Sin cliente";
+  };
+
+  const isExpired = (validUntil: string | null) => {
+    if (!validUntil) return false;
+    return new Date(validUntil) < new Date();
+  };
+
+  const filteredQuotes = quotes.filter((q) => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      q.number.toLowerCase().includes(search) ||
+      getClientName(q).toLowerCase().includes(search)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-10 w-48" />
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Presupuestos</h1>
+          <p className="text-muted-foreground">
+            Gestiona tus presupuestos y cotizaciones
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/dashboard/finance/quotes/new">
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Nuevo Presupuesto
+          </Link>
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número o cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="draft">Borrador</SelectItem>
+                <SelectItem value="sent">Enviado</SelectItem>
+                <SelectItem value="accepted">Aceptado</SelectItem>
+                <SelectItem value="rejected">Rechazado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Válido hasta</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="w-12"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredQuotes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No hay presupuestos
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredQuotes.map((quote) => (
+                  <TableRow key={quote.id}>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/dashboard/finance/quotes/${quote.id}`}
+                        className="hover:underline"
+                      >
+                        {quote.number}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{getClientName(quote)}</TableCell>
+                    <TableCell>
+                      {quote.issueDate
+                        ? format(new Date(quote.issueDate), "dd MMM yyyy", { locale: es })
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {quote.validUntil ? (
+                        <span className={isExpired(quote.validUntil) ? "text-red-500" : ""}>
+                          {format(new Date(quote.validUntil), "dd MMM yyyy", { locale: es })}
+                          {isExpired(quote.validUntil) && " (Vencido)"}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(quote.total, quote.currency)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusConfig[quote.status]?.color || "bg-gray-100"}>
+                        {statusConfig[quote.status]?.label || quote.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <RiMoreLine className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/finance/quotes/${quote.id}`}>
+                              <RiEyeLine className="mr-2 h-4 w-4" />
+                              Ver
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/finance/quotes/${quote.id}/edit`}>
+                              <RiEditLine className="mr-2 h-4 w-4" />
+                              Editar
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <RiFileCopyLine className="mr-2 h-4 w-4" />
+                            Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>
+                            <RiMailLine className="mr-2 h-4 w-4" />
+                            Enviar por Email
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <RiDownloadLine className="mr-2 h-4 w-4" />
+                            Descargar PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => convertToInvoice(quote.id)}>
+                            <RiExchangeLine className="mr-2 h-4 w-4" />
+                            Convertir a Factura
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => deleteQuote(quote.id)}
+                          >
+                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Anterior
+          </Button>
+          <span className="flex items-center px-4 text-sm">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            Siguiente
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}

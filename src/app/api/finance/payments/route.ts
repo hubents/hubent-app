@@ -81,7 +81,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Default to payment record
-    const { amount, documentId, taskId, bankAccountId, paymentDate, paymentMethod, reference, notes } = body;
+    const { 
+      amount, 
+      documentId, 
+      taskId, 
+      vendorId,
+      contactId,
+      eventId,
+      bankAccountId, 
+      currency,
+      direction,
+      paymentDate, 
+      paymentMethod, 
+      reference, 
+      stripePaymentId,
+      notes 
+    } = body;
 
     if (!amount) {
       return NextResponse.json(
@@ -94,10 +109,16 @@ export async function POST(request: NextRequest) {
       amount,
       documentId,
       taskId,
+      vendorId,
+      contactId,
+      eventId,
       bankAccountId,
+      currency,
+      direction,
       paymentDate: paymentDate ? new Date(paymentDate) : undefined,
       paymentMethod,
       reference,
+      stripePaymentId,
       notes,
     });
 

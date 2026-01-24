@@ -9,6 +9,7 @@ import {
   pgEnum,
   primaryKey,
   json,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -760,6 +761,56 @@ export const contactTasks = pgTable("contact_tasks", {
 // FINANCE TABLES
 // ============================================
 
+// Organization Finance Settings (per-tenant configuration)
+export const organizationFinanceSettings = pgTable("organization_finance_settings", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+  
+  // Currency settings
+  defaultCurrency: text("default_currency").default("EUR"),
+  enabledCurrencies: jsonb("enabled_currencies").$type<string[]>().default(["EUR", "USD"]),
+  
+  // Document numbering
+  quotePrefix: text("quote_prefix").default("PRES"),
+  invoicePrefix: text("invoice_prefix").default("FAC"),
+  proformaPrefix: text("proforma_prefix").default("PROF"),
+  deliveryNotePrefix: text("delivery_note_prefix").default("ALB"),
+  creditNotePrefix: text("credit_note_prefix").default("ABONO"),
+  nextQuoteNumber: integer("next_quote_number").default(1),
+  nextInvoiceNumber: integer("next_invoice_number").default(1),
+  nextProformaNumber: integer("next_proforma_number").default(1),
+  nextDeliveryNoteNumber: integer("next_delivery_note_number").default(1),
+  nextCreditNoteNumber: integer("next_credit_note_number").default(1),
+  
+  // Stripe Connect
+  stripeAccountId: text("stripe_account_id"),
+  stripeEnabled: boolean("stripe_enabled").default(false),
+  
+  // Payment methods enabled
+  enableCash: boolean("enable_cash").default(true),
+  enableBankTransfer: boolean("enable_bank_transfer").default(true),
+  enableStripe: boolean("enable_stripe").default(false),
+  
+  // Default terms
+  defaultPaymentTerms: text("default_payment_terms").default("30 días"),
+  defaultTermsAndConditions: text("default_terms_and_conditions"),
+  quoteValidityDays: integer("quote_validity_days").default(30),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tax Rates (per-tenant)
+export const taxRates = pgTable("tax_rates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  rate: decimal("rate", { precision: 5, scale: 2 }).notNull(),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const productCatalog = pgTable("product_catalog", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
@@ -797,7 +848,10 @@ export const financialDocuments = pgTable("financial_documents", {
   companyId: integer("company_id").references(() => companies.id),
   personId: integer("person_id").references(() => people.id),
   eventId: integer("event_id").references(() => events.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  contactId: integer("contact_id").references(() => contacts.id),
   parentDocumentId: integer("parent_document_id"),
+  direction: text("direction").default("outgoing"),
   issueDate: timestamp("issue_date").defaultNow(),
   dueDate: timestamp("due_date"),
   validUntil: timestamp("valid_until"),
@@ -805,9 +859,15 @@ export const financialDocuments = pgTable("financial_documents", {
   taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }),
   total: decimal("total", { precision: 12, scale: 2 }),
   currency: text("currency").default("EUR"),
+  paymentTerms: text("payment_terms"),
+  bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
   notes: text("notes"),
   termsAndConditions: text("terms_and_conditions"),
   pdfUrl: text("pdf_url"),
+  sentAt: timestamp("sent_at"),
+  paidAt: timestamp("paid_at"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripePaymentUrl: text("stripe_payment_url"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -817,6 +877,7 @@ export const documentItems = pgTable("document_items", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull().references(() => financialDocuments.id, { onDelete: "cascade" }),
   productId: integer("product_id").references(() => productCatalog.id),
+  taxRateId: integer("tax_rate_id").references(() => taxRates.id),
   description: text("description").notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
@@ -831,11 +892,17 @@ export const paymentRecords = pgTable("payment_records", {
   organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   documentId: integer("document_id").references(() => financialDocuments.id),
   taskId: integer("task_id").references(() => tasks.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  contactId: integer("contact_id").references(() => contacts.id),
+  eventId: integer("event_id").references(() => events.id),
   bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").default("EUR"),
+  direction: text("direction").default("incoming"),
   paymentDate: timestamp("payment_date").defaultNow(),
   paymentMethod: text("payment_method"),
   reference: text("reference"),
+  stripePaymentId: text("stripe_payment_id"),
   notes: text("notes"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

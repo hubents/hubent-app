@@ -1,0 +1,875 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  RiSaveLine,
+  RiAddLine,
+  RiDeleteBinLine,
+  RiEditLine,
+  RiCheckLine,
+  RiBankLine,
+} from "@remixicon/react";
+import { toast } from "sonner";
+
+interface FinanceSettings {
+  id?: number;
+  organizationId: number;
+  defaultCurrency: string;
+  enabledCurrencies: string[];
+  quotePrefix: string;
+  invoicePrefix: string;
+  proformaPrefix: string;
+  deliveryNotePrefix: string;
+  creditNotePrefix: string;
+  nextQuoteNumber: number;
+  nextInvoiceNumber: number;
+  nextProformaNumber: number;
+  nextDeliveryNoteNumber: number;
+  nextCreditNoteNumber: number;
+  stripeAccountId: string | null;
+  stripeEnabled: boolean;
+  enableCash: boolean;
+  enableBankTransfer: boolean;
+  enableStripe: boolean;
+  defaultPaymentTerms: string;
+  defaultTermsAndConditions: string | null;
+  quoteValidityDays: number;
+}
+
+interface TaxRate {
+  id: number;
+  name: string;
+  rate: string;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
+interface BankAccount {
+  id: number;
+  name: string;
+  bankName: string | null;
+  iban: string | null;
+  swift: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+}
+
+const CURRENCIES = [
+  { code: "EUR", name: "Euro" },
+  { code: "USD", name: "Dólar estadounidense" },
+  { code: "GBP", name: "Libra esterlina" },
+  { code: "MXN", name: "Peso mexicano" },
+  { code: "ARS", name: "Peso argentino" },
+  { code: "CLP", name: "Peso chileno" },
+  { code: "COP", name: "Peso colombiano" },
+  { code: "PEN", name: "Sol peruano" },
+];
+
+export default function FinanceSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settings, setSettings] = useState<FinanceSettings | null>(null);
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  
+  // Tax rate dialog
+  const [taxDialogOpen, setTaxDialogOpen] = useState(false);
+  const [editingTax, setEditingTax] = useState<TaxRate | null>(null);
+  const [newTaxName, setNewTaxName] = useState("");
+  const [newTaxRate, setNewTaxRate] = useState("");
+  const [newTaxDefault, setNewTaxDefault] = useState(false);
+
+  // Bank account dialog
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
+  const [newBankName, setNewBankName] = useState("");
+  const [newBankBankName, setNewBankBankName] = useState("");
+  const [newBankIban, setNewBankIban] = useState("");
+  const [newBankSwift, setNewBankSwift] = useState("");
+  const [newBankDefault, setNewBankDefault] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  async function fetchData() {
+    try {
+      const [settingsRes, taxRes, bankRes] = await Promise.all([
+        fetch("/api/finance/settings"),
+        fetch("/api/finance/tax-rates"),
+        fetch("/api/finance/bank-accounts"),
+      ]);
+
+      if (settingsRes.ok) {
+        const data = await settingsRes.json();
+        if (data.success) setSettings(data.data);
+      }
+
+      if (taxRes.ok) {
+        const data = await taxRes.json();
+        if (data.success) setTaxRates(data.data || []);
+      }
+
+      if (bankRes.ok) {
+        const data = await bankRes.json();
+        if (data.success) setBankAccounts(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch settings:", error);
+      toast.error("Error al cargar la configuración");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveSettings() {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/finance/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+
+      if (res.ok) {
+        toast.success("Configuración guardada");
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch (error) {
+      toast.error("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveTaxRate() {
+    if (!newTaxName || !newTaxRate) return;
+
+    try {
+      const res = await fetch("/api/finance/tax-rates", {
+        method: editingTax ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingTax?.id,
+          name: newTaxName,
+          rate: parseFloat(newTaxRate),
+          isDefault: newTaxDefault,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(editingTax ? "Impuesto actualizado" : "Impuesto creado");
+        setTaxDialogOpen(false);
+        resetTaxForm();
+        fetchData();
+      } else {
+        toast.error("Error al guardar impuesto");
+      }
+    } catch (error) {
+      toast.error("Error al guardar impuesto");
+    }
+  }
+
+  async function deleteTaxRate(id: number) {
+    try {
+      const res = await fetch(`/api/finance/tax-rates?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Impuesto eliminado");
+        fetchData();
+      } else {
+        toast.error("Error al eliminar");
+      }
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  }
+
+  async function saveBankAccount() {
+    if (!newBankName) return;
+
+    try {
+      const res = await fetch("/api/finance/bank-accounts", {
+        method: editingBank ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingBank?.id,
+          name: newBankName,
+          bankName: newBankBankName || null,
+          iban: newBankIban || null,
+          swift: newBankSwift || null,
+          isDefault: newBankDefault,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(editingBank ? "Cuenta actualizada" : "Cuenta creada");
+        setBankDialogOpen(false);
+        resetBankForm();
+        fetchData();
+      } else {
+        toast.error("Error al guardar cuenta");
+      }
+    } catch (error) {
+      toast.error("Error al guardar cuenta");
+    }
+  }
+
+  async function deleteBankAccount(id: number) {
+    try {
+      const res = await fetch(`/api/finance/bank-accounts?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Cuenta eliminada");
+        fetchData();
+      } else {
+        toast.error("Error al eliminar");
+      }
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  }
+
+  function resetTaxForm() {
+    setEditingTax(null);
+    setNewTaxName("");
+    setNewTaxRate("");
+    setNewTaxDefault(false);
+  }
+
+  function resetBankForm() {
+    setEditingBank(null);
+    setNewBankName("");
+    setNewBankBankName("");
+    setNewBankIban("");
+    setNewBankSwift("");
+    setNewBankDefault(false);
+  }
+
+  function openEditTax(tax: TaxRate) {
+    setEditingTax(tax);
+    setNewTaxName(tax.name);
+    setNewTaxRate(tax.rate);
+    setNewTaxDefault(tax.isDefault);
+    setTaxDialogOpen(true);
+  }
+
+  function openEditBank(bank: BankAccount) {
+    setEditingBank(bank);
+    setNewBankName(bank.name);
+    setNewBankBankName(bank.bankName || "");
+    setNewBankIban(bank.iban || "");
+    setNewBankSwift(bank.swift || "");
+    setNewBankDefault(bank.isDefault);
+    setBankDialogOpen(true);
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-[400px]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Configuración Financiera</h1>
+          <p className="text-muted-foreground">
+            Configura monedas, impuestos, numeración y métodos de pago
+          </p>
+        </div>
+        <Button onClick={saveSettings} disabled={saving}>
+          <RiSaveLine className="mr-2 h-4 w-4" />
+          {saving ? "Guardando..." : "Guardar Cambios"}
+        </Button>
+      </div>
+
+      <Tabs defaultValue="general" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="taxes">Impuestos</TabsTrigger>
+          <TabsTrigger value="numbering">Numeración</TabsTrigger>
+          <TabsTrigger value="banks">Cuentas Bancarias</TabsTrigger>
+          <TabsTrigger value="payments">Métodos de Pago</TabsTrigger>
+          <TabsTrigger value="terms">Términos</TabsTrigger>
+        </TabsList>
+
+        {/* General Tab */}
+        <TabsContent value="general">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configuración General</CardTitle>
+              <CardDescription>
+                Moneda por defecto y otras opciones generales
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Moneda por Defecto</Label>
+                  <Select
+                    value={settings?.defaultCurrency || "EUR"}
+                    onValueChange={(value) =>
+                      setSettings((s) => s ? { ...s, defaultCurrency: value } : s)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.code} - {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Días de Validez de Presupuestos</Label>
+                  <Input
+                    type="number"
+                    value={settings?.quoteValidityDays || 30}
+                    onChange={(e) =>
+                      setSettings((s) =>
+                        s ? { ...s, quoteValidityDays: parseInt(e.target.value) || 30 } : s
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Términos de Pago por Defecto</Label>
+                  <Input
+                    value={settings?.defaultPaymentTerms || ""}
+                    onChange={(e) =>
+                      setSettings((s) =>
+                        s ? { ...s, defaultPaymentTerms: e.target.value } : s
+                      )
+                    }
+                    placeholder="30 días"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Taxes Tab */}
+        <TabsContent value="taxes">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Impuestos</CardTitle>
+                <CardDescription>
+                  Configura las tasas de impuestos disponibles
+                </CardDescription>
+              </div>
+              <Dialog open={taxDialogOpen} onOpenChange={(open) => {
+                setTaxDialogOpen(open);
+                if (!open) resetTaxForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <RiAddLine className="mr-2 h-4 w-4" />
+                    Nuevo Impuesto
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingTax ? "Editar Impuesto" : "Nuevo Impuesto"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Define el nombre y la tasa del impuesto
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Nombre</Label>
+                      <Input
+                        value={newTaxName}
+                        onChange={(e) => setNewTaxName(e.target.value)}
+                        placeholder="IVA 21%"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tasa (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newTaxRate}
+                        onChange={(e) => setNewTaxRate(e.target.value)}
+                        placeholder="21"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={newTaxDefault}
+                        onCheckedChange={setNewTaxDefault}
+                      />
+                      <Label>Impuesto por defecto</Label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setTaxDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={saveTaxRate}>
+                      {editingTax ? "Guardar" : "Crear"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {taxRates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No hay impuestos configurados. Crea uno para empezar.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {taxRates.map((tax) => (
+                    <div
+                      key={tax.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium">{tax.name}</span>
+                        <Badge variant="secondary">{tax.rate}%</Badge>
+                        {tax.isDefault && (
+                          <Badge variant="outline" className="text-green-600">
+                            <RiCheckLine className="mr-1 h-3 w-3" />
+                            Por defecto
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditTax(tax)}
+                        >
+                          <RiEditLine className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTaxRate(tax.id)}
+                        >
+                          <RiDeleteBinLine className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Numbering Tab */}
+        <TabsContent value="numbering">
+          <Card>
+            <CardHeader>
+              <CardTitle>Numeración de Documentos</CardTitle>
+              <CardDescription>
+                Configura los prefijos y números de secuencia
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Prefijo Presupuestos</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={settings?.quotePrefix || ""}
+                      onChange={(e) =>
+                        setSettings((s) => s ? { ...s, quotePrefix: e.target.value } : s)
+                      }
+                      className="w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={settings?.nextQuoteNumber || 1}
+                      onChange={(e) =>
+                        setSettings((s) =>
+                          s ? { ...s, nextQuoteNumber: parseInt(e.target.value) || 1 } : s
+                        )
+                      }
+                      className="w-24"
+                    />
+                    <span className="flex items-center text-sm text-muted-foreground">
+                      → {settings?.quotePrefix}-{new Date().getFullYear()}-
+                      {String(settings?.nextQuoteNumber || 1).padStart(4, "0")}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Prefijo Facturas</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={settings?.invoicePrefix || ""}
+                      onChange={(e) =>
+                        setSettings((s) => s ? { ...s, invoicePrefix: e.target.value } : s)
+                      }
+                      className="w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={settings?.nextInvoiceNumber || 1}
+                      onChange={(e) =>
+                        setSettings((s) =>
+                          s ? { ...s, nextInvoiceNumber: parseInt(e.target.value) || 1 } : s
+                        )
+                      }
+                      className="w-24"
+                    />
+                    <span className="flex items-center text-sm text-muted-foreground">
+                      → {settings?.invoicePrefix}-{new Date().getFullYear()}-
+                      {String(settings?.nextInvoiceNumber || 1).padStart(4, "0")}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Prefijo Proformas</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={settings?.proformaPrefix || ""}
+                      onChange={(e) =>
+                        setSettings((s) => s ? { ...s, proformaPrefix: e.target.value } : s)
+                      }
+                      className="w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={settings?.nextProformaNumber || 1}
+                      onChange={(e) =>
+                        setSettings((s) =>
+                          s ? { ...s, nextProformaNumber: parseInt(e.target.value) || 1 } : s
+                        )
+                      }
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Prefijo Albaranes</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={settings?.deliveryNotePrefix || ""}
+                      onChange={(e) =>
+                        setSettings((s) => s ? { ...s, deliveryNotePrefix: e.target.value } : s)
+                      }
+                      className="w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={settings?.nextDeliveryNoteNumber || 1}
+                      onChange={(e) =>
+                        setSettings((s) =>
+                          s ? { ...s, nextDeliveryNoteNumber: parseInt(e.target.value) || 1 } : s
+                        )
+                      }
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Prefijo Notas de Crédito</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={settings?.creditNotePrefix || ""}
+                      onChange={(e) =>
+                        setSettings((s) => s ? { ...s, creditNotePrefix: e.target.value } : s)
+                      }
+                      className="w-24"
+                    />
+                    <Input
+                      type="number"
+                      value={settings?.nextCreditNoteNumber || 1}
+                      onChange={(e) =>
+                        setSettings((s) =>
+                          s ? { ...s, nextCreditNoteNumber: parseInt(e.target.value) || 1 } : s
+                        )
+                      }
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Bank Accounts Tab */}
+        <TabsContent value="banks">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Cuentas Bancarias</CardTitle>
+                <CardDescription>
+                  Configura las cuentas bancarias para recibir pagos
+                </CardDescription>
+              </div>
+              <Dialog open={bankDialogOpen} onOpenChange={(open) => {
+                setBankDialogOpen(open);
+                if (!open) resetBankForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <RiAddLine className="mr-2 h-4 w-4" />
+                    Nueva Cuenta
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Nombre de la Cuenta</Label>
+                      <Input
+                        value={newBankName}
+                        onChange={(e) => setNewBankName(e.target.value)}
+                        placeholder="Cuenta Principal"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Banco</Label>
+                      <Input
+                        value={newBankBankName}
+                        onChange={(e) => setNewBankBankName(e.target.value)}
+                        placeholder="Santander, BBVA, etc."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IBAN</Label>
+                      <Input
+                        value={newBankIban}
+                        onChange={(e) => setNewBankIban(e.target.value)}
+                        placeholder="ES00 0000 0000 0000 0000 0000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SWIFT/BIC</Label>
+                      <Input
+                        value={newBankSwift}
+                        onChange={(e) => setNewBankSwift(e.target.value)}
+                        placeholder="BSCHESMMXXX"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={newBankDefault}
+                        onCheckedChange={setNewBankDefault}
+                      />
+                      <Label>Cuenta por defecto</Label>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setBankDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={saveBankAccount}>
+                      {editingBank ? "Guardar" : "Crear"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {bankAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No hay cuentas bancarias configuradas.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {bankAccounts.map((bank) => (
+                    <div
+                      key={bank.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <RiBankLine className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <span className="font-medium">{bank.name}</span>
+                          {bank.bankName && (
+                            <span className="text-sm text-muted-foreground ml-2">
+                              ({bank.bankName})
+                            </span>
+                          )}
+                          {bank.iban && (
+                            <p className="text-xs text-muted-foreground">{bank.iban}</p>
+                          )}
+                        </div>
+                        {bank.isDefault && (
+                          <Badge variant="outline" className="text-green-600">
+                            Por defecto
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditBank(bank)}
+                        >
+                          <RiEditLine className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteBankAccount(bank.id)}
+                        >
+                          <RiDeleteBinLine className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Payment Methods Tab */}
+        <TabsContent value="payments">
+          <Card>
+            <CardHeader>
+              <CardTitle>Métodos de Pago</CardTitle>
+              <CardDescription>
+                Habilita los métodos de pago disponibles para tus clientes
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Efectivo</p>
+                  <p className="text-sm text-muted-foreground">
+                    Permite pagos en efectivo
+                  </p>
+                </div>
+                <Switch
+                  checked={settings?.enableCash || false}
+                  onCheckedChange={(checked) =>
+                    setSettings((s) => s ? { ...s, enableCash: checked } : s)
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Transferencia Bancaria</p>
+                  <p className="text-sm text-muted-foreground">
+                    Permite pagos por transferencia
+                  </p>
+                </div>
+                <Switch
+                  checked={settings?.enableBankTransfer || false}
+                  onCheckedChange={(checked) =>
+                    setSettings((s) => s ? { ...s, enableBankTransfer: checked } : s)
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Stripe</p>
+                  <p className="text-sm text-muted-foreground">
+                    Permite pagos con tarjeta vía Stripe
+                  </p>
+                  {settings?.stripeAccountId && (
+                    <Badge variant="outline" className="mt-1 text-green-600">
+                      Conectado
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  {!settings?.stripeAccountId && (
+                    <Button variant="outline" size="sm" disabled>
+                      Conectar Stripe
+                    </Button>
+                  )}
+                  <Switch
+                    checked={settings?.enableStripe || false}
+                    onCheckedChange={(checked) =>
+                      setSettings((s) => s ? { ...s, enableStripe: checked } : s)
+                    }
+                    disabled={!settings?.stripeAccountId}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Terms Tab */}
+        <TabsContent value="terms">
+          <Card>
+            <CardHeader>
+              <CardTitle>Términos y Condiciones</CardTitle>
+              <CardDescription>
+                Texto por defecto para presupuestos y facturas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings?.defaultTermsAndConditions || ""}
+                onChange={(e) =>
+                  setSettings((s) =>
+                    s ? { ...s, defaultTermsAndConditions: e.target.value } : s
+                  )
+                }
+                placeholder="Escribe aquí los términos y condiciones por defecto..."
+                rows={10}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

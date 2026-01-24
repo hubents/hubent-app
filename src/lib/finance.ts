@@ -458,11 +458,17 @@ export async function createPaymentRecord(
   data: {
     documentId?: number;
     taskId?: number;
+    vendorId?: number;
+    contactId?: number;
+    eventId?: number;
     bankAccountId?: number;
     amount: number;
+    currency?: string;
+    direction?: "incoming" | "outgoing";
     paymentDate?: Date;
     paymentMethod?: string;
     reference?: string;
+    stripePaymentId?: string;
     notes?: string;
   }
 ) {
@@ -470,11 +476,17 @@ export async function createPaymentRecord(
     organizationId: session.organizationId,
     documentId: data.documentId,
     taskId: data.taskId,
+    vendorId: data.vendorId,
+    contactId: data.contactId,
+    eventId: data.eventId,
     bankAccountId: data.bankAccountId,
     amount: data.amount.toString(),
+    currency: data.currency || "EUR",
+    direction: data.direction || "incoming",
     paymentDate: data.paymentDate || new Date(),
     paymentMethod: data.paymentMethod,
     reference: data.reference,
+    stripePaymentId: data.stripePaymentId,
     notes: data.notes,
     createdBy: session.user.userId,
   }).returning();

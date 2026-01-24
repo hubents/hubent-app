@@ -1,0 +1,476 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  RiAddLine,
+  RiSearchLine,
+  RiArrowUpLine,
+  RiArrowDownLine,
+  RiMoneyDollarCircleLine,
+  RiTimeLine,
+  RiCheckLine,
+} from "@remixicon/react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface Payment {
+  id: number;
+  documentId: number | null;
+  vendorId: number | null;
+  contactId: number | null;
+  eventId: number | null;
+  amount: string;
+  currency: string;
+  direction: string;
+  paymentDate: string;
+  paymentMethod: string | null;
+  reference: string | null;
+  notes: string | null;
+}
+
+interface PaymentStats {
+  totalIncoming: number;
+  totalOutgoing: number;
+  pendingIncoming: number;
+  pendingOutgoing: number;
+}
+
+export default function PaymentsPage() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [stats, setStats] = useState<PaymentStats>({
+    totalIncoming: 0,
+    totalOutgoing: 0,
+    pendingIncoming: 0,
+    pendingOutgoing: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [directionFilter, setDirectionFilter] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // New payment form
+  const [newPayment, setNewPayment] = useState({
+    amount: "",
+    currency: "EUR",
+    direction: "incoming",
+    paymentMethod: "bank_transfer",
+    reference: "",
+    notes: "",
+    paymentDate: new Date().toISOString().split("T")[0],
+  });
+
+  useEffect(() => {
+    fetchPayments();
+  }, [directionFilter]);
+
+  async function fetchPayments() {
+    try {
+      const res = await fetch("/api/finance/payments?type=records");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setPayments(data.data || []);
+          calculateStats(data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch payments:", error);
+      toast.error("Error al cargar pagos");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function calculateStats(paymentList: Payment[]) {
+    const incoming = paymentList
+      .filter((p) => p.direction === "incoming")
+      .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+    const outgoing = paymentList
+      .filter((p) => p.direction === "outgoing")
+      .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+
+    setStats({
+      totalIncoming: incoming,
+      totalOutgoing: outgoing,
+      pendingIncoming: 0,
+      pendingOutgoing: 0,
+    });
+  }
+
+  async function createPayment() {
+    if (!newPayment.amount) {
+      toast.error("El monto es requerido");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/finance/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(newPayment.amount),
+          currency: newPayment.currency,
+          direction: newPayment.direction,
+          paymentMethod: newPayment.paymentMethod,
+          reference: newPayment.reference || null,
+          notes: newPayment.notes || null,
+          paymentDate: new Date(newPayment.paymentDate),
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Pago registrado");
+        setDialogOpen(false);
+        setNewPayment({
+          amount: "",
+          currency: "EUR",
+          direction: "incoming",
+          paymentMethod: "bank_transfer",
+          reference: "",
+          notes: "",
+          paymentDate: new Date().toISOString().split("T")[0],
+        });
+        fetchPayments();
+      } else {
+        toast.error("Error al registrar pago");
+      }
+    } catch (error) {
+      toast.error("Error al registrar pago");
+    }
+  }
+
+  const formatCurrency = (amount: string | number, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency,
+    }).format(typeof amount === "string" ? parseFloat(amount || "0") : amount);
+  };
+
+  const filteredPayments = payments.filter((p) => {
+    if (directionFilter !== "all" && p.direction !== directionFilter) return false;
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      p.reference?.toLowerCase().includes(search) ||
+      p.notes?.toLowerCase().includes(search)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Pagos</h1>
+          <p className="text-muted-foreground">
+            Registro de cobros y pagos
+          </p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <RiAddLine className="mr-2 h-4 w-4" />
+              Registrar Pago
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Registrar Pago</DialogTitle>
+              <DialogDescription>
+                Registra un nuevo cobro o pago
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select
+                    value={newPayment.direction}
+                    onValueChange={(v) => setNewPayment({ ...newPayment, direction: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="incoming">Cobro (Ingreso)</SelectItem>
+                      <SelectItem value="outgoing">Pago (Gasto)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Método</Label>
+                  <Select
+                    value={newPayment.paymentMethod}
+                    onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Efectivo</SelectItem>
+                      <SelectItem value="bank_transfer">Transferencia</SelectItem>
+                      <SelectItem value="card">Tarjeta</SelectItem>
+                      <SelectItem value="stripe">Stripe</SelectItem>
+                      <SelectItem value="other">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Monto *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={newPayment.amount}
+                    onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Moneda</Label>
+                  <Select
+                    value={newPayment.currency}
+                    onValueChange={(v) => setNewPayment({ ...newPayment, currency: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="GBP">GBP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={newPayment.paymentDate}
+                  onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Referencia</Label>
+                <Input
+                  value={newPayment.reference}
+                  onChange={(e) => setNewPayment({ ...newPayment, reference: e.target.value })}
+                  placeholder="Número de transferencia, etc."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Notas</Label>
+                <Input
+                  value={newPayment.notes}
+                  onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                  placeholder="Descripción del pago"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={createPayment}>Registrar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Cobrado</CardTitle>
+            <RiArrowUpLine className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">
+              {formatCurrency(stats.totalIncoming)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Pagado</CardTitle>
+            <RiArrowDownLine className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {formatCurrency(stats.totalOutgoing)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Balance</CardTitle>
+            <RiMoneyDollarCircleLine className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.totalIncoming - stats.totalOutgoing >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+              {formatCurrency(stats.totalIncoming - stats.totalOutgoing)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Transacciones</CardTitle>
+            <RiCheckLine className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{payments.length}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por referencia o notas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={directionFilter} onValueChange={setDirectionFilter}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="incoming">Cobros</SelectItem>
+                <SelectItem value="outgoing">Pagos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead>Referencia</TableHead>
+                <TableHead className="text-right">Monto</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPayments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No hay pagos registrados
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>
+                      {payment.paymentDate
+                        ? format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          payment.direction === "incoming"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-red-100 text-red-700"
+                        }
+                      >
+                        {payment.direction === "incoming" ? "Cobro" : "Pago"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {payment.paymentMethod?.replace("_", " ") || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.reference || payment.notes || "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      <span
+                        className={
+                          payment.direction === "incoming"
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {payment.direction === "incoming" ? "+" : "-"}
+                        {formatCurrency(payment.amount, payment.currency)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
