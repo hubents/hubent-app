@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,10 @@ import {
   RiEditLine,
   RiCheckLine,
   RiBankLine,
+  RiAlertLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 interface FinanceSettings {
   id?: number;
@@ -90,10 +92,12 @@ const CURRENCIES = [
   { code: "PEN", name: "Sol peruano" },
 ];
 
-export default function FinanceSettingsPage() {
+function FinanceSettingsContent() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<FinanceSettings | null>(null);
+  const [originalSettings, setOriginalSettings] = useState<FinanceSettings | null>(null);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   
@@ -113,9 +117,52 @@ export default function FinanceSettingsPage() {
   const [newBankSwift, setNewBankSwift] = useState("");
   const [newBankDefault, setNewBankDefault] = useState(false);
 
+  // Check for Stripe callback messages
+  useEffect(() => {
+    const stripeSuccess = searchParams.get("stripe_success");
+    const stripeError = searchParams.get("stripe_error");
+    
+    if (stripeSuccess === "true") {
+      toast.success("Stripe conectado correctamente");
+    } else if (stripeError) {
+      toast.error(`Error de Stripe: ${stripeError}`);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Detect if there are unsaved changes
+  const hasChanges = useCallback(() => {
+    if (!settings || !originalSettings) return false;
+    
+    const fieldsToCompare: (keyof FinanceSettings)[] = [
+      "defaultCurrency",
+      "quotePrefix",
+      "invoicePrefix",
+      "proformaPrefix",
+      "deliveryNotePrefix",
+      "creditNotePrefix",
+      "nextQuoteNumber",
+      "nextInvoiceNumber",
+      "nextProformaNumber",
+      "nextDeliveryNoteNumber",
+      "nextCreditNoteNumber",
+      "enableCash",
+      "enableBankTransfer",
+      "enableStripe",
+      "defaultPaymentTerms",
+      "defaultTermsAndConditions",
+      "quoteValidityDays",
+    ];
+
+    return fieldsToCompare.some(
+      (field) => settings[field] !== originalSettings[field]
+    );
+  }, [settings, originalSettings]);
+
+  const unsavedChanges = hasChanges();
 
   async function fetchData() {
     try {
@@ -127,7 +174,10 @@ export default function FinanceSettingsPage() {
 
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        if (data.success) setSettings(data.data);
+        if (data.success) {
+          setSettings(data.data);
+          setOriginalSettings(data.data);
+        }
       }
 
       if (taxRes.ok) {
@@ -159,6 +209,8 @@ export default function FinanceSettingsPage() {
 
       if (res.ok) {
         toast.success("Configuración guardada");
+        // Update original settings to match saved state
+        setOriginalSettings({ ...settings });
       } else {
         toast.error("Error al guardar");
       }
@@ -295,6 +347,42 @@ export default function FinanceSettingsPage() {
     setBankDialogOpen(true);
   }
 
+  async function handleStripeConnect() {
+    try {
+      const res = await fetch("/api/finance/stripe/connect");
+      const data = await res.json();
+      
+      if (data.success && data.data?.url) {
+        window.location.href = data.data.url;
+      } else {
+        toast.error(data.error?.message || "Error al conectar con Stripe");
+      }
+    } catch (error) {
+      toast.error("Error al conectar con Stripe");
+    }
+  }
+
+  async function handleStripeDisconnect() {
+    if (!confirm("¿Estás seguro de desconectar tu cuenta de Stripe?")) return;
+    
+    try {
+      const res = await fetch("/api/finance/stripe/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      });
+      
+      if (res.ok) {
+        toast.success("Stripe desconectado");
+        fetchData();
+      } else {
+        toast.error("Error al desconectar Stripe");
+      }
+    } catch (error) {
+      toast.error("Error al desconectar Stripe");
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -313,10 +401,22 @@ export default function FinanceSettingsPage() {
             Configura monedas, impuestos, numeración y métodos de pago
           </p>
         </div>
-        <Button onClick={saveSettings} disabled={saving}>
-          <RiSaveLine className="mr-2 h-4 w-4" />
-          {saving ? "Guardando..." : "Guardar Cambios"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {unsavedChanges && (
+            <div className="flex items-center gap-2 text-amber-600">
+              <RiAlertLine className="h-4 w-4" />
+              <span className="text-sm">Cambios sin guardar</span>
+            </div>
+          )}
+          <Button 
+            onClick={saveSettings} 
+            disabled={saving || !unsavedChanges}
+            variant={unsavedChanges ? "default" : "outline"}
+          >
+            <RiSaveLine className="mr-2 h-4 w-4" />
+            {saving ? "Guardando..." : unsavedChanges ? "Guardar Cambios" : "Sin cambios"}
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
@@ -823,14 +923,27 @@ export default function FinanceSettingsPage() {
                   </p>
                   {settings?.stripeAccountId && (
                     <Badge variant="outline" className="mt-1 text-green-600">
-                      Conectado
+                      Conectado: {settings.stripeAccountId}
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
-                  {!settings?.stripeAccountId && (
-                    <Button variant="outline" size="sm" disabled>
+                  {!settings?.stripeAccountId ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleStripeConnect}
+                    >
                       Conectar Stripe
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleStripeDisconnect}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Desconectar
                     </Button>
                   )}
                   <Switch
@@ -871,5 +984,18 @@ export default function FinanceSettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function FinanceSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-[400px]" />
+      </div>
+    }>
+      <FinanceSettingsContent />
+    </Suspense>
   );
 }

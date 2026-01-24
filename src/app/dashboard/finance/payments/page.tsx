@@ -37,12 +37,13 @@ import {
   RiArrowUpLine,
   RiArrowDownLine,
   RiMoneyDollarCircleLine,
-  RiTimeLine,
   RiCheckLine,
+  RiFileTextLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import Link from "next/link";
 
 interface Payment {
   id: number;
@@ -57,6 +58,19 @@ interface Payment {
   paymentMethod: string | null;
   reference: string | null;
   notes: string | null;
+  documentNumber?: string | null;
+  documentType?: string | null;
+}
+
+interface FinancialDocument {
+  id: number;
+  type: string;
+  number: string;
+  total: string;
+  status: string;
+  companyName: string | null;
+  personFirstName: string | null;
+  personLastName: string | null;
 }
 
 interface PaymentStats {
@@ -68,6 +82,7 @@ interface PaymentStats {
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [documents, setDocuments] = useState<FinancialDocument[]>([]);
   const [stats, setStats] = useState<PaymentStats>({
     totalIncoming: 0,
     totalOutgoing: 0,
@@ -88,10 +103,12 @@ export default function PaymentsPage() {
     reference: "",
     notes: "",
     paymentDate: new Date().toISOString().split("T")[0],
+    documentId: "",
   });
 
   useEffect(() => {
     fetchPayments();
+    fetchDocuments();
   }, [directionFilter]);
 
   async function fetchPayments() {
@@ -109,6 +126,21 @@ export default function PaymentsPage() {
       toast.error("Error al cargar pagos");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchDocuments() {
+    try {
+      // Fetch pending invoices and quotes that can receive payments
+      const res = await fetch("/api/finance/documents?status=sent&limit=100");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setDocuments(data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
     }
   }
 
@@ -146,6 +178,7 @@ export default function PaymentsPage() {
           reference: newPayment.reference || null,
           notes: newPayment.notes || null,
           paymentDate: new Date(newPayment.paymentDate),
+          documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
         }),
       });
 
@@ -160,14 +193,43 @@ export default function PaymentsPage() {
           reference: "",
           notes: "",
           paymentDate: new Date().toISOString().split("T")[0],
+          documentId: "",
         });
         fetchPayments();
+        fetchDocuments();
       } else {
         toast.error("Error al registrar pago");
       }
     } catch (error) {
       toast.error("Error al registrar pago");
     }
+  }
+
+  function handleDocumentSelect(docId: string) {
+    setNewPayment({ ...newPayment, documentId: docId });
+    // Auto-fill amount from document
+    if (docId) {
+      const doc = documents.find((d) => d.id.toString() === docId);
+      if (doc) {
+        setNewPayment((prev) => ({
+          ...prev,
+          documentId: docId,
+          amount: doc.total,
+        }));
+      }
+    }
+  }
+
+  function getDocumentLabel(doc: FinancialDocument) {
+    const typeLabels: Record<string, string> = {
+      invoice: "Factura",
+      quote: "Presupuesto",
+      proforma: "Proforma",
+      delivery_note: "Albarán",
+    };
+    const clientName = doc.companyName || 
+      (doc.personFirstName ? `${doc.personFirstName} ${doc.personLastName || ""}` : "");
+    return `${typeLabels[doc.type] || doc.type} ${doc.number}${clientName ? ` - ${clientName}` : ""}`;
   }
 
   const formatCurrency = (amount: string | number, currency = "EUR") => {
@@ -229,6 +291,35 @@ export default function PaymentsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {/* Document selector */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <RiFileTextLine className="h-4 w-4" />
+                  Vincular a documento (opcional)
+                </Label>
+                <Select
+                  value={newPayment.documentId}
+                  onValueChange={handleDocumentSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar factura o presupuesto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Sin documento</SelectItem>
+                    {documents.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id.toString()}>
+                        {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {documents.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No hay facturas o presupuestos pendientes de pago
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo</Label>
