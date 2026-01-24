@@ -238,7 +238,7 @@ export function LeadDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl w-full overflow-y-auto">
+      <SheetContent className="sm:max-w-md w-full overflow-y-auto p-6">
         {loading ? (
           <div className="space-y-4 pt-6">
             <Skeleton className="h-8 w-3/4" />
@@ -312,7 +312,7 @@ export function LeadDrawer({
               </TabsList>
 
               {/* Details Tab */}
-              <TabsContent value="details" className="space-y-4 pt-4">
+              <TabsContent value="details" className="space-y-5 pt-4">
                 {/* Value */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-2">
@@ -510,7 +510,7 @@ export function LeadDrawer({
             </Tabs>
 
             {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-6 mt-6 border-t">
+            <div className="flex items-center justify-between pt-6 mt-6 border-t pb-4">
               <Button
                 variant="destructive"
                 size="sm"
