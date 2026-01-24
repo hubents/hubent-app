@@ -297,6 +297,7 @@ export async function createDocument(
   session: TenantSession,
   data: {
     type: "quote" | "proforma" | "invoice" | "delivery_note" | "credit_note";
+    contactId?: number;
     companyId?: number;
     personId?: number;
     eventId?: number;
@@ -342,6 +343,7 @@ export async function createDocument(
     type: data.type,
     number,
     status: "draft",
+    contactId: data.contactId,
     companyId: data.companyId,
     personId: data.personId,
     eventId: data.eventId,
@@ -390,6 +392,86 @@ export async function updateDocumentStatus(
     .returning();
 
   return updated;
+}
+
+export async function updateDocument(
+  session: TenantSession,
+  documentId: number,
+  data: {
+    contactId?: number;
+    eventId?: number;
+    dueDate?: string;
+    validUntil?: string;
+    notes?: string;
+    termsAndConditions?: string;
+  }
+) {
+  const [updated] = await db.update(financialDocuments)
+    .set({
+      contactId: data.contactId,
+      eventId: data.eventId,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
+      notes: data.notes,
+      termsAndConditions: data.termsAndConditions,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(financialDocuments.id, documentId),
+        eq(financialDocuments.organizationId, session.organizationId)
+      )
+    )
+    .returning();
+
+  return updated;
+}
+
+export async function deleteDocument(
+  session: TenantSession,
+  documentId: number
+) {
+  // First delete document items
+  await db.delete(documentItems)
+    .where(eq(documentItems.documentId, documentId));
+
+  // Then delete the document
+  const [deleted] = await db.delete(financialDocuments)
+    .where(
+      and(
+        eq(financialDocuments.id, documentId),
+        eq(financialDocuments.organizationId, session.organizationId)
+      )
+    )
+    .returning();
+
+  return deleted;
+}
+
+export async function duplicateDocument(
+  session: TenantSession,
+  documentId: number
+) {
+  const original = await getDocument(session, documentId);
+  if (!original) throw new Error("Document not found");
+
+  const newDoc = await createDocument(session, {
+    type: original.type as "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note",
+    contactId: original.contactId ?? undefined,
+    eventId: original.eventId ?? undefined,
+    notes: original.notes ?? undefined,
+    termsAndConditions: original.termsAndConditions ?? undefined,
+    items: original.items.map(item => ({
+      productId: item.productId ?? undefined,
+      description: item.description,
+      quantity: parseFloat(item.quantity || "1"),
+      unitPrice: parseFloat(item.unitPrice),
+      discount: parseFloat(item.discount || "0"),
+      taxRate: parseFloat(item.taxRate || "21"),
+    })),
+  });
+
+  return newDoc;
 }
 
 export async function convertDocument(

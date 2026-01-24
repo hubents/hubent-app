@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
-import { getDocument, updateDocumentStatus, convertDocument } from "@/lib/finance";
+import { getDocument, updateDocument, updateDocumentStatus, convertDocument, deleteDocument } from "@/lib/finance";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
 
@@ -73,15 +73,53 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    return NextResponse.json(
-      { success: false, error: { code: "VALIDATION_ERROR", message: "No valid action provided" } },
-      { status: 400 }
-    );
+    // Update document fields
+    const updated = await updateDocument(session, parseInt(documentId, 10), body);
+    
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Document not found" } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update document";
     return NextResponse.json(
       { success: false, error: { code: "UPDATE_ERROR", message } },
       { status: 400 }
+    );
+  }
+}
+
+// DELETE /api/finance/documents/[documentId] - Delete document
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireRole("planner");
+    const { documentId } = await params;
+
+    const deleted = await deleteDocument(session, parseInt(documentId, 10));
+
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Document not found" } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Document deleted",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete document";
+    return NextResponse.json(
+      { success: false, error: { code: "DELETE_ERROR", message } },
+      { status: 500 }
     );
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -32,19 +32,17 @@ import {
   RiAddLine,
   RiSearchLine,
   RiMoreLine,
-  RiEyeLine,
   RiEditLine,
-  RiMailLine,
   RiFileCopyLine,
   RiDeleteBinLine,
-  RiDownloadLine,
+  RiCheckLine,
+  RiSendPlaneLine,
   RiMoneyDollarCircleLine,
 } from "@remixicon/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { DocumentDrawer } from "@/components/finance/document-drawer";
 
 interface Invoice {
   id: number;
@@ -75,13 +73,16 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 export default function InvoicesPage() {
-  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     fetchInvoices();
@@ -138,15 +139,42 @@ export default function InvoicesPage() {
         method: "POST",
       });
       if (res.ok) {
-        const data = await res.json();
         toast.success("Factura duplicada");
-        router.push(`/dashboard/finance/invoices/${data.data.id}`);
+        fetchInvoices();
       } else {
         toast.error("Error al duplicar");
       }
     } catch (error) {
       toast.error("Error al duplicar");
     }
+  }
+
+  async function updateStatus(id: number, status: string) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        fetchInvoices();
+      } else {
+        toast.error("Error al actualizar estado");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar estado");
+    }
+  }
+
+  function openNewDrawer() {
+    setEditingId(undefined);
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(id: number) {
+    setEditingId(id);
+    setDrawerOpen(true);
   }
 
   const formatCurrency = (amount: string, currency = "EUR") => {
@@ -195,11 +223,9 @@ export default function InvoicesPage() {
             Gestiona tus facturas de venta
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/finance/invoices/new">
-            <RiAddLine className="mr-2 h-4 w-4" />
-            Nueva Factura
-          </Link>
+        <Button onClick={openNewDrawer}>
+          <RiAddLine className="mr-2 h-4 w-4" />
+          Nueva Factura
         </Button>
       </div>
 
@@ -258,12 +284,12 @@ export default function InvoicesPage() {
                 filteredInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">
-                      <Link
-                        href={`/dashboard/finance/invoices/${invoice.id}`}
-                        className="hover:underline"
+                      <button
+                        onClick={() => openEditDrawer(invoice.id)}
+                        className="hover:underline text-left"
                       >
                         {invoice.number}
-                      </Link>
+                      </button>
                     </TableCell>
                     <TableCell>{getClientName(invoice)}</TableCell>
                     <TableCell>
@@ -292,35 +318,33 @@ export default function InvoicesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/finance/invoices/${invoice.id}`}>
-                              <RiEyeLine className="mr-2 h-4 w-4" />
-                              Ver
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/finance/invoices/${invoice.id}/edit`}>
-                              <RiEditLine className="mr-2 h-4 w-4" />
-                              Editar
-                            </Link>
+                          <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
+                            <RiEditLine className="mr-2 h-4 w-4" />
+                            Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => duplicateInvoice(invoice.id)}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <RiMailLine className="mr-2 h-4 w-4" />
-                            Enviar por Email
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RiDownloadLine className="mr-2 h-4 w-4" />
-                            Descargar PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                            Registrar Pago
-                          </DropdownMenuItem>
+                          {invoice.status === "draft" && (
+                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
+                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                              Marcar como Enviada
+                            </DropdownMenuItem>
+                          )}
+                          {invoice.status === "sent" && (
+                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "paid")}>
+                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                              Marcar como Pagada
+                            </DropdownMenuItem>
+                          )}
+                          {(invoice.status === "draft" || invoice.status === "sent") && (
+                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "cancelled")}>
+                              <RiCheckLine className="mr-2 h-4 w-4" />
+                              Cancelar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
@@ -364,6 +388,15 @@ export default function InvoicesPage() {
           </Button>
         </div>
       )}
+
+      {/* Document Drawer */}
+      <DocumentDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        type="invoice"
+        documentId={editingId}
+        onSuccess={fetchInvoices}
+      />
     </div>
   );
 }

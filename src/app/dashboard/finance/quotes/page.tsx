@@ -32,19 +32,18 @@ import {
   RiAddLine,
   RiSearchLine,
   RiMoreLine,
-  RiEyeLine,
   RiEditLine,
-  RiMailLine,
   RiFileCopyLine,
   RiDeleteBinLine,
-  RiDownloadLine,
   RiExchangeLine,
+  RiSendPlaneLine,
+  RiCheckLine,
+  RiCloseLine,
 } from "@remixicon/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { DocumentDrawer } from "@/components/finance/document-drawer";
 
 interface Quote {
   id: number;
@@ -74,13 +73,16 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 export default function QuotesPage() {
-  const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     fetchQuotes();
@@ -139,15 +141,58 @@ export default function QuotesPage() {
         body: JSON.stringify({ convertTo: "invoice" }),
       });
       if (res.ok) {
-        const data = await res.json();
         toast.success("Convertido a factura");
-        router.push(`/dashboard/finance/invoices/${data.data.id}`);
+        fetchQuotes();
       } else {
         toast.error("Error al convertir");
       }
     } catch (error) {
       toast.error("Error al convertir");
     }
+  }
+
+  async function duplicateQuote(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}/duplicate`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        toast.success("Presupuesto duplicado");
+        fetchQuotes();
+      } else {
+        toast.error("Error al duplicar");
+      }
+    } catch (error) {
+      toast.error("Error al duplicar");
+    }
+  }
+
+  async function updateStatus(id: number, status: string) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        fetchQuotes();
+      } else {
+        toast.error("Error al actualizar estado");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar estado");
+    }
+  }
+
+  function openNewDrawer() {
+    setEditingId(undefined);
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(id: number) {
+    setEditingId(id);
+    setDrawerOpen(true);
   }
 
   const formatCurrency = (amount: string, currency = "EUR") => {
@@ -201,11 +246,9 @@ export default function QuotesPage() {
             Gestiona tus presupuestos y cotizaciones
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/finance/quotes/new">
-            <RiAddLine className="mr-2 h-4 w-4" />
-            Nuevo Presupuesto
-          </Link>
+        <Button onClick={openNewDrawer}>
+          <RiAddLine className="mr-2 h-4 w-4" />
+          Nuevo Presupuesto
         </Button>
       </div>
 
@@ -264,12 +307,12 @@ export default function QuotesPage() {
                 filteredQuotes.map((quote) => (
                   <TableRow key={quote.id}>
                     <TableCell className="font-medium">
-                      <Link
-                        href={`/dashboard/finance/quotes/${quote.id}`}
-                        className="hover:underline"
+                      <button
+                        onClick={() => openEditDrawer(quote.id)}
+                        className="hover:underline text-left"
                       >
                         {quote.number}
-                      </Link>
+                      </button>
                     </TableCell>
                     <TableCell>{getClientName(quote)}</TableCell>
                     <TableCell>
@@ -303,35 +346,39 @@ export default function QuotesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/finance/quotes/${quote.id}`}>
-                              <RiEyeLine className="mr-2 h-4 w-4" />
-                              Ver
-                            </Link>
+                          <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
+                            <RiEditLine className="mr-2 h-4 w-4" />
+                            Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/finance/quotes/${quote.id}/edit`}>
-                              <RiEditLine className="mr-2 h-4 w-4" />
-                              Editar
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => duplicateQuote(quote.id)}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <RiMailLine className="mr-2 h-4 w-4" />
-                            Enviar por Email
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RiDownloadLine className="mr-2 h-4 w-4" />
-                            Descargar PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => convertToInvoice(quote.id)}>
-                            <RiExchangeLine className="mr-2 h-4 w-4" />
-                            Convertir a Factura
-                          </DropdownMenuItem>
+                          {quote.status === "draft" && (
+                            <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                              Marcar como Enviado
+                            </DropdownMenuItem>
+                          )}
+                          {quote.status === "sent" && (
+                            <>
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                <RiCheckLine className="mr-2 h-4 w-4" />
+                                Marcar como Aceptado
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "rejected")}>
+                                <RiCloseLine className="mr-2 h-4 w-4" />
+                                Marcar como Rechazado
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {quote.status === "accepted" && (
+                            <DropdownMenuItem onClick={() => convertToInvoice(quote.id)}>
+                              <RiExchangeLine className="mr-2 h-4 w-4" />
+                              Convertir a Factura
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
@@ -375,6 +422,15 @@ export default function QuotesPage() {
           </Button>
         </div>
       )}
+
+      {/* Document Drawer */}
+      <DocumentDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        type="quote"
+        documentId={editingId}
+        onSuccess={fetchQuotes}
+      />
     </div>
   );
 }

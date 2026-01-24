@@ -22,14 +22,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   RiAddLine,
   RiSearchLine,
   RiTruckLine,
+  RiMoreLine,
+  RiEditLine,
+  RiFileCopyLine,
+  RiDeleteBinLine,
+  RiSendPlaneLine,
+  RiCheckLine,
 } from "@remixicon/react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { DocumentDrawer } from "@/components/finance/document-drawer";
 
 interface DeliveryNote {
   id: number;
@@ -52,6 +65,10 @@ export default function DeliveryNotesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     fetchNotes();
@@ -79,6 +96,68 @@ export default function DeliveryNotesPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function deleteNote(id: number) {
+    if (!confirm("¿Estás seguro de eliminar este albarán?")) return;
+
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Albarán eliminado");
+        fetchNotes();
+      } else {
+        toast.error("Error al eliminar");
+      }
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  }
+
+  async function duplicateNote(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}/duplicate`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        toast.success("Albarán duplicado");
+        fetchNotes();
+      } else {
+        toast.error("Error al duplicar");
+      }
+    } catch (error) {
+      toast.error("Error al duplicar");
+    }
+  }
+
+  async function updateStatus(id: number, status: string) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        fetchNotes();
+      } else {
+        toast.error("Error al actualizar estado");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar estado");
+    }
+  }
+
+  function openNewDrawer() {
+    setEditingId(undefined);
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(id: number) {
+    setEditingId(id);
+    setDrawerOpen(true);
   }
 
   const getClientName = (note: DeliveryNote) => {
@@ -120,11 +199,9 @@ export default function DeliveryNotesPage() {
             Notas de entrega de productos y servicios
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/finance/delivery-notes/new">
-            <RiAddLine className="mr-2 h-4 w-4" />
-            Nuevo Albarán
-          </Link>
+        <Button onClick={openNewDrawer}>
+          <RiAddLine className="mr-2 h-4 w-4" />
+          Nuevo Albarán
         </Button>
       </div>
 
@@ -166,12 +243,13 @@ export default function DeliveryNotesPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredNotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <RiTruckLine className="h-8 w-8" />
                       <p>No hay albaranes</p>
@@ -185,12 +263,12 @@ export default function DeliveryNotesPage() {
                 filteredNotes.map((note) => (
                   <TableRow key={note.id}>
                     <TableCell className="font-medium">
-                      <Link
-                        href={`/dashboard/finance/delivery-notes/${note.id}`}
-                        className="hover:underline"
+                      <button
+                        onClick={() => openEditDrawer(note.id)}
+                        className="hover:underline text-left"
                       >
                         {note.number}
-                      </Link>
+                      </button>
                     </TableCell>
                     <TableCell>{getClientName(note)}</TableCell>
                     <TableCell>
@@ -203,6 +281,46 @@ export default function DeliveryNotesPage() {
                         {statusConfig[note.status]?.label || note.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <RiMoreLine className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDrawer(note.id)}>
+                            <RiEditLine className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => duplicateNote(note.id)}>
+                            <RiFileCopyLine className="mr-2 h-4 w-4" />
+                            Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {note.status === "draft" && (
+                            <DropdownMenuItem onClick={() => updateStatus(note.id, "sent")}>
+                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                              Marcar como Enviado
+                            </DropdownMenuItem>
+                          )}
+                          {note.status === "sent" && (
+                            <DropdownMenuItem onClick={() => updateStatus(note.id, "delivered")}>
+                              <RiCheckLine className="mr-2 h-4 w-4" />
+                              Marcar como Entregado
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => deleteNote(note.id)}
+                          >
+                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -210,6 +328,15 @@ export default function DeliveryNotesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Document Drawer */}
+      <DocumentDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        type="delivery_note"
+        documentId={editingId}
+        onSuccess={fetchNotes}
+      />
     </div>
   );
 }
