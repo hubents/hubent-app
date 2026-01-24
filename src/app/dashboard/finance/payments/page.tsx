@@ -298,14 +298,14 @@ export default function PaymentsPage() {
                   Vincular a documento (opcional)
                 </Label>
                 <Select
-                  value={newPayment.documentId}
-                  onValueChange={handleDocumentSelect}
+                  value={newPayment.documentId || "none"}
+                  onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar factura o presupuesto..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin documento</SelectItem>
+                    <SelectItem value="none">Sin documento</SelectItem>
                     {documents.map((doc) => (
                       <SelectItem key={doc.id} value={doc.id.toString()}>
                         {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
