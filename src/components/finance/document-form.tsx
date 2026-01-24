@@ -44,10 +44,11 @@ interface DocumentItem {
 
 interface Contact {
   id: number;
-  firstName: string;
+  name: string;
+  firstName: string | null;
   lastName: string | null;
   email: string | null;
-  companyName: string | null;
+  tradeName: string | null;
   type: string;
 }
 
@@ -346,7 +347,7 @@ export function DocumentForm({ type, documentId, title, backUrl }: DocumentFormP
                       <SelectItem value="">Sin cliente</SelectItem>
                       {contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id.toString()}>
-                          {contact.companyName || `${contact.firstName} ${contact.lastName || ""}`}
+                          {contact.name || `${contact.firstName || ""} ${contact.lastName || ""}`.trim()}
                           {contact.email && ` (${contact.email})`}
                         </SelectItem>
                       ))}
