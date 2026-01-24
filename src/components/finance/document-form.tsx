@@ -339,12 +339,12 @@ export function DocumentForm({ type, documentId, title, backUrl }: DocumentFormP
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Cliente / Contacto</Label>
-                  <Select value={contactId} onValueChange={setContactId}>
+                  <Select value={contactId || "none"} onValueChange={(v) => setContactId(v === "none" ? "" : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar cliente..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin cliente</SelectItem>
+                      <SelectItem value="none">Sin cliente</SelectItem>
                       {contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id.toString()}>
                           {contact.name || `${contact.firstName || ""} ${contact.lastName || ""}`.trim()}
@@ -357,12 +357,12 @@ export function DocumentForm({ type, documentId, title, backUrl }: DocumentFormP
 
                 <div className="space-y-2">
                   <Label>Evento (opcional)</Label>
-                  <Select value={eventId} onValueChange={setEventId}>
+                  <Select value={eventId || "none"} onValueChange={(v) => setEventId(v === "none" ? "" : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Vincular a evento..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin evento</SelectItem>
+                      <SelectItem value="none">Sin evento</SelectItem>
                       {events.map((event) => (
                         <SelectItem key={event.id} value={event.id.toString()}>
                           {event.name}
