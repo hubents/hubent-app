@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
+import { toast } from "sonner";
 import { useEvent } from "@/contexts/event-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const [inviteMessage, setInviteMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const initialSettingsRef = useRef<string>("");
   const [rsvpStats, setRsvpStats] = useState<{
     totalGuests: number;
     confirmed: number;
@@ -217,6 +221,21 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               showFaqs: rsvpData.data.settings.showFaqs ?? true,
               showTransport: rsvpData.data.settings.showTransport ?? false,
             });
+            // Store initial settings for change detection
+            initialSettingsRef.current = JSON.stringify({
+              enabled: rsvpData.data.settings.enabled ?? true,
+              deadline: rsvpData.data.settings.deadline || null,
+              allowPlusOne: rsvpData.data.settings.allowPlusOne ?? false,
+              maxCompanionsPerGuest: rsvpData.data.settings.maxCompanionsPerGuest ?? 1,
+              askDietaryRestrictions: rsvpData.data.settings.askDietaryRestrictions ?? true,
+              customMessage: rsvpData.data.settings.customMessage || "",
+              showItinerary: rsvpData.data.settings.showItinerary ?? true,
+              showHotels: rsvpData.data.settings.showHotels ?? true,
+              showNearbyPlans: rsvpData.data.settings.showNearbyPlans ?? true,
+              showLocation: rsvpData.data.settings.showLocation ?? true,
+              showFaqs: rsvpData.data.settings.showFaqs ?? true,
+              showTransport: rsvpData.data.settings.showTransport ?? false,
+            });
           }
           setItinerary(rsvpData.data.itinerary || []);
           setHotels(rsvpData.data.hotels || []);
@@ -241,6 +260,26 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
     fetchData();
   }, [eventId, setActiveEvent]);
+
+  // Detect changes in settings
+  useEffect(() => {
+    if (initialSettingsRef.current && !loading) {
+      const currentSettings = JSON.stringify(settings);
+      setHasChanges(currentSettings !== initialSettingsRef.current);
+    }
+  }, [settings, loading]);
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasChanges]);
 
   const rsvpUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/rsvp/${eventId}` 
@@ -547,14 +586,25 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
   // Save settings
   const handleSaveSettings = async () => {
+    setSaving(true);
     try {
-      await fetch(`/api/events/${eventId}/rsvp`, {
+      const res = await fetch(`/api/events/${eventId}/rsvp`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings, coverImage }),
       });
+      if (res.ok) {
+        toast.success("Cambios guardados correctamente");
+        setHasChanges(false);
+        initialSettingsRef.current = JSON.stringify(settings);
+      } else {
+        toast.error("Error al guardar los cambios");
+      }
     } catch (error) {
       console.error("Failed to save settings:", error);
+      toast.error("Error de conexión al guardar");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -591,6 +641,25 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             <RiMailSendLine className="h-4 w-4" />
             Enviar invitaciones
           </Button>
+          {hasChanges && (
+            <Button 
+              onClick={handleSaveSettings} 
+              disabled={saving}
+              className="gap-2"
+            >
+              {saving ? (
+                <>
+                  <RiLoader4Line className="h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <RiCheckLine className="h-4 w-4" />
+                  Guardar
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1267,9 +1336,22 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
         {/* Save Button */}
         <div className="lg:col-span-2 flex justify-end">
-          <Button onClick={handleSaveSettings} className="gap-2">
-            <RiCheckLine className="h-4 w-4" />
-            Guardar cambios
+          <Button 
+            onClick={handleSaveSettings} 
+            disabled={saving || !hasChanges}
+            className="gap-2"
+          >
+            {saving ? (
+              <>
+                <RiLoader4Line className="h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <RiCheckLine className="h-4 w-4" />
+                {hasChanges ? "Guardar cambios" : "Sin cambios"}
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -1815,6 +1897,33 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Sticky Save Bar */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 flex items-center justify-between gap-4 shadow-lg">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-muted-foreground">Tienes cambios sin guardar</span>
+          </div>
+          <Button 
+            onClick={handleSaveSettings} 
+            disabled={saving}
+            className="gap-2"
+          >
+            {saving ? (
+              <>
+                <RiLoader4Line className="h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <RiCheckLine className="h-4 w-4" />
+                Guardar cambios
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
