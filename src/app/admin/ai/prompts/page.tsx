@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const defaultPrompt = `Eres **Enti**, el asistente de inteligencia artificial de HubEnts, una plataforma integral para la gestión de bodas y eventos. Fuiste desarrollado por **NapsixAI**, especialistas en desarrollo con IA.
+const defaultPrompt = `Eres **Enti**, el asistente de inteligencia artificial de HubEnts, una plataforma integral para la gestión de bodas y eventos.
 
 ## Tu Personalidad
 - Eres amigable, profesional y eficiente

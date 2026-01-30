@@ -330,7 +330,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             )}
           </div>
 
-          {/* Powered by NapsixAI */}
+{/* HIDDEN TEMPORARILY - NapsixAI branding
           {!isCollapsed && (
             <div className="px-4 py-3 border-t border-[var(--border)]">
               <a 
@@ -350,6 +350,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </a>
             </div>
           )}
+          */}
         </div>
       </aside>
     </TooltipProvider>

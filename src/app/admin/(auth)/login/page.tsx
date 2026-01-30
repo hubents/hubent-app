@@ -302,7 +302,7 @@ function AdminLoginContent() {
       </CardContent>
     </Card>
     
-    {/* Powered by NapsixAI */}
+{/* HIDDEN TEMPORARILY - NapsixAI branding
     <div className="flex items-center justify-center gap-2 mt-6">
       <span className="text-xs text-muted-foreground">Powered by</span>
       <a 
@@ -320,6 +320,7 @@ function AdminLoginContent() {
         />
       </a>
     </div>
+    */}
     </>
   );
 }

@@ -38,7 +38,7 @@ export default function AIPage() {
         <div>
           <h1 className="text-2xl font-bold">Enti - Asistente IA</h1>
           <p className="text-muted-foreground">
-            Tu asistente inteligente para gestionar HubEnts • by NapsixAI
+            Tu asistente inteligente para gestionar HubEnts {/* HIDDEN TEMPORARILY: • by NapsixAI */}
           </p>
         </div>
       </div>

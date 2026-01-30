@@ -124,7 +124,7 @@ export default async function AdminAIPage() {
           <div>
             <h1 className="text-2xl font-bold">Asistente IA - Enti</h1>
             <p className="text-muted-foreground">
-              Gestiona y entrena el asistente inteligente • Powered by NapsixAI
+              Gestiona y entrena el asistente inteligente {/* HIDDEN TEMPORARILY: • Powered by NapsixAI */}
             </p>
           </div>
         </div>

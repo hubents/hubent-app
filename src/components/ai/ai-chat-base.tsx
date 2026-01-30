@@ -85,7 +85,9 @@ export function AIChatBase({
             <div>
               <h2 className="font-semibold text-[var(--foreground)]">{title}</h2>
               <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-1">
-                {subtitle} •{" "}
+                {subtitle}
+                {/* HIDDEN TEMPORARILY - NapsixAI branding
+                •{" "}
                 <Link href="https://napsix.ai" target="_blank" className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity">
                   <span>by</span>
                   <Image
@@ -98,6 +100,7 @@ export function AIChatBase({
                     height={14}
                   />
                 </Link>
+                */}
               </p>
             </div>
           </div>
@@ -212,6 +215,7 @@ export function AIChatBase({
         <p className="text-[10px] text-center text-[var(--muted-foreground)] mt-2">
           Enti puede cometer errores. Verifica la información importante.
         </p>
+{/* HIDDEN TEMPORARILY - NapsixAI branding
         <Link 
           href="https://napsix.ai" 
           target="_blank" 
@@ -228,6 +232,7 @@ export function AIChatBase({
             height={12}
           />
         </Link>
+        */}
       </div>
     </div>
   );

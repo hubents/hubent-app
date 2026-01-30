@@ -78,7 +78,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             <div>
               <h2 className="font-semibold text-[var(--foreground)]">Enti</h2>
               <p className="text-xs text-[var(--muted-foreground)]">
-                Tu asistente IA • by NapsixAI
+                Tu asistente IA {/* HIDDEN TEMPORARILY: • by NapsixAI */}
               </p>
             </div>
           </div>
