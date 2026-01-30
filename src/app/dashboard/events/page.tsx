@@ -125,7 +125,7 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[var(--gap-cards-lg)]">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -177,7 +177,7 @@ export default function EventsPage() {
       ) : filteredEvents.length > 0 ? (
         viewMode === "grid" ? (
           /* Grid View */
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-[var(--gap-cards)] md:grid-cols-2 xl:grid-cols-3">
             {filteredEvents.map((event) => {
               const status = statusMap[event.status] || statusMap.draft;
               const typeLabel = typeLabels[event.type] || event.type;

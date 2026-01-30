@@ -34,7 +34,7 @@ export default function DashboardLayout({
           <div className="hidden md:block">
             <Header />
           </div>
-          <main className="p-4 md:p-6 pb-20 md:pb-6">{children}</main>
+          <main className="p-[var(--padding-page)] md:p-[var(--padding-page-lg)] pb-20 md:pb-[var(--padding-page-lg)]">{children}</main>
         </DashboardContent>
         
         {/* Mobile Bottom Navigation */}

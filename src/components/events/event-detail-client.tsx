@@ -384,10 +384,10 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-[var(--gap-cards-lg)]">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-16 w-full" />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-[var(--gap-cards)] md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
@@ -415,7 +415,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const completionRate = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[var(--gap-cards-lg)]">
       {/* Back Button */}
       <Link href="/dashboard/events">
         <Button variant="ghost" className="gap-2">
@@ -468,7 +468,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-[var(--gap-cards)] md:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="rounded-lg bg-primary/10 p-3">
@@ -545,7 +545,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       </Card>
 
       {/* Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-[var(--gap-cards-lg)] lg:grid-cols-2">
         {/* Linked Contacts */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

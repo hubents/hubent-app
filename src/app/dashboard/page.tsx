@@ -58,7 +58,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[var(--gap-cards-lg)]">
       {/* Page Header */}
       <div className="animate-fade-in">
         <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -68,7 +68,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-[var(--gap-cards)] md:grid-cols-2 lg:grid-cols-4">
         <div className="animate-slide-in-bottom stagger-1">
           <StatsCard
             title="Eventos Activos"
@@ -104,7 +104,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-4 animate-fade-in">
+      <div className="grid gap-[var(--gap-cards)] md:grid-cols-4 animate-fade-in">
         <Card 
           className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--primary)] hover:-translate-y-1 bg-[var(--primary)] text-[var(--primary-foreground)]"
           onClick={() => router.push("/dashboard/events?new=true")}
@@ -163,7 +163,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-[var(--gap-cards-lg)] lg:grid-cols-2">
         <div className="animate-slide-in-bottom">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

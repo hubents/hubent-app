@@ -5,9 +5,9 @@ import { ContactsPageContent } from "@/components/contacts/contacts-page-content
 export default function ContactsPage() {
   return (
     <Suspense fallback={
-      <div className="space-y-6">
+      <div className="space-y-[var(--gap-cards-lg)]">
         <Skeleton className="h-10 w-48" />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-[var(--gap-cards)] md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
