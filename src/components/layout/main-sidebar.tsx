@@ -86,7 +86,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen border-r border-[var(--border)] bg-[var(--card)] transition-all duration-300 hidden md:block",
+          "fixed left-0 top-0 z-40 h-screen border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] transition-all duration-300 hidden md:block",
           isCollapsed ? "w-[72px]" : "w-[260px]"
         )}
       >
