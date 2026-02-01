@@ -477,6 +477,7 @@ export const tasks = pgTable("tasks", {
   eventId: integer("event_id").references(() => events.id),
   assignedTo: text("assigned_to").references(() => users.id),
   createdBy: text("created_by").references(() => users.id),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1063,6 +1064,9 @@ export const taskPayments = pgTable("task_payments", {
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   date: timestamp("date").notNull(),
   status: text("status").default("pending"),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  paymentMethod: text("payment_method"),
+  notes: text("notes"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

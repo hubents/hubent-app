@@ -59,8 +59,25 @@ interface TaskPayment {
   amount: string;
   date: string;
   status: string | null;
+  vendorId: number | null;
+  paymentMethod: string | null;
+  notes: string | null;
   createdBy: string | null;
   createdAt: string;
+  vendorName: string | null;
+  vendorCategory: string | null;
+  vendorEmail: string | null;
+  vendorPhone: string | null;
+  vendorAddress: string | null;
+}
+
+interface Vendor {
+  id: number;
+  name: string;
+  category: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
 }
 
 interface TaskScheduleItem {
@@ -85,7 +102,7 @@ interface TaskInfoTabProps {
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddAttachment: (data: { name: string; url: string; type?: string }) => Promise<unknown>;
   onDeleteAttachment: (attachmentId: number) => Promise<boolean>;
-  onAddPayment: (data: { description: string; amount: number; date?: string }) => Promise<unknown>;
+  onAddPayment: (data: { description: string; amount: number; date?: string; vendorId?: number; paymentMethod?: string; notes?: string }) => Promise<unknown>;
   onDeletePayment: (paymentId: number) => Promise<boolean>;
   onAddMeeting: (data: { title: string; date: string; startTime?: string; endTime?: string; description?: string }) => Promise<unknown>;
   onDeleteMeeting: (meetingId: number) => Promise<boolean>;
@@ -117,8 +134,18 @@ export function TaskInfoTab({
   const [newLinkName, setNewLinkName] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [newPayment, setNewPayment] = useState({ description: "", amount: "", date: "" });
+  const [newPayment, setNewPayment] = useState({ 
+    description: "", 
+    amount: "", 
+    date: "",
+    vendorId: null as number | null,
+    paymentMethod: "",
+    notes: "",
+  });
   const [addingPayment, setAddingPayment] = useState(false);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
+  const [vendorSearch, setVendorSearch] = useState("");
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
@@ -126,6 +153,28 @@ export function TaskInfoTab({
   const [newMeeting, setNewMeeting] = useState({ title: "", date: "", startTime: "", endTime: "", description: "" });
   const [addingMeeting, setAddingMeeting] = useState(false);
   const [expandedMeetings, setExpandedMeetings] = useState<Set<number>>(new Set());
+
+  // Fetch vendors when dialog opens
+  const fetchVendors = async (search?: string) => {
+    setLoadingVendors(true);
+    try {
+      const url = search ? `/api/vendors?search=${encodeURIComponent(search)}` : "/api/vendors";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setVendors(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vendors:", err);
+    } finally {
+      setLoadingVendors(false);
+    }
+  };
+
+  const handleOpenPaymentDialog = () => {
+    setShowPaymentDialog(true);
+    fetchVendors();
+  };
 
   const handleAddPayment = async () => {
     if (!newPayment.description || !newPayment.amount) return;
@@ -135,8 +184,11 @@ export function TaskInfoTab({
         description: newPayment.description,
         amount: parseFloat(newPayment.amount),
         date: newPayment.date || new Date().toISOString().split("T")[0],
+        vendorId: newPayment.vendorId || undefined,
+        paymentMethod: newPayment.paymentMethod || undefined,
+        notes: newPayment.notes || undefined,
       });
-      setNewPayment({ description: "", amount: "", date: "" });
+      setNewPayment({ description: "", amount: "", date: "", vendorId: null, paymentMethod: "", notes: "" });
       setShowPaymentDialog(false);
     } finally {
       setAddingPayment(false);
@@ -244,18 +296,18 @@ export function TaskInfoTab({
           </h3>
           <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleOpenPaymentDialog}>
                 <RiAddLine className="h-4 w-4" />
                 Agregar Pago
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Agregar Pago</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Descripción</Label>
+                  <Label>Descripción *</Label>
                   <Input
                     placeholder="Ej: Anticipo proveedor"
                     value={newPayment.description}
@@ -264,7 +316,7 @@ export function TaskInfoTab({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Importe</Label>
+                    <Label>Importe *</Label>
                     <Input
                       type="number"
                       placeholder="0.00"
@@ -281,7 +333,88 @@ export function TaskInfoTab({
                     />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+                
+                {/* Vendor Selection */}
+                <div className="space-y-2">
+                  <Label>Proveedor</Label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={newPayment.vendorId || ""}
+                    onChange={(e) => setNewPayment({ ...newPayment, vendorId: e.target.value ? parseInt(e.target.value) : null })}
+                  >
+                    <option value="">Seleccionar proveedor...</option>
+                    {vendors.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.name} {vendor.category ? `(${vendor.category})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingVendors && <p className="text-xs text-muted-foreground">Cargando proveedores...</p>}
+                </div>
+
+                {/* Vendor Info (readonly) */}
+                {newPayment.vendorId && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Datos del Proveedor</p>
+                    {(() => {
+                      const selectedVendor = vendors.find(v => v.id === newPayment.vendorId);
+                      if (!selectedVendor) return null;
+                      return (
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {selectedVendor.email && (
+                            <div>
+                              <span className="text-muted-foreground">Email:</span>{" "}
+                              <span>{selectedVendor.email}</span>
+                            </div>
+                          )}
+                          {selectedVendor.phone && (
+                            <div>
+                              <span className="text-muted-foreground">Tel:</span>{" "}
+                              <span>{selectedVendor.phone}</span>
+                            </div>
+                          )}
+                          {selectedVendor.address && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Dirección:</span>{" "}
+                              <span>{selectedVendor.address}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Payment Method */}
+                <div className="space-y-2">
+                  <Label>Método de Pago</Label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={newPayment.paymentMethod}
+                    onChange={(e) => setNewPayment({ ...newPayment, paymentMethod: e.target.value })}
+                  >
+                    <option value="">Seleccionar método...</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia Bancaria</option>
+                    <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="mercadopago">MercadoPago</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label>Notas</Label>
+                  <Textarea
+                    placeholder="Observaciones adicionales..."
+                    value={newPayment.notes}
+                    onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
                     Cancelar
                   </Button>
@@ -294,8 +427,9 @@ export function TaskInfoTab({
           </Dialog>
         </div>
         <div className="rounded-lg border border-border">
-          <div className="grid grid-cols-4 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
+          <div className="grid grid-cols-5 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
             <span>Descripción</span>
+            <span>Proveedor</span>
             <span>Fecha</span>
             <span>Importe</span>
             <span></span>
@@ -307,8 +441,32 @@ export function TaskInfoTab({
           ) : (
             <div className="divide-y divide-border">
               {safePayments.map((payment) => (
-                <div key={payment.id} className="grid grid-cols-4 gap-4 p-3 items-center">
-                  <span className="text-sm">{payment.description}</span>
+                <div key={payment.id} className="grid grid-cols-5 gap-4 p-3 items-center">
+                  <div>
+                    <span className="text-sm">{payment.description}</span>
+                    {payment.paymentMethod && (
+                      <span className="text-xs text-muted-foreground block">
+                        {payment.paymentMethod === "efectivo" ? "Efectivo" :
+                         payment.paymentMethod === "transferencia" ? "Transferencia" :
+                         payment.paymentMethod === "tarjeta" ? "Tarjeta" :
+                         payment.paymentMethod === "cheque" ? "Cheque" :
+                         payment.paymentMethod === "mercadopago" ? "MercadoPago" :
+                         payment.paymentMethod}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    {payment.vendorName ? (
+                      <div>
+                        <span className="text-sm">{payment.vendorName}</span>
+                        {payment.vendorCategory && (
+                          <span className="text-xs text-muted-foreground block">{payment.vendorCategory}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">-</span>
+                    )}
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     {new Date(payment.date).toLocaleDateString("es-ES")}
                   </span>

@@ -27,13 +27,20 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
   closestCorners,
   useDroppable,
 } from "@dnd-kit/core";
-import { useDraggable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const priorityConfig = {
   high: { label: "Alta", variant: "destructive" as const, color: "text-red-500" },
@@ -60,24 +67,34 @@ interface Task {
   priority: string;
   dueDate: string | null;
   eventName: string | null;
+  eventId?: number | null;
+  sortOrder?: number | null;
 }
 
-// Draggable Task Card Component
-function DraggableTaskCard({ 
+// Sortable Task Card Component
+function SortableTaskCard({ 
   task, 
   onClick 
 }: { 
   task: Task; 
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: task.id.toString(),
-    data: { task },
+    data: { task, type: "task" },
   });
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <Card
@@ -85,7 +102,7 @@ function DraggableTaskCard({
       style={style}
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow",
-        isDragging ? "opacity-50 shadow-lg" : "hover:shadow-md"
+        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md"
       )}
       {...listeners}
       {...attributes}
@@ -118,8 +135,8 @@ function DraggableTaskCard({
   );
 }
 
-// Droppable Column Component with Quick Add
-function DroppableColumn({ 
+// Sortable Column Component with Quick Add
+function SortableColumn({ 
   id, 
   title, 
   color, 
@@ -159,6 +176,10 @@ function DroppableColumn({
     setTimeout(() => quickAddInputRef.current?.focus(), 50);
   };
 
+  // Sort tasks by sortOrder
+  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const taskIds = sortedTasks.map((t) => t.id.toString());
+
   return (
     <div className="flex flex-col">
       <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
@@ -181,7 +202,7 @@ function DroppableColumn({
       <div 
         ref={setNodeRef}
         className={cn(
-          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-[400px] space-y-2 transition-colors",
+          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
           isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
         )}
       >
@@ -231,13 +252,15 @@ function DroppableColumn({
             </CardContent>
           </Card>
         )}
-        {tasks.map((task) => (
-          <DraggableTaskCard 
-            key={task.id} 
-            task={task} 
-            onClick={() => onTaskClick(task.id)} 
-          />
-        ))}
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          {sortedTasks.map((task) => (
+            <SortableTaskCard 
+              key={task.id} 
+              task={task} 
+              onClick={() => onTaskClick(task.id)} 
+            />
+          ))}
+        </SortableContext>
         {tasks.length === 0 && !isQuickAddOpen && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {isOver ? "Soltar aquí" : "No hay tareas"}
@@ -339,21 +362,106 @@ export function TasksPageContent() {
 
     if (!over) return;
 
-    const taskId = parseInt(active.id as string, 10);
-    const newStatus = over.id as string;
-    const task = displayTasks.find((t) => t.id === taskId);
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    const activeTask = displayTasks.find((t) => t.id.toString() === activeId);
+    
+    if (!activeTask) return;
 
-    if (!task || task.status === newStatus) return;
+    // Check if dropping on a column (status change) or on another task (reorder)
+    const isColumn = columns.some((c) => c.id === overId);
+    const overTask = displayTasks.find((t) => t.id.toString() === overId);
+    
+    if (isColumn) {
+      // Dropping on a column - change status
+      const newStatus = overId;
+      if (activeTask.status === newStatus) return;
 
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      refetch();
-    } catch (error) {
-      console.error("Failed to update task:", error);
+      try {
+        await fetch(`/api/tasks/${activeTask.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        refetch();
+      } catch (error) {
+        console.error("Failed to update task status:", error);
+      }
+    } else if (overTask) {
+      // Dropping on another task - reorder within same column or move to different column
+      const sameColumn = activeTask.status === overTask.status;
+      
+      if (sameColumn) {
+        // Reorder within same column
+        const columnTasks = displayTasks
+          .filter((t) => t.status === activeTask.status)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        
+        const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
+        const newIndex = columnTasks.findIndex((t) => t.id.toString() === overId);
+        
+        if (oldIndex !== newIndex) {
+          const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
+          const items = reorderedTasks.map((t, index) => ({
+            taskId: t.id,
+            sortOrder: index,
+          }));
+
+          try {
+            await fetch("/api/tasks/reorder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items, eventId: activeTask.eventId }),
+            });
+            refetch();
+          } catch (error) {
+            console.error("Failed to reorder tasks:", error);
+          }
+        }
+      } else {
+        // Move to different column and position
+        const newStatus = overTask.status;
+        const targetColumnTasks = displayTasks
+          .filter((t) => t.status === newStatus)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        
+        const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
+        
+        // Update status and get new sort order
+        try {
+          await fetch(`/api/tasks/${activeTask.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              status: newStatus,
+              sortOrder: targetIndex,
+            }),
+          });
+          
+          // Reorder the target column - include the moved task
+          const items = [
+            ...targetColumnTasks.slice(0, targetIndex).map((t, index) => ({
+              taskId: t.id,
+              sortOrder: index,
+            })),
+            { taskId: activeTask.id, sortOrder: targetIndex },
+            ...targetColumnTasks.slice(targetIndex).map((t, index) => ({
+              taskId: t.id,
+              sortOrder: targetIndex + 1 + index,
+            })),
+          ];
+
+          await fetch("/api/tasks/reorder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items, eventId: activeTask.eventId }),
+          });
+          
+          refetch();
+        } catch (error) {
+          console.error("Failed to move task:", error);
+        }
+      }
     }
   };
 
@@ -477,7 +585,7 @@ export function TasksPageContent() {
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {columns.map((column) => (
-                <DroppableColumn
+                <SortableColumn
                   key={column.id}
                   id={column.id}
                   title={column.title}

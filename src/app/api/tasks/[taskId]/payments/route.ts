@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, taskPayments } from "@/db/schema";
+import { tasks, taskPayments, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyPaymentRegistered } from "@/lib/push-notifications";
 
@@ -34,8 +34,26 @@ export async function GET(
     }
 
     const payments = await db
-      .select()
+      .select({
+        id: taskPayments.id,
+        taskId: taskPayments.taskId,
+        description: taskPayments.description,
+        amount: taskPayments.amount,
+        date: taskPayments.date,
+        status: taskPayments.status,
+        vendorId: taskPayments.vendorId,
+        paymentMethod: taskPayments.paymentMethod,
+        notes: taskPayments.notes,
+        createdBy: taskPayments.createdBy,
+        createdAt: taskPayments.createdAt,
+        vendorName: vendors.name,
+        vendorCategory: vendors.category,
+        vendorEmail: vendors.email,
+        vendorPhone: vendors.phone,
+        vendorAddress: vendors.address,
+      })
       .from(taskPayments)
+      .leftJoin(vendors, eq(taskPayments.vendorId, vendors.id))
       .where(eq(taskPayments.taskId, taskIdNum));
 
     return NextResponse.json({ success: true, data: payments });
@@ -60,7 +78,7 @@ export async function POST(
     const taskIdNum = parseInt(taskId, 10);
     const body = await request.json();
 
-    const { description, amount, date } = body;
+    const { description, amount, date, vendorId, paymentMethod, notes } = body;
 
     if (!description || !amount) {
       return NextResponse.json(
@@ -100,6 +118,9 @@ export async function POST(
         description,
         amount: amount.toString(),
         date: date ? new Date(date) : new Date(),
+        vendorId: vendorId || null,
+        paymentMethod: paymentMethod || null,
+        notes: notes || null,
         createdBy: session.user.userId,
       })
       .returning();

@@ -11,6 +11,7 @@ interface Task {
   dueDate: Date | null;
   eventId: number | null;
   assignedTo: string | null;
+  sortOrder: number | null;
   createdAt: Date | null;
   eventName?: string | null;
   assignedUserName?: string | null;

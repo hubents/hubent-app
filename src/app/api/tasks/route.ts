@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, events, users } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
 
 // GET /api/tasks - List tasks
 export async function GET(request: NextRequest) {
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         dueDate: tasks.dueDate,
         eventId: tasks.eventId,
         assignedTo: tasks.assignedTo,
+        sortOrder: tasks.sortOrder,
         createdAt: tasks.createdAt,
         eventName: events.name,
         assignedUserName: users.name,
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(events, eq(tasks.eventId, events.id))
       .leftJoin(users, eq(tasks.assignedTo, users.id))
       .where(whereClause)
-      .orderBy(desc(tasks.createdAt))
+      .orderBy(asc(tasks.sortOrder), desc(tasks.createdAt))
       .limit(limit)
       .offset(offset);
 
@@ -78,16 +79,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get max sortOrder for the event/status to place new task at end
+    const maxOrderResult = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${tasks.sortOrder}), 0)` })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.organizationId, session.organizationId),
+          eventId ? eq(tasks.eventId, eventId) : sql`${tasks.eventId} IS NULL`,
+          eq(tasks.status, body.status || "pending")
+        )
+      );
+    const nextSortOrder = (maxOrderResult[0]?.maxOrder || 0) + 1;
+
     const [task] = await db.insert(tasks).values({
       organizationId: session.organizationId,
       title,
       description,
-      status: "pending",
+      status: body.status || "pending",
       priority: priority || "medium",
       dueDate: dueDate ? new Date(dueDate) : undefined,
       eventId,
       assignedTo: assignedTo || session.user.userId,
       createdBy: session.user.userId,
+      sortOrder: nextSortOrder,
     }).returning();
 
     return NextResponse.json({

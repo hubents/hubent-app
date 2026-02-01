@@ -88,8 +88,16 @@ interface TaskPayment {
   amount: string;
   date: string;
   status: string | null;
+  vendorId: number | null;
+  paymentMethod: string | null;
+  notes: string | null;
   createdBy: string | null;
   createdAt: string;
+  vendorName: string | null;
+  vendorCategory: string | null;
+  vendorEmail: string | null;
+  vendorPhone: string | null;
+  vendorAddress: string | null;
 }
 
 interface TaskMeeting {
@@ -558,7 +566,14 @@ export function useTaskDetail(taskId: number | null) {
   }, [taskId, fetchParticipants]);
 
   // Add payment
-  const addPayment = useCallback(async (paymentData: { description: string; amount: number; date?: string }) => {
+  const addPayment = useCallback(async (paymentData: { 
+    description: string; 
+    amount: number; 
+    date?: string;
+    vendorId?: number;
+    paymentMethod?: string;
+    notes?: string;
+  }) => {
     if (!taskId) return null;
     
     try {
