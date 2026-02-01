@@ -448,6 +448,7 @@ export const vendors = pgTable("vendors", {
   address: text("address"),
   rating: integer("rating").default(0),
   notes: text("notes"),
+  contactId: integer("contact_id"),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

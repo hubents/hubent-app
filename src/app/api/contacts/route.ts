@@ -57,17 +57,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicates
-    const duplicates = await findDuplicateContacts(session, body.email, body.phone);
-    if (duplicates.length > 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: "DUPLICATE_WARNING",
-          message: "Possible duplicate contacts found",
-          duplicates,
-        },
-      }, { status: 409 });
+    // Check for duplicates (skip if forceDuplicate is true)
+    if (!body.forceDuplicate) {
+      const duplicates = await findDuplicateContacts(session, body.email, body.phone);
+      if (duplicates.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: {
+            code: "DUPLICATE_WARNING",
+            message: "Possible duplicate contacts found",
+            duplicates,
+          },
+        }, { status: 409 });
+      }
     }
 
     const contact = await createContact(session, {

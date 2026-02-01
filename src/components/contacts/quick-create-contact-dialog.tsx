@@ -77,7 +77,20 @@ export function QuickCreateContactDialog({
           `Se encontraron posibles duplicados:\n${result.error.duplicates.map((d: { name: string }) => d.name).join(", ")}\n\n¿Deseas crear el contacto de todas formas?`
         );
         if (proceed) {
-          // TODO: Force create with a flag
+          // Force create with duplicate flag
+          const forceRes = await fetch("/api/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, forceDuplicate: true }),
+          });
+          const forceResult = await forceRes.json();
+          if (forceResult.success) {
+            resetForm();
+            onOpenChange(false);
+            onContactCreated?.(forceResult.data.id);
+          } else {
+            alert(forceResult.error?.message || "Error al crear contacto");
+          }
         }
       } else {
         alert(result.error?.message || "Error al crear contacto");

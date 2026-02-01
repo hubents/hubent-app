@@ -551,6 +551,9 @@ export function ContactsPageContent() {
         onOpenChange={setIsDrawerOpen}
         onContactDeleted={refetch}
         onContactUpdated={refetch}
+        onOpenRelatedContact={(relatedId) => {
+          setSelectedContactId(relatedId);
+        }}
       />
     </div>
   );

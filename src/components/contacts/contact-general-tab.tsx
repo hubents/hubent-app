@@ -99,6 +99,7 @@ interface ContactGeneralTabProps {
   relationships?: ContactRelationship[];
   onAddRelationship?: (relatedContactId: number, role?: string) => Promise<void>;
   onRemoveRelationship?: (relationshipId: number) => Promise<void>;
+  onOpenRelatedContact?: (contactId: number) => void;
 }
 
 export function ContactGeneralTab({
@@ -110,6 +111,7 @@ export function ContactGeneralTab({
   relationships = [],
   onAddRelationship,
   onRemoveRelationship,
+  onOpenRelatedContact,
 }: ContactGeneralTabProps) {
   const [formData, setFormData] = useState({
     email: "",
@@ -462,6 +464,7 @@ export function ContactGeneralTab({
           relationships={relationships}
           onAddRelationship={onAddRelationship}
           onRemoveRelationship={onRemoveRelationship}
+          onOpenRelatedContact={onOpenRelatedContact}
         />
       )}
 

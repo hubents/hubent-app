@@ -43,6 +43,7 @@ interface ContactRelationshipsSectionProps {
   relationships: Relationship[];
   onAddRelationship: (relatedContactId: number, role?: string) => Promise<void>;
   onRemoveRelationship: (relationshipId: number) => Promise<void>;
+  onOpenRelatedContact?: (contactId: number) => void;
 }
 
 export function ContactRelationshipsSection({
@@ -51,6 +52,7 @@ export function ContactRelationshipsSection({
   relationships,
   onAddRelationship,
   onRemoveRelationship,
+  onOpenRelatedContact,
 }: ContactRelationshipsSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -216,22 +218,28 @@ export function ContactRelationshipsSection({
               key={rel.id}
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group"
             >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={rel.relatedContactAvatar || undefined} />
-                <AvatarFallback className={rel.relatedContactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                  {rel.relatedContactType === "company" ? (
-                    <RiBuilding2Line className="h-4 w-4" />
-                  ) : (
-                    <RiUserLine className="h-4 w-4" />
+              <button
+                onClick={() => onOpenRelatedContact?.(rel.relatedContactId)}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                disabled={!onOpenRelatedContact}
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={rel.relatedContactAvatar || undefined} />
+                  <AvatarFallback className={rel.relatedContactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
+                    {rel.relatedContactType === "company" ? (
+                      <RiBuilding2Line className="h-4 w-4" />
+                    ) : (
+                      <RiUserLine className="h-4 w-4" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate hover:underline">{rel.relatedContactName}</p>
+                  {rel.role && (
+                    <p className="text-xs text-muted-foreground">{rel.role}</p>
                   )}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{rel.relatedContactName}</p>
-                {rel.role && (
-                  <p className="text-xs text-muted-foreground">{rel.role}</p>
-                )}
-              </div>
+                </div>
+              </button>
               <Button
                 variant="ghost"
                 size="icon"

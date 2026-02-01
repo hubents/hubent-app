@@ -258,27 +258,7 @@ export async function createContact(
     vendorCategory?: string;
   }
 ) {
-  let vendorId: number | undefined;
-
-  // If company is marked as vendor, create vendor record first
-  if (data.type === "company" && data.isVendor && data.vendorCategory) {
-    const [vendor] = await db
-      .insert(vendors)
-      .values({
-        organizationId: session.organizationId,
-        name: data.name,
-        category: data.vendorCategory,
-        email: data.email,
-        phone: data.phone,
-        website: data.website,
-        address: data.address,
-        notes: data.notes,
-        createdBy: session.user.userId,
-      })
-      .returning();
-    vendorId = vendor.id;
-  }
-
+  // First create the contact
   const [contact] = await db
     .insert(contacts)
     .values({
@@ -318,13 +298,39 @@ export async function createContact(
       notes: data.notes,
       isVendor: data.isVendor || false,
       vendorCategory: data.vendorCategory,
-      vendorId: vendorId,
       createdBy: session.user.userId,
     })
     .returning();
 
+  // If company is marked as vendor, create vendor record and link bidirectionally
+  if (data.type === "company" && data.isVendor && data.vendorCategory) {
+    const [vendor] = await db
+      .insert(vendors)
+      .values({
+        organizationId: session.organizationId,
+        name: data.name,
+        category: data.vendorCategory,
+        email: data.email,
+        phone: data.phone,
+        website: data.website,
+        address: data.address,
+        notes: data.notes,
+        contactId: contact.id,
+        createdBy: session.user.userId,
+      })
+      .returning();
+
+    // Update contact with vendorId
+    await db
+      .update(contacts)
+      .set({ vendorId: vendor.id })
+      .where(eq(contacts.id, contact.id));
+
+    contact.vendorId = vendor.id;
+  }
+
   // Log activity
-  await createContactActivity(contactId(contact.id), {
+  await createContactActivity(contact.id, {
     type: "note",
     title: "Contacto creado",
     description: `Contacto ${data.type === "person" ? "persona" : "empresa"} creado${data.isVendor ? " (proveedor)" : ""}`,
@@ -395,6 +401,23 @@ export async function updateContact(
       )
     )
     .returning();
+
+  // Sync common fields to linked vendor if exists
+  if (updated?.vendorId) {
+    const vendorUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name) vendorUpdates.name = data.name;
+    if (data.email) vendorUpdates.email = data.email;
+    if (data.phone) vendorUpdates.phone = data.phone;
+    if (data.website) vendorUpdates.website = data.website;
+    if (data.address) vendorUpdates.address = data.address;
+    if (data.notes) vendorUpdates.notes = data.notes;
+
+    if (Object.keys(vendorUpdates).length > 1) {
+      await db.update(vendors)
+        .set(vendorUpdates)
+        .where(eq(vendors.id, updated.vendorId));
+    }
+  }
 
   return updated;
 }

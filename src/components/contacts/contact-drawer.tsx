@@ -20,7 +20,9 @@ import {
   RiFolderLine,
   RiBankLine,
   RiHistoryLine,
+  RiCameraLine,
 } from "@remixicon/react";
+import { FileUploader } from "@/components/ui/file-uploader";
 import { useContactDetail } from "@/hooks/use-contact-detail";
 import { ContactGeneralTab } from "./contact-general-tab";
 import { ContactAddressTab } from "./contact-address-tab";
@@ -34,6 +36,7 @@ interface ContactDrawerProps {
   onOpenChange: (open: boolean) => void;
   onContactDeleted?: () => void;
   onContactUpdated?: () => void;
+  onOpenRelatedContact?: (contactId: number) => void;
 }
 
 export function ContactDrawer({
@@ -42,9 +45,11 @@ export function ContactDrawer({
   onOpenChange,
   onContactDeleted,
   onContactUpdated,
+  onOpenRelatedContact,
 }: ContactDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [deleting, setDeleting] = useState(false);
+  const [showAvatarUploader, setShowAvatarUploader] = useState(false);
 
   const {
     contact,
@@ -120,16 +125,40 @@ export function ContactDrawer({
               {loading ? (
                 <Skeleton className="h-12 w-12 rounded-full" />
               ) : (
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={contact?.avatar || undefined} />
-                  <AvatarFallback className={contact?.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                    {contact?.type === "company" ? (
-                      <RiBuilding2Line className="h-6 w-6" />
-                    ) : (
-                      getInitials(contact?.name || "")
-                    )}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative group">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={contact?.avatar || undefined} />
+                    <AvatarFallback className={contact?.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
+                      {contact?.type === "company" ? (
+                        <RiBuilding2Line className="h-6 w-6" />
+                      ) : (
+                        getInitials(contact?.name || "")
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <button
+                    onClick={() => setShowAvatarUploader(!showAvatarUploader)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <RiCameraLine className="h-5 w-5 text-white" />
+                  </button>
+                  {showAvatarUploader && (
+                    <div className="absolute top-14 left-0 z-50 bg-background border rounded-lg shadow-lg p-3 w-64">
+                      <FileUploader
+                        folder="contacts/avatars"
+                        accept="image/*"
+                        maxSize={5 * 1024 * 1024}
+                        variant="compact"
+                        onUpload={async (result) => {
+                          await updateContact({ avatar: result.url });
+                          setShowAvatarUploader(false);
+                          onContactUpdated?.();
+                        }}
+                        onError={(error) => alert(error)}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
               <div>
                 {loading ? (
@@ -212,6 +241,7 @@ export function ContactDrawer({
                     relationships={relationships}
                     onAddRelationship={addRelationship}
                     onRemoveRelationship={removeRelationship}
+                    onOpenRelatedContact={onOpenRelatedContact}
                   />
                 </TabsContent>
 
