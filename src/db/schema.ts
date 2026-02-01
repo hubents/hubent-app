@@ -677,6 +677,11 @@ export const contacts = pgTable("contacts", {
   leadScore: integer("lead_score").default(0),
   notes: text("notes"),
   
+  // Vendor fields (for companies that are also vendors)
+  isVendor: boolean("is_vendor").default(false),
+  vendorCategory: text("vendor_category"),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  
   // Metadata
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -754,6 +759,16 @@ export const contactTasks = pgTable("contact_tasks", {
   contactId: integer("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
   role: text("role"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relationships between Person and Company contacts
+export const contactRelationships = pgTable("contact_relationships", {
+  id: serial("id").primaryKey(),
+  personContactId: integer("person_contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  companyContactId: integer("company_contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  role: text("role"),
+  isPrimary: boolean("is_primary").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

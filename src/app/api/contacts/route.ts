@@ -104,6 +104,8 @@ export async function POST(request: NextRequest) {
       source: body.source,
       isLead: body.isLead,
       notes: body.notes,
+      isVendor: body.isVendor,
+      vendorCategory: body.vendorCategory,
     });
 
     // Send push notification for new contact

@@ -7,10 +7,12 @@ import {
   contactTags,
   contactEvents,
   contactTasks,
+  contactRelationships,
   users,
   events,
   tasks,
   leads,
+  vendors,
 } from "@/db/schema";
 import { eq, and, desc, isNull, ilike, or, sql, inArray } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
@@ -251,8 +253,32 @@ export async function createContact(
     source?: "manual" | "import" | "website" | "referral" | "social_media" | "event" | "other";
     isLead?: boolean;
     notes?: string;
+    // Vendor fields (for companies)
+    isVendor?: boolean;
+    vendorCategory?: string;
   }
 ) {
+  let vendorId: number | undefined;
+
+  // If company is marked as vendor, create vendor record first
+  if (data.type === "company" && data.isVendor && data.vendorCategory) {
+    const [vendor] = await db
+      .insert(vendors)
+      .values({
+        organizationId: session.organizationId,
+        name: data.name,
+        category: data.vendorCategory,
+        email: data.email,
+        phone: data.phone,
+        website: data.website,
+        address: data.address,
+        notes: data.notes,
+        createdBy: session.user.userId,
+      })
+      .returning();
+    vendorId = vendor.id;
+  }
+
   const [contact] = await db
     .insert(contacts)
     .values({
@@ -290,6 +316,9 @@ export async function createContact(
       source: data.source || "manual",
       isLead: data.isLead || false,
       notes: data.notes,
+      isVendor: data.isVendor || false,
+      vendorCategory: data.vendorCategory,
+      vendorId: vendorId,
       createdBy: session.user.userId,
     })
     .returning();
@@ -298,7 +327,7 @@ export async function createContact(
   await createContactActivity(contactId(contact.id), {
     type: "note",
     title: "Contacto creado",
-    description: `Contacto ${data.type === "person" ? "persona" : "empresa"} creado`,
+    description: `Contacto ${data.type === "person" ? "persona" : "empresa"} creado${data.isVendor ? " (proveedor)" : ""}`,
     createdBy: session.user.userId,
   });
 

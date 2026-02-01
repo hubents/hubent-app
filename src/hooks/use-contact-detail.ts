@@ -40,6 +40,9 @@ interface ContactDetail {
   isLead: boolean | null;
   leadScore: number | null;
   notes: string | null;
+  isVendor: boolean | null;
+  vendorCategory: string | null;
+  vendorId: number | null;
   createdBy: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -96,6 +99,17 @@ interface LinkedTask {
   taskDueDate: string | null;
 }
 
+interface ContactRelationship {
+  id: number;
+  role: string | null;
+  isPrimary: boolean | null;
+  relatedContactId: number;
+  relatedContactName: string;
+  relatedContactEmail: string | null;
+  relatedContactAvatar: string | null;
+  relatedContactType: "person" | "company";
+}
+
 export function useContactDetail(contactId: number | null) {
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [documents, setDocuments] = useState<ContactDocument[]>([]);
@@ -103,6 +117,7 @@ export function useContactDetail(contactId: number | null) {
   const [activities, setActivities] = useState<ContactActivity[]>([]);
   const [linkedEvents, setLinkedEvents] = useState<LinkedEvent[]>([]);
   const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>([]);
+  const [relationships, setRelationships] = useState<ContactRelationship[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +138,13 @@ export function useContactDetail(contactId: number | null) {
         setActivities(result.data.activities || []);
         setLinkedEvents(result.data.linkedEvents || []);
         setLinkedTasks(result.data.linkedTasks || []);
+        
+        // Fetch relationships separately
+        const relRes = await fetch(`/api/contacts/${contactId}/relationships`);
+        const relData = await relRes.json();
+        if (relData.success) {
+          setRelationships(relData.data || []);
+        }
       } else {
         setError(result.error?.message || "Failed to fetch contact");
       }
@@ -288,6 +310,49 @@ export function useContactDetail(contactId: number | null) {
     }
   }, [contactId]);
 
+  const addRelationship = useCallback(async (relatedContactId: number, role?: string) => {
+    if (!contactId) return;
+
+    try {
+      const response = await fetch(`/api/contacts/${contactId}/relationships`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relatedContactId, role }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Refetch relationships to get full data
+        const relRes = await fetch(`/api/contacts/${contactId}/relationships`);
+        const relData = await relRes.json();
+        if (relData.success) {
+          setRelationships(relData.data || []);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to add relationship:", err);
+    }
+  }, [contactId]);
+
+  const removeRelationship = useCallback(async (relationshipId: number) => {
+    if (!contactId) return;
+
+    try {
+      const response = await fetch(`/api/contacts/${contactId}/relationships?relationshipId=${relationshipId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setRelationships(prev => prev.filter(r => r.id !== relationshipId));
+      }
+    } catch (err) {
+      console.error("Failed to remove relationship:", err);
+    }
+  }, [contactId]);
+
   return {
     contact,
     documents,
@@ -295,6 +360,7 @@ export function useContactDetail(contactId: number | null) {
     activities,
     linkedEvents,
     linkedTasks,
+    relationships,
     loading,
     error,
     refetch: fetchContact,
@@ -304,5 +370,7 @@ export function useContactDetail(contactId: number | null) {
     addPhoto,
     deletePhoto,
     addActivity,
+    addRelationship,
+    removeRelationship,
   };
 }

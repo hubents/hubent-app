@@ -47,7 +47,7 @@ import {
 } from "@remixicon/react";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
-import { CreateContactDialog } from "./create-contact-dialog";
+import { QuickCreateContactDialog } from "./quick-create-contact-dialog";
 import { ImportContactsDialog } from "./import-contacts-dialog";
 import { LinkContactDialog } from "./link-contact-dialog";
 import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
@@ -510,11 +510,15 @@ export function ContactsPageContent() {
         </CardContent>
       </Card>
 
-      {/* Create Contact Dialog */}
-      <CreateContactDialog
+      {/* Quick Create Contact Dialog */}
+      <QuickCreateContactDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        onContactCreated={refetch}
+        onContactCreated={(contactId) => {
+          refetch();
+          setSelectedContactId(contactId);
+          setIsDrawerOpen(true);
+        }}
       />
 
       {/* Import Contacts Dialog */}

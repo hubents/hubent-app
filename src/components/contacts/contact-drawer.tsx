@@ -17,16 +17,14 @@ import {
   RiUserLine,
   RiBuilding2Line,
   RiMapPinLine,
-  RiImageLine,
-  RiFileTextLine,
+  RiFolderLine,
   RiBankLine,
   RiHistoryLine,
 } from "@remixicon/react";
 import { useContactDetail } from "@/hooks/use-contact-detail";
 import { ContactGeneralTab } from "./contact-general-tab";
 import { ContactAddressTab } from "./contact-address-tab";
-import { ContactPhotosTab } from "./contact-photos-tab";
-import { ContactDocsTab } from "./contact-docs-tab";
+import { ContactFilesTab } from "./contact-files-tab";
 import { ContactBankTab } from "./contact-bank-tab";
 import { ContactActivityTab } from "./contact-activity-tab";
 
@@ -55,6 +53,7 @@ export function ContactDrawer({
     activities,
     linkedEvents,
     linkedTasks,
+    relationships,
     loading,
     refetch,
     updateContact,
@@ -63,6 +62,8 @@ export function ContactDrawer({
     addPhoto,
     deletePhoto,
     addActivity,
+    addRelationship,
+    removeRelationship,
   } = useContactDetail(contactId);
 
   useEffect(() => {
@@ -185,13 +186,9 @@ export function ContactDrawer({
                     <RiMapPinLine className="h-4 w-4" />
                     Dirección
                   </TabsTrigger>
-                  <TabsTrigger value="photos" className="gap-2">
-                    <RiImageLine className="h-4 w-4" />
-                    Fotos
-                  </TabsTrigger>
-                  <TabsTrigger value="docs" className="gap-2">
-                    <RiFileTextLine className="h-4 w-4" />
-                    Docs
+                  <TabsTrigger value="files" className="gap-2">
+                    <RiFolderLine className="h-4 w-4" />
+                    Archivos
                   </TabsTrigger>
                   <TabsTrigger value="bank" className="gap-2">
                     <RiBankLine className="h-4 w-4" />
@@ -212,6 +209,9 @@ export function ContactDrawer({
                     onUpdateContact={handleContactUpdate}
                     linkedEvents={linkedEvents}
                     linkedTasks={linkedTasks}
+                    relationships={relationships}
+                    onAddRelationship={addRelationship}
+                    onRemoveRelationship={removeRelationship}
                   />
                 </TabsContent>
 
@@ -223,19 +223,13 @@ export function ContactDrawer({
                   />
                 </TabsContent>
 
-                <TabsContent value="photos" className="h-full m-0">
-                  <ContactPhotosTab
+                <TabsContent value="files" className="h-full m-0">
+                  <ContactFilesTab
                     photos={photos}
+                    documents={documents}
                     loading={loading}
                     onAddPhoto={addPhoto}
                     onDeletePhoto={deletePhoto}
-                  />
-                </TabsContent>
-
-                <TabsContent value="docs" className="h-full m-0">
-                  <ContactDocsTab
-                    documents={documents}
-                    loading={loading}
                     onAddDocument={addDocument}
                     onDeleteDocument={deleteDocument}
                   />

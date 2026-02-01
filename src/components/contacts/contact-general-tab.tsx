@@ -13,16 +13,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   RiMailLine,
   RiPhoneLine,
-  RiCalendarLine,
-  RiGroupLine,
-  RiMoneyDollarCircleLine,
-  RiBuilding2Line,
   RiLinksLine,
   RiSaveLine,
+  RiStore2Line,
 } from "@remixicon/react";
+import { ContactRelationshipsSection } from "./contact-relationships-section";
+
+const VENDOR_CATEGORIES = [
+  "Catering",
+  "Fotografía",
+  "Floristería",
+  "Música",
+  "Pastelería",
+  "Decoración",
+  "Venue",
+  "Transporte",
+  "Otro",
+];
 
 interface ContactDetail {
   id: number;
@@ -40,15 +51,14 @@ interface ContactDetail {
   website: string | null;
   contactPersonName: string | null;
   contactPersonEmail: string | null;
-  eventDate: string | null;
-  guestCount: number | null;
-  budget: string | null;
-  venueType: string | null;
   tags: string[] | null;
   source: string | null;
   isLead: boolean | null;
   leadScore: number | null;
   notes: string | null;
+  isVendor: boolean | null;
+  vendorCategory: string | null;
+  vendorId: number | null;
 }
 
 interface LinkedEvent {
@@ -69,12 +79,26 @@ interface LinkedTask {
   taskDueDate: string | null;
 }
 
+interface ContactRelationship {
+  id: number;
+  role: string | null;
+  isPrimary: boolean | null;
+  relatedContactId: number;
+  relatedContactName: string;
+  relatedContactEmail: string | null;
+  relatedContactAvatar: string | null;
+  relatedContactType: "person" | "company";
+}
+
 interface ContactGeneralTabProps {
   contact: ContactDetail | null;
   loading: boolean;
   onUpdateContact: (updates: Record<string, unknown>) => Promise<unknown>;
   linkedEvents: LinkedEvent[];
   linkedTasks: LinkedTask[];
+  relationships?: ContactRelationship[];
+  onAddRelationship?: (relatedContactId: number, role?: string) => Promise<void>;
+  onRemoveRelationship?: (relationshipId: number) => Promise<void>;
 }
 
 export function ContactGeneralTab({
@@ -83,6 +107,9 @@ export function ContactGeneralTab({
   onUpdateContact,
   linkedEvents,
   linkedTasks,
+  relationships = [],
+  onAddRelationship,
+  onRemoveRelationship,
 }: ContactGeneralTabProps) {
   const [formData, setFormData] = useState({
     email: "",
@@ -96,17 +123,17 @@ export function ContactGeneralTab({
     website: "",
     contactPersonName: "",
     contactPersonEmail: "",
-    eventDate: "",
-    guestCount: "",
-    budget: "",
-    venueType: "",
     notes: "",
+    isVendor: false,
+    vendorCategory: "",
+    customCategory: "",
   });
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (contact) {
+      const isCustomCategory = contact.vendorCategory && !VENDOR_CATEGORIES.includes(contact.vendorCategory);
       setFormData({
         email: contact.email || "",
         phone: contact.phone || "",
@@ -119,11 +146,10 @@ export function ContactGeneralTab({
         website: contact.website || "",
         contactPersonName: contact.contactPersonName || "",
         contactPersonEmail: contact.contactPersonEmail || "",
-        eventDate: contact.eventDate ? contact.eventDate.split("T")[0] : "",
-        guestCount: contact.guestCount?.toString() || "",
-        budget: contact.budget || "",
-        venueType: contact.venueType || "",
         notes: contact.notes || "",
+        isVendor: contact.isVendor || false,
+        vendorCategory: isCustomCategory ? "Otro" : (contact.vendorCategory || ""),
+        customCategory: isCustomCategory ? contact.vendorCategory || "" : "",
       });
       setHasChanges(false);
     }
@@ -157,20 +183,10 @@ export function ContactGeneralTab({
         updates.website = formData.website || null;
         updates.contactPersonName = formData.contactPersonName || null;
         updates.contactPersonEmail = formData.contactPersonEmail || null;
-      }
-
-      // Event fields
-      if (formData.eventDate) {
-        updates.eventDate = formData.eventDate;
-      }
-      if (formData.guestCount) {
-        updates.guestCount = parseInt(formData.guestCount, 10);
-      }
-      if (formData.budget) {
-        updates.budget = parseFloat(formData.budget);
-      }
-      if (formData.venueType) {
-        updates.venueType = formData.venueType;
+        updates.isVendor = formData.isVendor;
+        updates.vendorCategory = formData.vendorCategory === "Otro" 
+          ? formData.customCategory || null 
+          : formData.vendorCategory || null;
       }
 
       await onUpdateContact(updates);
@@ -315,71 +331,77 @@ export function ContactGeneralTab({
         </div>
       </div>
 
-      {/* Event Info */}
-      <div className="space-y-4 border-t pt-4">
-        <h3 className="text-sm font-medium text-muted-foreground">Información del Evento</h3>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <RiCalendarLine className="h-4 w-4" />
-              Fecha del evento
-            </label>
-            <Input
-              type="date"
-              value={formData.eventDate}
-              onChange={(e) => handleChange("eventDate", e.target.value)}
+      {/* Vendor Section - Only for Companies */}
+      {contact?.type === "company" && (
+        <div className="space-y-4 border-t pt-4">
+          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <RiStore2Line className="h-4 w-4" />
+            Proveedor
+          </h3>
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isVendor"
+              checked={formData.isVendor}
+              onCheckedChange={(checked) => {
+                setFormData((prev) => ({ ...prev, isVendor: checked === true }));
+                setHasChanges(true);
+              }}
+              disabled={!!contact.vendorId}
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <RiGroupLine className="h-4 w-4" />
-              Invitados
-            </label>
-            <Input
-              type="number"
-              value={formData.guestCount}
-              onChange={(e) => handleChange("guestCount", e.target.value)}
-              placeholder="150"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <RiMoneyDollarCircleLine className="h-4 w-4" />
-              Presupuesto (€)
-            </label>
-            <Input
-              type="number"
-              value={formData.budget}
-              onChange={(e) => handleChange("budget", e.target.value)}
-              placeholder="30000"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <RiBuilding2Line className="h-4 w-4" />
-              Tipo de Venue
-            </label>
-            <Select
-              value={formData.venueType}
-              onValueChange={(v) => handleChange("venueType", v)}
+            <label
+              htmlFor="isVendor"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hotel">Hotel</SelectItem>
-                <SelectItem value="finca">Finca</SelectItem>
-                <SelectItem value="restaurante">Restaurante</SelectItem>
-                <SelectItem value="playa">Playa</SelectItem>
-                <SelectItem value="jardin">Jardín</SelectItem>
-                <SelectItem value="salon">Salón de eventos</SelectItem>
-                <SelectItem value="otro">Otro</SelectItem>
-              </SelectContent>
-            </Select>
+              ¿Es proveedor?
+            </label>
+            {contact.vendorId && (
+              <span className="text-xs text-muted-foreground">(Ya registrado como proveedor)</span>
+            )}
           </div>
+
+          {formData.isVendor && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Categoría</label>
+                <Select
+                  value={formData.vendorCategory}
+                  onValueChange={(v) => {
+                    setFormData((prev) => ({ ...prev, vendorCategory: v }));
+                    setHasChanges(true);
+                  }}
+                  disabled={!!contact.vendorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VENDOR_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.vendorCategory === "Otro" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Categoría personalizada</label>
+                  <Input
+                    value={formData.customCategory}
+                    onChange={(e) => {
+                      setFormData((prev) => ({ ...prev, customCategory: e.target.value }));
+                      setHasChanges(true);
+                    }}
+                    placeholder="Ej: Iluminación"
+                    disabled={!!contact.vendorId}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Linked Events & Tasks */}
       {(linkedEvents.length > 0 || linkedTasks.length > 0) && (
@@ -431,6 +453,17 @@ export function ContactGeneralTab({
           rows={4}
         />
       </div>
+
+      {/* Relationships Section */}
+      {contact && onAddRelationship && onRemoveRelationship && (
+        <ContactRelationshipsSection
+          contactId={contact.id}
+          contactType={contact.type}
+          relationships={relationships}
+          onAddRelationship={onAddRelationship}
+          onRemoveRelationship={onRemoveRelationship}
+        />
+      )}
 
       {/* Save Button */}
       {hasChanges && (
