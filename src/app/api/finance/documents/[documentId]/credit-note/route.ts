@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { createCreditNote } from "@/lib/finance";
 
-// POST /api/finance/documents/[id]/credit-note - Create credit note from invoice
+// POST /api/finance/documents/[documentId]/credit-note - Create credit note from invoice
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ documentId: string }> }
 ) {
   try {
     const session = await requireRole("planner");
-    const { id } = await params;
-    const invoiceId = parseInt(id, 10);
+    const { documentId } = await params;
+    const invoiceId = parseInt(documentId, 10);
 
     if (isNaN(invoiceId)) {
       return NextResponse.json(
