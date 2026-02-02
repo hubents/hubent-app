@@ -4,6 +4,7 @@ import { organizations, subscriptionPlans, users, organizationMembers, subscript
 import { eq, desc } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
 import { sendTenantWelcomeEmail } from "@/lib/email";
+import { requirePlatformAdmin } from "@/lib/session";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -16,6 +17,9 @@ function generateTempPassword(): string {
 
 export async function GET() {
   try {
+    // Verify platform admin access
+    await requirePlatformAdmin();
+
     // Get all organizations with their subscription info
     const tenantsRaw = await db
       .select({
@@ -67,6 +71,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify platform admin access (only super_admin can create tenants)
+    const session = await requirePlatformAdmin();
+    if (session.user.platformLevel !== "super_admin") {
+      return NextResponse.json(
+        { error: "Solo super admins pueden crear tenants" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { name, slug, planId, phone, website, ownerEmail, ownerName, sendWelcomeEmail } = body;
 

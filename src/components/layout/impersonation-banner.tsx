@@ -22,6 +22,9 @@ export function ImpersonationBanner() {
       .some((row) => row.startsWith("hubents-impersonating=true"));
 
     if (isImpersonating) {
+      // Add padding to body to compensate for fixed banner
+      document.body.style.paddingTop = "40px";
+      
       // Fetch current org info
       fetch("/api/user/context")
         .then((res) => res.json())
@@ -35,6 +38,10 @@ export function ImpersonationBanner() {
         })
         .catch(console.error);
     }
+
+    return () => {
+      document.body.style.paddingTop = "";
+    };
   }, []);
 
   async function endImpersonation() {
@@ -42,7 +49,7 @@ export function ImpersonationBanner() {
     try {
       const res = await fetch("/api/admin/impersonate", { method: "DELETE" });
       if (res.ok) {
-        // Redirect to admin panel
+        document.body.style.paddingTop = "";
         router.push("/admin/tenants");
       }
     } catch (error) {
@@ -57,8 +64,8 @@ export function ImpersonationBanner() {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-amber-950 px-4 py-2">
-      <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 h-10">
+      <div className="max-w-screen-2xl mx-auto flex items-center justify-between h-full">
         <div className="flex items-center gap-2">
           <RiEyeLine className="h-4 w-4" />
           <span className="text-sm font-medium">
@@ -70,7 +77,7 @@ export function ImpersonationBanner() {
           size="sm"
           onClick={endImpersonation}
           disabled={ending}
-          className="text-amber-950 hover:bg-amber-600 hover:text-amber-950"
+          className="text-amber-950 hover:bg-amber-600 hover:text-amber-950 h-7"
         >
           <RiCloseLine className="h-4 w-4 mr-1" />
           {ending ? "Saliendo..." : "Salir"}

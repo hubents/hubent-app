@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
+import { requirePlatformAdmin } from "@/lib/session";
 
 // GET single tenant with details
 export async function GET(
@@ -9,6 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify platform admin access
+    await requirePlatformAdmin();
+
     const { id } = await params;
     const tenantId = parseInt(id);
 
@@ -73,6 +77,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify platform admin access (only super_admin can modify tenants)
+    const session = await requirePlatformAdmin();
+    if (session.user.platformLevel !== "super_admin") {
+      return NextResponse.json(
+        { error: "Solo super admins pueden modificar tenants" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const tenantId = parseInt(id);
     const body = await request.json();
@@ -134,6 +147,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify platform admin access (only super_admin can delete tenants)
+    const session = await requirePlatformAdmin();
+    if (session.user.platformLevel !== "super_admin") {
+      return NextResponse.json(
+        { error: "Solo super admins pueden eliminar tenants" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const tenantId = parseInt(id);
 

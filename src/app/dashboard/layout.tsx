@@ -4,10 +4,12 @@ import { Header } from "@/components/layout/header";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
+import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { EventProvider } from "@/contexts/event-context";
 import { DashboardContent } from "@/components/layout/dashboard-content";
 import { RealtimeNotifications } from "@/components/notifications/realtime-notifications";
 import { NotificationPrompt } from "@/components/notifications/notification-prompt";
+import { Suspense } from "react";
 
 export default function DashboardLayout({
   children,
@@ -17,7 +19,10 @@ export default function DashboardLayout({
   return (
     <EventProvider>
       <div className="min-h-screen bg-[var(--background)]">
-        <OrgCookieSetter />
+        <Suspense fallback={null}>
+          <OrgCookieSetter />
+        </Suspense>
+        <ImpersonationBanner />
         <RealtimeNotifications />
         <NotificationPrompt />
         
