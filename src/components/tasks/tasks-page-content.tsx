@@ -681,7 +681,7 @@ export function TasksPageContent() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     {task.dueDate && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
                         <RiCalendarLine className="h-4 w-4" />

@@ -87,9 +87,9 @@ export async function POST(
       );
     }
 
-    // Verify task belongs to organization
+    // Verify task belongs to organization and get title for notification
     const [task] = await db
-      .select({ id: tasks.id })
+      .select({ id: tasks.id, title: tasks.title })
       .from(tasks)
       .where(
         and(
@@ -104,12 +104,6 @@ export async function POST(
         { status: 404 }
       );
     }
-
-    // Get task title for notification
-    const [taskData] = await db
-      .select({ title: tasks.title })
-      .from(tasks)
-      .where(eq(tasks.id, taskIdNum));
 
     const [payment] = await db
       .insert(taskPayments)
@@ -131,7 +125,7 @@ export async function POST(
       description,
       amount.toString(),
       "ARS",
-      taskData?.title,
+      task.title,
       session.user.userId
     ).catch(err => console.error("Push notification failed:", err));
 
