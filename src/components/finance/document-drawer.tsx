@@ -361,7 +361,7 @@ export function DocumentDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto px-6">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-6">
         <SheetHeader>
           <SheetTitle>
             {documentId ? `Editar ${typeLabels[type]}` : `Nuevo ${typeLabels[type]}`}

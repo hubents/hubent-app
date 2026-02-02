@@ -100,7 +100,7 @@ export function DocumentPreview({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
         <SheetHeader className="space-y-1">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-xl">
