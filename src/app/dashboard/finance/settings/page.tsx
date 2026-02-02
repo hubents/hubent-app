@@ -61,15 +61,6 @@ interface FinanceSettings {
   defaultPaymentTerms: string;
   defaultTermsAndConditions: string | null;
   quoteValidityDays: number;
-  // Fiscal data
-  companyName: string | null;
-  taxId: string | null;
-  fiscalAddress: string | null;
-  fiscalCity: string | null;
-  fiscalPostalCode: string | null;
-  fiscalCountry: string | null;
-  fiscalEmail: string | null;
-  fiscalPhone: string | null;
 }
 
 interface TaxRate {
@@ -164,15 +155,6 @@ function FinanceSettingsContent() {
       "defaultPaymentTerms",
       "defaultTermsAndConditions",
       "quoteValidityDays",
-      // Fiscal data fields
-      "companyName",
-      "taxId",
-      "fiscalAddress",
-      "fiscalCity",
-      "fiscalPostalCode",
-      "fiscalCountry",
-      "fiscalEmail",
-      "fiscalPhone",
     ];
 
     return fieldsToCompare.some(
@@ -439,7 +421,6 @@ function FinanceSettingsContent() {
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="fiscal">Datos Fiscales</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="taxes">Impuestos</TabsTrigger>
           <TabsTrigger value="numbering">Numeración</TabsTrigger>
@@ -447,120 +428,6 @@ function FinanceSettingsContent() {
           <TabsTrigger value="payments">Métodos de Pago</TabsTrigger>
           <TabsTrigger value="terms">Términos</TabsTrigger>
         </TabsList>
-
-        {/* Fiscal Data Tab */}
-        <TabsContent value="fiscal">
-          <Card>
-            <CardHeader>
-              <CardTitle>Datos Fiscales</CardTitle>
-              <CardDescription>
-                Información fiscal que aparecerá en tus documentos (facturas, presupuestos, etc.)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Razón Social / Nombre Empresa *</Label>
-                  <Input
-                    value={settings?.companyName || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, companyName: e.target.value } : s)
-                    }
-                    placeholder="Mi Empresa S.L."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>NIF / CIF *</Label>
-                  <Input
-                    value={settings?.taxId || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, taxId: e.target.value } : s)
-                    }
-                    placeholder="B12345678"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Dirección Fiscal</Label>
-                <Input
-                  value={settings?.fiscalAddress || ""}
-                  onChange={(e) =>
-                    setSettings((s) => s ? { ...s, fiscalAddress: e.target.value } : s)
-                  }
-                  placeholder="Calle Principal 123, 1º A"
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Código Postal</Label>
-                  <Input
-                    value={settings?.fiscalPostalCode || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalPostalCode: e.target.value } : s)
-                    }
-                    placeholder="28001"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ciudad</Label>
-                  <Input
-                    value={settings?.fiscalCity || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalCity: e.target.value } : s)
-                    }
-                    placeholder="Madrid"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>País</Label>
-                  <Input
-                    value={settings?.fiscalCountry || "España"}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalCountry: e.target.value } : s)
-                    }
-                    placeholder="España"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Email de Facturación</Label>
-                  <Input
-                    type="email"
-                    value={settings?.fiscalEmail || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalEmail: e.target.value } : s)
-                    }
-                    placeholder="facturacion@miempresa.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Teléfono</Label>
-                  <Input
-                    value={settings?.fiscalPhone || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalPhone: e.target.value } : s)
-                    }
-                    placeholder="+34 912 345 678"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
-                <div className="flex items-start gap-3">
-                  <RiAlertLine className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div className="text-sm text-amber-800 dark:text-amber-200">
-                    <p className="font-medium">Importante</p>
-                    <p>Estos datos aparecerán en todos los documentos fiscales que generes. Asegúrate de que sean correctos.</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* General Tab */}
         <TabsContent value="general">
