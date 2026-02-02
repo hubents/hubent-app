@@ -43,15 +43,38 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
+import { DocumentPreview } from "@/components/finance/document-preview";
+
+interface DocumentItem {
+  id: number;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discount: string;
+  taxRate: string;
+  total: string;
+}
 
 interface DeliveryNote {
   id: number;
+  type: string;
   number: string;
   status: string;
+  issueDate: string;
+  dueDate: string | null;
+  validUntil: string | null;
+  subtotal: string;
+  taxAmount: string;
+  total: string;
+  currency: string;
+  notes: string | null;
+  termsAndConditions: string | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
-  issueDate: string;
+  contactName: string | null;
+  eventName: string | null;
+  items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -69,6 +92,10 @@ export default function DeliveryNotesPage() {
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  
+  // Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewNote, setPreviewNote] = useState<DeliveryNote | null>(null);
 
   useEffect(() => {
     fetchNotes();
@@ -160,6 +187,28 @@ export default function DeliveryNotesPage() {
     setDrawerOpen(true);
   }
 
+  async function openPreview(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          setPreviewNote(data.data);
+          setPreviewOpen(true);
+        }
+      }
+    } catch (error) {
+      toast.error("Error al cargar documento");
+    }
+  }
+
+  const formatCurrency = (amount: string, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency,
+    }).format(parseFloat(amount || "0"));
+  };
+
   const getClientName = (note: DeliveryNote) => {
     if (note.companyName) return note.companyName;
     if (note.personFirstName) {
@@ -242,6 +291,7 @@ export default function DeliveryNotesPage() {
                 <TableHead>Número</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -249,7 +299,7 @@ export default function DeliveryNotesPage() {
             <TableBody>
               {filteredNotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <RiTruckLine className="h-8 w-8" />
                       <p>No hay albaranes</p>
@@ -261,14 +311,13 @@ export default function DeliveryNotesPage() {
                 </TableRow>
               ) : (
                 filteredNotes.map((note) => (
-                  <TableRow key={note.id}>
+                  <TableRow 
+                    key={note.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openPreview(note.id)}
+                  >
                     <TableCell className="font-medium">
-                      <button
-                        onClick={() => openEditDrawer(note.id)}
-                        className="hover:underline text-left"
-                      >
-                        {note.number}
-                      </button>
+                      {note.number}
                     </TableCell>
                     <TableCell>{getClientName(note)}</TableCell>
                     <TableCell>
@@ -276,12 +325,15 @@ export default function DeliveryNotesPage() {
                         ? format(new Date(note.issueDate), "dd MMM yyyy", { locale: es })
                         : "-"}
                     </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(note.total, note.currency)}
+                    </TableCell>
                     <TableCell>
                       <Badge className={statusConfig[note.status]?.color || "bg-gray-100"}>
                         {statusConfig[note.status]?.label || note.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -336,6 +388,18 @@ export default function DeliveryNotesPage() {
         type="delivery_note"
         documentId={editingId}
         onSuccess={fetchNotes}
+      />
+
+      {/* Document Preview */}
+      <DocumentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewNote}
+        onEdit={() => {
+          setPreviewOpen(false);
+          if (previewNote) openEditDrawer(previewNote.id);
+        }}
+        onRefresh={fetchNotes}
       />
     </div>
   );

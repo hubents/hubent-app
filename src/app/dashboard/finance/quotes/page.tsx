@@ -44,6 +44,17 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
+import { DocumentPreview } from "@/components/finance/document-preview";
+
+interface DocumentItem {
+  id: number;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discount: string;
+  taxRate: string;
+  total: string;
+}
 
 interface Quote {
   id: number;
@@ -55,13 +66,20 @@ interface Quote {
   contactId: number | null;
   eventId: number | null;
   issueDate: string;
+  dueDate: string | null;
   validUntil: string | null;
+  subtotal: string;
+  taxAmount: string;
   total: string;
   currency: string;
+  notes: string | null;
+  termsAndConditions: string | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
+  contactName: string | null;
   eventName: string | null;
+  items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -83,6 +101,10 @@ export default function QuotesPage() {
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  
+  // Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   
   // Invoice drawer state (for conversion)
   const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false);
@@ -237,6 +259,21 @@ export default function QuotesPage() {
     setDrawerOpen(true);
   }
 
+  async function openPreview(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          setPreviewQuote(data.data);
+          setPreviewOpen(true);
+        }
+      }
+    } catch (error) {
+      toast.error("Error al cargar documento");
+    }
+  }
+
   const formatCurrency = (amount: string, currency = "EUR") => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
@@ -347,14 +384,13 @@ export default function QuotesPage() {
                 </TableRow>
               ) : (
                 filteredQuotes.map((quote) => (
-                  <TableRow key={quote.id}>
+                  <TableRow 
+                    key={quote.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openPreview(quote.id)}
+                  >
                     <TableCell className="font-medium">
-                      <button
-                        onClick={() => openEditDrawer(quote.id)}
-                        className="hover:underline text-left"
-                      >
-                        {quote.number}
-                      </button>
+                      {quote.number}
                     </TableCell>
                     <TableCell>{getClientName(quote)}</TableCell>
                     <TableCell>
@@ -380,7 +416,7 @@ export default function QuotesPage() {
                         {statusConfig[quote.status]?.label || quote.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -487,6 +523,18 @@ export default function QuotesPage() {
           fetchQuotes();
           toast.success("Factura creada desde presupuesto");
         }}
+      />
+
+      {/* Document Preview */}
+      <DocumentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewQuote}
+        onEdit={() => {
+          setPreviewOpen(false);
+          if (previewQuote) openEditDrawer(previewQuote.id);
+        }}
+        onRefresh={fetchQuotes}
       />
     </div>
   );

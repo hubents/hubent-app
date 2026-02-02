@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,33 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   RiEditLine,
   RiPrinterLine,
   RiMailLine,
   RiDownloadLine,
+  RiLoader4Line,
 } from "@remixicon/react";
+import { toast } from "sonner";
 
 interface DocumentItem {
   id: number;
@@ -55,6 +76,8 @@ interface DocumentPreviewProps {
   onOpenChange: (open: boolean) => void;
   document: Document | null;
   onEdit?: () => void;
+  onStatusChange?: (status: string) => void;
+  onRefresh?: () => void;
 }
 
 const typeLabels: Record<string, string> = {
@@ -79,7 +102,15 @@ export function DocumentPreview({
   onOpenChange,
   document,
   onEdit,
+  onStatusChange,
+  onRefresh,
 }: DocumentPreviewProps) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
+  const [sendEmail, setSendEmail] = useState("");
+  const [sendMessage, setSendMessage] = useState("");
+
   if (!document) return null;
 
   const formatCurrency = (amount: string, currency = "EUR") => {
@@ -98,7 +129,148 @@ export function DocumentPreview({
     return "Sin cliente";
   };
 
+  const handleViewPDF = async () => {
+    setPdfLoading(true);
+    try {
+      window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
+    } catch (error) {
+      toast.error("Error al generar PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleSendDocument = async () => {
+    setSendLoading(true);
+    try {
+      const res = await fetch(`/api/finance/documents/${document.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: sendEmail || undefined,
+          message: sendMessage || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success(`Documento enviado a ${data.data.sentTo}`);
+        setSendDialogOpen(false);
+        setSendEmail("");
+        setSendMessage("");
+        onRefresh?.();
+      } else {
+        toast.error(data.error?.message || "Error al enviar documento");
+      }
+    } catch (error) {
+      toast.error("Error al enviar documento");
+    } finally {
+      setSendLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      const res = await fetch(`/api/finance/documents/${document.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        toast.success(`Estado actualizado a ${statusConfig[newStatus]?.label || newStatus}`);
+        onStatusChange?.(newStatus);
+        onRefresh?.();
+      } else {
+        toast.error("Error al actualizar estado");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar estado");
+    }
+  };
+
+  const getAvailableStatuses = () => {
+    const type = document.type;
+    const current = document.status;
+
+    if (type === "quote") {
+      if (current === "draft") return ["sent"];
+      if (current === "sent") return ["accepted", "rejected"];
+      return [];
+    }
+
+    if (type === "invoice" || type === "proforma" || type === "credit_note") {
+      if (current === "draft") return ["sent"];
+      if (current === "sent") return ["paid", "cancelled"];
+      return [];
+    }
+
+    if (type === "delivery_note") {
+      if (current === "draft") return ["sent"];
+      if (current === "sent") return ["delivered"];
+      return [];
+    }
+
+    return [];
+  };
+
+  const availableStatuses = getAvailableStatuses();
+
   return (
+    <>
+    {/* Send Dialog */}
+    <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enviar {typeLabels[document.type] || document.type}</DialogTitle>
+          <DialogDescription>
+            Enviar {document.number} por email
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Email del destinatario</Label>
+            <Input
+              type="email"
+              value={sendEmail}
+              onChange={(e) => setSendEmail(e.target.value)}
+              placeholder="Dejar vacío para usar el email del contacto"
+            />
+            <p className="text-xs text-muted-foreground">
+              Si no se especifica, se usará el email del contacto/cliente asociado.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Mensaje personalizado (opcional)</Label>
+            <Textarea
+              value={sendMessage}
+              onChange={(e) => setSendMessage(e.target.value)}
+              placeholder="Añade un mensaje personalizado al email..."
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSendDocument} disabled={sendLoading}>
+            {sendLoading ? (
+              <>
+                <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              <>
+                <RiMailLine className="mr-2 h-4 w-4" />
+                Enviar
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
         <SheetHeader className="space-y-1">
@@ -113,7 +285,7 @@ export function DocumentPreview({
         </SheetHeader>
 
         {/* Actions */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 mt-4">
           {onEdit && (
             <Button variant="outline" size="sm" onClick={onEdit}>
               <RiEditLine className="h-4 w-4 mr-1" />
@@ -124,15 +296,36 @@ export function DocumentPreview({
             <RiPrinterLine className="h-4 w-4 mr-1" />
             Imprimir
           </Button>
-          <Button variant="outline" size="sm" disabled>
-            <RiDownloadLine className="h-4 w-4 mr-1" />
+          <Button variant="outline" size="sm" onClick={handleViewPDF} disabled={pdfLoading}>
+            {pdfLoading ? (
+              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <RiDownloadLine className="h-4 w-4 mr-1" />
+            )}
             PDF
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button variant="outline" size="sm" onClick={() => setSendDialogOpen(true)}>
             <RiMailLine className="h-4 w-4 mr-1" />
             Enviar
           </Button>
         </div>
+
+        {/* Status Change */}
+        {availableStatuses.length > 0 && (
+          <div className="flex items-center gap-2 mt-4 p-3 bg-muted/50 rounded-lg">
+            <span className="text-sm text-muted-foreground">Cambiar estado:</span>
+            {availableStatuses.map((status) => (
+              <Button
+                key={status}
+                variant="outline"
+                size="sm"
+                onClick={() => handleStatusChange(status)}
+              >
+                {statusConfig[status]?.label || status}
+              </Button>
+            ))}
+          </div>
+        )}
 
         <Separator className="my-4" />
 
@@ -255,5 +448,6 @@ export function DocumentPreview({
         </div>
       </SheetContent>
     </Sheet>
+    </>
   );
 }
