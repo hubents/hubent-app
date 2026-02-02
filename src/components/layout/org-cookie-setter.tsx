@@ -1,19 +1,47 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 /**
  * Component that ensures the organization cookie is set
- * This runs on the client side and sets the cookie based on user's first organization
+ * This runs on the client side and sets the cookie based on:
+ * 1. ?org=slug URL parameter (for impersonation)
+ * 2. User's first organization (fallback)
  */
 export function OrgCookieSetter() {
   const [checked, setChecked] = useState(false);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     async function ensureOrgCookie() {
       try {
-        console.log("[OrgCookieSetter] Checking for org cookie...");
+        const orgSlug = searchParams.get("org");
         
+        // If ?org param exists, handle impersonation flow
+        if (orgSlug) {
+          console.log("[OrgCookieSetter] Found ?org param:", orgSlug);
+          
+          // Call impersonate API to set cookies properly
+          const impersonateRes = await fetch("/api/admin/impersonate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: orgSlug }),
+          });
+
+          if (impersonateRes.ok) {
+            const data = await impersonateRes.json();
+            console.log("[OrgCookieSetter] Impersonation successful:", data);
+            // Remove ?org from URL and reload
+            const url = new URL(window.location.href);
+            url.searchParams.delete("org");
+            window.location.href = url.toString();
+            return;
+          } else {
+            console.warn("[OrgCookieSetter] Impersonation failed, falling back to normal flow");
+          }
+        }
+
         // Check if cookie already exists
         const existingCookie = document.cookie
           .split("; ")
@@ -53,7 +81,7 @@ export function OrgCookieSetter() {
     }
 
     ensureOrgCookie();
-  }, []);
+  }, [searchParams]);
 
   // This component doesn't render anything
   return null;

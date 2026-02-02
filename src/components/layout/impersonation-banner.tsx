@@ -1,0 +1,81 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { RiEyeLine, RiCloseLine } from "@remixicon/react";
+import { useRouter } from "next/navigation";
+
+interface ImpersonationInfo {
+  isImpersonating: boolean;
+  organizationName?: string;
+}
+
+export function ImpersonationBanner() {
+  const [info, setInfo] = useState<ImpersonationInfo>({ isImpersonating: false });
+  const [ending, setEnding] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if impersonating by looking for the cookie
+    const isImpersonating = document.cookie
+      .split("; ")
+      .some((row) => row.startsWith("hubents-impersonating=true"));
+
+    if (isImpersonating) {
+      // Fetch current org info
+      fetch("/api/user/context")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.data?.currentOrganization) {
+            setInfo({
+              isImpersonating: true,
+              organizationName: data.data.currentOrganization.name,
+            });
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
+  async function endImpersonation() {
+    setEnding(true);
+    try {
+      const res = await fetch("/api/admin/impersonate", { method: "DELETE" });
+      if (res.ok) {
+        // Redirect to admin panel
+        router.push("/admin/tenants");
+      }
+    } catch (error) {
+      console.error("Failed to end impersonation:", error);
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  if (!info.isImpersonating) {
+    return null;
+  }
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-amber-950 px-4 py-2">
+      <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <RiEyeLine className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Estás viendo como: <strong>{info.organizationName || "Tenant"}</strong>
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={endImpersonation}
+          disabled={ending}
+          className="text-amber-950 hover:bg-amber-600 hover:text-amber-950"
+        >
+          <RiCloseLine className="h-4 w-4 mr-1" />
+          {ending ? "Saliendo..." : "Salir"}
+        </Button>
+      </div>
+    </div>
+  );
+}

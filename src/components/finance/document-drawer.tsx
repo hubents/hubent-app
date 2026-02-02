@@ -73,6 +73,7 @@ interface TaxRate {
   name: string;
   rate: string;
   isDefault: boolean;
+  isActive?: boolean;
 }
 
 interface InitialDocumentData {
@@ -544,10 +545,20 @@ export function DocumentDrawer({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="0">0%</SelectItem>
-                              <SelectItem value="4">4%</SelectItem>
-                              <SelectItem value="10">10%</SelectItem>
-                              <SelectItem value="21">21%</SelectItem>
+                              {taxRates.length > 0 ? (
+                                taxRates.filter(t => t.isActive !== false).map((tax) => (
+                                  <SelectItem key={tax.id} value={tax.rate.toString()}>
+                                    {tax.name} ({tax.rate}%)
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <>
+                                  <SelectItem value="0">Exento (0%)</SelectItem>
+                                  <SelectItem value="4">Superreducido (4%)</SelectItem>
+                                  <SelectItem value="10">Reducido (10%)</SelectItem>
+                                  <SelectItem value="21">General (21%)</SelectItem>
+                                </>
+                              )}
                             </SelectContent>
                           </Select>
                         </TableCell>
