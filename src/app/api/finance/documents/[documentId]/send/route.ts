@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { requireRole } from "@/lib/session";
 import { getDocument, updateDocumentStatus } from "@/lib/finance";
 import { generateDocumentHTML, generateDocumentEmailHTML, generateDocumentEmailSubject } from "@/lib/pdf-templates";
+import { createPDF } from "@/lib/pdf-generator";
 import { db } from "@/db";
 import { organizations, contacts, organizationFinanceSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -37,28 +38,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get recipient email
-    let recipientEmail = body.email;
-    let recipientName = body.name;
-
-    // If no email provided, try to get from contact
-    if (!recipientEmail && document.contactId) {
+    // Get contact info (single query for both recipient and template data)
+    let contactInfo = null;
+    if (document.contactId) {
       const [contact] = await db
         .select({
           name: contacts.name,
           email: contacts.email,
+          phone: contacts.phone,
+          address: contacts.address,
+          taxId: contacts.taxId,
         })
         .from(contacts)
         .where(eq(contacts.id, document.contactId))
         .limit(1);
-
-      if (contact?.email) {
-        recipientEmail = contact.email;
-        recipientName = contact.name;
-      }
+      contactInfo = contact;
     }
 
-    // If still no email, try company or person
+    // Determine recipient email (priority: body.email > contact > company > person)
+    let recipientEmail = body.email;
+    let recipientName = body.name;
+
+    if (!recipientEmail && contactInfo?.email) {
+      recipientEmail = contactInfo.email;
+      recipientName = contactInfo.name;
+    }
+
     if (!recipientEmail) {
       if (document.company?.email) {
         recipientEmail = document.company.email;
@@ -98,23 +103,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .where(eq(organizationFinanceSettings.organizationId, session.organizationId))
       .limit(1);
 
-    // Get contact info
-    let contactInfo = null;
-    if (document.contactId) {
-      const [contact] = await db
-        .select({
-          name: contacts.name,
-          email: contacts.email,
-          phone: contacts.phone,
-          address: contacts.address,
-          taxId: contacts.taxId,
-        })
-        .from(contacts)
-        .where(eq(contacts.id, document.contactId))
-        .limit(1);
-      contactInfo = contact;
-    }
-
     // Build document for templates
     const pdfDocument = {
       ...document,
@@ -137,6 +125,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Generate PDF HTML
     const pdfHtml = generateDocumentHTML(pdfDocument);
 
+    // Generate real PDF
+    const { buffer: pdfBuffer, isPDF } = await createPDF(pdfHtml);
+
     // Generate email HTML
     const emailHtml = generateDocumentEmailHTML(pdfDocument, body.message);
     const subject = body.subject || generateDocumentEmailSubject(pdfDocument);
@@ -151,8 +142,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       html: emailHtml,
       attachments: [
         {
-          filename: `${document.type}-${document.number}.html`,
-          content: Buffer.from(pdfHtml).toString("base64"),
+          filename: isPDF 
+            ? `${document.type}-${document.number}.pdf`
+            : `${document.type}-${document.number}.html`,
+          content: pdfBuffer.toString("base64"),
         },
       ],
     });

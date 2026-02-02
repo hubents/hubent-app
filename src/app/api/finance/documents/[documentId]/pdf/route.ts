@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { getDocument } from "@/lib/finance";
 import { generateDocumentHTML } from "@/lib/pdf-templates";
+import { createPDF } from "@/lib/pdf-generator";
 import { db } from "@/db";
 import { organizations, contacts, organizationFinanceSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -84,7 +85,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Generate HTML
     const html = generateDocumentHTML(pdfDocument);
 
-    // Return HTML that can be printed as PDF
+    // Check if user wants HTML preview or PDF download
+    const url = new URL(request.url);
+    const format = url.searchParams.get("format");
+
+    if (format === "html") {
+      // Return HTML for preview/print
+      return new NextResponse(html, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Content-Disposition": `inline; filename="${document.type}-${document.number}.html"`,
+        },
+      });
+    }
+
+    // Generate real PDF
+    const { buffer, isPDF } = await createPDF(html);
+
+    if (isPDF) {
+      return new NextResponse(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${document.type}-${document.number}.pdf"`,
+        },
+      });
+    }
+
+    // Fallback to HTML if PDF generation failed
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",

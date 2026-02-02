@@ -19,13 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +29,15 @@ import {
   RiMailLine,
   RiDownloadLine,
   RiLoader4Line,
+  RiEyeLine,
+  RiFileTextLine,
 } from "@remixicon/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 interface DocumentItem {
@@ -95,6 +96,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-800" },
   paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-800" },
   cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
+  delivered: { label: "Entregado", color: "bg-purple-100 text-purple-800" },
 };
 
 export function DocumentPreview({
@@ -129,15 +131,15 @@ export function DocumentPreview({
     return "Sin cliente";
   };
 
-  const handleViewPDF = async () => {
+  const handleViewHTML = () => {
+    window.open(`/api/finance/documents/${document.id}/pdf?format=html`, "_blank");
+  };
+
+  const handleDownloadPDF = () => {
     setPdfLoading(true);
-    try {
-      window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
-    } catch (error) {
-      toast.error("Error al generar PDF");
-    } finally {
-      setPdfLoading(false);
-    }
+    // Open PDF in new tab (will trigger download or view depending on browser)
+    window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
+    setPdfLoading(false);
   };
 
   const handleSendDocument = async () => {
@@ -221,14 +223,32 @@ export function DocumentPreview({
     <>
     {/* Send Dialog */}
     <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Enviar {typeLabels[document.type] || document.type}</DialogTitle>
           <DialogDescription>
-            Enviar {document.number} por email
+            Enviar {document.number} por email con PDF adjunto
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* Document Summary */}
+          <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Documento:</span>
+              <span className="font-medium">{document.number}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cliente:</span>
+              <span className="font-medium">{getClientName()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total:</span>
+              <span className="font-bold">{formatCurrency(document.total, document.currency)}</span>
+            </div>
+          </div>
+
+          <Separator />
+
           <div className="space-y-2">
             <Label>Email del destinatario</Label>
             <Input
@@ -251,7 +271,16 @@ export function DocumentPreview({
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleViewHTML}
+            className="sm:mr-auto"
+          >
+            <RiEyeLine className="mr-2 h-4 w-4" />
+            Ver preview
+          </Button>
           <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
             Cancelar
           </Button>
@@ -296,14 +325,28 @@ export function DocumentPreview({
             <RiPrinterLine className="h-4 w-4 mr-1" />
             Imprimir
           </Button>
-          <Button variant="outline" size="sm" onClick={handleViewPDF} disabled={pdfLoading}>
-            {pdfLoading ? (
-              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <RiDownloadLine className="h-4 w-4 mr-1" />
-            )}
-            PDF
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={pdfLoading}>
+                {pdfLoading ? (
+                  <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RiFileTextLine className="h-4 w-4 mr-1" />
+                )}
+                PDF
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={handleViewHTML}>
+                <RiEyeLine className="h-4 w-4 mr-2" />
+                Ver documento
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownloadPDF}>
+                <RiDownloadLine className="h-4 w-4 mr-2" />
+                Descargar PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={() => setSendDialogOpen(true)}>
             <RiMailLine className="h-4 w-4 mr-1" />
             Enviar
