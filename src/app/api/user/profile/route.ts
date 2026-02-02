@@ -148,9 +148,20 @@ export async function GET() {
           id: organization.id,
           name: organization.name,
           slug: organization.slug,
+          logo: organization.logo,
           phone: organization.phone,
           website: organization.website,
           address: organization.address,
+          // Fiscal data
+          fiscalName: organization.fiscalName,
+          taxId: organization.taxId,
+          fiscalAddress: organization.fiscalAddress,
+          fiscalCity: organization.fiscalCity,
+          fiscalPostalCode: organization.fiscalPostalCode,
+          fiscalCountry: organization.fiscalCountry,
+          fiscalEmail: organization.fiscalEmail,
+          fiscalPhone: organization.fiscalPhone,
+          invoiceLogo: organization.invoiceLogo,
         } : null,
       },
     });
@@ -199,6 +210,17 @@ export async function PATCH(request: Request) {
       if (orgData.phone !== undefined) updateData.phone = orgData.phone;
       if (orgData.website !== undefined) updateData.website = orgData.website;
       if (orgData.address !== undefined) updateData.address = orgData.address;
+      if (orgData.logo !== undefined) updateData.logo = orgData.logo;
+      // Fiscal data
+      if (orgData.fiscalName !== undefined) updateData.fiscalName = orgData.fiscalName;
+      if (orgData.taxId !== undefined) updateData.taxId = orgData.taxId;
+      if (orgData.fiscalAddress !== undefined) updateData.fiscalAddress = orgData.fiscalAddress;
+      if (orgData.fiscalCity !== undefined) updateData.fiscalCity = orgData.fiscalCity;
+      if (orgData.fiscalPostalCode !== undefined) updateData.fiscalPostalCode = orgData.fiscalPostalCode;
+      if (orgData.fiscalCountry !== undefined) updateData.fiscalCountry = orgData.fiscalCountry;
+      if (orgData.fiscalEmail !== undefined) updateData.fiscalEmail = orgData.fiscalEmail;
+      if (orgData.fiscalPhone !== undefined) updateData.fiscalPhone = orgData.fiscalPhone;
+      if (orgData.invoiceLogo !== undefined) updateData.invoiceLogo = orgData.invoiceLogo;
 
       await db
         .update(organizations)

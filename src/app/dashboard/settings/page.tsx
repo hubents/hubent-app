@@ -18,7 +18,12 @@ import {
   RiCheckLine,
   RiErrorWarningLine,
   RiFileList3Line,
+  RiBuilding2Line,
+  RiUploadLine,
+  RiImageLine,
+  RiAlertLine,
 } from "@remixicon/react";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -35,9 +40,20 @@ interface ProfileData {
     id: number;
     name: string;
     slug: string;
+    logo: string | null;
     website: string | null;
     address: string | null;
     phone: string | null;
+    // Fiscal data
+    fiscalName: string | null;
+    taxId: string | null;
+    fiscalAddress: string | null;
+    fiscalCity: string | null;
+    fiscalPostalCode: string | null;
+    fiscalCountry: string | null;
+    fiscalEmail: string | null;
+    fiscalPhone: string | null;
+    invoiceLogo: string | null;
   } | null;
 }
 
@@ -47,6 +63,12 @@ const settingsSections = [
     title: "Perfil",
     description: "Información personal y de la empresa",
     icon: RiUserLine,
+  },
+  {
+    id: "fiscal",
+    title: "Datos Fiscales",
+    description: "Información para facturas y documentos",
+    icon: RiBuilding2Line,
   },
   {
     id: "security",
@@ -381,6 +403,16 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 </>
+              )}
+
+              {/* Fiscal Section */}
+              {activeSection === "fiscal" && profile?.organization && (
+                <FiscalSection organization={profile.organization} onSave={() => {
+                  // Reload profile after save
+                  fetch("/api/user/profile").then(res => res.json()).then(data => {
+                    if (data.success) setProfile(data.data);
+                  });
+                }} />
               )}
 
               {/* Security Section */}
@@ -855,5 +887,278 @@ function PrivacySection() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Fiscal Section Component
+interface FiscalSectionProps {
+  organization: NonNullable<ProfileData["organization"]>;
+  onSave: () => void;
+}
+
+function FiscalSection({ organization, onSave }: FiscalSectionProps) {
+  const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [formData, setFormData] = useState({
+    fiscalName: organization.fiscalName || organization.name || "",
+    taxId: organization.taxId || "",
+    fiscalAddress: organization.fiscalAddress || "",
+    fiscalCity: organization.fiscalCity || "",
+    fiscalPostalCode: organization.fiscalPostalCode || "",
+    fiscalCountry: organization.fiscalCountry || "España",
+    fiscalEmail: organization.fiscalEmail || "",
+    fiscalPhone: organization.fiscalPhone || "",
+    invoiceLogo: organization.invoiceLogo || organization.logo || "",
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization: {
+            fiscalName: formData.fiscalName,
+            taxId: formData.taxId,
+            fiscalAddress: formData.fiscalAddress,
+            fiscalCity: formData.fiscalCity,
+            fiscalPostalCode: formData.fiscalPostalCode,
+            fiscalCountry: formData.fiscalCountry,
+            fiscalEmail: formData.fiscalEmail,
+            fiscalPhone: formData.fiscalPhone,
+            invoiceLogo: formData.invoiceLogo,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Datos fiscales guardados correctamente");
+        onSave();
+      } else {
+        toast.error(data.error || "Error al guardar");
+      }
+    } catch (error) {
+      toast.error("Error de conexión");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Solo se permiten imágenes");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("El archivo es demasiado grande (máx. 2MB)");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFormData({ ...formData, invoiceLogo: data.url });
+        toast.success("Logo subido correctamente");
+      } else {
+        toast.error(data.error || "Error al subir logo");
+      }
+    } catch (error) {
+      toast.error("Error al subir logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos Fiscales</CardTitle>
+          <CardDescription>
+            Información fiscal que aparecerá en tus facturas, presupuestos y albaranes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+            <RiAlertLine className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">Importante</p>
+              <p>Estos datos aparecerán en todos los documentos fiscales que generes. Asegúrate de que sean correctos.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Razón Social / Nombre Empresa *</label>
+              <Input
+                value={formData.fiscalName}
+                onChange={(e) => setFormData({ ...formData, fiscalName: e.target.value })}
+                placeholder="Mi Empresa S.L."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">NIF / CIF *</label>
+              <Input
+                value={formData.taxId}
+                onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                placeholder="B12345678"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Dirección Fiscal</label>
+            <Input
+              value={formData.fiscalAddress}
+              onChange={(e) => setFormData({ ...formData, fiscalAddress: e.target.value })}
+              placeholder="Calle Principal 123, 1º A"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Código Postal</label>
+              <Input
+                value={formData.fiscalPostalCode}
+                onChange={(e) => setFormData({ ...formData, fiscalPostalCode: e.target.value })}
+                placeholder="28001"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ciudad</label>
+              <Input
+                value={formData.fiscalCity}
+                onChange={(e) => setFormData({ ...formData, fiscalCity: e.target.value })}
+                placeholder="Madrid"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">País</label>
+              <Input
+                value={formData.fiscalCountry}
+                onChange={(e) => setFormData({ ...formData, fiscalCountry: e.target.value })}
+                placeholder="España"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email de Facturación</label>
+              <Input
+                type="email"
+                value={formData.fiscalEmail}
+                onChange={(e) => setFormData({ ...formData, fiscalEmail: e.target.value })}
+                placeholder="facturacion@miempresa.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Teléfono</label>
+              <Input
+                value={formData.fiscalPhone}
+                onChange={(e) => setFormData({ ...formData, fiscalPhone: e.target.value })}
+                placeholder="+34 912 345 678"
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar Datos Fiscales"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Logo para Documentos</CardTitle>
+          <CardDescription>
+            Este logo aparecerá en el encabezado de tus facturas, presupuestos y albaranes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-6">
+            {/* Logo Preview */}
+            <div className="flex-shrink-0">
+              {formData.invoiceLogo ? (
+                <div className="relative">
+                  <img
+                    src={formData.invoiceLogo}
+                    alt="Logo"
+                    className="h-24 w-auto max-w-[200px] object-contain border rounded-lg p-2"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full bg-red-100 hover:bg-red-200"
+                    onClick={() => setFormData({ ...formData, invoiceLogo: "" })}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ) : (
+                <div className="h-24 w-32 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground">
+                  <RiImageLine className="h-8 w-8" />
+                </div>
+              )}
+            </div>
+
+            {/* Upload Area */}
+            <div className="flex-1 space-y-2">
+              <label
+                htmlFor="logo-upload"
+                className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex flex-col items-center justify-center pt-2 pb-2">
+                  {uploadingLogo ? (
+                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <>
+                      <RiUploadLine className="h-6 w-6 text-muted-foreground mb-1" />
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-primary">Subir logo</span> o arrastrar
+                      </p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG hasta 2MB</p>
+                    </>
+                  )}
+                </div>
+                <input
+                  id="logo-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  disabled={uploadingLogo}
+                />
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Recomendado: Logo horizontal con fondo transparente (PNG)
+              </p>
+            </div>
+          </div>
+
+          {formData.invoiceLogo && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar Logo"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }

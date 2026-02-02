@@ -4,7 +4,7 @@ import { getDocument } from "@/lib/finance";
 import { generateDocumentHTML } from "@/lib/pdf-templates";
 import { createPDF } from "@/lib/pdf-generator";
 import { db } from "@/db";
-import { organizations, contacts, organizationFinanceSettings } from "@/db/schema";
+import { organizations, contacts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
@@ -24,26 +24,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get organization info for the PDF header
+    // Get organization info for the PDF header (unified source of truth)
     const [org] = await db
       .select({
         name: organizations.name,
         address: organizations.address,
         phone: organizations.phone,
         logo: organizations.logo,
+        // Fiscal data from organizations table
+        fiscalName: organizations.fiscalName,
+        taxId: organizations.taxId,
+        fiscalAddress: organizations.fiscalAddress,
+        fiscalCity: organizations.fiscalCity,
+        fiscalPostalCode: organizations.fiscalPostalCode,
+        fiscalCountry: organizations.fiscalCountry,
+        fiscalEmail: organizations.fiscalEmail,
+        fiscalPhone: organizations.fiscalPhone,
+        invoiceLogo: organizations.invoiceLogo,
       })
       .from(organizations)
       .where(eq(organizations.id, session.organizationId))
-      .limit(1);
-
-    // Get finance settings for email and taxId
-    const [financeSettings] = await db
-      .select({
-        email: organizationFinanceSettings.fiscalEmail,
-        taxId: organizationFinanceSettings.taxId,
-      })
-      .from(organizationFinanceSettings)
-      .where(eq(organizationFinanceSettings.organizationId, session.organizationId))
       .limit(1);
 
     // Get contact info if available
@@ -63,16 +63,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       contactInfo = contact;
     }
 
+    // Build full fiscal address
+    const fiscalAddressFull = [
+      org?.fiscalAddress,
+      org?.fiscalPostalCode,
+      org?.fiscalCity,
+      org?.fiscalCountry,
+    ].filter(Boolean).join(", ");
+
     // Build the full document object for PDF generation
     const pdfDocument = {
       ...document,
       status: document.status || "draft",
-      organizationName: org?.name || undefined,
-      organizationAddress: org?.address || undefined,
-      organizationPhone: org?.phone || undefined,
-      organizationEmail: financeSettings?.email || undefined,
-      organizationTaxId: financeSettings?.taxId || undefined,
-      organizationLogo: org?.logo || undefined,
+      // Use fiscal data with fallbacks to general org data
+      organizationName: org?.fiscalName || org?.name || undefined,
+      organizationAddress: fiscalAddressFull || org?.address || undefined,
+      organizationPhone: org?.fiscalPhone || org?.phone || undefined,
+      organizationEmail: org?.fiscalEmail || undefined,
+      organizationTaxId: org?.taxId || undefined,
+      organizationLogo: org?.invoiceLogo || org?.logo || undefined,
       contactName: contactInfo?.name || document.company?.legalName || 
         (document.person ? `${document.person.firstName} ${document.person.lastName || ""}`.trim() : null),
       contactEmail: contactInfo?.email || document.company?.email || document.person?.email || null,

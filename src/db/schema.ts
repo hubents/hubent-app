@@ -306,6 +306,16 @@ export const organizations = pgTable("organizations", {
     language?: string;
   }>(),
   ownerId: text("owner_id").references(() => users.id),
+  // Fiscal data (unified source of truth for documents)
+  fiscalName: text("fiscal_name"),
+  taxId: text("tax_id"),
+  fiscalAddress: text("fiscal_address"),
+  fiscalCity: text("fiscal_city"),
+  fiscalPostalCode: text("fiscal_postal_code"),
+  fiscalCountry: text("fiscal_country").default("España"),
+  fiscalEmail: text("fiscal_email"),
+  fiscalPhone: text("fiscal_phone"),
+  invoiceLogo: text("invoice_logo"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
