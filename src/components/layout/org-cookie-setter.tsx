@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 /**
- * Component that ensures the organization cookie is set
- * This runs on the client side and sets the cookie based on:
- * 1. ?org=slug URL parameter (for impersonation)
- * 2. User's first organization (fallback)
+ * Internal component that uses useSearchParams
  */
-export function OrgCookieSetter() {
+function OrgCookieSetterInner() {
   const [checked, setChecked] = useState(false);
   const searchParams = useSearchParams();
 
@@ -85,4 +82,20 @@ export function OrgCookieSetter() {
 
   // This component doesn't render anything
   return null;
+}
+
+/**
+ * Component that ensures the organization cookie is set
+ * This runs on the client side and sets the cookie based on:
+ * 1. ?org=slug URL parameter (for impersonation)
+ * 2. User's first organization (fallback)
+ * 
+ * Wrapped in Suspense for Next.js 16 compatibility with useSearchParams
+ */
+export function OrgCookieSetter() {
+  return (
+    <Suspense fallback={null}>
+      <OrgCookieSetterInner />
+    </Suspense>
+  );
 }
