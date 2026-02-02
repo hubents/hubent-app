@@ -164,6 +164,15 @@ function FinanceSettingsContent() {
       "defaultPaymentTerms",
       "defaultTermsAndConditions",
       "quoteValidityDays",
+      // Fiscal data fields
+      "companyName",
+      "taxId",
+      "fiscalAddress",
+      "fiscalCity",
+      "fiscalPostalCode",
+      "fiscalCountry",
+      "fiscalEmail",
+      "fiscalPhone",
     ];
 
     return fieldsToCompare.some(

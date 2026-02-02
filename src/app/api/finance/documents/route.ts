@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
       type,
       companyId: body.companyId,
       personId: body.personId,
+      contactId: body.contactId,
+      vendorId: body.vendorId,
       eventId: body.eventId,
       dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
       validUntil: body.validUntil ? new Date(body.validUntil) : undefined,

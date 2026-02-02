@@ -298,6 +298,7 @@ export async function createDocument(
   data: {
     type: "quote" | "proforma" | "invoice" | "delivery_note" | "credit_note";
     contactId?: number;
+    vendorId?: number;
     companyId?: number;
     personId?: number;
     eventId?: number;
@@ -344,6 +345,7 @@ export async function createDocument(
     number,
     status: "draft",
     contactId: data.contactId,
+    vendorId: data.vendorId,
     companyId: data.companyId,
     personId: data.personId,
     eventId: data.eventId,
@@ -508,6 +510,90 @@ export async function convertDocument(
   }
 
   return newDoc;
+}
+
+// ============================================
+// CREDIT NOTE (FACTURA RECTIFICATIVA)
+// ============================================
+
+export async function createCreditNote(
+  session: TenantSession,
+  originalInvoiceId: number
+) {
+  const original = await getDocument(session, originalInvoiceId);
+  if (!original) throw new Error("Invoice not found");
+  if (original.type !== "invoice") throw new Error("Can only create credit note from invoice");
+
+  // Generate credit note number
+  const number = await generateDocumentNumber(session.organizationId, "credit_note");
+
+  // Calculate totals with NEGATIVE amounts
+  let subtotal = 0;
+  let taxAmount = 0;
+
+  const itemsWithTotals = original.items.map((item, index) => {
+    const qty = parseFloat(item.quantity || "1");
+    const price = parseFloat(item.unitPrice);
+    const discount = parseFloat(item.discount || "0");
+    const tax = parseFloat(item.taxRate || "21");
+    
+    // Negative amounts for credit note
+    const itemSubtotal = -(qty * price * (1 - discount / 100));
+    const itemTax = itemSubtotal * (tax / 100);
+    subtotal += itemSubtotal;
+    taxAmount += itemTax;
+
+    return {
+      productId: item.productId,
+      description: item.description,
+      quantity: qty,
+      unitPrice: -price, // Negative price
+      discount: discount,
+      taxRate: tax,
+      total: itemSubtotal,
+      sortOrder: index,
+    };
+  });
+
+  const total = subtotal + taxAmount;
+
+  // Create credit note document
+  const [doc] = await db.insert(financialDocuments).values({
+    organizationId: session.organizationId,
+    type: "credit_note",
+    number,
+    status: "draft",
+    contactId: original.contactId,
+    vendorId: original.vendorId,
+    companyId: original.companyId,
+    personId: original.personId,
+    eventId: original.eventId,
+    parentDocumentId: originalInvoiceId, // Reference to original invoice
+    subtotal: subtotal.toString(),
+    taxAmount: taxAmount.toString(),
+    total: total.toString(),
+    currency: original.currency || "EUR",
+    notes: `Rectifica la factura ${original.number}`,
+    termsAndConditions: original.termsAndConditions,
+    createdBy: session.user.userId,
+  }).returning();
+
+  // Create items
+  for (const item of itemsWithTotals) {
+    await db.insert(documentItems).values({
+      documentId: doc.id,
+      productId: item.productId,
+      description: item.description,
+      quantity: item.quantity.toString(),
+      unitPrice: item.unitPrice.toString(),
+      discount: item.discount.toString(),
+      taxRate: item.taxRate.toString(),
+      total: item.total.toString(),
+      sortOrder: item.sortOrder,
+    });
+  }
+
+  return getDocument(session, doc.id);
 }
 
 // ============================================

@@ -56,6 +56,13 @@ interface Contact {
   type: string;
 }
 
+interface Vendor {
+  id: number;
+  name: string;
+  email: string | null;
+  category: string | null;
+}
+
 interface Event {
   id: number;
   name: string;
@@ -68,11 +75,21 @@ interface TaxRate {
   isDefault: boolean;
 }
 
+interface InitialDocumentData {
+  contactId?: number;
+  vendorId?: number;
+  eventId?: number;
+  notes?: string;
+  termsAndConditions?: string;
+  items?: DocumentItem[];
+}
+
 interface DocumentDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   type: DocumentType;
   documentId?: number;
+  initialData?: InitialDocumentData;
   onSuccess?: () => void;
 }
 
@@ -89,6 +106,7 @@ export function DocumentDrawer({
   onOpenChange,
   type,
   documentId,
+  initialData,
   onSuccess,
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
@@ -96,6 +114,7 @@ export function DocumentDrawer({
 
   // Form state
   const [contactId, setContactId] = useState<string>("");
+  const [vendorId, setVendorId] = useState<string>("");
   const [eventId, setEventId] = useState<string>("");
   const [dueDate, setDueDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -107,6 +126,7 @@ export function DocumentDrawer({
 
   // Reference data
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [defaultTaxRate, setDefaultTaxRate] = useState(21);
@@ -116,14 +136,25 @@ export function DocumentDrawer({
       fetchReferenceData();
       if (documentId) {
         fetchDocument();
+      } else if (initialData) {
+        // Pre-fill form with initial data (e.g., from quote conversion)
+        setContactId(initialData.contactId?.toString() || "");
+        setVendorId(initialData.vendorId?.toString() || "");
+        setEventId(initialData.eventId?.toString() || "");
+        setNotes(initialData.notes || "");
+        setTermsAndConditions(initialData.termsAndConditions || "");
+        if (initialData.items && initialData.items.length > 0) {
+          setItems(initialData.items);
+        }
       } else {
         resetForm();
       }
     }
-  }, [open, documentId]);
+  }, [open, documentId, initialData]);
 
   function resetForm() {
     setContactId("");
+    setVendorId("");
     setEventId("");
     setDueDate("");
     setValidUntil("");
@@ -134,8 +165,9 @@ export function DocumentDrawer({
 
   async function fetchReferenceData() {
     try {
-      const [contactsRes, eventsRes, taxRatesRes, settingsRes] = await Promise.all([
+      const [contactsRes, vendorsRes, eventsRes, taxRatesRes, settingsRes] = await Promise.all([
         fetch("/api/contacts?limit=100"),
+        fetch("/api/vendors?limit=100"),
         fetch("/api/events?limit=100"),
         fetch("/api/finance/tax-rates"),
         fetch("/api/finance/settings"),
@@ -144,6 +176,11 @@ export function DocumentDrawer({
       if (contactsRes.ok) {
         const data = await contactsRes.json();
         setContacts(data.data || []);
+      }
+
+      if (vendorsRes.ok) {
+        const data = await vendorsRes.json();
+        setVendors(data.data || []);
       }
 
       if (eventsRes.ok) {
@@ -271,6 +308,7 @@ export function DocumentDrawer({
       const payload = {
         type,
         contactId: contactId ? parseInt(contactId) : undefined,
+        vendorId: vendorId ? parseInt(vendorId) : undefined,
         eventId: eventId ? parseInt(eventId) : undefined,
         dueDate: dueDate || undefined,
         validUntil: validUntil || undefined,
@@ -340,13 +378,16 @@ export function DocumentDrawer({
           </div>
         ) : (
           <div className="space-y-6 py-6">
-            {/* Client & Event */}
+            {/* Client / Vendor & Event */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Cliente / Contacto</Label>
                 <Select
                   value={contactId || "none"}
-                  onValueChange={(v) => setContactId(v === "none" ? "" : v)}
+                  onValueChange={(v) => {
+                    setContactId(v === "none" ? "" : v);
+                    if (v !== "none") setVendorId(""); // Clear vendor if contact selected
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar cliente..." />
@@ -363,6 +404,32 @@ export function DocumentDrawer({
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label>Proveedor (para pagos)</Label>
+                <Select
+                  value={vendorId || "none"}
+                  onValueChange={(v) => {
+                    setVendorId(v === "none" ? "" : v);
+                    if (v !== "none") setContactId(""); // Clear contact if vendor selected
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar proveedor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin proveedor</SelectItem>
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                        {vendor.name}
+                        {vendor.category && ` (${vendor.category})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Evento (opcional)</Label>
                 <Select

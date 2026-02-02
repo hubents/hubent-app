@@ -83,6 +83,24 @@ export default function QuotesPage() {
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  
+  // Invoice drawer state (for conversion)
+  const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false);
+  const [invoiceInitialData, setInvoiceInitialData] = useState<{
+    contactId?: number;
+    vendorId?: number;
+    eventId?: number;
+    notes?: string;
+    termsAndConditions?: string;
+    items?: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+      taxRate: number;
+      total: number;
+    }>;
+  } | undefined>(undefined);
 
   useEffect(() => {
     fetchQuotes();
@@ -135,16 +153,32 @@ export default function QuotesPage() {
 
   async function convertToInvoice(id: number) {
     try {
-      const res = await fetch(`/api/finance/documents/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ convertTo: "invoice" }),
-      });
+      // Fetch the quote data to pre-fill the invoice form
+      const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
-        toast.success("Convertido a factura");
-        fetchQuotes();
+        const data = await res.json();
+        if (data.success && data.data) {
+          const quote = data.data;
+          // Prepare initial data for invoice drawer
+          setInvoiceInitialData({
+            contactId: quote.contactId || undefined,
+            vendorId: quote.vendorId || undefined,
+            eventId: quote.eventId || undefined,
+            notes: quote.notes || undefined,
+            termsAndConditions: quote.termsAndConditions || undefined,
+            items: quote.items?.map((item: any) => ({
+              description: item.description,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
+            })) || [],
+          });
+          setInvoiceDrawerOpen(true);
+        }
       } else {
-        toast.error("Error al convertir");
+        toast.error("Error al cargar datos del presupuesto");
       }
     } catch (error) {
       toast.error("Error al convertir");
@@ -431,13 +465,28 @@ export default function QuotesPage() {
         </div>
       )}
 
-      {/* Document Drawer */}
+      {/* Quote Drawer */}
       <DocumentDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         type="quote"
         documentId={editingId}
         onSuccess={fetchQuotes}
+      />
+
+      {/* Invoice Drawer (for conversion from quote) */}
+      <DocumentDrawer
+        open={invoiceDrawerOpen}
+        onOpenChange={(open) => {
+          setInvoiceDrawerOpen(open);
+          if (!open) setInvoiceInitialData(undefined);
+        }}
+        type="invoice"
+        initialData={invoiceInitialData}
+        onSuccess={() => {
+          fetchQuotes();
+          toast.success("Factura creada desde presupuesto");
+        }}
       />
     </div>
   );

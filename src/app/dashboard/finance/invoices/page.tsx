@@ -38,11 +38,33 @@ import {
   RiCheckLine,
   RiSendPlaneLine,
   RiMoneyDollarCircleLine,
+  RiExchangeLine,
+  RiRefund2Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
+import { DocumentPreview } from "@/components/finance/document-preview";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+interface DocumentItem {
+  id: number;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discount: string;
+  taxRate: string;
+  total: string;
+}
 
 interface Invoice {
   id: number;
@@ -55,12 +77,19 @@ interface Invoice {
   eventId: number | null;
   issueDate: string;
   dueDate: string | null;
+  validUntil: string | null;
+  subtotal: string;
+  taxAmount: string;
   total: string;
   currency: string;
+  notes: string | null;
+  termsAndConditions: string | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
+  contactName: string | null;
   eventName: string | null;
+  items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -83,6 +112,17 @@ export default function InvoicesPage() {
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  
+  // Payment dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [paymentReference, setPaymentReference] = useState("");
+  
+  // Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -149,6 +189,25 @@ export default function InvoicesPage() {
     }
   }
 
+  async function createCreditNote(id: number) {
+    if (!confirm("¿Crear una factura rectificativa? Esto generará una factura con importes negativos que anula la factura original.")) return;
+
+    try {
+      const res = await fetch(`/api/finance/documents/${id}/credit-note`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        toast.success("Factura rectificativa creada");
+        fetchInvoices();
+      } else {
+        const error = await res.json();
+        toast.error(error.error?.message || "Error al crear factura rectificativa");
+      }
+    } catch (error) {
+      toast.error("Error al crear factura rectificativa");
+    }
+  }
+
   async function updateStatus(id: number, status: string) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`, {
@@ -204,6 +263,59 @@ export default function InvoicesPage() {
   function openEditDrawer(id: number) {
     setEditingId(id);
     setDrawerOpen(true);
+  }
+
+  function openPaymentDialog(invoice: Invoice) {
+    setPaymentInvoice(invoice);
+    setPaymentAmount(invoice.total);
+    setPaymentMethod("bank_transfer");
+    setPaymentReference(`Pago ${invoice.number}`);
+    setPaymentDialogOpen(true);
+  }
+
+  async function openPreview(id: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          setPreviewInvoice(data.data);
+          setPreviewOpen(true);
+        }
+      }
+    } catch (error) {
+      toast.error("Error al cargar documento");
+    }
+  }
+
+  async function submitPayment() {
+    if (!paymentInvoice || !paymentAmount) return;
+
+    try {
+      const res = await fetch("/api/finance/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: paymentInvoice.id,
+          amount: parseFloat(paymentAmount),
+          currency: paymentInvoice.currency || "EUR",
+          direction: "incoming",
+          paymentMethod: paymentMethod,
+          paymentDate: new Date().toISOString(),
+          reference: paymentReference,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Pago registrado correctamente");
+        setPaymentDialogOpen(false);
+        fetchInvoices();
+      } else {
+        toast.error("Error al registrar pago");
+      }
+    } catch (error) {
+      toast.error("Error al registrar pago");
+    }
   }
 
   const formatCurrency = (amount: string, currency = "EUR") => {
@@ -311,14 +423,13 @@ export default function InvoicesPage() {
                 </TableRow>
               ) : (
                 filteredInvoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
+                  <TableRow 
+                    key={invoice.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openPreview(invoice.id)}
+                  >
                     <TableCell className="font-medium">
-                      <button
-                        onClick={() => openEditDrawer(invoice.id)}
-                        className="hover:underline text-left"
-                      >
-                        {invoice.number}
-                      </button>
+                      {invoice.number}
                     </TableCell>
                     <TableCell>{getClientName(invoice)}</TableCell>
                     <TableCell>
@@ -339,7 +450,7 @@ export default function InvoicesPage() {
                         {statusConfig[invoice.status]?.label || invoice.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -368,10 +479,22 @@ export default function InvoicesPage() {
                               Marcar como Pagada
                             </DropdownMenuItem>
                           )}
+                          {(invoice.status === "sent" || invoice.status === "draft") && (
+                            <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
+                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                              Añadir Pago
+                            </DropdownMenuItem>
+                          )}
                           {(invoice.status === "draft" || invoice.status === "sent") && (
                             <DropdownMenuItem onClick={() => updateStatus(invoice.id, "cancelled")}>
                               <RiCheckLine className="mr-2 h-4 w-4" />
                               Cancelar
+                            </DropdownMenuItem>
+                          )}
+                          {(invoice.status === "sent" || invoice.status === "paid") && (
+                            <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
+                              <RiRefund2Line className="mr-2 h-4 w-4" />
+                              Crear Factura Rectificativa
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -425,6 +548,70 @@ export default function InvoicesPage() {
         type="invoice"
         documentId={editingId}
         onSuccess={fetchInvoices}
+      />
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogDescription>
+              {paymentInvoice && `Registrar pago para factura ${paymentInvoice.number}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Monto</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Método de Pago</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Efectivo</SelectItem>
+                  <SelectItem value="bank_transfer">Transferencia</SelectItem>
+                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="stripe">Stripe</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Referencia</Label>
+              <Input
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Número de transferencia, etc."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submitPayment}>Registrar Pago</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview */}
+      <DocumentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewInvoice}
+        onEdit={() => {
+          setPreviewOpen(false);
+          if (previewInvoice) openEditDrawer(previewInvoice.id);
+        }}
       />
     </div>
   );
