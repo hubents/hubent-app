@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 
 interface ReorderItem {
   taskId: number;
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       // If eventId is provided, also verify task belongs to that event
       if (eventId !== undefined) {
         if (eventId === null) {
-          // General tasks (no event)
-          conditions.push(eq(tasks.eventId, null as unknown as number));
+          // General tasks (no event) - use isNull() for proper null comparison
+          conditions.push(isNull(tasks.eventId));
         } else {
           conditions.push(eq(tasks.eventId, eventId));
         }

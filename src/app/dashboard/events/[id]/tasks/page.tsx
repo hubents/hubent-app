@@ -27,7 +27,13 @@ import {
   closestCorners,
   useDroppable,
 } from "@dnd-kit/core";
-import { useDraggable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface Task {
   id: number;
@@ -38,6 +44,7 @@ interface Task {
   dueDate: string | null;
   eventId: number;
   category: string | null;
+  sortOrder?: number | null;
 }
 
 const priorityColors: Record<string, string> = {
@@ -58,22 +65,30 @@ const statusLabels: Record<string, string> = {
   completed: "Finalizado",
 };
 
-// Draggable Task Card Component
-function DraggableTaskCard({ 
+// Sortable Task Card Component
+function SortableTaskCard({ 
   task, 
   onClick 
 }: { 
   task: Task; 
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: task.id.toString(),
-    data: { task },
+    data: { task, type: "task" },
   });
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <Card
@@ -81,7 +96,7 @@ function DraggableTaskCard({
       style={style}
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow",
-        isDragging ? "opacity-50 shadow-lg" : "hover:shadow-md"
+        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md"
       )}
       {...listeners}
       {...attributes}
@@ -111,8 +126,8 @@ function DraggableTaskCard({
   );
 }
 
-// Droppable Column Component
-function DroppableColumn({ 
+// Sortable Column Component
+function SortableColumn({ 
   id, 
   title, 
   color, 
@@ -128,6 +143,10 @@ function DroppableColumn({
   onAddTask: (status: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  
+  // Sort tasks by sortOrder
+  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const taskIds = sortedTasks.map((t) => t.id.toString());
 
   return (
     <div className="flex flex-col">
@@ -151,17 +170,19 @@ function DroppableColumn({
       <div 
         ref={setNodeRef}
         className={cn(
-          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-[400px] space-y-2 transition-colors",
+          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
           isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
         )}
       >
-        {tasks.map((task) => (
-          <DraggableTaskCard 
-            key={task.id} 
-            task={task} 
-            onClick={() => onTaskClick(task)} 
-          />
-        ))}
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          {sortedTasks.map((task) => (
+            <SortableTaskCard 
+              key={task.id} 
+              task={task} 
+              onClick={() => onTaskClick(task)} 
+            />
+          ))}
+        </SortableContext>
         {tasks.length === 0 && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             {isOver ? "Soltar aquí" : "No hay tareas"}
@@ -268,26 +289,130 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
 
     if (!over) return;
 
-    const taskId = parseInt(active.id as string, 10);
-    const newStatus = over.id as string;
-    const task = tasks.find((t) => t.id === taskId);
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    const activeTask = tasks.find((t) => t.id.toString() === activeId);
+    
+    if (!activeTask) return;
 
-    if (!task || task.status === newStatus) return;
+    // Check if dropping on a column (status change) or on another task (reorder)
+    const isColumn = columns.some((c) => c.id === overId);
+    const overTask = tasks.find((t) => t.id.toString() === overId);
+    
+    if (isColumn) {
+      // Dropping on a column - change status
+      const newStatus = overId;
+      if (activeTask.status === newStatus) return;
 
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-    );
+      // Optimistic update
+      setTasks((prev) =>
+        prev.map((t) => (t.id.toString() === activeId ? { ...t, status: newStatus } : t))
+      );
 
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (error) {
-      console.error("Failed to update task:", error);
-      fetchTasks(); // Revert on error
+      try {
+        await fetch(`/api/tasks/${activeTask.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+      } catch (error) {
+        console.error("Failed to update task status:", error);
+        fetchTasks(); // Revert on error
+      }
+    } else if (overTask) {
+      // Dropping on another task - reorder within same column or move to different column
+      const sameColumn = activeTask.status === overTask.status;
+      
+      if (sameColumn) {
+        // Reorder within same column
+        const columnTasks = tasks
+          .filter((t) => t.status === activeTask.status)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        
+        const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
+        const newIndex = columnTasks.findIndex((t) => t.id.toString() === overId);
+        
+        if (oldIndex !== newIndex) {
+          const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
+          const items = reorderedTasks.map((t, index) => ({
+            taskId: t.id,
+            sortOrder: index,
+          }));
+
+          // Optimistic update
+          setTasks((prev) => {
+            const otherTasks = prev.filter((t) => t.status !== activeTask.status);
+            const updatedColumnTasks = reorderedTasks.map((t, index) => ({
+              ...t,
+              sortOrder: index,
+            }));
+            return [...otherTasks, ...updatedColumnTasks];
+          });
+
+          try {
+            await fetch("/api/tasks/reorder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items, eventId }),
+            });
+          } catch (error) {
+            console.error("Failed to reorder tasks:", error);
+            fetchTasks(); // Revert on error
+          }
+        }
+      } else {
+        // Move to different column and position
+        const newStatus = overTask.status;
+        const targetColumnTasks = tasks
+          .filter((t) => t.status === newStatus)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        
+        const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
+        
+        // Optimistic update
+        setTasks((prev) => {
+          const updated = prev.map((t) => {
+            if (t.id.toString() === activeId) {
+              return { ...t, status: newStatus, sortOrder: targetIndex };
+            }
+            return t;
+          });
+          return updated;
+        });
+
+        try {
+          await fetch(`/api/tasks/${activeTask.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              status: newStatus,
+              sortOrder: targetIndex,
+            }),
+          });
+          
+          // Reorder the target column
+          const items = [
+            ...targetColumnTasks.slice(0, targetIndex).map((t, index) => ({
+              taskId: t.id,
+              sortOrder: index,
+            })),
+            { taskId: activeTask.id, sortOrder: targetIndex },
+            ...targetColumnTasks.slice(targetIndex).map((t, index) => ({
+              taskId: t.id,
+              sortOrder: targetIndex + 1 + index,
+            })),
+          ];
+
+          await fetch("/api/tasks/reorder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items, eventId }),
+          });
+        } catch (error) {
+          console.error("Failed to move task:", error);
+          fetchTasks(); // Revert on error
+        }
+      }
     }
   };
 
@@ -369,7 +494,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {columns.map((column) => (
-              <DroppableColumn
+              <SortableColumn
                 key={column.id}
                 id={column.id}
                 title={column.title}

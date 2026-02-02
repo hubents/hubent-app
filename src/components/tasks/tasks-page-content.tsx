@@ -281,6 +281,7 @@ export function TasksPageContent() {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [localTasks, setLocalTasks] = useState<Task[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -290,13 +291,20 @@ export function TasksPageContent() {
     })
   );
   
+  // Sync local tasks with API tasks
+  useEffect(() => {
+    if (apiTasks.length > 0) {
+      setLocalTasks(apiTasks as Task[]);
+    }
+  }, [apiTasks]);
+  
   useEffect(() => {
     if (searchParams.get("new") === "true") {
       openCreateDrawer();
     }
   }, [searchParams]);
   
-  const displayTasks = apiTasks.length > 0 ? apiTasks : [];
+  const displayTasks = localTasks.length > 0 ? localTasks : [];
   const filteredTasks = displayTasks.filter((task) =>
     task.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -364,9 +372,9 @@ export function TasksPageContent() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
-    const activeTask = displayTasks.find((t) => t.id.toString() === activeId);
+    const draggedTask = displayTasks.find((t) => t.id.toString() === activeId);
     
-    if (!activeTask) return;
+    if (!draggedTask) return;
 
     // Check if dropping on a column (status change) or on another task (reorder)
     const isColumn = columns.some((c) => c.id === overId);
@@ -375,26 +383,31 @@ export function TasksPageContent() {
     if (isColumn) {
       // Dropping on a column - change status
       const newStatus = overId;
-      if (activeTask.status === newStatus) return;
+      if (draggedTask.status === newStatus) return;
+
+      // Optimistic update
+      setLocalTasks((prev) =>
+        prev.map((t) => (t.id.toString() === activeId ? { ...t, status: newStatus } : t))
+      );
 
       try {
-        await fetch(`/api/tasks/${activeTask.id}`, {
+        await fetch(`/api/tasks/${draggedTask.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         });
-        refetch();
       } catch (error) {
         console.error("Failed to update task status:", error);
+        refetch(); // Revert on error
       }
     } else if (overTask) {
       // Dropping on another task - reorder within same column or move to different column
-      const sameColumn = activeTask.status === overTask.status;
+      const sameColumn = draggedTask.status === overTask.status;
       
       if (sameColumn) {
         // Reorder within same column
         const columnTasks = displayTasks
-          .filter((t) => t.status === activeTask.status)
+          .filter((t) => t.status === draggedTask.status)
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
         
         const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
@@ -407,15 +420,25 @@ export function TasksPageContent() {
             sortOrder: index,
           }));
 
+          // Optimistic update
+          setLocalTasks((prev) => {
+            const otherTasks = prev.filter((t) => t.status !== draggedTask.status);
+            const updatedColumnTasks = reorderedTasks.map((t, index) => ({
+              ...t,
+              sortOrder: index,
+            }));
+            return [...otherTasks, ...updatedColumnTasks];
+          });
+
           try {
             await fetch("/api/tasks/reorder", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items, eventId: activeTask.eventId }),
+              body: JSON.stringify({ items, eventId: draggedTask.eventId ?? null }),
             });
-            refetch();
           } catch (error) {
             console.error("Failed to reorder tasks:", error);
+            refetch(); // Revert on error
           }
         }
       } else {
@@ -427,9 +450,19 @@ export function TasksPageContent() {
         
         const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
         
-        // Update status and get new sort order
+        // Optimistic update
+        setLocalTasks((prev) => {
+          const updated = prev.map((t) => {
+            if (t.id.toString() === activeId) {
+              return { ...t, status: newStatus, sortOrder: targetIndex };
+            }
+            return t;
+          });
+          return updated;
+        });
+
         try {
-          await fetch(`/api/tasks/${activeTask.id}`, {
+          await fetch(`/api/tasks/${draggedTask.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -444,7 +477,7 @@ export function TasksPageContent() {
               taskId: t.id,
               sortOrder: index,
             })),
-            { taskId: activeTask.id, sortOrder: targetIndex },
+            { taskId: draggedTask.id, sortOrder: targetIndex },
             ...targetColumnTasks.slice(targetIndex).map((t, index) => ({
               taskId: t.id,
               sortOrder: targetIndex + 1 + index,
@@ -454,12 +487,11 @@ export function TasksPageContent() {
           await fetch("/api/tasks/reorder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items, eventId: activeTask.eventId }),
+            body: JSON.stringify({ items, eventId: draggedTask.eventId ?? null }),
           });
-          
-          refetch();
         } catch (error) {
           console.error("Failed to move task:", error);
+          refetch(); // Revert on error
         }
       }
     }

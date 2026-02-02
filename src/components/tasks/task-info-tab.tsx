@@ -146,6 +146,7 @@ export function TaskInfoTab({
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(false);
   const [vendorSearch, setVendorSearch] = useState("");
+  const [vendorFilter, setVendorFilter] = useState<number | null>(null);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
@@ -426,6 +427,32 @@ export function TaskInfoTab({
             </DialogContent>
           </Dialog>
         </div>
+        {/* Vendor Filter */}
+        {safePayments.length > 0 && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-muted-foreground">Filtrar por proveedor:</span>
+            <select
+              value={vendorFilter ?? ""}
+              onChange={(e) => setVendorFilter(e.target.value ? parseInt(e.target.value, 10) : null)}
+              className="text-xs border rounded px-2 py-1 bg-background"
+            >
+              <option value="">Todos</option>
+              {Array.from(new Set(safePayments.filter(p => p.vendorId).map(p => p.vendorId))).map((vId) => {
+                const payment = safePayments.find(p => p.vendorId === vId);
+                return (
+                  <option key={vId} value={vId ?? ""}>
+                    {payment?.vendorName || `Proveedor ${vId}`}
+                  </option>
+                );
+              })}
+            </select>
+            {vendorFilter && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setVendorFilter(null)}>
+                Limpiar
+              </Button>
+            )}
+          </div>
+        )}
         <div className="rounded-lg border border-border">
           <div className="grid grid-cols-5 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
             <span>Descripción</span>
@@ -434,13 +461,13 @@ export function TaskInfoTab({
             <span>Importe</span>
             <span></span>
           </div>
-          {safePayments.length === 0 ? (
+          {safePayments.filter(p => !vendorFilter || p.vendorId === vendorFilter).length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              No hay pagos registrados
+              {vendorFilter ? "No hay pagos para este proveedor" : "No hay pagos registrados"}
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {safePayments.map((payment) => (
+              {safePayments.filter(p => !vendorFilter || p.vendorId === vendorFilter).map((payment) => (
                 <div key={payment.id} className="grid grid-cols-5 gap-4 p-3 items-center">
                   <div>
                     <span className="text-sm">{payment.description}</span>
