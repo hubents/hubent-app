@@ -135,10 +135,6 @@ export default function SettingsPage() {
     lastName: "",
     email: "",
     phone: "",
-    orgName: "",
-    orgWebsite: "",
-    orgAddress: "",
-    orgPhone: "",
   });
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -156,10 +152,6 @@ export default function SettingsPage() {
               lastName: nameParts.slice(1).join(" ") || "",
               email: data.data.user.email || "",
               phone: data.data.user.phone || "",
-              orgName: data.data.organization?.name || "",
-              orgWebsite: data.data.organization?.website || "",
-              orgAddress: data.data.organization?.address || "",
-              orgPhone: data.data.organization?.phone || "",
             });
             // Organization was auto-created if it didn't exist
             console.log("Profile loaded:", data.data);
@@ -194,37 +186,6 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Error saving profile:", error);
-      setSaveMessage({ type: "error", text: "Error de conexión" });
-    } finally {
-      setSaving(false);
-      setTimeout(() => setSaveMessage(null), 3000);
-    }
-  };
-
-  const handleSaveOrganization = async () => {
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organization: {
-            name: formData.orgName,
-            website: formData.orgWebsite,
-            address: formData.orgAddress,
-            phone: formData.orgPhone,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSaveMessage({ type: "success", text: "Empresa guardada correctamente" });
-      } else {
-        setSaveMessage({ type: "error", text: data.error || "Error al guardar" });
-      }
-    } catch (error) {
-      console.error("Error saving organization:", error);
       setSaveMessage({ type: "error", text: "Error de conexión" });
     } finally {
       setSaving(false);
@@ -359,49 +320,6 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Información de la Empresa</CardTitle>
-                      <CardDescription>
-                        Datos de tu empresa de wedding planning
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Nombre de la Empresa</label>
-                        <Input 
-                          value={formData.orgName}
-                          onChange={(e) => setFormData({ ...formData, orgName: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Teléfono</label>
-                          <Input 
-                            value={formData.orgPhone}
-                            onChange={(e) => setFormData({ ...formData, orgPhone: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Sitio Web</label>
-                          <Input 
-                            value={formData.orgWebsite}
-                            onChange={(e) => setFormData({ ...formData, orgWebsite: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Dirección</label>
-                        <Input 
-                          value={formData.orgAddress}
-                          onChange={(e) => setFormData({ ...formData, orgAddress: e.target.value })}
-                        />
-                      </div>
-                      <Button onClick={handleSaveOrganization} disabled={saving}>
-                        {saving ? "Guardando..." : "Guardar Cambios"}
-                      </Button>
-                    </CardContent>
-                  </Card>
                 </>
               )}
 
@@ -973,7 +891,7 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setFormData({ ...formData, invoiceLogo: data.url });
+        setFormData({ ...formData, invoiceLogo: data.data.url });
         toast.success("Logo subido correctamente");
       } else {
         toast.error(data.error || "Error al subir logo");
