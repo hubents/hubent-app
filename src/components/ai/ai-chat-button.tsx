@@ -34,13 +34,13 @@ export function AIChatButton({ context = "dashboard" }: AIChatButtonProps) {
           // Style
           "rounded-full shadow-lg",
           // Gradient background
-          "bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500",
+          "bg-[var(--ai-accent)]",
           // Hover effects
-          "hover:scale-110 hover:shadow-xl hover:shadow-purple-500/25",
+          "hover:scale-110 hover:shadow-xl hover:shadow-[var(--ai-accent)]/25 hover:bg-[var(--ai-accent-hover)]",
           // Active state
           "active:scale-95",
           // Glow effect
-          "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-br before:from-violet-500 before:via-purple-500 before:to-fuchsia-500 before:blur-lg before:opacity-50 before:-z-10",
+          "before:absolute before:inset-0 before:rounded-full before:bg-[var(--ai-accent)] before:blur-lg before:opacity-50 before:-z-10",
           // Hide when panel is open
           isOpen && "opacity-0 pointer-events-none scale-90"
         )}

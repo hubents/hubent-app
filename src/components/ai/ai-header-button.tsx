@@ -24,7 +24,7 @@ export function AIHeaderButton() {
             onClick={() => setIsOpen(true)}
             className="relative group"
           >
-            <Sparkles className="h-5 w-5 text-violet-500 group-hover:text-violet-600 transition-colors" />
+            <Sparkles className="h-5 w-5 text-[var(--ai-accent)] group-hover:text-[var(--ai-accent-hover)] transition-colors" />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
           </Button>
         </TooltipTrigger>

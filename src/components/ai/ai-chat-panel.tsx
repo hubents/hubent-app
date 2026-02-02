@@ -72,7 +72,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-[var(--ai-accent)] flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -108,8 +108,8 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         <ScrollArea className="flex-1 px-4" ref={scrollRef}>
           {messages.length === 0 ? (
             <div className="py-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-violet-500" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--ai-accent)]/20 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-[var(--ai-accent)]" />
               </div>
               <h3 className="font-semibold text-lg mb-2">¡Hola! Soy Enti 👋</h3>
               <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-[280px] mx-auto">
@@ -190,7 +190,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               <Button
                 type="submit"
                 disabled={!input.trim()}
-                className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                className="bg-[var(--ai-accent)] hover:bg-[var(--ai-accent-hover)]"
               >
                 <Send className="w-4 h-4" />
               </Button>

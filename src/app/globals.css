@@ -95,6 +95,11 @@
   /* Layout */
   --sidebar-width: 260px;
   --header-height: 64px;
+  
+  /* AI Assistant (Enti) Colors */
+  --ai-accent: oklch(0.6500 0.1800 280);
+  --ai-accent-hover: oklch(0.5800 0.2000 280);
+  --ai-accent-foreground: oklch(1 0 0);
 }
 
 .dark {
@@ -139,6 +144,11 @@
   --warning-foreground: oklch(0.1450 0 0);
   --info: oklch(0.7000 0.1700 260);
   --info-foreground: oklch(0.1450 0 0);
+  
+  /* AI Assistant (Enti) Colors - Dark */
+  --ai-accent: oklch(0.7000 0.1600 280);
+  --ai-accent-hover: oklch(0.7500 0.1800 280);
+  --ai-accent-foreground: oklch(1 0 0);
 }
 
 @theme inline {

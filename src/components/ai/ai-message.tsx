@@ -37,7 +37,7 @@ export function AIMessage({ role, content, isLoading, onFeedback }: AIMessagePro
           "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
           isUser
             ? "bg-[var(--primary)] text-white"
-            : "bg-gradient-to-br from-violet-500 to-purple-600 text-white"
+            : "bg-[var(--ai-accent)] text-[var(--ai-accent-foreground)]"
         )}
       >
         {isUser ? "Tú" : <Sparkles className="w-4 h-4" />}
