@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/session";
-import { getEvent, updateEvent, deleteEvent } from "@/lib/events";
+import { getEvent, updateEvent, deleteEvent, cancelEvent } from "@/lib/events";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -38,6 +38,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const session = await requireRole("planner");
     const { eventId } = await params;
     const body = await request.json();
+
+    // Handle cancel action (soft delete)
+    if (body.action === "cancel") {
+      const adminSession = await requireRole("admin");
+      const result = await cancelEvent(adminSession, parseInt(eventId, 10));
+      
+      if (!result.event) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: result.event,
+        meta: { cancelledTasks: result.cancelledTasks },
+      });
+    }
 
     const updated = await updateEvent(session, parseInt(eventId, 10), body);
 

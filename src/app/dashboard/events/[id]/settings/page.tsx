@@ -61,7 +61,9 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [taskCount, setTaskCount] = useState(0);
   const [event, setEvent] = useState<EventData | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [formData, setFormData] = useState({
@@ -83,6 +85,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
         if (data.success) {
           setEvent(data.data);
           setActiveEvent(data.data);
+          setTaskCount(data.data.taskCount || 0);
           setFormData({
             name: data.data.name || "",
             type: data.data.type || "",
@@ -120,6 +123,32 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
       console.error("Failed to save event:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEvent(data.data);
+        setActiveEvent(data.data);
+        setFormData((prev) => ({ ...prev, status: "cancelled" }));
+        // Show success message with cancelled tasks count
+        const cancelledTasks = data.meta?.cancelledTasks || 0;
+        if (cancelledTasks > 0) {
+          alert(`Evento cancelado. ${cancelledTasks} tarea(s) también fueron canceladas.`);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to cancel event:", error);
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -161,33 +190,72 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
             Ajustes generales del evento
           </p>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="gap-2">
-              <RiDeleteBinLine className="h-4 w-4" />
-              Eliminar evento
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar evento?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Se eliminarán todas las tareas,
-                invitados, documentos y datos asociados a este evento.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                disabled={deleting}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                {deleting ? "Eliminando..." : "Eliminar"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex gap-2">
+          {formData.status !== "cancelled" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="gap-2 text-amber-600 border-amber-300 hover:bg-amber-50">
+                  Cancelar evento
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Cancelar este evento?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {taskCount > 0 ? (
+                      <>
+                        El evento y sus <strong>{taskCount} tarea(s)</strong> serán marcados como cancelados.
+                        Podrás restaurarlos más tarde cambiando el estado.
+                      </>
+                    ) : (
+                      "El evento será marcado como cancelado. Podrás restaurarlo más tarde cambiando el estado."
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Volver</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    {cancelling ? "Cancelando..." : "Cancelar Evento"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <RiDeleteBinLine className="h-4 w-4" />
+                Eliminar evento
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar este evento permanentemente?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos asociados
+                  (invitados, cronograma, documentos del evento, etc.).
+                  {taskCount > 0 && (
+                    <> Las <strong>{taskCount} tarea(s)</strong> vinculadas serán desvinculadas pero no eliminadas.</>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Volver</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {deleting ? "Eliminando..." : "Eliminar Permanentemente"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* General Settings */}

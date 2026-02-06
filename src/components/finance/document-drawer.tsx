@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Sheet,
   SheetContent,
@@ -34,8 +35,11 @@ import {
   RiDeleteBinLine,
   RiSaveLine,
   RiLoader4Line,
+  RiEyeLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { LiveDocumentPreview } from "./live-document-preview";
+import { cn } from "@/lib/utils";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
 
@@ -112,6 +116,7 @@ export function DocumentDrawer({
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Form state
   const [contactId, setContactId] = useState<string>("");
@@ -359,26 +364,71 @@ export function DocumentDrawer({
     }).format(amount);
   };
 
+  // Build preview data
+  const previewData = useMemo(() => {
+    const selectedContact = contacts.find((c) => c.id.toString() === contactId);
+    const selectedVendor = vendors.find((v) => v.id.toString() === vendorId);
+    const selectedEvent = events.find((e) => e.id.toString() === eventId);
+
+    return {
+      type,
+      contactName: selectedContact?.name,
+      vendorName: selectedVendor?.name,
+      eventName: selectedEvent?.name,
+      items,
+      notes,
+      termsAndConditions,
+      dueDate,
+      validUntil,
+    };
+  }, [type, contactId, vendorId, eventId, items, notes, termsAndConditions, dueDate, validUntil, contacts, vendors, events]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-6">
-        <SheetHeader>
-          <SheetTitle>
-            {documentId ? `Editar ${typeLabels[type]}` : `Nuevo ${typeLabels[type]}`}
-          </SheetTitle>
-          <SheetDescription>
-            {documentId
-              ? `Modifica los datos del ${typeLabels[type].toLowerCase()}`
-              : `Crea un nuevo ${typeLabels[type].toLowerCase()}`}
-          </SheetDescription>
+      <SheetContent 
+        className={cn(
+          "overflow-hidden p-0 flex flex-col",
+          showPreview ? "w-full sm:max-w-[1100px]" : "w-full sm:max-w-2xl"
+        )}
+      >
+        <SheetHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <SheetTitle>
+                {documentId ? `Editar ${typeLabels[type]}` : `Nuevo ${typeLabels[type]}`}
+              </SheetTitle>
+              <SheetDescription>
+                {documentId
+                  ? `Modifica los datos del ${typeLabels[type].toLowerCase()}`
+                  : `Crea un nuevo ${typeLabels[type].toLowerCase()}`}
+              </SheetDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <RiEyeLine className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="preview-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                Vista previa
+              </Label>
+              <Switch
+                id="preview-toggle"
+                checked={showPreview}
+                onCheckedChange={setShowPreview}
+              />
+            </div>
+          </div>
         </SheetHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 flex-1">
             <RiLoader4Line className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-6 py-6">
+          <div className={cn("flex-1 overflow-hidden", showPreview ? "flex" : "")}>
+            {/* Form Section */}
+            <div className={cn(
+              "overflow-y-auto p-6",
+              showPreview ? "w-1/2 border-r" : "w-full"
+            )}>
+            <div className="space-y-6">
             {/* Client / Vendor & Event */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -644,6 +694,15 @@ export function DocumentDrawer({
                 {saving ? "Guardando..." : documentId ? "Guardar Cambios" : `Crear ${typeLabels[type]}`}
               </Button>
             </div>
+            </div>
+            </div>
+
+            {/* Preview Section */}
+            {showPreview && (
+              <div className="w-1/2 overflow-hidden">
+                <LiveDocumentPreview data={previewData} />
+              </div>
+            )}
           </div>
         )}
       </SheetContent>

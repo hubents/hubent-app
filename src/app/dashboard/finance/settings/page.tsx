@@ -34,9 +34,18 @@ import {
   RiCheckLine,
   RiBankLine,
   RiAlertLine,
+  RiExternalLinkLine,
+  RiInformationLine,
+  RiBankCardLine,
 } from "@remixicon/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface FinanceSettings {
   id?: number;
@@ -61,6 +70,14 @@ interface FinanceSettings {
   defaultPaymentTerms: string;
   defaultTermsAndConditions: string | null;
   quoteValidityDays: number;
+  companyName: string | null;
+  taxId: string | null;
+  fiscalAddress: string | null;
+  fiscalCity: string | null;
+  fiscalPostalCode: string | null;
+  fiscalCountry: string | null;
+  fiscalEmail: string | null;
+  fiscalPhone: string | null;
 }
 
 interface TaxRate {
@@ -94,6 +111,7 @@ const CURRENCIES = [
 
 function FinanceSettingsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<FinanceSettings | null>(null);
@@ -123,11 +141,26 @@ function FinanceSettingsContent() {
     const stripeError = searchParams.get("stripe_error");
     
     if (stripeSuccess === "true") {
-      toast.success("Stripe conectado correctamente");
+      toast.success("¡Stripe conectado correctamente! Ya puedes recibir pagos con tarjeta.");
+      // Clean URL
+      router.replace("/dashboard/finance/settings?tab=payments");
     } else if (stripeError) {
-      toast.error(`Error de Stripe: ${stripeError}`);
+      // Map error codes to user-friendly messages
+      const errorMessages: Record<string, string> = {
+        "access_denied": "Cancelaste la conexión con Stripe",
+        "state_expired": "La sesión expiró. Por favor, intenta de nuevo.",
+        "stripe_not_configured": "Stripe no está configurado en el sistema. Contacta al administrador.",
+        "token_exchange_failed": "Error al conectar con Stripe. Por favor, intenta de nuevo.",
+        "no_account_id": "No se pudo obtener la cuenta de Stripe. Intenta de nuevo.",
+        "internal_error": "Error interno. Por favor, intenta de nuevo.",
+        "missing_params": "Parámetros faltantes. Por favor, intenta de nuevo.",
+      };
+      const message = errorMessages[stripeError] || `Error de Stripe: ${stripeError}`;
+      toast.error(message);
+      // Clean URL
+      router.replace("/dashboard/finance/settings?tab=payments");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     fetchData();
@@ -155,6 +188,14 @@ function FinanceSettingsContent() {
       "defaultPaymentTerms",
       "defaultTermsAndConditions",
       "quoteValidityDays",
+      "companyName",
+      "taxId",
+      "fiscalAddress",
+      "fiscalCity",
+      "fiscalPostalCode",
+      "fiscalCountry",
+      "fiscalEmail",
+      "fiscalPhone",
     ];
 
     return fieldsToCompare.some(
@@ -422,6 +463,7 @@ function FinanceSettingsContent() {
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="fiscal">Datos Fiscales</TabsTrigger>
           <TabsTrigger value="taxes">Impuestos</TabsTrigger>
           <TabsTrigger value="numbering">Numeración</TabsTrigger>
           <TabsTrigger value="banks">Cuentas Bancarias</TabsTrigger>
@@ -484,6 +526,110 @@ function FinanceSettingsContent() {
                       )
                     }
                     placeholder="30 días"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Fiscal Data Tab */}
+        <TabsContent value="fiscal">
+          <Card>
+            <CardHeader>
+              <CardTitle>Datos Fiscales</CardTitle>
+              <CardDescription>
+                Información fiscal que aparecerá en facturas y presupuestos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Razón Social / Nombre Empresa</Label>
+                  <Input
+                    value={settings?.companyName || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, companyName: e.target.value } : s)
+                    }
+                    placeholder="Mi Empresa S.L."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>NIF / CIF</Label>
+                  <Input
+                    value={settings?.taxId || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, taxId: e.target.value } : s)
+                    }
+                    placeholder="B12345678"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dirección Fiscal</Label>
+                <Input
+                  value={settings?.fiscalAddress || ""}
+                  onChange={(e) =>
+                    setSettings((s) => s ? { ...s, fiscalAddress: e.target.value } : s)
+                  }
+                  placeholder="Calle Example 123, 1ºA"
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Ciudad</Label>
+                  <Input
+                    value={settings?.fiscalCity || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, fiscalCity: e.target.value } : s)
+                    }
+                    placeholder="Madrid"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Código Postal</Label>
+                  <Input
+                    value={settings?.fiscalPostalCode || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, fiscalPostalCode: e.target.value } : s)
+                    }
+                    placeholder="28001"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>País</Label>
+                  <Input
+                    value={settings?.fiscalCountry || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, fiscalCountry: e.target.value } : s)
+                    }
+                    placeholder="España"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Email Fiscal</Label>
+                  <Input
+                    type="email"
+                    value={settings?.fiscalEmail || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, fiscalEmail: e.target.value } : s)
+                    }
+                    placeholder="facturacion@miempresa.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Teléfono Fiscal</Label>
+                  <Input
+                    value={settings?.fiscalPhone || ""}
+                    onChange={(e) =>
+                      setSettings((s) => s ? { ...s, fiscalPhone: e.target.value } : s)
+                    }
+                    placeholder="+34 600 000 000"
                   />
                 </div>
               </div>
@@ -915,44 +1061,142 @@ function FinanceSettingsContent() {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <p className="font-medium">Stripe</p>
-                  <p className="text-sm text-muted-foreground">
-                    Permite pagos con tarjeta vía Stripe
-                  </p>
-                  {settings?.stripeAccountId && (
-                    <Badge variant="outline" className="mt-1 text-green-600">
-                      Conectado: {settings.stripeAccountId}
-                    </Badge>
-                  )}
+              {/* Stripe Section - Expanded */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-b">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-violet-100 dark:bg-violet-900/50 rounded-lg">
+                      <RiBankCardLine className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">Pagos con Stripe</p>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <RiInformationLine className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>Cada organización conecta su propia cuenta de Stripe. Los pagos van directamente a tu cuenta.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Permite a tus clientes pagar facturas con tarjeta de crédito/débito
+                      </p>
+                    </div>
+                    {settings?.stripeAccountId ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                        Conectado
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        No conectado
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
+
+                <div className="p-4 space-y-4">
                   {!settings?.stripeAccountId ? (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleStripeConnect}
-                    >
-                      Conectar Stripe
-                    </Button>
+                    <>
+                      {/* Requirements */}
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-400 mb-2">
+                          Requisitos para conectar Stripe:
+                        </p>
+                        <ul className="text-sm text-amber-700 dark:text-amber-500 space-y-1">
+                          <li>• Cuenta de Stripe verificada</li>
+                          <li>• Verificación de identidad completada</li>
+                          <li>• Cuenta bancaria vinculada para recibir pagos</li>
+                        </ul>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open("https://dashboard.stripe.com/register", "_blank")}
+                        >
+                          <RiExternalLinkLine className="h-4 w-4 mr-2" />
+                          Crear cuenta en Stripe
+                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                onClick={handleStripeConnect}
+                              >
+                                Conectar mi cuenta de Stripe
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Vincula tu cuenta de Stripe para recibir pagos con tarjeta</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </>
                   ) : (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleStripeDisconnect}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Desconectar
-                    </Button>
+                    <>
+                      {/* Connected state */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Cuenta conectada:</p>
+                          <p className="font-mono text-sm">{settings.stripeAccountId}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open("https://dashboard.stripe.com", "_blank")}
+                          >
+                            <RiExternalLinkLine className="h-4 w-4 mr-2" />
+                            Abrir Stripe Dashboard
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={handleStripeDisconnect}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Desconectar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Enable/Disable toggle */}
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-sm">Habilitar pagos online</p>
+                          <p className="text-xs text-muted-foreground">
+                            Activa para mostrar el botón de pago en facturas
+                          </p>
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <Switch
+                                  checked={settings?.enableStripe || false}
+                                  onCheckedChange={(checked) =>
+                                    setSettings((s) => s ? { ...s, enableStripe: checked } : s)
+                                  }
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Activa/desactiva pagos online para esta organización</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </>
                   )}
-                  <Switch
-                    checked={settings?.enableStripe || false}
-                    onCheckedChange={(checked) =>
-                      setSettings((s) => s ? { ...s, enableStripe: checked } : s)
-                    }
-                    disabled={!settings?.stripeAccountId}
-                  />
                 </div>
               </div>
             </CardContent>

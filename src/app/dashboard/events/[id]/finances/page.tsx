@@ -58,6 +58,10 @@ interface FinanceSummary {
   totalOverdue: number;
 }
 
+interface FinanceSettings {
+  defaultCurrency: string;
+}
+
 const statusConfig: Record<string, { label: string; color: string; icon: typeof RiCheckLine }> = {
   paid: { label: "Pagado", color: "bg-green-100 text-green-700", icon: RiCheckLine },
   pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700", icon: RiTimeLine },
@@ -80,6 +84,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [currency, setCurrency] = useState("EUR");
   const [newPayment, setNewPayment] = useState({
     description: "",
     amount: "",
@@ -91,6 +96,13 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     async function fetchData() {
       try {
+        // Fetch finance settings for currency
+        const settingsRes = await fetch("/api/finance/settings");
+        const settingsData = await settingsRes.json();
+        if (settingsData.success && settingsData.data?.defaultCurrency) {
+          setCurrency(settingsData.data.defaultCurrency);
+        }
+
         // Fetch event
         const eventRes = await fetch(`/api/events/${eventId}`);
         const eventData = await eventRes.json();
@@ -138,6 +150,13 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   const totalSpent = summary.totalPaid + summary.totalPending + summary.totalOverdue;
   const budgetUsedPercent = summary.budget > 0 ? Math.round((totalSpent / summary.budget) * 100) : 0;
   const remaining = summary.budget - totalSpent;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: currency,
+    }).format(amount);
+  };
 
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
@@ -226,10 +245,10 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
         <div>
           <h1 className="text-2xl font-bold">Pagos</h1>
           <div className="flex items-center gap-4 mt-1 text-sm">
-            <span className="text-primary font-medium">Presupuesto total {summary.budget.toLocaleString()} $</span>
-            <span className="text-green-600">Pagados {summary.totalPaid.toLocaleString()} $</span>
-            <span className="text-yellow-600">Pendientes {summary.totalPending.toLocaleString()} $</span>
-            <span className="text-red-600">Vencidos {summary.totalOverdue.toLocaleString()} $</span>
+            <span className="text-primary font-medium">Presupuesto total {formatCurrency(summary.budget)}</span>
+            <span className="text-green-600">Pagados {formatCurrency(summary.totalPaid)}</span>
+            <span className="text-yellow-600">Pendientes {formatCurrency(summary.totalPending)}</span>
+            <span className="text-red-600">Vencidos {formatCurrency(summary.totalOverdue)}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -268,7 +287,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-[var(--muted-foreground)]">Presupuesto</p>
-                <p className="text-2xl font-bold">${summary.budget.toLocaleString()}</p>
+                <p className="text-2xl font-bold">{formatCurrency(summary.budget)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <RiMoneyDollarCircleLine className="h-5 w-5 text-blue-600" />
@@ -282,7 +301,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-green-600">Pagado</p>
-                <p className="text-2xl font-bold text-green-700">${summary.totalPaid.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-700">{formatCurrency(summary.totalPaid)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <RiCheckLine className="h-5 w-5 text-green-600" />
@@ -296,7 +315,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-yellow-600">Pendiente</p>
-                <p className="text-2xl font-bold text-yellow-700">${summary.totalPending.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-yellow-700">{formatCurrency(summary.totalPending)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-yellow-100 flex items-center justify-center">
                 <RiTimeLine className="h-5 w-5 text-yellow-600" />
@@ -311,7 +330,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="text-sm text-[var(--muted-foreground)]">Disponible</p>
                 <p className={cn("text-2xl font-bold", remaining < 0 ? "text-red-600" : "text-gray-900")}>
-                  ${remaining.toLocaleString()}
+                  {formatCurrency(remaining)}
                 </p>
               </div>
               <div className={cn(
@@ -336,7 +355,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between text-sm">
-            <span>Gastado: ${totalSpent.toLocaleString()} de ${summary.budget.toLocaleString()}</span>
+            <span>Gastado: {formatCurrency(totalSpent)} de {formatCurrency(summary.budget)}</span>
             <span className={cn(budgetUsedPercent > 100 ? "text-red-600" : "")}>
               {budgetUsedPercent}%
             </span>
@@ -397,7 +416,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
                           <td className="p-4 text-sm">{payment.paidTo || payment.vendorName || "-"}</td>
                           <td className="p-4 text-sm">{payment.paidBy || "-"}</td>
                           <td className="p-4 text-right font-semibold">
-                            ${parseFloat(payment.amount).toLocaleString()}
+                            {formatCurrency(parseFloat(payment.amount))}
                           </td>
                         </tr>
                       );
@@ -480,7 +499,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
                                 p.status === "overdue" && "bg-red-100 text-red-700"
                               )}
                             >
-                              ${parseFloat(p.amount).toLocaleString()}
+                              {formatCurrency(parseFloat(p.amount))}
                             </div>
                           ))}
                           {dayPayments.length > 2 && (

@@ -659,17 +659,29 @@ export async function createPaymentRecord(
     createdBy: session.user.userId,
   }).returning();
 
-  // If linked to a document, check if fully paid
+  // If linked to a document, update paidAmount and check if fully paid
   if (data.documentId) {
-    const doc = await db.query.financialDocuments.findFirst({
-      where: (d, { eq }) => eq(d.id, data.documentId!),
-    });
+    const [doc] = await db
+      .select()
+      .from(financialDocuments)
+      .where(eq(financialDocuments.id, data.documentId))
+      .limit(1);
 
     if (doc) {
       const payments = await getPaymentRecords(session, { documentId: data.documentId });
       const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
       const docTotal = parseFloat(doc.total || "0");
 
+      // Update paidAmount on the document
+      await db
+        .update(financialDocuments)
+        .set({ 
+          paidAmount: totalPaid.toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(financialDocuments.id, data.documentId));
+
+      // If fully paid, update status
       if (totalPaid >= docTotal) {
         await updateDocumentStatus(session, data.documentId, "paid");
       }

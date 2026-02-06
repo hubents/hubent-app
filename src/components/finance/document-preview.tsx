@@ -24,6 +24,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   RiEditLine,
   RiPrinterLine,
   RiMailLine,
@@ -31,6 +38,9 @@ import {
   RiLoader4Line,
   RiEyeLine,
   RiFileTextLine,
+  RiMoneyDollarCircleLine,
+  RiLinkM,
+  RiFileCopyLine,
 } from "@remixicon/react";
 import {
   DropdownMenu,
@@ -61,9 +71,11 @@ interface Document {
   subtotal: string;
   taxAmount: string;
   total: string;
+  paidAmount?: string | null;
   currency: string;
   notes: string | null;
   termsAndConditions: string | null;
+  stripePaymentUrl?: string | null;
   items: DocumentItem[];
   contactName?: string | null;
   companyName?: string | null;
@@ -95,6 +107,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-800" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-800" },
   paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-800" },
+  partial: { label: "Parcialmente pagado", color: "bg-amber-100 text-amber-800" },
   cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
   delivered: { label: "Entregado", color: "bg-purple-100 text-purple-800" },
 };
@@ -112,8 +125,22 @@ export function DocumentPreview({
   const [sendLoading, setSendLoading] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [sendMessage, setSendMessage] = useState("");
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
 
   if (!document) return null;
+
+  // Calculate payment status
+  const totalAmount = parseFloat(document.total || "0");
+  const paidAmount = parseFloat(document.paidAmount || "0");
+  const pendingAmount = totalAmount - paidAmount;
+  const isPartiallyPaid = paidAmount > 0 && paidAmount < totalAmount;
+  const isFullyPaid = paidAmount >= totalAmount && totalAmount > 0;
+  const paymentPercentage = totalAmount > 0 ? Math.min((paidAmount / totalAmount) * 100, 100) : 0;
 
   const formatCurrency = (amount: string, currency = "EUR") => {
     return new Intl.NumberFormat("es-ES", {
@@ -219,8 +246,171 @@ export function DocumentPreview({
 
   const availableStatuses = getAvailableStatuses();
 
+  const handleRegisterPayment = async () => {
+    if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
+      toast.error("El monto debe ser mayor a 0");
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      const res = await fetch("/api/finance/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: document.id,
+          amount: parseFloat(paymentAmount),
+          currency: document.currency,
+          direction: "incoming",
+          paymentMethod: paymentMethod,
+          reference: paymentReference || null,
+          paymentDate: new Date().toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success("Pago registrado correctamente");
+        setPaymentDialogOpen(false);
+        setPaymentAmount("");
+        setPaymentReference("");
+        onRefresh?.();
+      } else {
+        toast.error(data.error?.message || "Error al registrar pago");
+      }
+    } catch (error) {
+      toast.error("Error al registrar pago");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handleGenerateStripeLink = async () => {
+    setStripeLoading(true);
+    try {
+      const res = await fetch("/api/finance/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: document.id }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Copy link to clipboard
+        await navigator.clipboard.writeText(data.data.checkoutUrl);
+        toast.success("Link de pago copiado al portapapeles");
+        onRefresh?.();
+      } else {
+        toast.error(data.error?.message || "Error al generar link de pago");
+      }
+    } catch (error) {
+      toast.error("Error al generar link de pago");
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
+  const handleCopyPaymentLink = async () => {
+    if (document.stripePaymentUrl) {
+      await navigator.clipboard.writeText(document.stripePaymentUrl);
+      toast.success("Link de pago copiado al portapapeles");
+    }
+  };
+
   return (
     <>
+    {/* Payment Dialog */}
+    <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registrar Pago</DialogTitle>
+          <DialogDescription>
+            Registrar pago para {document.number}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          {/* Document Summary */}
+          <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total documento:</span>
+              <span className="font-medium">{formatCurrency(document.total, document.currency)}</span>
+            </div>
+            {paidAmount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Ya pagado:</span>
+                <span className="font-medium text-emerald-600">{formatCurrency(paidAmount.toString(), document.currency)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-bold">
+              <span>Pendiente:</span>
+              <span className="text-amber-600">{formatCurrency(pendingAmount.toString(), document.currency)}</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>Monto a pagar</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              placeholder="0.00"
+            />
+            <p className="text-xs text-muted-foreground">
+              Puedes registrar pagos parciales o el total pendiente.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Método de pago</Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bank_transfer">Transferencia bancaria</SelectItem>
+                <SelectItem value="cash">Efectivo</SelectItem>
+                <SelectItem value="card">Tarjeta</SelectItem>
+                <SelectItem value="check">Cheque</SelectItem>
+                <SelectItem value="other">Otro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Referencia (opcional)</Label>
+            <Input
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              placeholder="Nº de transferencia, recibo, etc."
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleRegisterPayment} disabled={paymentLoading}>
+            {paymentLoading ? (
+              <>
+                <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
+                Registrando...
+              </>
+            ) : (
+              <>
+                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                Registrar pago
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     {/* Send Dialog */}
     <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
       <DialogContent className="sm:max-w-lg">
@@ -307,9 +497,16 @@ export function DocumentPreview({
             <SheetTitle className="text-xl">
               {typeLabels[document.type] || document.type} {document.number}
             </SheetTitle>
-            <Badge className={statusConfig[document.status]?.color || "bg-gray-100"}>
-              {statusConfig[document.status]?.label || document.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {isPartiallyPaid && (
+                <Badge className={statusConfig.partial.color}>
+                  {statusConfig.partial.label}
+                </Badge>
+              )}
+              <Badge className={statusConfig[document.status]?.color || "bg-gray-100"}>
+                {statusConfig[document.status]?.label || document.status}
+              </Badge>
+            </div>
           </div>
         </SheetHeader>
 
@@ -351,6 +548,32 @@ export function DocumentPreview({
             <RiMailLine className="h-4 w-4 mr-1" />
             Enviar
           </Button>
+          {/* Stripe Payment Link */}
+          {(document.type === "invoice" || document.type === "proforma") && 
+           document.status !== "paid" && 
+           document.status !== "cancelled" && 
+           pendingAmount > 0 && (
+            document.stripePaymentUrl ? (
+              <Button variant="outline" size="sm" onClick={handleCopyPaymentLink}>
+                <RiFileCopyLine className="h-4 w-4 mr-1" />
+                Copiar link
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGenerateStripeLink}
+                disabled={stripeLoading}
+              >
+                {stripeLoading ? (
+                  <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RiLinkM className="h-4 w-4 mr-1" />
+                )}
+                Link de pago
+              </Button>
+            )
+          )}
         </div>
 
         {/* Status Change */}
@@ -446,7 +669,7 @@ export function DocumentPreview({
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-48 space-y-1 text-sm">
+            <div className="w-56 space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatCurrency(document.subtotal, document.currency)}</span>
@@ -460,8 +683,54 @@ export function DocumentPreview({
                 <span>Total</span>
                 <span>{formatCurrency(document.total, document.currency)}</span>
               </div>
+              {(document.type === "invoice" || document.type === "proforma") && paidAmount > 0 && (
+                <>
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Pagado</span>
+                    <span>-{formatCurrency(paidAmount.toString(), document.currency)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-base">
+                    <span>Pendiente</span>
+                    <span className={pendingAmount > 0 ? "text-amber-600" : "text-emerald-600"}>
+                      {formatCurrency(pendingAmount.toString(), document.currency)}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="mt-2">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500 transition-all duration-300"
+                        style={{ width: `${paymentPercentage}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 text-right">
+                      {paymentPercentage.toFixed(0)}% pagado
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
+
+          {/* Register Payment Button */}
+          {(document.type === "invoice" || document.type === "proforma") && 
+           document.status !== "paid" && 
+           document.status !== "cancelled" && 
+           pendingAmount > 0 && (
+            <div className="flex justify-end mt-4">
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => {
+                  setPaymentAmount(pendingAmount.toFixed(2));
+                  setPaymentDialogOpen(true);
+                }}
+              >
+                <RiMoneyDollarCircleLine className="h-4 w-4 mr-1" />
+                Registrar pago
+              </Button>
+            </div>
+          )}
 
           {/* Notes */}
           {document.notes && (

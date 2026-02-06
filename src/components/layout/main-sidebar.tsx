@@ -24,7 +24,13 @@ import {
   RiFileList2Line,
   RiTruckLine,
   RiBankLine,
+  RiMore2Line,
+  RiCalendar2Line,
+  RiFolder3Line,
+  RiSurveyLine,
+  RiRestaurantLine,
 } from "@remixicon/react";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import {
   Tooltip,
@@ -45,6 +51,13 @@ const navigationBeforeFinance = [
 const navigationAfterFinance = [
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
   { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine },
+];
+
+const moreSubNav = [
+  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line, comingSoon: false },
+  { name: "Menús", href: "/dashboard/menus", icon: RiRestaurantLine, comingSoon: true },
+  { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
+  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, comingSoon: true },
 ];
 
 const financeSubNav = [
@@ -69,15 +82,23 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const pathname = usePathname();
   const { isEventView } = useEvent();
   const [financeExpanded, setFinanceExpanded] = useState(false);
+  const [moreExpanded, setMoreExpanded] = useState(false);
   
   // Auto-expand finance menu if we're on a finance page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
+  const isMorePage = pathname.startsWith("/dashboard/calendar") || 
+                     pathname.startsWith("/dashboard/menus") ||
+                     pathname.startsWith("/dashboard/documents") || 
+                     pathname.startsWith("/dashboard/forms");
   
   useEffect(() => {
     if (isFinancePage) {
       setFinanceExpanded(true);
     }
-  }, [isFinancePage]);
+    if (isMorePage) {
+      setMoreExpanded(true);
+    }
+  }, [isFinancePage, isMorePage]);
   
   // Auto-collapse when in event view on desktop
   const isCollapsed = collapsed || isEventView;
@@ -219,6 +240,80 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                         >
                           <subItem.icon className="h-4 w-4" />
                           {subItem.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* More Menu with Submenu */}
+            {isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/dashboard/calendar"
+                    className={cn(
+                      "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                      isMorePage
+                        ? "bg-[var(--primary)] text-white"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    <RiMore2Line className="h-5 w-5" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Más
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setMoreExpanded(!moreExpanded)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isMorePage
+                      ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <RiMore2Line className="h-5 w-5" />
+                    Más
+                  </div>
+                  <RiArrowDownSLine 
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      moreExpanded && "rotate-180"
+                    )} 
+                  />
+                </button>
+                
+                {moreExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
+                    {moreSubNav.map((subItem) => {
+                      const isSubActive = pathname === subItem.href || pathname.startsWith(subItem.href + "/");
+                      
+                      return (
+                        <Link
+                          key={subItem.name}
+                          href={subItem.href}
+                          className={cn(
+                            "flex items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-sm transition-colors",
+                            isSubActive
+                              ? "bg-[var(--primary)] text-white"
+                              : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          <subItem.icon className="h-4 w-4" />
+                          <span className="flex-1">{subItem.name}</span>
+                          {subItem.comingSoon && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              Soon
+                            </Badge>
+                          )}
                         </Link>
                       );
                     })}

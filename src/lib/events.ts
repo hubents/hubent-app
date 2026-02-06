@@ -9,7 +9,11 @@ import {
   taskChecklistItems,
   taskHtmlContent,
   clients,
-  users
+  users,
+  payments,
+  leads,
+  financialDocuments,
+  paymentRecords,
 } from "@/db/schema";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
@@ -204,6 +208,13 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(session: TenantSession, eventId: number) {
+  // Nullify FK references in tables without onDelete cascade
+  await db.update(tasks).set({ eventId: null }).where(eq(tasks.eventId, eventId));
+  await db.update(payments).set({ eventId: null }).where(eq(payments.eventId, eventId));
+  await db.update(leads).set({ eventId: null }).where(eq(leads.eventId, eventId));
+  await db.update(financialDocuments).set({ eventId: null }).where(eq(financialDocuments.eventId, eventId));
+  await db.update(paymentRecords).set({ eventId: null }).where(eq(paymentRecords.eventId, eventId));
+
   await db.delete(events)
     .where(
       and(
@@ -211,6 +222,37 @@ export async function deleteEvent(session: TenantSession, eventId: number) {
         eq(events.organizationId, session.organizationId)
       )
     );
+}
+
+export async function cancelEvent(session: TenantSession, eventId: number) {
+  // Get task count for this event
+  const [{ taskCount }] = await db
+    .select({ taskCount: sql<number>`count(*)` })
+    .from(tasks)
+    .where(eq(tasks.eventId, eventId));
+
+  // Update event status to cancelled
+  const [updated] = await db.update(events)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(
+      and(
+        eq(events.id, eventId),
+        eq(events.organizationId, session.organizationId)
+      )
+    )
+    .returning();
+
+  // Also cancel all associated tasks
+  if (Number(taskCount) > 0) {
+    await db.update(tasks)
+      .set({ status: "cancelled" })
+      .where(eq(tasks.eventId, eventId));
+  }
+
+  return {
+    event: updated,
+    cancelledTasks: Number(taskCount),
+  };
 }
 
 // ============================================

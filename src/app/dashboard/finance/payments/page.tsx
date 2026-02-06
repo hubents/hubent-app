@@ -39,7 +39,10 @@ import {
   RiMoneyDollarCircleLine,
   RiCheckLine,
   RiFileTextLine,
+  RiAlertLine,
+  RiCalendarLine,
 } from "@remixicon/react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -73,21 +76,38 @@ interface FinancialDocument {
   personLastName: string | null;
 }
 
+interface PaymentSchedule {
+  id: number;
+  name: string;
+  amount: string;
+  dueDate: string;
+  isPaid: boolean;
+  paidAt: string | null;
+  eventId: number | null;
+  vendorId: number | null;
+  notes: string | null;
+}
+
 interface PaymentStats {
   totalIncoming: number;
   totalOutgoing: number;
   pendingIncoming: number;
   pendingOutgoing: number;
+  overdueAmount: number;
+  overdueCount: number;
 }
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);
+  const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
   const [stats, setStats] = useState<PaymentStats>({
     totalIncoming: 0,
     totalOutgoing: 0,
     pendingIncoming: 0,
     pendingOutgoing: 0,
+    overdueAmount: 0,
+    overdueCount: 0,
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,6 +129,7 @@ export default function PaymentsPage() {
   useEffect(() => {
     fetchPayments();
     fetchDocuments();
+    fetchSchedules();
   }, [directionFilter]);
 
   async function fetchPayments() {
@@ -129,9 +150,22 @@ export default function PaymentsPage() {
     }
   }
 
+  async function fetchSchedules() {
+    try {
+      const res = await fetch("/api/finance/payments?type=schedules");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setSchedules(data.data || []);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch schedules:", error);
+    }
+  }
+
   async function fetchDocuments() {
     try {
-      // Fetch invoices and quotes that can receive payments (draft or sent status)
       const [invoicesRes, quotesRes] = await Promise.all([
         fetch("/api/finance/documents?type=invoice&limit=100"),
         fetch("/api/finance/documents?type=quote&limit=100"),
@@ -142,7 +176,6 @@ export default function PaymentsPage() {
       if (invoicesRes.ok) {
         const data = await invoicesRes.json();
         if (data.success && data.data) {
-          // Filter to only pending invoices (draft or sent)
           const pending = data.data.filter((d: FinancialDocument) => 
             d.status === "draft" || d.status === "sent"
           );
@@ -153,7 +186,6 @@ export default function PaymentsPage() {
       if (quotesRes.ok) {
         const data = await quotesRes.json();
         if (data.success && data.data) {
-          // Filter to only accepted quotes
           const accepted = data.data.filter((d: FinancialDocument) => 
             d.status === "accepted"
           );
@@ -175,11 +207,18 @@ export default function PaymentsPage() {
       .filter((p) => p.direction === "outgoing")
       .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
 
+    // Calculate overdue from schedules
+    const now = new Date();
+    const overdueSchedules = schedules.filter(s => !s.isPaid && new Date(s.dueDate) < now);
+    const overdueAmount = overdueSchedules.reduce((sum, s) => sum + parseFloat(s.amount || "0"), 0);
+
     setStats({
       totalIncoming: incoming,
       totalOutgoing: outgoing,
       pendingIncoming: 0,
       pendingOutgoing: 0,
+      overdueAmount,
+      overdueCount: overdueSchedules.length,
     });
   }
 
@@ -456,6 +495,9 @@ export default function PaymentsPage() {
             <div className="text-2xl font-bold text-emerald-600">
               {formatCurrency(stats.totalIncoming)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {payments.filter(p => p.direction === "incoming").length} cobros
+            </p>
           </CardContent>
         </Card>
 
@@ -468,6 +510,9 @@ export default function PaymentsPage() {
             <div className="text-2xl font-bold text-red-600">
               {formatCurrency(stats.totalOutgoing)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {payments.filter(p => p.direction === "outgoing").length} pagos
+            </p>
           </CardContent>
         </Card>
 
@@ -480,19 +525,78 @@ export default function PaymentsPage() {
             <div className={`text-2xl font-bold ${stats.totalIncoming - stats.totalOutgoing >= 0 ? "text-emerald-600" : "text-red-600"}`}>
               {formatCurrency(stats.totalIncoming - stats.totalOutgoing)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ingresos - Gastos
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={stats.overdueCount > 0 ? "border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20" : ""}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transacciones</CardTitle>
-            <RiCheckLine className="h-4 w-4 text-gray-500" />
+            <CardTitle className="text-sm font-medium">Vencido</CardTitle>
+            <RiAlertLine className={`h-4 w-4 ${stats.overdueCount > 0 ? "text-red-500" : "text-gray-400"}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{payments.length}</div>
+            <div className={`text-2xl font-bold ${stats.overdueCount > 0 ? "text-red-600" : "text-muted-foreground"}`}>
+              {stats.overdueCount > 0 ? formatCurrency(stats.overdueAmount) : "-"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.overdueCount > 0 ? `${stats.overdueCount} cuotas vencidas` : "Sin vencimientos"}
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Scheduled Payments Summary */}
+      {schedules.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <RiCalendarLine className="h-4 w-4" />
+                Próximos Vencimientos
+              </CardTitle>
+              <Badge variant="outline">{schedules.filter(s => !s.isPaid).length} pendientes</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {schedules
+                .filter(s => !s.isPaid)
+                .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                .slice(0, 5)
+                .map((schedule) => {
+                  const isOverdue = new Date(schedule.dueDate) < new Date();
+                  return (
+                    <div 
+                      key={schedule.id} 
+                      className={`flex items-center justify-between p-2 rounded-lg ${isOverdue ? "bg-red-50 dark:bg-red-950/20" : "bg-muted/50"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${isOverdue ? "bg-red-500" : "bg-amber-500"}`} />
+                        <div>
+                          <p className="text-sm font-medium">{schedule.name}</p>
+                          <p className={`text-xs ${isOverdue ? "text-red-600" : "text-muted-foreground"}`}>
+                            {isOverdue ? "Vencido: " : "Vence: "}
+                            {format(new Date(schedule.dueDate), "dd MMM yyyy", { locale: es })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`font-medium ${isOverdue ? "text-red-600" : ""}`}>
+                        {formatCurrency(schedule.amount)}
+                      </span>
+                    </div>
+                  );
+                })}
+              {schedules.filter(s => !s.isPaid).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No hay pagos programados pendientes
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card>

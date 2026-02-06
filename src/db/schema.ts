@@ -895,6 +895,7 @@ export const financialDocuments = pgTable("financial_documents", {
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }),
   taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }),
   total: decimal("total", { precision: 12, scale: 2 }),
+  paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }).default("0"),
   currency: text("currency").default("EUR"),
   paymentTerms: text("payment_terms"),
   bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),

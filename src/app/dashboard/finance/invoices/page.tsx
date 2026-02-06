@@ -40,6 +40,7 @@ import {
   RiMoneyDollarCircleLine,
   RiExchangeLine,
   RiRefund2Line,
+  RiLinkM,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -81,6 +82,7 @@ interface Invoice {
   subtotal: string;
   taxAmount: string;
   total: string;
+  paidAmount: string | null;
   currency: string;
   notes: string | null;
   termsAndConditions: string | null;
@@ -98,6 +100,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   accepted: { label: "Aceptada", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazada", color: "bg-red-100 text-red-700" },
   paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
+  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
 };
 
@@ -325,6 +328,28 @@ export default function InvoicesPage() {
     }).format(parseFloat(amount || "0"));
   };
 
+  async function generatePaymentLink(invoice: Invoice) {
+    try {
+      const res = await fetch("/api/finance/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentId: invoice.id }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        await navigator.clipboard.writeText(data.data.checkoutUrl);
+        toast.success("Link de pago copiado al portapapeles");
+        fetchInvoices();
+      } else {
+        toast.error(data.error?.message || "Error al generar link de pago");
+      }
+    } catch (error) {
+      toast.error("Error al generar link de pago");
+    }
+  }
+
   const getClientName = (invoice: Invoice) => {
     if (invoice.companyName) return invoice.companyName;
     if (invoice.personFirstName) {
@@ -410,6 +435,7 @@ export default function InvoicesPage() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Vencimiento</TableHead>
                 <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Pagado</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -417,7 +443,7 @@ export default function InvoicesPage() {
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay facturas
                   </TableCell>
                 </TableRow>
@@ -445,10 +471,47 @@ export default function InvoicesPage() {
                     <TableCell className="text-right font-medium">
                       {formatCurrency(invoice.total, invoice.currency)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {(() => {
+                        const total = parseFloat(invoice.total || "0");
+                        const paid = parseFloat(invoice.paidAmount || "0");
+                        const percentage = total > 0 ? Math.round((paid / total) * 100) : 0;
+                        if (paid === 0) return <span className="text-muted-foreground">-</span>;
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={percentage >= 100 ? "text-emerald-600 font-medium" : "text-amber-600"}>
+                              {formatCurrency(paid.toString(), invoice.currency)}
+                            </span>
+                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full ${percentage >= 100 ? "bg-emerald-500" : "bg-amber-500"}`}
+                                style={{ width: `${Math.min(percentage, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>
-                      <Badge className={statusConfig[invoice.status]?.color || "bg-gray-100"}>
-                        {statusConfig[invoice.status]?.label || invoice.status}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {(() => {
+                          const total = parseFloat(invoice.total || "0");
+                          const paid = parseFloat(invoice.paidAmount || "0");
+                          const isPartial = paid > 0 && paid < total;
+                          return (
+                            <>
+                              {isPartial && (
+                                <Badge className={statusConfig.partial.color}>
+                                  {statusConfig.partial.label}
+                                </Badge>
+                              )}
+                              <Badge className={statusConfig[invoice.status]?.color || "bg-gray-100"}>
+                                {statusConfig[invoice.status]?.label || invoice.status}
+                              </Badge>
+                            </>
+                          );
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
@@ -483,6 +546,12 @@ export default function InvoicesPage() {
                             <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
                               <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
                               Añadir Pago
+                            </DropdownMenuItem>
+                          )}
+                          {invoice.status !== "paid" && invoice.status !== "cancelled" && (
+                            <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
+                              <RiLinkM className="mr-2 h-4 w-4" />
+                              Generar Link de Pago
                             </DropdownMenuItem>
                           )}
                           {(invoice.status === "draft" || invoice.status === "sent") && (
