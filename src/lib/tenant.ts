@@ -143,7 +143,6 @@ export async function getUserOrganizations(userId: string) {
         .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
         .where(eq(organizationMembers.userId, userId));
       
-      console.log(`[getUserOrganizations] After auto-create, found ${orgs.length} memberships`);
     }
   }
 
@@ -192,14 +191,11 @@ export async function buildUserContext(
   currentOrgId?: number,
   isImpersonating?: boolean
 ): Promise<UserContext> {
-  console.log(`[buildUserContext] Building context for userId: ${userId}, requestedOrgId: ${currentOrgId}, isImpersonating: ${isImpersonating}`);
-  
   // Get platform admin status
   const platformAdmin = await getPlatformAdminLevel(userId);
 
   // Get all user organizations
   const userOrgs = await getUserOrganizations(userId);
-  console.log(`[buildUserContext] User has ${userOrgs.length} organizations`);
 
   // Determine current organization - ALWAYS use first org if none specified
   let currentOrg = currentOrgId
@@ -210,7 +206,6 @@ export async function buildUserContext(
 
   // IMPERSONATION: If org not found in user's orgs and super_admin is impersonating
   if (!currentOrg && currentOrgId && isImpersonating && platformAdmin?.level === "super_admin") {
-    console.log(`[buildUserContext] Super admin impersonating org ${currentOrgId}, loading from DB`);
     const [impersonatedOrg] = await db
       .select({
         id: organizations.id,
@@ -230,17 +225,13 @@ export async function buildUserContext(
         roleName: "Owner (Impersonating)",
       };
       impersonating = true;
-      console.log(`[buildUserContext] Impersonating org: ${impersonatedOrg.name} (id: ${impersonatedOrg.id})`);
     }
   }
 
   // If specified org not found but user has orgs, use first one
   if (!currentOrg && userOrgs.length > 0) {
-    console.log(`[buildUserContext] Requested org ${currentOrgId} not found, using first org`);
     currentOrg = userOrgs[0];
   }
-
-  console.log(`[buildUserContext] Current org: ${currentOrg?.name || 'NONE'} (id: ${currentOrg?.id})`);
 
   let currentOrgPermissions: string[] = [];
 

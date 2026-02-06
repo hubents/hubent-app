@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { organizations, organizationMembers, subscriptions, subscriptionPlans, invoices } from "@/db/schema";
+import { organizations, subscriptions, subscriptionPlans, invoices } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 /**
@@ -10,36 +10,17 @@ import { eq, desc } from "drizzle-orm";
  */
 export async function GET() {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    // Get user's organization
-    const membership = await db.query.organizationMembers.findFirst({
-      where: eq(organizationMembers.userId, session.user.id),
-    });
-
-    if (!membership) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          plan: null,
-          subscription: null,
-          invoices: [],
-        },
-      });
-    }
+    const session = await requireAuth();
+    const orgId = session.organizationId;
 
     // Get organization
     const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, membership.organizationId),
+      where: eq(organizations.id, orgId),
     });
 
     // Get subscription
     const subscription = await db.query.subscriptions.findFirst({
-      where: eq(subscriptions.organizationId, membership.organizationId),
+      where: eq(subscriptions.organizationId, orgId),
     });
 
     // Get plan details
@@ -54,7 +35,7 @@ export async function GET() {
     const recentInvoices = await db
       .select()
       .from(invoices)
-      .where(eq(invoices.organizationId, membership.organizationId))
+      .where(eq(invoices.organizationId, orgId))
       .orderBy(desc(invoices.createdAt))
       .limit(10);
 

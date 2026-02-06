@@ -1,34 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { auth } from "@/lib/auth";
-import { events, tasks, organizationMembers } from "@/db/schema";
+import { requireAuth } from "@/lib/session";
+import { events, tasks } from "@/db/schema";
 import { eq, and, count } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    // Get user's organization
-    const membership = await db.query.organizationMembers.findFirst({
-      where: eq(organizationMembers.userId, session.user.id),
-    });
-
-    if (!membership) {
-      // User has no organization - return empty stats
-      return NextResponse.json({
-        totalEvents: 0,
-        pendingTasks: 0,
-        pendingPayments: 0,
-        activeLeads: 0,
-        recentEvents: [],
-        pendingTasksList: [],
-      });
-    }
-
-    const orgId = membership.organizationId;
+    const session = await requireAuth();
+    const orgId = session.organizationId;
 
     // Count events for this organization
     const eventsResult = await db

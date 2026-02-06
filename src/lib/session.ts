@@ -10,10 +10,7 @@ import type { TenantSession, UserContext } from "@/types";
 export async function getSession(): Promise<TenantSession | null> {
   const session = await auth();
   
-  console.log(`[getSession] Auth session exists: ${!!session}, userId: ${session?.user?.id}`);
-  
   if (!session?.user?.id || !session?.user?.email) {
-    console.log(`[getSession] No valid auth session, returning null`);
     return null;
   }
 
@@ -22,27 +19,19 @@ export async function getSession(): Promise<TenantSession | null> {
   const orgIdHeader = headersList.get("x-organization-id");
   let orgId = orgIdHeader ? parseInt(orgIdHeader, 10) : undefined;
 
-  console.log(`[getSession] x-organization-id header: ${orgIdHeader}`);
-
   // If no org ID from header, try to get from cookie header
   if (!orgId) {
     const cookieHeader = headersList.get("cookie");
-    console.log(`[getSession] Cookie header exists: ${!!cookieHeader}, length: ${cookieHeader?.length || 0}`);
     if (cookieHeader) {
       const match = cookieHeader.match(/hubents-org-id=(\d+)/);
       if (match) {
         orgId = parseInt(match[1], 10);
-        console.log(`[getSession] Found org ID in cookie: ${orgId}`);
-      } else {
-        console.log(`[getSession] hubents-org-id cookie NOT found in cookie header`);
       }
     }
   }
 
   // Check if impersonating (header set by middleware from cookie)
   const isImpersonating = headersList.get("x-impersonating") === "true";
-
-  console.log(`[getSession] Final orgId: ${orgId}, isImpersonating: ${isImpersonating}`);
 
   // Build full user context
   const userContext = await buildUserContext(
@@ -54,13 +43,8 @@ export async function getSession(): Promise<TenantSession | null> {
     isImpersonating
   );
 
-  console.log(`[getSession] UserContext built, currentOrg: ${userContext.currentOrganization?.name || 'NONE'}`);
-
   // Create tenant session
-  const tenantSession = createTenantSession(userContext);
-  console.log(`[getSession] TenantSession created: ${!!tenantSession}`);
-  
-  return tenantSession;
+  return createTenantSession(userContext);
 }
 
 /**
