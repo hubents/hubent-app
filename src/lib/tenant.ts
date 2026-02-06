@@ -189,9 +189,10 @@ export async function buildUserContext(
   email: string,
   name?: string,
   image?: string,
-  currentOrgId?: number
+  currentOrgId?: number,
+  isImpersonating?: boolean
 ): Promise<UserContext> {
-  console.log(`[buildUserContext] Building context for userId: ${userId}, requestedOrgId: ${currentOrgId}`);
+  console.log(`[buildUserContext] Building context for userId: ${userId}, requestedOrgId: ${currentOrgId}, isImpersonating: ${isImpersonating}`);
   
   // Get platform admin status
   const platformAdmin = await getPlatformAdminLevel(userId);
@@ -205,6 +206,34 @@ export async function buildUserContext(
     ? userOrgs.find((o) => o.id === currentOrgId)
     : userOrgs[0];
 
+  let impersonating = false;
+
+  // IMPERSONATION: If org not found in user's orgs and super_admin is impersonating
+  if (!currentOrg && currentOrgId && isImpersonating && platformAdmin?.level === "super_admin") {
+    console.log(`[buildUserContext] Super admin impersonating org ${currentOrgId}, loading from DB`);
+    const [impersonatedOrg] = await db
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+        slug: organizations.slug,
+        logo: organizations.logo,
+        status: organizations.status,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, currentOrgId))
+      .limit(1);
+
+    if (impersonatedOrg) {
+      currentOrg = {
+        ...impersonatedOrg,
+        role: "owner",
+        roleName: "Owner (Impersonating)",
+      };
+      impersonating = true;
+      console.log(`[buildUserContext] Impersonating org: ${impersonatedOrg.name} (id: ${impersonatedOrg.id})`);
+    }
+  }
+
   // If specified org not found but user has orgs, use first one
   if (!currentOrg && userOrgs.length > 0) {
     console.log(`[buildUserContext] Requested org ${currentOrgId} not found, using first org`);
@@ -215,8 +244,8 @@ export async function buildUserContext(
 
   let currentOrgPermissions: string[] = [];
 
-  if (currentOrg) {
-    // Get membership to get roleId
+  if (currentOrg && !impersonating) {
+    // Get membership to get roleId (skip for impersonation - admin has full access)
     const membership = await getUserMembership(userId, currentOrg.id);
     if (membership) {
       currentOrgPermissions = await getRolePermissions(membership.roleId);
@@ -229,6 +258,7 @@ export async function buildUserContext(
     name,
     image,
     platformLevel: platformAdmin?.level ?? undefined,
+    isImpersonating: impersonating || undefined,
     currentOrganization: currentOrg
       ? {
           id: currentOrg.id,
@@ -260,6 +290,7 @@ export function createTenantSession(userContext: UserContext): TenantSession | n
     organizationId: userContext.currentOrganization.id,
     role: userContext.currentOrganization.role,
     permissions: userContext.currentOrganization.permissions,
+    isImpersonating: userContext.isImpersonating,
   };
 }
 

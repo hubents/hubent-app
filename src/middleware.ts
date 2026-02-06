@@ -95,6 +95,19 @@ export default auth((req) => {
       response.headers.set("x-organization-id", orgId);
     }
 
+    // Impersonation: propagate flag as header
+    const isImpersonating = req.cookies.get("hubents-impersonating")?.value;
+    if (isImpersonating === "true") {
+      response.headers.set("x-impersonating", "true");
+    } else {
+      // Cleanup: if impersonation cookie is gone but original-org-id remains, restore
+      const originalOrgId = req.cookies.get("hubents-original-org-id")?.value;
+      if (originalOrgId) {
+        response.cookies.set("hubents-org-id", originalOrgId, { path: "/", maxAge: 30 * 24 * 60 * 60 });
+        response.cookies.delete("hubents-original-org-id");
+      }
+    }
+
     // Log for debugging API routes
     if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
       console.log(`[Middleware] API route: ${pathname}, userId: ${req.auth.user.id}, orgId: ${orgId || 'NOT SET'}`);

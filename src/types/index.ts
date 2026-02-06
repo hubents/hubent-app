@@ -31,6 +31,9 @@ export interface UserContext {
   // Platform level (null if not platform admin)
   platformLevel?: PlatformAdminLevel;
   
+  // Impersonation flag (super_admin viewing as tenant)
+  isImpersonating?: boolean;
+  
   // Current tenant context
   currentOrganization?: {
     id: number;
@@ -55,6 +58,7 @@ export interface TenantSession {
   organizationId: number;
   role: TenantRole;
   permissions: string[];
+  isImpersonating?: boolean;
 }
 
 // Permission check result

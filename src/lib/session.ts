@@ -39,7 +39,10 @@ export async function getSession(): Promise<TenantSession | null> {
     }
   }
 
-  console.log(`[getSession] Final orgId: ${orgId}`);
+  // Check if impersonating (header set by middleware from cookie)
+  const isImpersonating = headersList.get("x-impersonating") === "true";
+
+  console.log(`[getSession] Final orgId: ${orgId}, isImpersonating: ${isImpersonating}`);
 
   // Build full user context
   const userContext = await buildUserContext(
@@ -47,7 +50,8 @@ export async function getSession(): Promise<TenantSession | null> {
     session.user.email,
     session.user.name ?? undefined,
     session.user.image ?? undefined,
-    orgId
+    orgId,
+    isImpersonating
   );
 
   console.log(`[getSession] UserContext built, currentOrg: ${userContext.currentOrganization?.name || 'NONE'}`);
