@@ -13,7 +13,19 @@ interface DocumentItem {
   total: number;
 }
 
-interface PreviewData {
+export interface OrganizationPreviewData {
+  name?: string;
+  taxId?: string;
+  fiscalAddress?: string;
+  fiscalCity?: string;
+  fiscalPostalCode?: string;
+  fiscalCountry?: string;
+  fiscalEmail?: string;
+  fiscalPhone?: string;
+  invoiceLogo?: string;
+}
+
+export interface PreviewData {
   type: "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
   contactName?: string;
   vendorName?: string;
@@ -23,6 +35,7 @@ interface PreviewData {
   termsAndConditions?: string;
   dueDate?: string;
   validUntil?: string;
+  organization?: OrganizationPreviewData;
 }
 
 interface LiveDocumentPreviewProps {
@@ -85,12 +98,34 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
         <div className="p-8" style={{ fontSize: "12px", lineHeight: "1.5" }}>
           {/* Header */}
           <div className="flex justify-between items-start mb-8 pb-4 border-b-2 border-gray-900">
-            <div>
-              <div className="text-2xl font-bold mb-2">
-                {organizationName || "hubents"}
-              </div>
-              <div className="text-gray-500 text-xs">
-                <div>Tu organización</div>
+            <div className="flex items-start gap-3">
+              {data.organization?.invoiceLogo && (
+                <img
+                  src={data.organization.invoiceLogo}
+                  alt="Logo"
+                  className="h-12 w-auto max-w-[120px] object-contain"
+                />
+              )}
+              <div>
+                <div className="text-2xl font-bold mb-1">
+                  {data.organization?.name || organizationName || "Tu empresa"}
+                </div>
+                <div className="text-gray-500 text-xs space-y-0.5">
+                  {data.organization?.taxId && <div>{data.organization.taxId}</div>}
+                  {data.organization?.fiscalAddress && <div>{data.organization.fiscalAddress}</div>}
+                  {(data.organization?.fiscalPostalCode || data.organization?.fiscalCity) && (
+                    <div>
+                      {[data.organization.fiscalPostalCode, data.organization.fiscalCity, data.organization.fiscalCountry]
+                        .filter(Boolean).join(", ")}
+                    </div>
+                  )}
+                  {(data.organization?.fiscalEmail || data.organization?.fiscalPhone) && (
+                    <div>
+                      {[data.organization.fiscalEmail, data.organization.fiscalPhone]
+                        .filter(Boolean).join(" • ")}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="text-right">

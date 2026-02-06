@@ -38,7 +38,7 @@ import {
   RiEyeLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
-import { LiveDocumentPreview } from "./live-document-preview";
+import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-document-preview";
 import { cn } from "@/lib/utils";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
@@ -136,6 +136,7 @@ export function DocumentDrawer({
   const [events, setEvents] = useState<Event[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [defaultTaxRate, setDefaultTaxRate] = useState(21);
+  const [orgData, setOrgData] = useState<OrganizationPreviewData | undefined>();
 
   useEffect(() => {
     if (open) {
@@ -212,6 +213,26 @@ export function DocumentDrawer({
           const validDate = new Date();
           validDate.setDate(validDate.getDate() + data.data.quoteValidityDays);
           setValidUntil(validDate.toISOString().split("T")[0]);
+        }
+      }
+
+      // Fetch organization data for preview (fiscal + logo)
+      const profileRes = await fetch("/api/user/profile");
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        const org = profileData.data?.organization;
+        if (org) {
+          setOrgData({
+            name: org.fiscalName || org.name,
+            taxId: org.taxId || undefined,
+            fiscalAddress: org.fiscalAddress || undefined,
+            fiscalCity: org.fiscalCity || undefined,
+            fiscalPostalCode: org.fiscalPostalCode || undefined,
+            fiscalCountry: org.fiscalCountry || undefined,
+            fiscalEmail: org.fiscalEmail || undefined,
+            fiscalPhone: org.fiscalPhone || undefined,
+            invoiceLogo: org.invoiceLogo || org.logo || undefined,
+          });
         }
       }
     } catch (error) {
@@ -380,8 +401,9 @@ export function DocumentDrawer({
       termsAndConditions,
       dueDate,
       validUntil,
+      organization: orgData,
     };
-  }, [type, contactId, vendorId, eventId, items, notes, termsAndConditions, dueDate, validUntil, contacts, vendors, events]);
+  }, [type, contactId, vendorId, eventId, items, notes, termsAndConditions, dueDate, validUntil, contacts, vendors, events, orgData]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
