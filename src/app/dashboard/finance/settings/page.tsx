@@ -18,14 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   RiSaveLine,
   RiAddLine,
@@ -647,25 +646,23 @@ function FinanceSettingsContent() {
                   Configura las tasas de impuestos disponibles
                 </CardDescription>
               </div>
-              <Dialog open={taxDialogOpen} onOpenChange={(open) => {
+              <Button size="sm" onClick={() => setTaxDialogOpen(true)}>
+                <RiAddLine className="mr-2 h-4 w-4" />
+                Nuevo Impuesto
+              </Button>
+              <Sheet open={taxDialogOpen} onOpenChange={(open) => {
                 setTaxDialogOpen(open);
                 if (!open) resetTaxForm();
               }}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <RiAddLine className="mr-2 h-4 w-4" />
-                    Nuevo Impuesto
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
+                <SheetContent className="sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>
                       {editingTax ? "Editar Impuesto" : "Nuevo Impuesto"}
-                    </DialogTitle>
-                    <DialogDescription>
+                    </SheetTitle>
+                    <SheetDescription>
                       Define el nombre y la tasa del impuesto
-                    </DialogDescription>
-                  </DialogHeader>
+                    </SheetDescription>
+                  </SheetHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Nombre</Label>
@@ -693,16 +690,16 @@ function FinanceSettingsContent() {
                       <Label>Impuesto por defecto</Label>
                     </div>
                   </div>
-                  <DialogFooter>
+                  <SheetFooter>
                     <Button variant="outline" onClick={() => setTaxDialogOpen(false)}>
                       Cancelar
                     </Button>
                     <Button onClick={saveTaxRate}>
                       {editingTax ? "Guardar" : "Crear"}
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </CardHeader>
             <CardContent>
               {taxRates.length === 0 ? (
@@ -898,22 +895,20 @@ function FinanceSettingsContent() {
                   Configura las cuentas bancarias para recibir pagos
                 </CardDescription>
               </div>
-              <Dialog open={bankDialogOpen} onOpenChange={(open) => {
+              <Button size="sm" onClick={() => setBankDialogOpen(true)}>
+                <RiAddLine className="mr-2 h-4 w-4" />
+                Nueva Cuenta
+              </Button>
+              <Sheet open={bankDialogOpen} onOpenChange={(open) => {
                 setBankDialogOpen(open);
                 if (!open) resetBankForm();
               }}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <RiAddLine className="mr-2 h-4 w-4" />
-                    Nueva Cuenta
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
+                <SheetContent className="sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>
                       {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}
-                    </DialogTitle>
-                  </DialogHeader>
+                    </SheetTitle>
+                  </SheetHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Nombre de la Cuenta</Label>
@@ -955,16 +950,16 @@ function FinanceSettingsContent() {
                       <Label>Cuenta por defecto</Label>
                     </div>
                   </div>
-                  <DialogFooter>
+                  <SheetFooter>
                     <Button variant="outline" onClick={() => setBankDialogOpen(false)}>
                       Cancelar
                     </Button>
                     <Button onClick={saveBankAccount}>
                       {editingBank ? "Guardar" : "Crear"}
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </CardHeader>
             <CardContent>
               {bankAccounts.length === 0 ? (

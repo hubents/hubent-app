@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiUserLine, RiBuilding2Line } from "@remixicon/react";
 
@@ -104,14 +104,16 @@ export function QuickCreateContactDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle>Nuevo Contacto</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[400px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Nuevo Contacto</SheetTitle>
+          <SheetDescription>
             Crea un contacto rápidamente. Podrás completar los detalles después.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="px-4 pb-4">
 
         <Tabs value={contactType} onValueChange={(v) => setContactType(v as "person" | "company")}>
           <TabsList className="grid w-full grid-cols-2">
@@ -160,15 +162,17 @@ export function QuickCreateContactDialog({
           </TabsContent>
         </Tabs>
 
-        <DialogFooter>
+        </div>
+
+        <SheetFooter className="px-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Creando..." : "Crear y completar"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

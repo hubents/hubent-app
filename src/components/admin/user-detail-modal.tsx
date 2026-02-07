@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -116,11 +116,11 @@ export function UserDetailModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Detalles del Usuario</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Detalles del Usuario</SheetTitle>
+        </SheetHeader>
 
         {loading && (
           <div className="flex items-center justify-center py-12">
@@ -297,7 +297,7 @@ export function UserDetailModal({
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

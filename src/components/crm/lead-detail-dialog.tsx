@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -223,17 +223,17 @@ export function LeadDetailDialog({
   const displayLead = fullLead || lead;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); setIsEditing(false); }}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); setIsEditing(false); }}>
+      <SheetContent className="sm:max-w-[700px] overflow-y-auto">
+        <SheetHeader>
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-xl">
+              <SheetTitle className="text-xl">
                 {isEditing ? "Editar Lead" : displayLead.title}
-              </DialogTitle>
-              <DialogDescription>
+              </SheetTitle>
+              <SheetDescription>
                 {isEditing ? "Modifica los datos del lead" : "Detalles del lead"}
-              </DialogDescription>
+              </SheetDescription>
             </div>
             {!isEditing && (
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
@@ -242,12 +242,12 @@ export function LeadDetailDialog({
               </Button>
             )}
           </div>
-        </DialogHeader>
+        </SheetHeader>
 
         {loadingLead ? (
           <div className="py-12 text-center text-muted-foreground">Cargando...</div>
         ) : isEditing ? (
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 pb-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Título *</label>
               <Input
@@ -340,7 +340,7 @@ export function LeadDetailDialog({
               />
             </div>
 
-            <DialogFooter className="pt-4">
+            <SheetFooter className="pt-4 px-4">
               <Button variant="outline" onClick={() => setIsEditing(false)}>
                 <RiCloseLine className="h-4 w-4 mr-2" />
                 Cancelar
@@ -349,10 +349,10 @@ export function LeadDetailDialog({
                 <RiSaveLine className="h-4 w-4 mr-2" />
                 {loading ? "Guardando..." : "Guardar"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </div>
         ) : (
-          <Tabs defaultValue="details" className="py-4">
+          <Tabs defaultValue="details" className="px-4 pb-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="details">Detalles</TabsTrigger>
               <TabsTrigger value="contact">Contacto</TabsTrigger>
@@ -481,16 +481,16 @@ export function LeadDetailDialog({
         )}
 
         {!isEditing && (
-          <DialogFooter className="border-t pt-4">
+          <SheetFooter className="border-t pt-4 px-4">
             <Button variant="destructive" onClick={handleDelete} disabled={loading}>
               Eliminar Lead
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cerrar
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

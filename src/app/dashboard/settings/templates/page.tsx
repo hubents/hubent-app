@@ -9,13 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -466,14 +466,14 @@ export default function TemplatesPage() {
       )}
 
       {/* Create Template Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nuevo Template</DialogTitle>
-            <DialogDescription>
+      <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Nuevo Template</SheetTitle>
+            <SheetDescription>
               Crea un template base para tus eventos
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre *</Label>
@@ -523,7 +523,7 @@ export default function TemplatesPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
               Cancelar
             </Button>
@@ -531,19 +531,19 @@ export default function TemplatesPage() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Crear Template
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Template Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Template</DialogTitle>
-            <DialogDescription>
+      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar Template</SheetTitle>
+            <SheetDescription>
               Modifica los datos del template
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Nombre *</Label>
@@ -593,7 +593,7 @@ export default function TemplatesPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); setSelectedTemplate(null); }}>
               Cancelar
             </Button>
@@ -601,9 +601,9 @@ export default function TemplatesPage() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Guardar Cambios
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>

@@ -8,17 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -322,14 +316,14 @@ export function DocumentPreview({
   return (
     <>
     {/* Payment Dialog */}
-    <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Registrar Pago</DialogTitle>
-          <DialogDescription>
+    <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Registrar Pago</SheetTitle>
+          <SheetDescription>
             Registrar pago para {document.number}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <div className="space-y-4 py-4">
           {/* Document Summary */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
@@ -390,7 +384,7 @@ export function DocumentPreview({
             />
           </div>
         </div>
-        <DialogFooter>
+        <SheetFooter>
           <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
             Cancelar
           </Button>
@@ -407,19 +401,19 @@ export function DocumentPreview({
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
 
     {/* Send Dialog */}
-    <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Enviar {typeLabels[document.type] || document.type}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+      <SheetContent className="sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>Enviar {typeLabels[document.type] || document.type}</SheetTitle>
+          <SheetDescription>
             Enviar {document.number} por email con PDF adjunto
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         <div className="space-y-4 py-4">
           {/* Document Summary */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
@@ -461,7 +455,7 @@ export function DocumentPreview({
             />
           </div>
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <SheetFooter className="flex-col sm:flex-row gap-2">
           <Button 
             variant="outline" 
             size="sm"
@@ -487,9 +481,9 @@ export function DocumentPreview({
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
         <SheetHeader className="space-y-1">

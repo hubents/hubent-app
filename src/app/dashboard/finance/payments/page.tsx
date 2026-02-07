@@ -15,14 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -338,20 +337,18 @@ export default function PaymentsPage() {
             Registro de cobros y pagos
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <RiAddLine className="mr-2 h-4 w-4" />
-              Registrar Pago
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Registrar Pago</DialogTitle>
-              <DialogDescription>
+        <Button onClick={() => setDialogOpen(true)}>
+          <RiAddLine className="mr-2 h-4 w-4" />
+          Registrar Pago
+        </Button>
+        <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+          <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Registrar Pago</SheetTitle>
+              <SheetDescription>
                 Registra un nuevo cobro o pago
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
             <div className="space-y-4 py-4">
               {/* Document selector */}
               <div className="space-y-2">
@@ -474,14 +471,14 @@ export default function PaymentsPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <SheetFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={createPayment}>Registrar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Stats Cards */}

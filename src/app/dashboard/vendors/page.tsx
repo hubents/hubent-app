@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -48,7 +47,7 @@ const categories = [
 
 export default function VendorsPage() {
   const { vendors, stats, loading, createVendor } = useVendors();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [newVendor, setNewVendor] = useState({
@@ -74,7 +73,7 @@ export default function VendorsPage() {
       website: "",
       notes: "",
     });
-    setIsDialogOpen(false);
+    setIsDrawerOpen(false);
   };
 
   const filteredVendors = vendors.filter((vendor) => {
@@ -94,21 +93,19 @@ export default function VendorsPage() {
             Directorio de vendors y proveedores de servicios
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <RiAddLine className="h-4 w-4" />
-              Nuevo Proveedor
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Nuevo Proveedor</DialogTitle>
-              <DialogDescription>
+        <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
+          <RiAddLine className="h-4 w-4" />
+          Nuevo Proveedor
+        </Button>
+        <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Nuevo Proveedor</SheetTitle>
+              <SheetDescription>
                 Agrega un nuevo proveedor a tu directorio
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 px-4 pb-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nombre *</label>
                 <Input
@@ -169,16 +166,16 @@ export default function VendorsPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <SheetFooter className="px-4">
+              <Button variant="outline" onClick={() => setIsDrawerOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleCreateVendor} disabled={!newVendor.name}>
                 Crear Proveedor
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Filters */}
@@ -294,7 +291,7 @@ export default function VendorsPage() {
               <p className="text-[var(--muted-foreground)] mb-4">
                 Agrega tu primer proveedor para comenzar
               </p>
-              <Button onClick={() => setIsDialogOpen(true)}>
+              <Button onClick={() => setIsDrawerOpen(true)}>
                 <RiAddLine className="h-4 w-4 mr-2" />
                 Agregar Proveedor
               </Button>

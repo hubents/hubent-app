@@ -7,14 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -56,7 +55,7 @@ const isValidEmail = (email: string) => {
 
 export default function TeamPage() {
   const { members, invitations, loading, inviteMember, removeMember, cancelInvitation, resendInvitation } = useTeam();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newInvite, setNewInvite] = useState({
@@ -88,7 +87,7 @@ export default function TeamPage() {
         });
         setNewInvite({ email: "", role: "member" });
         setEmailError(null);
-        setIsDialogOpen(false);
+        setIsDrawerOpen(false);
       } else {
         toast.error("Error al enviar invitación", {
           description: result.error,
@@ -146,21 +145,19 @@ export default function TeamPage() {
             Gestiona los miembros de tu equipo
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <RiUserAddLine className="h-4 w-4" />
-              Invitar Miembro
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Invitar Miembro</DialogTitle>
-              <DialogDescription>
+        <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
+          <RiUserAddLine className="h-4 w-4" />
+          Invitar Miembro
+        </Button>
+        <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Invitar Miembro</SheetTitle>
+              <SheetDescription>
                 Envía una invitación por email para unirse a tu equipo
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 px-4 pb-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email *</label>
                 <Input
@@ -191,8 +188,8 @@ export default function TeamPage() {
                 </Select>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+            <SheetFooter className="px-4">
+              <Button variant="outline" onClick={() => setIsDrawerOpen(false)} disabled={isSubmitting}>
                 Cancelar
               </Button>
               <Button 
@@ -201,9 +198,9 @@ export default function TeamPage() {
               >
                 {isSubmitting ? "Enviando..." : "Enviar Invitación"}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Team Members */}

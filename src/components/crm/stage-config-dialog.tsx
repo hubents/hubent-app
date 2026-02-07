@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -169,21 +169,21 @@ export function StageConfigDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>
             {isEditing ? "Editar Etapa" : "Nueva Etapa"}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {isEditing 
               ? "Modifica los detalles de la etapa del pipeline"
               : "Crea una nueva etapa para tu pipeline de ventas"
             }
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input
@@ -264,7 +264,7 @@ export function StageConfigDialog({
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <SheetFooter className="gap-2 sm:gap-0">
             {isEditing && (
               <Button
                 type="button"
@@ -293,9 +293,9 @@ export function StageConfigDialog({
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isEditing ? "Guardar" : "Crear"}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

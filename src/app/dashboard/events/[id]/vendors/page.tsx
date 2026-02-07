@@ -9,12 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -172,18 +171,16 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
           </p>
         </div>
         <div className="flex gap-2">
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <RiAddLine className="h-4 w-4" />
-                Asignar Proveedor
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Asignar Proveedor al Evento</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
+          <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Asignar Proveedor
+          </Button>
+          <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <SheetContent className="sm:max-w-md overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 px-4 pb-4">
                 <div className="space-y-2">
                   <Label>Seleccionar Proveedor</Label>
                   {availableVendors.length > 0 ? (
@@ -228,8 +225,8 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                   </Button>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
           <Link href="/dashboard/vendors">
             <Button variant="outline">Ver todos</Button>
           </Link>

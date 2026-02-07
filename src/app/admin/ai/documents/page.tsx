@@ -8,12 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -280,22 +279,20 @@ export default function AdminAIDocumentsPage() {
             Contenido que Enti usa para responder preguntas de soporte
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+          <Plus className="w-4 h-4" />
+          Nuevo Documento
+        </Button>
+        <Sheet open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nuevo Documento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
+          <SheetContent className="sm:max-w-2xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
                 {editingDoc ? "Editar Documento" : "Nuevo Documento"}
-              </DialogTitle>
-            </DialogHeader>
+              </SheetTitle>
+            </SheetHeader>
             <div className="space-y-4 mt-4">
               {/* Tipo de documento */}
               <div className="flex gap-2">
@@ -480,8 +477,8 @@ export default function AdminAIDocumentsPage() {
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Search */}

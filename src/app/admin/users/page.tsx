@@ -8,13 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -160,20 +159,18 @@ export default function UsersPage() {
             <Users className="h-3 w-3" />
             {users.length} usuarios
           </Badge>
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-red-600 hover:bg-red-700">
-                <UserPlus className="h-4 w-4" />
-                Invitar Admin
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invitar Administrador</DialogTitle>
-                <DialogDescription>
+          <Button className="gap-2 bg-red-600 hover:bg-red-700" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Invitar Admin
+          </Button>
+          <Sheet open={inviteOpen} onOpenChange={setInviteOpen}>
+            <SheetContent className="sm:max-w-md overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Invitar Administrador</SheetTitle>
+                <SheetDescription>
                   Envía una invitación para unirse como administrador de la plataforma
-                </DialogDescription>
-              </DialogHeader>
+                </SheetDescription>
+              </SheetHeader>
               
               {inviteSuccess ? (
                 <div className="py-8 text-center space-y-4">
@@ -261,8 +258,8 @@ export default function UsersPage() {
                   </div>
                 </form>
               )}
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
 

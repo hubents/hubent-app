@@ -12,12 +12,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   RiShareLine,
   RiMailSendLine,
@@ -722,14 +722,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Send Invitations Dialog */}
-      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Enviar Invitaciones por Email</DialogTitle>
-            <DialogDescription>
+      <Sheet open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <SheetContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Enviar Invitaciones por Email</SheetTitle>
+            <SheetDescription>
               Selecciona los invitados a los que deseas enviar la invitación
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
           {sendResult ? (
             <div className="py-6 text-center">
@@ -831,8 +831,8 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Share Section */}
@@ -1357,11 +1357,11 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
       </div>
 
       {/* Add Itinerary Dialog */}
-      <Dialog open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir al itinerario</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Añadir al itinerario</SheetTitle>
+          </SheetHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -1398,20 +1398,20 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Itinerary Dialog */}
-      <Dialog open={editingSection === "itinerary-edit"} onOpenChange={(open) => {
+      <Sheet open={editingSection === "itinerary-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar itinerario</DialogTitle>
-          </DialogHeader>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar itinerario</SheetTitle>
+          </SheetHeader>
           {editingItem && "title" in editingItem && (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1473,15 +1473,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Add Hotel Dialog */}
-      <Dialog open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir hotel</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Añadir hotel</SheetTitle>
+          </SheetHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -1532,20 +1532,20 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Hotel Dialog */}
-      <Dialog open={editingSection === "hotel-edit"} onOpenChange={(open) => {
+      <Sheet open={editingSection === "hotel-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar hotel</DialogTitle>
-          </DialogHeader>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar hotel</SheetTitle>
+          </SheetHeader>
           {editingItem && "priceRange" in editingItem && (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1602,15 +1602,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Add Nearby Plan Dialog */}
-      <Dialog open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir plan cercano</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Añadir plan cercano</SheetTitle>
+          </SheetHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -1647,20 +1647,20 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Nearby Plan Dialog */}
-      <Dialog open={editingSection === "nearbyPlan-edit"} onOpenChange={(open) => {
+      <Sheet open={editingSection === "nearbyPlan-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar plan cercano</DialogTitle>
-          </DialogHeader>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar plan cercano</SheetTitle>
+          </SheetHeader>
           {editingItem && "category" in editingItem && !("priceRange" in editingItem) && (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1703,15 +1703,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Add FAQ Dialog */}
-      <Dialog open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir pregunta frecuente</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Añadir pregunta frecuente</SheetTitle>
+          </SheetHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -1733,15 +1733,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit FAQ Dialog */}
-      <Dialog open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar pregunta frecuente</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar pregunta frecuente</SheetTitle>
+          </SheetHeader>
           {editingItem && "question" in editingItem && (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1766,15 +1766,15 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Add Transport Dialog */}
-      <Dialog open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir opción de transporte</DialogTitle>
-          </DialogHeader>
+      <Sheet open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Añadir opción de transporte</SheetTitle>
+          </SheetHeader>
           <form onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -1825,20 +1825,20 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               <Button type="submit">Añadir</Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Transport Dialog */}
-      <Dialog open={editingSection === "transport-edit"} onOpenChange={(open) => {
+      <Sheet open={editingSection === "transport-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar opción de transporte</DialogTitle>
-          </DialogHeader>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Editar opción de transporte</SheetTitle>
+          </SheetHeader>
           {editingItem && "departureLocation" in editingItem && (
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -1895,8 +1895,8 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Sticky Save Bar */}
       {hasChanges && (

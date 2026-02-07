@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -213,16 +213,16 @@ export function CreateLeadDialog({ open, onOpenChange, onLeadCreated, stageId, p
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nuevo Lead</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
+      <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Nuevo Lead</SheetTitle>
+          <SheetDescription>
             Todo lead debe estar asociado a un contacto (persona o empresa)
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 px-4 pb-4">
           {/* Contact Selection */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Contacto *</label>
@@ -440,7 +440,7 @@ export function CreateLeadDialog({ open, onOpenChange, onLeadCreated, stageId, p
           </div>
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="px-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -450,8 +450,8 @@ export function CreateLeadDialog({ open, onOpenChange, onLeadCreated, stageId, p
           >
             {loading ? "Creando..." : "Crear Lead"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

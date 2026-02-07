@@ -11,11 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -519,11 +519,11 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* Add Payment Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Añadir pago</DialogTitle>
-          </DialogHeader>
+      <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Añadir pago</SheetTitle>
+          </SheetHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Concepto *</Label>
@@ -587,8 +587,8 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

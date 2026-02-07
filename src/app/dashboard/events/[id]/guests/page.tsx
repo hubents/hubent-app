@@ -10,12 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -373,18 +372,16 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             <RiGroupLine className="h-4 w-4" />
             + Grupo
           </Button>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <RiAddLine className="h-4 w-4" />
-                Añadir Invitado
-              </Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Añadir Invitado</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+          <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Añadir Invitado
+          </Button>
+          <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Añadir Invitado</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-4 px-4 pb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nombre *</Label>
@@ -459,8 +456,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                 </Button>
               </div>
             </div>
-          </DialogContent>
-          </Dialog>
+          </SheetContent>
+          </Sheet>
         </div>
       </div>
 
@@ -712,12 +709,12 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       )}
 
       {/* Dialog: Add Group */}
-      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Grupo</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
+      <Sheet open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Crear Grupo</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
             <div className="space-y-2">
               <Label>Nombre del grupo *</Label>
               <Input
@@ -743,8 +740,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

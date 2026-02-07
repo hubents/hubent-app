@@ -48,13 +48,13 @@ import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 
 interface DocumentItem {
@@ -620,14 +620,14 @@ export default function InvoicesPage() {
       />
 
       {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Pago</DialogTitle>
-            <DialogDescription>
+      <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Registrar Pago</SheetTitle>
+            <SheetDescription>
               {paymentInvoice && `Registrar pago para factura ${paymentInvoice.number}`}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Monto</Label>
@@ -663,14 +663,14 @@ export default function InvoicesPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter>
             <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={submitPayment}>Registrar Pago</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Document Preview */}
       <DocumentPreview

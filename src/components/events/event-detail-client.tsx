@@ -40,12 +40,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -554,17 +553,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Contactos ({linkedContacts.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <RiAddLine className="h-4 w-4" />
-                    Vincular
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Vincular Contacto al Evento</DialogTitle>
-                  </DialogHeader>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddContactDialog(true)}>
+                <RiAddLine className="h-4 w-4" />
+                Vincular
+              </Button>
+              <Sheet open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
+                <SheetContent className="sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Vincular Contacto al Evento</SheetTitle>
+                  </SheetHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Seleccionar Contacto</Label>
@@ -620,8 +617,8 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                       </Button>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </SheetContent>
+              </Sheet>
               <Link href="/dashboard/contacts">
                 <Button variant="ghost" size="sm">
                   + Nuevo
@@ -763,17 +760,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Proveedores ({vendors.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Dialog open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <RiAddLine className="h-4 w-4" />
-                    Asignar
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Asignar Proveedor al Evento</DialogTitle>
-                  </DialogHeader>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddVendorDialog(true)}>
+                <RiAddLine className="h-4 w-4" />
+                Asignar
+              </Button>
+              <Sheet open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
+                <SheetContent className="sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
+                  </SheetHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
                       <Label>Seleccionar Proveedor</Label>
@@ -819,8 +814,8 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                       </Button>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
+                </SheetContent>
+              </Sheet>
               <Link href="/dashboard/vendors">
                 <Button variant="ghost" size="sm">
                   + Nuevo
@@ -865,17 +860,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiGroupLine className="h-5 w-5" />
               Lista de Invitados ({guests.length})
             </CardTitle>
-            <Dialog open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <RiUserAddLine className="h-4 w-4" />
-                  Añadir
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Añadir Invitado</DialogTitle>
-                </DialogHeader>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddGuestDialog(true)}>
+              <RiUserAddLine className="h-4 w-4" />
+              Añadir
+            </Button>
+            <Sheet open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
+              <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Añadir Invitado</SheetTitle>
+                </SheetHeader>
                 <div className="space-y-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -923,8 +916,8 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                     </Button>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+              </SheetContent>
+            </Sheet>
           </CardHeader>
           <CardContent>
             {guests.length > 0 ? (
@@ -958,17 +951,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiFileTextLine className="h-5 w-5" />
               Documentos ({documents.length})
             </CardTitle>
-            <Dialog open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <RiUploadLine className="h-4 w-4" />
-                  Subir
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Subir Documento</DialogTitle>
-                </DialogHeader>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddDocDialog(true)}>
+              <RiUploadLine className="h-4 w-4" />
+              Subir
+            </Button>
+            <Sheet open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
+              <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Subir Documento</SheetTitle>
+                </SheetHeader>
                 <div className="space-y-4 py-4">
                   <FileUploader
                     folder="event-documents"
@@ -1010,8 +1001,8 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                     </Button>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+              </SheetContent>
+            </Sheet>
           </CardHeader>
           <CardContent>
             {documents.length > 0 ? (

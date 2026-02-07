@@ -27,12 +27,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/ui/file-uploader";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 
 interface TaskDetail {
@@ -295,17 +294,15 @@ export function TaskInfoTab({
             <RiMoneyDollarCircleLine className="h-4 w-4 text-muted-foreground" />
             Pagos
           </h3>
-          <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1" onClick={handleOpenPaymentDialog}>
-                <RiAddLine className="h-4 w-4" />
-                Agregar Pago
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Agregar Pago</DialogTitle>
-              </DialogHeader>
+          <Button variant="outline" size="sm" className="gap-1" onClick={handleOpenPaymentDialog}>
+            <RiAddLine className="h-4 w-4" />
+            Agregar Pago
+          </Button>
+          <Sheet open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+            <SheetContent className="sm:max-w-lg overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Agregar Pago</SheetTitle>
+              </SheetHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Descripción *</Label>
@@ -424,8 +421,8 @@ export function TaskInfoTab({
                   </Button>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </div>
         {/* Vendor Filter */}
         {safePayments.length > 0 && (
@@ -693,17 +690,15 @@ export function TaskInfoTab({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Archivos</h3>
-          <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
-                <RiAddLine className="h-4 w-4" />
-                Subir Archivo
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Subir Archivo</DialogTitle>
-              </DialogHeader>
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowFileDialog(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Subir Archivo
+          </Button>
+          <Sheet open={showFileDialog} onOpenChange={setShowFileDialog}>
+            <SheetContent className="sm:max-w-md overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Subir Archivo</SheetTitle>
+              </SheetHeader>
               <div className="space-y-4 py-4">
                 <FileUploader
                   folder="task-attachments"
@@ -749,8 +744,8 @@ export function TaskInfoTab({
                   </Button>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </div>
         <Tabs value={attachmentTab} onValueChange={setAttachmentTab}>
           <TabsList>

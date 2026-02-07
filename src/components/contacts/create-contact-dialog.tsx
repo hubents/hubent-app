@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -164,14 +164,16 @@ export function CreateContactDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nuevo Contacto</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Nuevo Contacto</SheetTitle>
+          <SheetDescription>
             Agrega un nuevo contacto a tu lista
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="px-4 pb-4 space-y-4">
 
         <Tabs value={contactType} onValueChange={(v) => setContactType(v as "person" | "company")}>
           <TabsList className="grid w-full grid-cols-2">
@@ -409,15 +411,17 @@ export function CreateContactDialog({
           />
         </div>
 
-        <DialogFooter>
+        </div>
+
+        <SheetFooter className="px-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Creando..." : "Crear contacto"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

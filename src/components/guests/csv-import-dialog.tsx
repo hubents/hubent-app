@@ -3,12 +3,11 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { RiUploadLine, RiFileExcelLine, RiCheckLine, RiCloseLine } from "@remixicon/react";
 
 interface CSVImportDialogProps {
@@ -71,19 +70,18 @@ export function CSVImportDialog({ eventId, onSuccess }: CSVImportDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <RiUploadLine className="h-4 w-4" />
-          Importar CSV
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Importar Invitados desde CSV</DialogTitle>
-        </DialogHeader>
+    <>
+      <Button variant="outline" className="gap-2" onClick={() => setOpen(true)}>
+        <RiUploadLine className="h-4 w-4" />
+        Importar CSV
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Importar Invitados desde CSV</SheetTitle>
+          </SheetHeader>
 
-        <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 pb-4">
           <div className="border-2 border-dashed rounded-lg p-6 text-center">
             <input
               ref={fileInputRef}
@@ -157,8 +155,9 @@ export function CSVImportDialog({ eventId, onSuccess }: CSVImportDialogProps) {
               </Button>
             )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

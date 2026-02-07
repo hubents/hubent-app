@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -208,17 +208,17 @@ export function ImportContactsDialog({
   const invalidCount = parsedContacts.filter((c) => !c.valid).length;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetDialog(); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Importar Contactos</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetDialog(); }}>
+      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Importar Contactos</SheetTitle>
+          <SheetDescription>
             Importa contactos desde un archivo CSV
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {step === "upload" && (
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 px-4 pb-4">
             <div
               className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -257,7 +257,7 @@ export function ImportContactsDialog({
         )}
 
         {step === "preview" && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 pb-4">
             <div className="flex items-center gap-4">
               <Badge variant="default" className="bg-green-500">
                 {validCount} válidos
@@ -312,7 +312,7 @@ export function ImportContactsDialog({
         )}
 
         {step === "importing" && (
-          <div className="space-y-4 py-8 text-center">
+          <div className="space-y-4 px-4 py-8 text-center">
             <div className="animate-pulse">
               <RiUploadLine className="h-12 w-12 mx-auto text-primary mb-4" />
             </div>
@@ -323,7 +323,7 @@ export function ImportContactsDialog({
         )}
 
         {step === "done" && (
-          <div className="space-y-4 py-8 text-center">
+          <div className="space-y-4 px-4 py-8 text-center">
             <RiCheckLine className="h-12 w-12 mx-auto text-green-500 mb-4" />
             <h3 className="font-medium">¡Importación completada!</h3>
             <div className="flex items-center justify-center gap-4">
@@ -339,7 +339,7 @@ export function ImportContactsDialog({
           </div>
         )}
 
-        <DialogFooter>
+        <SheetFooter className="px-4">
           {step === "upload" && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
@@ -360,8 +360,8 @@ export function ImportContactsDialog({
               Cerrar
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

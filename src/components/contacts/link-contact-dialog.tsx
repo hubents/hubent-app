@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -165,14 +165,16 @@ export function LinkContactDialog({
   if (!contact) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Vincular Contacto</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Vincular Contacto</SheetTitle>
+          <SheetDescription>
             Vincula este contacto a un evento o tarea
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="px-4 pb-4 space-y-4">
 
         {success ? (
           <div className="py-8 text-center">
@@ -286,7 +288,9 @@ export function LinkContactDialog({
           </>
         )}
 
-        <DialogFooter>
+        </div>
+
+        <SheetFooter className="px-4">
           {!success && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -300,8 +304,8 @@ export function LinkContactDialog({
               </Button>
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

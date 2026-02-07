@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -69,19 +69,19 @@ export function DuplicateEventDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <Copy className="h-5 w-5" />
             Duplicar Evento
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Crea una copia de &quot;{eventName}&quot; con todas sus tareas y configuración.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 pb-4">
           <div className="space-y-2">
             <Label htmlFor="newName">Nombre del nuevo evento</Label>
             <Input
@@ -136,7 +136,7 @@ export function DuplicateEventDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="px-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -153,8 +153,8 @@ export function DuplicateEventDialog({
               </>
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

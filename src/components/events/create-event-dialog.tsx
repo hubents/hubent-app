@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -147,14 +147,14 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px]">
-        <DialogHeader>
-          <DialogTitle>Nuevo Evento</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={handleClose}>
+      <SheetContent className="sm:max-w-[700px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Nuevo Evento</SheetTitle>
+          <SheetDescription>
             Crea un nuevo evento para comenzar a planificar
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
         
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
@@ -162,7 +162,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
           </div>
         )}
         
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="grid gap-4 px-4 pb-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nombre del Evento *</label>
@@ -292,7 +292,7 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
             </p>
           </div>
         </div>
-        <DialogFooter>
+        <SheetFooter className="px-4">
           <Button variant="outline" onClick={handleClose}>
             Cancelar
           </Button>
@@ -302,8 +302,8 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated }: Create
           >
             {loading ? "Creando..." : "Crear Evento"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

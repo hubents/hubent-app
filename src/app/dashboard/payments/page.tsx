@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -88,20 +87,18 @@ export default function PaymentsPage() {
             Control de pagos a proveedores y cobros a clientes
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <RiAddLine className="h-4 w-4" />
-              Nuevo Pago
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Nuevo Pago</DialogTitle>
-              <DialogDescription>
+        <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+          <RiAddLine className="h-4 w-4" />
+          Nuevo Pago
+        </Button>
+        <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <SheetContent className="sm:max-w-[500px]">
+            <SheetHeader>
+              <SheetTitle>Nuevo Pago</SheetTitle>
+              <SheetDescription>
                 Registra un nuevo pago o cobro
-              </DialogDescription>
-            </DialogHeader>
+              </SheetDescription>
+            </SheetHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Concepto *</label>
@@ -154,16 +151,16 @@ export default function PaymentsPage() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <SheetFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleCreatePayment} disabled={!newPayment.concept || !newPayment.amount}>
                 Crear Pago
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Stats */}
