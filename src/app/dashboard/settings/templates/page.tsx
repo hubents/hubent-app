@@ -465,9 +465,9 @@ export default function TemplatesPage() {
         </Card>
       )}
 
-      {/* Create Template Dialog */}
+      {/* Create Template Drawer */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Nuevo Template</SheetTitle>
             <SheetDescription>
@@ -535,9 +535,9 @@ export default function TemplatesPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Edit Template Dialog */}
+      {/* Edit Template Drawer */}
       <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar Template</SheetTitle>
             <SheetDescription>
@@ -605,7 +605,7 @@ export default function TemplatesPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Drawer */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

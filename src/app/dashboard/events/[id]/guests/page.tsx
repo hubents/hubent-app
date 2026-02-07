@@ -44,7 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { RiListUnordered, RiLayout2Line } from "@remixicon/react";
-import { CSVImportDialog } from "@/components/guests/csv-import-dialog";
+import { CSVImportDialog } from "@/components/guests/csv-import-drawer";
 
 const TableCanvas = dynamic(
   () => import("@/components/guests/table-canvas").then((mod) => mod.TableCanvas),

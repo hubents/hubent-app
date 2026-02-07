@@ -721,7 +721,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </Card>
       )}
 
-      {/* Send Invitations Dialog */}
+      {/* Send Invitations Drawer */}
       <Sheet open={showSendDialog} onOpenChange={setShowSendDialog}>
         <SheetContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <SheetHeader>
@@ -1356,9 +1356,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* Add Itinerary Dialog */}
+      {/* Add Itinerary Drawer */}
       <Sheet open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir al itinerario</SheetTitle>
           </SheetHeader>
@@ -1401,14 +1401,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Edit Itinerary Dialog */}
+      {/* Edit Itinerary Drawer */}
       <Sheet open={editingSection === "itinerary-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar itinerario</SheetTitle>
           </SheetHeader>
@@ -1476,9 +1476,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Add Hotel Dialog */}
+      {/* Add Hotel Drawer */}
       <Sheet open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir hotel</SheetTitle>
           </SheetHeader>
@@ -1535,14 +1535,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Edit Hotel Dialog */}
+      {/* Edit Hotel Drawer */}
       <Sheet open={editingSection === "hotel-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar hotel</SheetTitle>
           </SheetHeader>
@@ -1605,9 +1605,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Add Nearby Plan Dialog */}
+      {/* Add Nearby Plan Drawer */}
       <Sheet open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir plan cercano</SheetTitle>
           </SheetHeader>
@@ -1650,14 +1650,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Edit Nearby Plan Dialog */}
+      {/* Edit Nearby Plan Drawer */}
       <Sheet open={editingSection === "nearbyPlan-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar plan cercano</SheetTitle>
           </SheetHeader>
@@ -1706,9 +1706,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Add FAQ Dialog */}
+      {/* Add FAQ Drawer */}
       <Sheet open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir pregunta frecuente</SheetTitle>
           </SheetHeader>
@@ -1736,9 +1736,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Edit FAQ Dialog */}
+      {/* Edit FAQ Drawer */}
       <Sheet open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar pregunta frecuente</SheetTitle>
           </SheetHeader>
@@ -1769,9 +1769,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Add Transport Dialog */}
+      {/* Add Transport Drawer */}
       <Sheet open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir opción de transporte</SheetTitle>
           </SheetHeader>
@@ -1828,14 +1828,14 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </SheetContent>
       </Sheet>
 
-      {/* Edit Transport Dialog */}
+      {/* Edit Transport Drawer */}
       <Sheet open={editingSection === "transport-edit"} onOpenChange={(open) => {
         if (!open) {
           setEditingSection(null);
           setEditingItem(null);
         }
       }}>
-        <SheetContent>
+        <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar opción de transporte</SheetTitle>
           </SheetHeader>

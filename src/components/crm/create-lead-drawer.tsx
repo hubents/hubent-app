@@ -214,7 +214,7 @@ export function CreateLeadDialog({ open, onOpenChange, onLeadCreated, stageId, p
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+      <SheetContent className="sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nuevo Lead</SheetTitle>
           <SheetDescription>

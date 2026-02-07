@@ -28,9 +28,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { EditEventDialog } from "@/components/events/edit-event-dialog";
-import { DuplicateEventDialog } from "@/components/events/duplicate-event-dialog";
-import { SaveAsTemplateDialog } from "@/components/events/save-as-template-dialog";
+import { EditEventDialog } from "@/components/events/edit-event-drawer";
+import { DuplicateEventDialog } from "@/components/events/duplicate-event-drawer";
+import { SaveAsTemplateDialog } from "@/components/events/save-as-template-drawer";
 import { useEvent } from "@/contexts/event-context";
 import {
   DropdownMenu,
@@ -1059,7 +1059,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         initialData={{ eventId }}
       />
 
-      {/* Edit Event Dialog */}
+      {/* Edit Event Drawer */}
       <EditEventDialog
         open={isEditEventOpen}
         onOpenChange={setIsEditEventOpen}
@@ -1067,7 +1067,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onEventUpdated={fetchEvent}
       />
 
-      {/* Duplicate Event Dialog */}
+      {/* Duplicate Event Drawer */}
       <DuplicateEventDialog
         open={isDuplicateOpen}
         onOpenChange={setIsDuplicateOpen}
@@ -1076,7 +1076,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onDuplicated={(newEventId) => router.push(`/dashboard/events/${newEventId}`)}
       />
 
-      {/* Save as Template Dialog */}
+      {/* Save as Template Drawer */}
       <SaveAsTemplateDialog
         open={isSaveTemplateOpen}
         onOpenChange={setIsSaveTemplateOpen}

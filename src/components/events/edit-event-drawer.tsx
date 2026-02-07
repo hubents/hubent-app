@@ -141,7 +141,7 @@ export function EditEventDialog({ open, onOpenChange, event, onEventUpdated }: E
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="sm:max-w-[550px] overflow-y-auto">
+      <SheetContent className="sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Editar Evento</SheetTitle>
           <SheetDescription>

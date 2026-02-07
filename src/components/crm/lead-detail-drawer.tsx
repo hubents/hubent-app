@@ -224,7 +224,7 @@ export function LeadDetailDialog({
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); setIsEditing(false); }}>
-      <SheetContent className="sm:max-w-[700px] overflow-y-auto">
+      <SheetContent className="sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center justify-between">
             <div>

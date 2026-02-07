@@ -105,7 +105,7 @@ export function QuickCreateContactDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[400px] overflow-y-auto">
+      <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nuevo Contacto</SheetTitle>
           <SheetDescription>

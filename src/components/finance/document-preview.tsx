@@ -315,9 +315,9 @@ export function DocumentPreview({
 
   return (
     <>
-    {/* Payment Dialog */}
+    {/* Payment Drawer */}
     <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-      <SheetContent className="sm:max-w-md">
+      <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Registrar Pago</SheetTitle>
           <SheetDescription>
@@ -405,9 +405,9 @@ export function DocumentPreview({
       </SheetContent>
     </Sheet>
 
-    {/* Send Dialog */}
+    {/* Send Drawer */}
     <Sheet open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Enviar {typeLabels[document.type] || document.type}</SheetTitle>
           <SheetDescription>

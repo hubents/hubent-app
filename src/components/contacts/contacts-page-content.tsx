@@ -47,10 +47,10 @@ import {
 } from "@remixicon/react";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
-import { QuickCreateContactDialog } from "./quick-create-contact-dialog";
-import { ImportContactsDialog } from "./import-contacts-dialog";
-import { LinkContactDialog } from "./link-contact-dialog";
-import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
+import { QuickCreateContactDialog } from "./quick-create-contact-drawer";
+import { ImportContactsDialog } from "./import-contacts-drawer";
+import { LinkContactDialog } from "./link-contact-drawer";
+import { CreateLeadDialog } from "@/components/crm/create-lead-drawer";
 
 interface Contact {
   id: number;
@@ -510,7 +510,7 @@ export function ContactsPageContent() {
         </CardContent>
       </Card>
 
-      {/* Quick Create Contact Dialog */}
+      {/* Quick Create Contact Drawer */}
       <QuickCreateContactDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
@@ -521,14 +521,14 @@ export function ContactsPageContent() {
         }}
       />
 
-      {/* Import Contacts Dialog */}
+      {/* Import Contacts Drawer */}
       <ImportContactsDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         onImportComplete={refetch}
       />
 
-      {/* Link Contact Dialog */}
+      {/* Link Contact Drawer */}
       <LinkContactDialog
         open={isLinkDialogOpen}
         onOpenChange={setIsLinkDialogOpen}
@@ -536,7 +536,7 @@ export function ContactsPageContent() {
         onLinkComplete={refetch}
       />
 
-      {/* Create Lead Dialog */}
+      {/* Create Lead Drawer */}
       <CreateLeadDialog
         open={isLeadDialogOpen}
         onOpenChange={setIsLeadDialogOpen}

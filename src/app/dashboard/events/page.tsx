@@ -20,9 +20,9 @@ import {
   RiFileList3Line,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
-import { CreateEventDialog } from "@/components/events/create-event-dialog";
-import { DuplicateEventDialog } from "@/components/events/duplicate-event-dialog";
-import { SaveAsTemplateDialog } from "@/components/events/save-as-template-dialog";
+import { CreateEventDialog } from "@/components/events/create-event-drawer";
+import { DuplicateEventDialog } from "@/components/events/duplicate-event-drawer";
+import { SaveAsTemplateDialog } from "@/components/events/save-as-template-drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,

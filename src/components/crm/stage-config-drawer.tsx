@@ -170,7 +170,7 @@ export function StageConfigDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+      <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
             {isEditing ? "Editar Etapa" : "Nueva Etapa"}

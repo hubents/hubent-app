@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { UserActionsDropdown } from "@/components/admin/user-actions-dropdown";
 import { UserDetailModal } from "@/components/admin/user-detail-modal";
-import { EditUserDialog } from "@/components/admin/edit-user-dialog";
+import { EditUserDialog } from "@/components/admin/edit-user-drawer";
 import { Toaster } from "sonner";
 
 interface User {

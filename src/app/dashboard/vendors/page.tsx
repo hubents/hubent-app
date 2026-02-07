@@ -98,7 +98,7 @@ export default function VendorsPage() {
           Nuevo Proveedor
         </Button>
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-          <SheetContent className="sm:max-w-[500px] overflow-y-auto">
+          <SheetContent className="sm:max-w-lg overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Nuevo Proveedor</SheetTitle>
               <SheetDescription>

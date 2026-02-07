@@ -6,10 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RiAddLine } from "@remixicon/react";
 import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
-import { CreateLeadDialog } from "@/components/crm/create-lead-dialog";
-import { LeadDetailDialog } from "@/components/crm/lead-detail-dialog";
+import { CreateLeadDialog } from "@/components/crm/create-lead-drawer";
+import { LeadDetailDialog } from "@/components/crm/lead-detail-drawer";
 import { LeadDrawer } from "@/components/crm/lead-drawer";
-import { StageConfigDialog } from "@/components/crm/stage-config-dialog";
+import { StageConfigDialog } from "@/components/crm/stage-config-drawer";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
 

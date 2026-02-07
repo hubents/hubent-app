@@ -150,7 +150,7 @@ export default function TeamPage() {
           Invitar Miembro
         </Button>
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-          <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+          <SheetContent className="sm:max-w-md overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Invitar Miembro</SheetTitle>
               <SheetDescription>
