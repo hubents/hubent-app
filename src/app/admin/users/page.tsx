@@ -33,8 +33,8 @@ import {
   XCircle
 } from "lucide-react";
 import { UserActionsDropdown } from "@/components/admin/user-actions-dropdown";
-import { UserDetailModal } from "@/components/admin/user-detail-modal";
-import { EditUserDialog } from "@/components/admin/edit-user-drawer";
+import { UserDetailDrawer } from "@/components/admin/user-detail-drawer";
+import { EditUserDrawer } from "@/components/admin/edit-user-drawer";
 import { Toaster } from "sonner";
 
 interface User {
@@ -404,13 +404,13 @@ export default function UsersPage() {
         </CardContent>
       </Card>
       {/* Modals */}
-      <UserDetailModal
+      <UserDetailDrawer
         userId={detailUserId}
         open={!!detailUserId}
         onOpenChange={(open) => !open && setDetailUserId(null)}
       />
 
-      <EditUserDialog
+      <EditUserDrawer
         user={editUser}
         open={!!editUser}
         onOpenChange={(open) => !open && setEditUser(null)}

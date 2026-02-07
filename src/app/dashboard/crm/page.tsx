@@ -6,10 +6,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RiAddLine } from "@remixicon/react";
 import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
 import { LeadKanban } from "@/components/crm/lead-kanban";
-import { CreateLeadDialog } from "@/components/crm/create-lead-drawer";
-import { LeadDetailDialog } from "@/components/crm/lead-detail-drawer";
+import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
+import { LeadDetailDrawer } from "@/components/crm/lead-detail-drawer";
 import { LeadDrawer } from "@/components/crm/lead-drawer";
-import { StageConfigDialog } from "@/components/crm/stage-config-drawer";
+import { StageConfigDrawer } from "@/components/crm/stage-config-drawer";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
 
@@ -211,14 +211,14 @@ export default function CRMPage() {
         </Card>
       )}
 
-      <CreateLeadDialog
+      <CreateLeadDrawer
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onLeadCreated={refetch}
         stageId={createStageId}
       />
 
-      <LeadDetailDialog
+      <LeadDetailDrawer
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         lead={selectedLead}
@@ -236,7 +236,7 @@ export default function CRMPage() {
         onLeadDeleted={refetch}
       />
 
-      <StageConfigDialog
+      <StageConfigDrawer
         open={isStageDialogOpen}
         onOpenChange={setIsStageDialogOpen}
         stage={selectedStage}

@@ -26,7 +26,7 @@ interface Stage {
   isLost: boolean | null;
 }
 
-interface StageConfigDialogProps {
+interface StageConfigDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stage?: Stage | null;
@@ -49,7 +49,7 @@ const PRESET_COLORS = [
   "#84cc16", // Lime
 ];
 
-export function StageConfigDialog({
+export function StageConfigDrawer({
   open,
   onOpenChange,
   stage,
@@ -57,7 +57,7 @@ export function StageConfigDialog({
   onStageUpdated,
   onStageDeleted,
   nextSortOrder = 0,
-}: StageConfigDialogProps) {
+}: StageConfigDrawerProps) {
   const [loading, setLoading] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [name, setName] = React.useState("");

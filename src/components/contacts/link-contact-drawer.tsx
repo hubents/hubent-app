@@ -49,19 +49,19 @@ interface Task {
   eventId: number;
 }
 
-interface LinkContactDialogProps {
+interface LinkContactDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact: Contact | null;
   onLinkComplete?: () => void;
 }
 
-export function LinkContactDialog({
+export function LinkContactDrawer({
   open,
   onOpenChange,
   contact,
   onLinkComplete,
-}: LinkContactDialogProps) {
+}: LinkContactDrawerProps) {
   const [activeTab, setActiveTab] = useState<"event" | "task">("event");
   const [events, setEvents] = useState<Event[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);

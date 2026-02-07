@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/sheet";
 import { RiUploadLine, RiFileExcelLine, RiCheckLine, RiCloseLine } from "@remixicon/react";
 
-interface CSVImportDialogProps {
+interface CSVImportDrawerProps {
   eventId: number;
   onSuccess: () => void;
 }
 
-export function CSVImportDialog({ eventId, onSuccess }: CSVImportDialogProps) {
+export function CSVImportDrawer({ eventId, onSuccess }: CSVImportDrawerProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);

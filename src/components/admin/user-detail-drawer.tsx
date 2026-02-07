@@ -47,17 +47,17 @@ interface UserDetail {
   }[];
 }
 
-interface UserDetailModalProps {
+interface UserDetailDrawerProps {
   userId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function UserDetailModal({
+export function UserDetailDrawer({
   userId,
   open,
   onOpenChange,
-}: UserDetailModalProps) {
+}: UserDetailDrawerProps) {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

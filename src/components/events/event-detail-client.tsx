@@ -28,9 +28,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { EditEventDialog } from "@/components/events/edit-event-drawer";
-import { DuplicateEventDialog } from "@/components/events/duplicate-event-drawer";
-import { SaveAsTemplateDialog } from "@/components/events/save-as-template-drawer";
+import { EditEventDrawer } from "@/components/events/edit-event-drawer";
+import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
+import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
 import { useEvent } from "@/contexts/event-context";
 import {
   DropdownMenu,
@@ -1060,7 +1060,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       />
 
       {/* Edit Event Drawer */}
-      <EditEventDialog
+      <EditEventDrawer
         open={isEditEventOpen}
         onOpenChange={setIsEditEventOpen}
         event={event}
@@ -1068,7 +1068,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       />
 
       {/* Duplicate Event Drawer */}
-      <DuplicateEventDialog
+      <DuplicateEventDrawer
         open={isDuplicateOpen}
         onOpenChange={setIsDuplicateOpen}
         eventId={eventId}
@@ -1077,7 +1077,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       />
 
       {/* Save as Template Drawer */}
-      <SaveAsTemplateDialog
+      <SaveAsTemplateDrawer
         open={isSaveTemplateOpen}
         onOpenChange={setIsSaveTemplateOpen}
         eventId={eventId}

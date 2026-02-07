@@ -44,7 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { RiListUnordered, RiLayout2Line } from "@remixicon/react";
-import { CSVImportDialog } from "@/components/guests/csv-import-drawer";
+import { CSVImportDrawer } from "@/components/guests/csv-import-drawer";
 
 const TableCanvas = dynamic(
   () => import("@/components/guests/table-canvas").then((mod) => mod.TableCanvas),
@@ -355,7 +355,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         <div className="flex gap-2">
-          <CSVImportDialog eventId={eventId} onSuccess={fetchGuests} />
+          <CSVImportDrawer eventId={eventId} onSuccess={fetchGuests} />
           <Button 
             variant="outline" 
             className="gap-2"
@@ -708,7 +708,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       </>
       )}
 
-      {/* Dialog: Add Group */}
+      {/* Drawer: Add Group */}
       <Sheet open={showGroupDialog} onOpenChange={setShowGroupDialog}>
         <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>

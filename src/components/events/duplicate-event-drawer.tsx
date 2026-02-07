@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface DuplicateEventDialogProps {
+interface DuplicateEventDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: number;
@@ -24,13 +24,13 @@ interface DuplicateEventDialogProps {
   onDuplicated?: (newEventId: number) => void;
 }
 
-export function DuplicateEventDialog({
+export function DuplicateEventDrawer({
   open,
   onOpenChange,
   eventId,
   eventName,
   onDuplicated,
-}: DuplicateEventDialogProps) {
+}: DuplicateEventDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [newName, setNewName] = useState(`${eventName} (copia)`);
   const [newDate, setNewDate] = useState("");

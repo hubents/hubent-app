@@ -37,7 +37,7 @@ interface Contact {
   avatar: string | null;
 }
 
-interface CreateEventDialogProps {
+interface CreateEventDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEventCreated?: () => void;
@@ -54,7 +54,7 @@ const eventTypes = [
   { label: "Otro", value: "other" },
 ];
 
-export function CreateEventDialog({ open, onOpenChange, onEventCreated }: CreateEventDialogProps) {
+export function CreateEventDrawer({ open, onOpenChange, onEventCreated }: CreateEventDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);

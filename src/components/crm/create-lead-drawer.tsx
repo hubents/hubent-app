@@ -44,7 +44,7 @@ interface Contact {
   avatar: string | null;
 }
 
-interface CreateLeadDialogProps {
+interface CreateLeadDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLeadCreated?: () => void;
@@ -52,7 +52,7 @@ interface CreateLeadDialogProps {
   preselectedContact?: Contact;
 }
 
-export function CreateLeadDialog({ open, onOpenChange, onLeadCreated, stageId, preselectedContact }: CreateLeadDialogProps) {
+export function CreateLeadDrawer({ open, onOpenChange, onLeadCreated, stageId, preselectedContact }: CreateLeadDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [contactMode, setContactMode] = useState<"existing" | "new">("existing");
   const [contacts, setContacts] = useState<Contact[]>([]);

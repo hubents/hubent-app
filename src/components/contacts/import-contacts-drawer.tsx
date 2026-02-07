@@ -29,7 +29,7 @@ import {
   RiDownloadLine,
 } from "@remixicon/react";
 
-interface ImportContactsDialogProps {
+interface ImportContactsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImportComplete?: () => void;
@@ -45,11 +45,11 @@ interface ParsedContact {
   error?: string;
 }
 
-export function ImportContactsDialog({
+export function ImportContactsDrawer({
   open,
   onOpenChange,
   onImportComplete,
-}: ImportContactsDialogProps) {
+}: ImportContactsDrawerProps) {
   const [step, setStep] = useState<"upload" | "preview" | "importing" | "done">("upload");
   const [parsedContacts, setParsedContacts] = useState<ParsedContact[]>([]);
   const [importing, setImporting] = useState(false);

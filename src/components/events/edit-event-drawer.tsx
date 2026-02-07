@@ -33,7 +33,7 @@ interface Event {
   description: string | null;
 }
 
-interface EditEventDialogProps {
+interface EditEventDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event: Event | null;
@@ -58,7 +58,7 @@ const eventStatuses = [
   { label: "Cancelado", value: "cancelled" },
 ];
 
-export function EditEventDialog({ open, onOpenChange, event, onEventUpdated }: EditEventDialogProps) {
+export function EditEventDrawer({ open, onOpenChange, event, onEventUpdated }: EditEventDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({

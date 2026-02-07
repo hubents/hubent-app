@@ -22,17 +22,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiUserLine, RiBuilding2Line } from "@remixicon/react";
 
-interface CreateContactDialogProps {
+interface CreateContactDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onContactCreated?: () => void;
 }
 
-export function CreateContactDialog({
+export function CreateContactDrawer({
   open,
   onOpenChange,
   onContactCreated,
-}: CreateContactDialogProps) {
+}: CreateContactDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [contactType, setContactType] = useState<"person" | "company">("person");
   const [formData, setFormData] = useState({

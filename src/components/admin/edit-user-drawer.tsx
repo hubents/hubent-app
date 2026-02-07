@@ -20,19 +20,19 @@ interface User {
   email: string;
 }
 
-interface EditUserDialogProps {
+interface EditUserDrawerProps {
   user: User | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
 
-export function EditUserDialog({
+export function EditUserDrawer({
   user,
   open,
   onOpenChange,
   onSuccess,
-}: EditUserDialogProps) {
+}: EditUserDrawerProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);

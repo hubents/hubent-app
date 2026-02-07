@@ -20,9 +20,9 @@ import {
   RiFileList3Line,
 } from "@remixicon/react";
 import { useEffect, useState } from "react";
-import { CreateEventDialog } from "@/components/events/create-event-drawer";
-import { DuplicateEventDialog } from "@/components/events/duplicate-event-drawer";
-import { SaveAsTemplateDialog } from "@/components/events/save-as-template-drawer";
+import { CreateEventDrawer } from "@/components/events/create-event-drawer";
+import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
+import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -362,14 +362,14 @@ export default function EventsPage() {
         </Card>
       )}
 
-      <CreateEventDialog
+      <CreateEventDrawer
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onEventCreated={loadEvents}
       />
 
       {duplicateEvent && (
-        <DuplicateEventDialog
+        <DuplicateEventDrawer
           open={!!duplicateEvent}
           onOpenChange={(open) => !open && setDuplicateEvent(null)}
           eventId={duplicateEvent.id}
@@ -379,7 +379,7 @@ export default function EventsPage() {
       )}
 
       {saveAsTemplateEvent && (
-        <SaveAsTemplateDialog
+        <SaveAsTemplateDrawer
           open={!!saveAsTemplateEvent}
           onOpenChange={(open) => !open && setSaveAsTemplateEvent(null)}
           eventId={saveAsTemplateEvent.id}

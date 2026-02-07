@@ -14,17 +14,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RiUserLine, RiBuilding2Line } from "@remixicon/react";
 
-interface QuickCreateContactDialogProps {
+interface QuickCreateContactDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onContactCreated?: (contactId: number) => void;
 }
 
-export function QuickCreateContactDialog({
+export function QuickCreateContactDrawer({
   open,
   onOpenChange,
   onContactCreated,
-}: QuickCreateContactDialogProps) {
+}: QuickCreateContactDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [contactType, setContactType] = useState<"person" | "company">("person");
   const [firstName, setFirstName] = useState("");

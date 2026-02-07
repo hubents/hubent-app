@@ -67,7 +67,7 @@ interface Stage {
   color: string | null;
 }
 
-interface LeadDetailDialogProps {
+interface LeadDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead: Lead | null;
@@ -76,14 +76,14 @@ interface LeadDetailDialogProps {
   onLeadDeleted?: () => void;
 }
 
-export function LeadDetailDialog({
+export function LeadDetailDrawer({
   open,
   onOpenChange,
   lead,
   stages = [],
   onLeadUpdated,
   onLeadDeleted,
-}: LeadDetailDialogProps) {
+}: LeadDetailDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingLead, setLoadingLead] = useState(false);

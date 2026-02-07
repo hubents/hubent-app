@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface SaveAsTemplateDialogProps {
+interface SaveAsTemplateDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: number;
@@ -24,13 +24,13 @@ interface SaveAsTemplateDialogProps {
   onSaved?: (templateId: number) => void;
 }
 
-export function SaveAsTemplateDialog({
+export function SaveAsTemplateDrawer({
   open,
   onOpenChange,
   eventId,
   eventName,
   onSaved,
-}: SaveAsTemplateDialogProps) {
+}: SaveAsTemplateDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [templateName, setTemplateName] = useState(`Template: ${eventName}`);
   const [description, setDescription] = useState("");
