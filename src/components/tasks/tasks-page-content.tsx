@@ -32,8 +32,10 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
   useDroppable,
 } from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
 import {
   SortableContext,
   useSortable,
@@ -290,6 +292,14 @@ export function TasksPageContent() {
       },
     })
   );
+
+  const kanbanCollisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return closestCorners(args);
+  };
   
   // Sync local tasks with API tasks
   useEffect(() => {
@@ -391,11 +401,12 @@ export function TasksPageContent() {
       );
 
       try {
-        await fetch(`/api/tasks/${draggedTask.id}`, {
+        const res = await fetch(`/api/tasks/${draggedTask.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         });
+        if (!res.ok) throw new Error("Failed to update status");
       } catch (error) {
         console.error("Failed to update task status:", error);
         refetch(); // Revert on error
@@ -462,7 +473,7 @@ export function TasksPageContent() {
         });
 
         try {
-          await fetch(`/api/tasks/${draggedTask.id}`, {
+          const moveRes = await fetch(`/api/tasks/${draggedTask.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -470,6 +481,7 @@ export function TasksPageContent() {
               sortOrder: targetIndex,
             }),
           });
+          if (!moveRes.ok) throw new Error("Failed to move task");
           
           // Reorder the target column - include the moved task
           const items = [
@@ -611,7 +623,7 @@ export function TasksPageContent() {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
+            collisionDetection={kanbanCollisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >

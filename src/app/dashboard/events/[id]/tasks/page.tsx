@@ -25,8 +25,10 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
   useDroppable,
 } from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
 import {
   SortableContext,
   useSortable,
@@ -216,6 +218,14 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
     })
   );
 
+  const kanbanCollisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return closestCorners(args);
+  };
+
   useEffect(() => {
     async function fetchEvent() {
       try {
@@ -310,11 +320,12 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
       );
 
       try {
-        await fetch(`/api/tasks/${activeTask.id}`, {
+        const res = await fetch(`/api/tasks/${activeTask.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         });
+        if (!res.ok) throw new Error("Failed to update status");
       } catch (error) {
         console.error("Failed to update task status:", error);
         fetchTasks(); // Revert on error
@@ -381,7 +392,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         });
 
         try {
-          await fetch(`/api/tasks/${activeTask.id}`, {
+          const moveRes = await fetch(`/api/tasks/${activeTask.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -389,6 +400,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
               sortOrder: targetIndex,
             }),
           });
+          if (!moveRes.ok) throw new Error("Failed to move task");
           
           // Reorder the target column
           const items = [
@@ -488,7 +500,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
       {viewMode === "kanban" ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={kanbanCollisionDetection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
