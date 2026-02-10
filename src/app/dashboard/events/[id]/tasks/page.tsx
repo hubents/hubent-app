@@ -145,7 +145,7 @@ function SortableColumn({
   const { setNodeRef, isOver } = useDroppable({ id });
   
   // Sort tasks by sortOrder
-  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
   const taskIds = sortedTasks.map((t) => t.id.toString());
 
   return (

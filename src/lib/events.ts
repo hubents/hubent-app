@@ -528,7 +528,8 @@ async function createTasksFromTemplate(
 
   const baseDate = eventDate || new Date();
 
-  for (const taskTpl of template.tasks) {
+  for (let i = 0; i < template.tasks.length; i++) {
+    const taskTpl = template.tasks[i];
     // Calculate due date based on days before/after event
     let dueDate: Date | undefined;
     
@@ -550,6 +551,7 @@ async function createTasksFromTemplate(
       dueDate,
       eventId,
       createdBy: session.user.userId,
+      sortOrder: i,
     }).returning();
 
     // Create HTML content if exists
@@ -647,6 +649,7 @@ export async function duplicateEvent(
         dueDate: newDueDate,
         eventId: newEvent.id,
         createdBy: session.user.userId,
+        sortOrder: task.sortOrder,
       }).returning();
 
       // Duplicate HTML content
