@@ -327,7 +327,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         // Reorder within same column
         const columnTasks = tasks
           .filter((t) => t.status === activeTask.status)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
         
         const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
         const newIndex = columnTasks.findIndex((t) => t.id.toString() === overId);
@@ -365,7 +365,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         const newStatus = overTask.status;
         const targetColumnTasks = tasks
           .filter((t) => t.status === newStatus)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
         
         const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
         

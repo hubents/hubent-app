@@ -408,7 +408,7 @@ export function TasksPageContent() {
         // Reorder within same column
         const columnTasks = displayTasks
           .filter((t) => t.status === draggedTask.status)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
         
         const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
         const newIndex = columnTasks.findIndex((t) => t.id.toString() === overId);
@@ -446,7 +446,7 @@ export function TasksPageContent() {
         const newStatus = overTask.status;
         const targetColumnTasks = displayTasks
           .filter((t) => t.status === newStatus)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
         
         const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
         
