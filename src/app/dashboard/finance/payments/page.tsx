@@ -349,7 +349,7 @@ export default function PaymentsPage() {
                 Registra un nuevo cobro o pago
               </SheetDescription>
             </SheetHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 px-4 py-4">
               {/* Document selector */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">

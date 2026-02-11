@@ -1374,7 +1374,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               startTime,
               location: formData.get("location") as string,
             });
-          }} className="space-y-4">
+          }} className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Título *</Label>
               <Input name="title" required placeholder="Ej: Ceremonia" />
@@ -1425,7 +1425,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 startTime,
                 location: formData.get("location") as string,
               });
-            }} className="space-y-4">
+            }} className="space-y-4 px-4 py-4">
               <div className="space-y-2">
                 <Label>Título *</Label>
                 <Input 
@@ -1494,7 +1494,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               priceRange: formData.get("priceRange") as string,
               distance: formData.get("distance") as string,
             });
-          }} className="space-y-4">
+          }} className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>
               <Input name="name" required placeholder="Nombre del hotel" />
@@ -1560,7 +1560,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 priceRange: formData.get("priceRange") as string,
                 distance: formData.get("distance") as string,
               });
-            }} className="space-y-4">
+            }} className="space-y-4 px-4 py-4">
               <div className="space-y-2">
                 <Label>Nombre *</Label>
                 <Input name="name" required defaultValue={(editingItem as Hotel).name} placeholder="Nombre del hotel" />
@@ -1621,7 +1621,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               address: formData.get("address") as string,
               website: formData.get("website") as string,
             });
-          }} className="space-y-4">
+          }} className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>
               <Input name="name" required placeholder="Nombre del lugar" />
@@ -1673,7 +1673,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 address: formData.get("address") as string,
                 website: formData.get("website") as string,
               });
-            }} className="space-y-4">
+            }} className="space-y-4 px-4 py-4">
               <div className="space-y-2">
                 <Label>Nombre *</Label>
                 <Input name="name" required defaultValue={(editingItem as NearbyPlan).name} placeholder="Nombre del lugar" />
@@ -1719,7 +1719,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               question: formData.get("question") as string,
               answer: formData.get("answer") as string,
             });
-          }} className="space-y-4">
+          }} className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Pregunta *</Label>
               <Input name="question" required placeholder="¿Cuál es el código de vestimenta?" />
@@ -1751,7 +1751,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 question: formData.get("question") as string,
                 answer: formData.get("answer") as string,
               });
-            }} className="space-y-4">
+            }} className="space-y-4 px-4 py-4">
               <div className="space-y-2">
                 <Label>Pregunta *</Label>
                 <Input name="question" required defaultValue={(editingItem as Faq).question} />
@@ -1787,7 +1787,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               returnTime: formData.get("returnTime") as string,
               capacity: parseInt(formData.get("capacity") as string) || null,
             });
-          }} className="space-y-4">
+          }} className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Nombre *</Label>
               <Input name="name" required placeholder="Ej: Bus desde Capital Federal" />
@@ -1853,7 +1853,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 returnTime: formData.get("returnTime") as string,
                 capacity: parseInt(formData.get("capacity") as string) || null,
               });
-            }} className="space-y-4">
+            }} className="space-y-4 px-4 py-4">
               <div className="space-y-2">
                 <Label>Nombre *</Label>
                 <Input name="name" required defaultValue={(editingItem as TransportOption).name} placeholder="Ej: Bus desde Capital Federal" />

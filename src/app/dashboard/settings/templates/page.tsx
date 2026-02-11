@@ -474,7 +474,7 @@ export default function TemplatesPage() {
               Crea un template base para tus eventos
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre *</Label>
               <Input
@@ -544,7 +544,7 @@ export default function TemplatesPage() {
               Modifica los datos del template
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Nombre *</Label>
               <Input

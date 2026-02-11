@@ -99,7 +99,7 @@ export default function PaymentsPage() {
                 Registra un nuevo pago o cobro
               </SheetDescription>
             </SheetHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 px-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Concepto *</label>
                 <Input

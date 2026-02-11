@@ -663,7 +663,7 @@ function FinanceSettingsContent() {
                       Define el nombre y la tasa del impuesto
                     </SheetDescription>
                   </SheetHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 px-4 py-4">
                     <div className="space-y-2">
                       <Label>Nombre</Label>
                       <Input
@@ -909,7 +909,7 @@ function FinanceSettingsContent() {
                       {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}
                     </SheetTitle>
                   </SheetHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 px-4 py-4">
                     <div className="space-y-2">
                       <Label>Nombre de la Cuenta</Label>
                       <Input

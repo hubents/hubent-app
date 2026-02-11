@@ -628,7 +628,7 @@ export default function InvoicesPage() {
               {paymentInvoice && `Registrar pago para factura ${paymentInvoice.number}`}
             </SheetDescription>
           </SheetHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Monto</Label>
               <Input

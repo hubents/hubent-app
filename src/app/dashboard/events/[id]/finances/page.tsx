@@ -524,7 +524,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
           <SheetHeader>
             <SheetTitle>Añadir pago</SheetTitle>
           </SheetHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label>Concepto *</Label>
               <Input

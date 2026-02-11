@@ -185,7 +185,7 @@ export default function UsersPage() {
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleInviteAdmin} className="space-y-4">
+                <form onSubmit={handleInviteAdmin} className="space-y-4 px-4 py-4">
                   {inviteError && (
                     <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
                       {inviteError}

@@ -562,7 +562,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   <SheetHeader>
                     <SheetTitle>Vincular Contacto al Evento</SheetTitle>
                   </SheetHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 px-4 py-4">
                     <div className="space-y-2">
                       <Label>Seleccionar Contacto</Label>
                       {availableContacts.length > 0 ? (
@@ -960,7 +960,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 <SheetHeader>
                   <SheetTitle>Subir Documento</SheetTitle>
                 </SheetHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 px-4 py-4">
                   <FileUploader
                     folder="event-documents"
                     onUpload={async (result) => {
