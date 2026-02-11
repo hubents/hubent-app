@@ -20,7 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RiUserLine, RiBuilding2Line } from "@remixicon/react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { RiUserLine, RiBuilding2Line, RiStore2Line } from "@remixicon/react";
+import {
+  PERSON_CATEGORIES,
+  COMPANY_CATEGORIES,
+  VENDOR_CATEGORIES,
+  getCategoriesForContact,
+} from "@/lib/constants/contact-categories";
 
 interface CreateContactDrawerProps {
   open: boolean;
@@ -35,12 +43,14 @@ export function CreateContactDrawer({
 }: CreateContactDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [contactType, setContactType] = useState<"person" | "company">("person");
+  const [isVendor, setIsVendor] = useState(false);
   const [formData, setFormData] = useState({
     // Common
     name: "",
     email: "",
     phone: "",
     phoneCountryCode: "+34",
+    category: "",
     // Person
     firstName: "",
     lastName: "",
@@ -60,12 +70,16 @@ export function CreateContactDrawer({
     notes: "",
   });
 
+  // Get available categories based on type and vendor status
+  const availableCategories = getCategoriesForContact(contactType, isVendor);
+
   const resetForm = () => {
     setFormData({
       name: "",
       email: "",
       phone: "",
       phoneCountryCode: "+34",
+      category: "",
       firstName: "",
       lastName: "",
       nieOrCif: "",
@@ -81,6 +95,7 @@ export function CreateContactDrawer({
       notes: "",
     });
     setContactType("person");
+    setIsVendor(false);
   };
 
   const handleSubmit = async () => {
@@ -104,6 +119,9 @@ export function CreateContactDrawer({
         phone: formData.phone || undefined,
         phoneCountryCode: formData.phoneCountryCode,
         notes: formData.notes || undefined,
+        isVendor,
+        vendorCategory: isVendor ? formData.category : undefined,
+        category: !isVendor ? formData.category : undefined,
       };
 
       if (contactType === "person") {
@@ -175,17 +193,58 @@ export function CreateContactDrawer({
 
         <div className="px-4 pb-4 space-y-4">
 
-        <Tabs value={contactType} onValueChange={(v) => setContactType(v as "person" | "company")}>
+        <Tabs value={contactType} onValueChange={(v) => {
+          setContactType(v as "person" | "company");
+          setFormData(prev => ({ ...prev, category: "" })); // Reset category on type change
+        }}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="person" className="gap-2">
               <RiUserLine className="h-4 w-4" />
-              Contacto
+              Persona
             </TabsTrigger>
             <TabsTrigger value="company" className="gap-2">
               <RiBuilding2Line className="h-4 w-4" />
               Empresa
             </TabsTrigger>
           </TabsList>
+
+          {/* Vendor Checkbox */}
+          <div className="flex items-center space-x-2 mt-4 p-3 rounded-lg border bg-muted/30">
+            <Checkbox
+              id="isVendor"
+              checked={isVendor}
+              onCheckedChange={(checked) => {
+                setIsVendor(checked === true);
+                setFormData(prev => ({ ...prev, category: "" })); // Reset category on vendor change
+              }}
+            />
+            <Label htmlFor="isVendor" className="flex items-center gap-2 cursor-pointer">
+              <RiStore2Line className="h-4 w-4 text-green-600" />
+              Este contacto ofrece servicios profesionales
+            </Label>
+          </div>
+
+          {/* Category Selector */}
+          <div className="space-y-2 mt-4">
+            <label className="text-sm font-medium">
+              Categoría {isVendor ? "de servicio" : ""}
+            </label>
+            <Select
+              value={formData.category}
+              onValueChange={(v) => setFormData({ ...formData, category: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <TabsContent value="person" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">

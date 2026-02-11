@@ -15,8 +15,10 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || undefined;
     const isLeadParam = searchParams.get("isLead");
     const isLead = isLeadParam === "true" ? true : isLeadParam === "false" ? false : undefined;
+    const isVendorParam = searchParams.get("isVendor");
+    const isVendor = isVendorParam === "true" ? true : isVendorParam === "false" ? false : undefined;
 
-    const result = await getContacts(session, { page, limit, search, type, isLead });
+    const result = await getContacts(session, { page, limit, search, type, isLead, isVendor });
 
     return NextResponse.json({
       success: true,
@@ -108,6 +110,7 @@ export async function POST(request: NextRequest) {
       notes: body.notes,
       isVendor: body.isVendor,
       vendorCategory: body.vendorCategory,
+      category: body.category,
     });
 
     // Send push notification for new contact

@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,13 +38,16 @@ import {
   RiDownloadLine,
   RiExternalLinkLine,
   RiUserStarLine,
+  RiStore2Line,
 } from "@remixicon/react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
 import { QuickCreateContactDrawer } from "./quick-create-contact-drawer";
 import { ImportContactsDrawer } from "./import-contacts-drawer";
 import { LinkContactDrawer } from "./link-contact-drawer";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
+import { ContactPreviewDrawer } from "./contact-preview-drawer";
 
 interface Contact {
   id: number;
@@ -60,15 +57,33 @@ interface Contact {
   phone: string | null;
   phoneCountryCode: string | null;
   avatar: string | null;
+  address: string | null;
   city: string | null;
+  nieOrCif: string | null;
+  taxId: string | null;
   tags: string[] | null;
   isLead: boolean | null;
+  isVendor: boolean | null;
+  vendorCategory: string | null;
+  category: string | null;
 }
 
+type Segment = "all" | "vendors" | "companies" | "persons";
+
 export function ContactsPageContent() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [leadFilter, setLeadFilter] = useState<string>("all");
+  const [segment, setSegment] = useState<Segment>("all");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewContactId, setPreviewContactId] = useState<number | null>(null);
+
+  // Sync segment from URL query param
+  useEffect(() => {
+    const urlSegment = searchParams.get("segment");
+    if (urlSegment && ["vendors", "companies", "persons"].includes(urlSegment)) {
+      setSegment(urlSegment as Segment);
+    }
+  }, [searchParams]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
@@ -78,15 +93,48 @@ export function ContactsPageContent() {
   const [selectedContactForLead, setSelectedContactForLead] = useState<Contact | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Build filter params based on segment
+  const getFilterParams = () => {
+    switch (segment) {
+      case "vendors":
+        return { isVendor: true };
+      case "companies":
+        return { type: "company", isVendor: false };
+      case "persons":
+        return { type: "person", isVendor: false };
+      default:
+        return {};
+    }
+  };
+
   const { contacts, stats, loading, refetch, deleteContact } = useContacts({
     search: search || undefined,
-    type: typeFilter !== "all" ? typeFilter : undefined,
-    isLead: leadFilter === "leads" ? true : leadFilter === "no-leads" ? false : undefined,
+    ...getFilterParams(),
   });
 
+  // Helper to get display type for a contact
+  const getContactDisplayType = (contact: Contact): "Persona" | "Empresa" | "Proveedor" => {
+    if (contact.isVendor) return "Proveedor";
+    return contact.type === "company" ? "Empresa" : "Persona";
+  };
+
+  // Helper to get category display
+  const getContactCategory = (contact: Contact): string | null => {
+    if (contact.isVendor) return contact.vendorCategory;
+    return contact.category;
+  };
+
   const handleContactClick = (contactId: number) => {
-    setSelectedContactId(contactId);
-    setIsDrawerOpen(true);
+    setPreviewContactId(contactId);
+    setIsPreviewOpen(true);
+  };
+
+  const handleEditFromPreview = () => {
+    setIsPreviewOpen(false);
+    if (previewContactId) {
+      setSelectedContactId(previewContactId);
+      setIsDrawerOpen(true);
+    }
   };
 
   const handleQuickCall = (e: React.MouseEvent, contact: Contact) => {
@@ -242,42 +290,29 @@ export function ContactsPageContent() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
-                  <RiUserLine className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-muted-foreground">Leads</span>
+                  <RiStore2Line className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-muted-foreground">Proveedores</span>
                 </div>
-                <p className="text-2xl font-bold mt-1 text-green-500">{stats.leads}</p>
+                <p className="text-2xl font-bold mt-1 text-green-500">{stats.vendors}</p>
               </CardContent>
             </Card>
           </>
         )}
       </div>
 
-      {/* Filters and Search */}
+      {/* Segment Tabs and Search */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-4">
-            <CardTitle>Lista de Contactos</CardTitle>
+            <Tabs value={segment} onValueChange={(v) => setSegment(v as Segment)} className="w-auto">
+              <TabsList>
+                <TabsTrigger value="all">Todos</TabsTrigger>
+                <TabsTrigger value="vendors">Proveedores</TabsTrigger>
+                <TabsTrigger value="companies">Empresas</TabsTrigger>
+                <TabsTrigger value="persons">Personas</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <div className="flex items-center gap-3">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="person">Personas</SelectItem>
-                  <SelectItem value="company">Empresas</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={leadFilter} onValueChange={setLeadFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="leads">Solo Leads</SelectItem>
-                  <SelectItem value="no-leads">Sin Lead</SelectItem>
-                </SelectContent>
-              </Select>
               <div className="relative w-64">
                 <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -334,11 +369,19 @@ export function ContactsPageContent() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium truncate">{contact.name}</p>
-                        <Badge variant={contact.type === "company" ? "secondary" : "outline"} className="text-xs">
-                          {contact.type === "company" ? "Empresa" : "Persona"}
+                        <Badge 
+                          variant={contact.isVendor ? "default" : contact.type === "company" ? "secondary" : "outline"} 
+                          className={`text-xs ${contact.isVendor ? "bg-green-500" : ""}`}
+                        >
+                          {getContactDisplayType(contact)}
                         </Badge>
-                        {contact.isLead && (
-                          <Badge variant="default" className="text-xs bg-green-500">
+                        {getContactCategory(contact) && (
+                          <span className="text-xs text-muted-foreground">
+                            {getContactCategory(contact)}
+                          </span>
+                        )}
+                        {contact.isLead && !contact.isVendor && (
+                          <Badge variant="default" className="text-xs bg-amber-500">
                             Lead
                           </Badge>
                         )}
@@ -544,7 +587,15 @@ export function ContactsPageContent() {
         preselectedContact={selectedContactForLead || undefined}
       />
 
-      {/* Contact Drawer */}
+      {/* Contact Preview Drawer (read-only) */}
+      <ContactPreviewDrawer
+        contactId={previewContactId}
+        open={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        onEdit={handleEditFromPreview}
+      />
+
+      {/* Contact Drawer (full edit) */}
       <ContactDrawer
         contactId={selectedContactId}
         open={isDrawerOpen}

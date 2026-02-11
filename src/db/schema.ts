@@ -689,7 +689,10 @@ export const contacts = pgTable("contacts", {
   leadScore: integer("lead_score").default(0),
   notes: text("notes"),
   
-  // Vendor fields (for companies that are also vendors)
+  // Category (for non-vendors: person/company categories)
+  category: text("category"),
+  
+  // Vendor fields (for contacts that offer professional services)
   isVendor: boolean("is_vendor").default(false),
   vendorCategory: text("vendor_category"),
   vendorId: integer("vendor_id").references(() => vendors.id),

@@ -202,7 +202,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                   ) : (
                     <p className="text-sm text-[var(--muted-foreground)]">
                       No hay proveedores disponibles.{" "}
-                      <Link href="/dashboard/vendors" className="text-[var(--primary)] underline">
+                      <Link href="/dashboard/contacts?segment=vendors" className="text-[var(--primary)] underline">
                         Crear nuevo proveedor
                       </Link>
                     </p>
@@ -227,7 +227,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
               </div>
             </SheetContent>
           </Sheet>
-          <Link href="/dashboard/vendors">
+          <Link href="/dashboard/contacts?segment=vendors">
             <Button variant="outline">Ver todos</Button>
           </Link>
         </div>

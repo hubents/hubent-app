@@ -791,7 +791,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                       ) : (
                         <p className="text-sm text-muted-foreground">
                           No hay proveedores disponibles.{" "}
-                          <Link href="/dashboard/vendors" className="text-primary underline">
+                          <Link href="/dashboard/contacts?segment=vendors" className="text-primary underline">
                             Crear nuevo proveedor
                           </Link>
                         </p>
@@ -816,7 +816,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   </div>
                 </SheetContent>
               </Sheet>
-              <Link href="/dashboard/vendors">
+              <Link href="/dashboard/contacts?segment=vendors">
                 <Button variant="ghost" size="sm">
                   + Nuevo
                 </Button>

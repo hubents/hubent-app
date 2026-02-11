@@ -21,7 +21,7 @@ const navigation = [
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
   { name: "Contactos", href: "/dashboard/contacts", icon: RiContactsBookLine },
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
-  { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
+  { name: "Proveedores", href: "/dashboard/contacts?segment=vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
   { name: "Pagos", href: "/dashboard/payments", icon: RiMoneyDollarCircleLine },
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },

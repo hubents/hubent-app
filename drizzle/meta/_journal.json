@@ -57,6 +57,13 @@
       "when": 1768569594177,
       "tag": "0007_lying_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770810023246,
+      "tag": "0008_broad_fenris",
+      "breakpoints": true
     }
   ]
 }

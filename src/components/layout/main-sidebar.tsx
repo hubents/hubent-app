@@ -29,6 +29,8 @@ import {
   RiFolder3Line,
   RiSurveyLine,
   RiRestaurantLine,
+  RiBuilding2Line,
+  RiGroupLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
@@ -42,10 +44,16 @@ import {
 const navigationBeforeFinance = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
-  { name: "Contactos", href: "/dashboard/contacts", icon: RiContactsBookLine },
+  // Contactos is now a submenu, handled separately
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
-  { name: "Proveedores", href: "/dashboard/vendors", icon: RiStore2Line },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
+];
+
+const contactsSubNav = [
+  { name: "Todos", href: "/dashboard/contacts", icon: RiGroupLine },
+  { name: "Personas", href: "/dashboard/contacts?segment=persons", icon: RiUserLine },
+  { name: "Empresas", href: "/dashboard/contacts?segment=companies", icon: RiBuilding2Line },
+  { name: "Proveedores", href: "/dashboard/contacts?segment=vendors", icon: RiStore2Line },
 ];
 
 const navigationAfterFinance = [
@@ -83,9 +91,11 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const { isEventView } = useEvent();
   const [financeExpanded, setFinanceExpanded] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
+  const [contactsExpanded, setContactsExpanded] = useState(false);
   
-  // Auto-expand finance menu if we're on a finance page
+  // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
+  const isContactsPage = pathname.startsWith("/dashboard/contacts");
   const isMorePage = pathname.startsWith("/dashboard/calendar") || 
                      pathname.startsWith("/dashboard/menus") ||
                      pathname.startsWith("/dashboard/documents") || 
@@ -95,10 +105,13 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     if (isFinancePage) {
       setFinanceExpanded(true);
     }
+    if (isContactsPage) {
+      setContactsExpanded(true);
+    }
     if (isMorePage) {
       setMoreExpanded(true);
     }
-  }, [isFinancePage, isMorePage]);
+  }, [isFinancePage, isContactsPage, isMorePage]);
   
   // Auto-collapse when in event view on desktop
   const isCollapsed = collapsed || isEventView;
@@ -177,6 +190,77 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 </Link>
               );
             })}
+
+            {/* Contactos Menu with Submenu */}
+            {isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href="/dashboard/contacts"
+                    className={cn(
+                      "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                      isContactsPage
+                        ? "bg-[var(--primary)] text-white"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    <RiContactsBookLine className="h-5 w-5" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Contactos
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setContactsExpanded(!contactsExpanded)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isContactsPage
+                      ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <RiContactsBookLine className="h-5 w-5" />
+                    Contactos
+                  </div>
+                  <RiArrowDownSLine 
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      contactsExpanded && "rotate-180"
+                    )} 
+                  />
+                </button>
+                
+                {contactsExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
+                    {contactsSubNav.map((subItem) => {
+                      const isSubActive = pathname === subItem.href || 
+                        (pathname === "/dashboard/contacts" && subItem.href === "/dashboard/contacts") ||
+                        (pathname.includes(subItem.href) && subItem.href !== "/dashboard/contacts");
+                      
+                      return (
+                        <Link
+                          key={subItem.name}
+                          href={subItem.href}
+                          className={cn(
+                            "flex items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-sm transition-colors",
+                            isSubActive
+                              ? "bg-[var(--primary)] text-white"
+                              : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          <subItem.icon className="h-4 w-4" />
+                          {subItem.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Finance Menu with Submenu */}
             {isCollapsed ? (

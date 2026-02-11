@@ -14,13 +14,19 @@ interface Contact {
   firstName: string | null;
   lastName: string | null;
   tradeName: string | null;
+  taxId: string | null;
+  nieOrCif: string | null;
   website: string | null;
+  address: string | null;
   city: string | null;
   country: string | null;
   tags: string[] | null;
   source: string | null;
   isLead: boolean | null;
   leadScore: number | null;
+  isVendor: boolean | null;
+  vendorCategory: string | null;
+  category: string | null;
   createdAt: Date | null;
   createdByName: string | null;
 }
@@ -29,13 +35,14 @@ interface ContactStats {
   total: number;
   persons: number;
   companies: number;
-  leads: number;
+  vendors: number;
 }
 
 interface UseContactsParams {
   search?: string;
   type?: string;
   isLead?: boolean;
+  isVendor?: boolean;
   city?: string;
   tag?: string;
   page?: number;
@@ -48,7 +55,7 @@ export function useContacts(params: UseContactsParams = {}) {
     total: 0,
     persons: 0,
     companies: 0,
-    leads: 0,
+    vendors: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +75,7 @@ export function useContacts(params: UseContactsParams = {}) {
       if (params.search) searchParams.set("search", params.search);
       if (params.type) searchParams.set("type", params.type);
       if (params.isLead !== undefined) searchParams.set("isLead", params.isLead.toString());
+      if (params.isVendor !== undefined) searchParams.set("isVendor", params.isVendor.toString());
       if (params.city) searchParams.set("city", params.city);
       if (params.tag) searchParams.set("tag", params.tag);
       if (params.page) searchParams.set("page", params.page.toString());
@@ -79,7 +87,7 @@ export function useContacts(params: UseContactsParams = {}) {
 
       if (result.success) {
         setContacts(result.data || []);
-        setStats(result.stats || { total: 0, persons: 0, companies: 0, leads: 0 });
+        setStats(result.stats || { total: 0, persons: 0, companies: 0, vendors: 0 });
         setMeta(result.meta || { page: 1, limit: 50, total: 0, totalPages: 0 });
       } else {
         setError(result.error?.message || "Failed to fetch contacts");
@@ -89,7 +97,7 @@ export function useContacts(params: UseContactsParams = {}) {
     } finally {
       setLoading(false);
     }
-  }, [params.search, params.type, params.isLead, params.city, params.tag, params.page, params.limit]);
+  }, [params.search, params.type, params.isLead, params.isVendor, params.city, params.tag, params.page, params.limit]);
 
   useEffect(() => {
     fetchContacts();

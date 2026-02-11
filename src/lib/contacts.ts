@@ -23,9 +23,9 @@ import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 export async function getContacts(
   session: TenantSession,
-  params: PaginationParams & FilterParams & { type?: string; tags?: string[]; isLead?: boolean } = {}
+  params: PaginationParams & FilterParams & { type?: string; tags?: string[]; isLead?: boolean; isVendor?: boolean } = {}
 ) {
-  const { page = 1, limit = 50, search, type, tags, isLead } = params;
+  const { page = 1, limit = 50, search, type, tags, isLead, isVendor } = params;
   const offset = (page - 1) * limit;
 
   let whereClause = and(
@@ -53,6 +53,10 @@ export async function getContacts(
     whereClause = and(whereClause, eq(contacts.isLead, isLead));
   }
 
+  if (isVendor !== undefined) {
+    whereClause = and(whereClause, eq(contacts.isVendor, isVendor));
+  }
+
   const results = await db
     .select({
       id: contacts.id,
@@ -66,13 +70,19 @@ export async function getContacts(
       firstName: contacts.firstName,
       lastName: contacts.lastName,
       tradeName: contacts.tradeName,
+      taxId: contacts.taxId,
+      nieOrCif: contacts.nieOrCif,
       website: contacts.website,
+      address: contacts.address,
       city: contacts.city,
       country: contacts.country,
       tags: contacts.tags,
       source: contacts.source,
       isLead: contacts.isLead,
       leadScore: contacts.leadScore,
+      isVendor: contacts.isVendor,
+      vendorCategory: contacts.vendorCategory,
+      category: contacts.category,
       createdAt: contacts.createdAt,
       createdByName: users.name,
     })
@@ -88,13 +98,13 @@ export async function getContacts(
     .from(contacts)
     .where(whereClause);
 
-  // Get stats
+  // Get stats (always for the full org, not filtered)
   const [stats] = await db
     .select({
       total: sql<number>`count(*)`,
-      persons: sql<number>`count(*) filter (where type = 'person')`,
-      companies: sql<number>`count(*) filter (where type = 'company')`,
-      leads: sql<number>`count(*) filter (where is_lead = true)`,
+      persons: sql<number>`count(*) filter (where type = 'person' and (is_vendor = false or is_vendor is null))`,
+      companies: sql<number>`count(*) filter (where type = 'company' and (is_vendor = false or is_vendor is null))`,
+      vendors: sql<number>`count(*) filter (where is_vendor = true)`,
     })
     .from(contacts)
     .where(
@@ -110,7 +120,7 @@ export async function getContacts(
       total: Number(stats?.total || 0),
       persons: Number(stats?.persons || 0),
       companies: Number(stats?.companies || 0),
-      leads: Number(stats?.leads || 0),
+      vendors: Number(stats?.vendors || 0),
     },
     meta: {
       page,
@@ -253,9 +263,11 @@ export async function createContact(
     source?: "manual" | "import" | "website" | "referral" | "social_media" | "event" | "other";
     isLead?: boolean;
     notes?: string;
-    // Vendor fields (for companies)
+    // Vendor fields (for contacts that offer services)
     isVendor?: boolean;
     vendorCategory?: string;
+    // Category (for non-vendors)
+    category?: string;
   }
 ) {
   // First create the contact
@@ -298,12 +310,13 @@ export async function createContact(
       notes: data.notes,
       isVendor: data.isVendor || false,
       vendorCategory: data.vendorCategory,
+      category: data.category,
       createdBy: session.user.userId,
     })
     .returning();
 
-  // If company is marked as vendor, create vendor record and link bidirectionally
-  if (data.type === "company" && data.isVendor && data.vendorCategory) {
+  // If contact is marked as vendor, create vendor record and link bidirectionally
+  if (data.isVendor && data.vendorCategory) {
     const [vendor] = await db
       .insert(vendors)
       .values({
