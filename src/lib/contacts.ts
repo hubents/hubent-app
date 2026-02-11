@@ -396,6 +396,9 @@ export async function updateContact(
     isLead: boolean;
     leadScore: number;
     notes: string;
+    category: string;
+    isVendor: boolean;
+    vendorCategory: string;
   }>
 ) {
   const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };

@@ -22,18 +22,11 @@ import {
   RiStore2Line,
 } from "@remixicon/react";
 import { ContactRelationshipsSection } from "./contact-relationships-section";
-
-const VENDOR_CATEGORIES = [
-  "Catering",
-  "Fotografía",
-  "Floristería",
-  "Música",
-  "Pastelería",
-  "Decoración",
-  "Venue",
-  "Transporte",
-  "Otro",
-];
+import {
+  PERSON_CATEGORIES,
+  COMPANY_CATEGORIES,
+  VENDOR_CATEGORIES,
+} from "@/lib/constants/contact-categories";
 
 interface ContactDetail {
   id: number;
@@ -56,6 +49,7 @@ interface ContactDetail {
   isLead: boolean | null;
   leadScore: number | null;
   notes: string | null;
+  category: string | null;
   isVendor: boolean | null;
   vendorCategory: string | null;
   vendorId: number | null;
@@ -126,6 +120,7 @@ export function ContactGeneralTab({
     contactPersonName: "",
     contactPersonEmail: "",
     notes: "",
+    category: "",
     isVendor: false,
     vendorCategory: "",
     customCategory: "",
@@ -135,7 +130,7 @@ export function ContactGeneralTab({
 
   useEffect(() => {
     if (contact) {
-      const isCustomCategory = contact.vendorCategory && !VENDOR_CATEGORIES.includes(contact.vendorCategory);
+      const isCustomCategory = contact.vendorCategory && !(VENDOR_CATEGORIES as readonly string[]).includes(contact.vendorCategory);
       setFormData({
         email: contact.email || "",
         phone: contact.phone || "",
@@ -149,6 +144,7 @@ export function ContactGeneralTab({
         contactPersonName: contact.contactPersonName || "",
         contactPersonEmail: contact.contactPersonEmail || "",
         notes: contact.notes || "",
+        category: contact.category || "",
         isVendor: contact.isVendor || false,
         vendorCategory: isCustomCategory ? "Otro" : (contact.vendorCategory || ""),
         customCategory: isCustomCategory ? contact.vendorCategory || "" : "",
@@ -172,6 +168,13 @@ export function ContactGeneralTab({
         notes: formData.notes || null,
       };
 
+      // Vendor & category fields (both types)
+      updates.isVendor = formData.isVendor;
+      updates.vendorCategory = formData.isVendor
+        ? (formData.vendorCategory === "Otro" ? formData.customCategory || null : formData.vendorCategory || null)
+        : null;
+      updates.category = formData.isVendor ? null : formData.category || null;
+
       if (contact?.type === "person") {
         updates.firstName = formData.firstName || null;
         updates.lastName = formData.lastName || null;
@@ -185,10 +188,6 @@ export function ContactGeneralTab({
         updates.website = formData.website || null;
         updates.contactPersonName = formData.contactPersonName || null;
         updates.contactPersonEmail = formData.contactPersonEmail || null;
-        updates.isVendor = formData.isVendor;
-        updates.vendorCategory = formData.vendorCategory === "Otro" 
-          ? formData.customCategory || null 
-          : formData.vendorCategory || null;
       }
 
       await onUpdateContact(updates);
@@ -236,13 +235,38 @@ export function ContactGeneralTab({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">NIE o CIF</label>
-              <Input
-                value={formData.nieOrCif}
-                onChange={(e) => handleChange("nieOrCif", e.target.value)}
-                placeholder="Ingresa el NIE o CIF"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">NIE o CIF</label>
+                <Input
+                  value={formData.nieOrCif}
+                  onChange={(e) => handleChange("nieOrCif", e.target.value)}
+                  placeholder="Ingresa el NIE o CIF"
+                />
+              </div>
+              {!formData.isVendor && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Categoría</label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(v) => {
+                      setFormData((prev) => ({ ...prev, category: v }));
+                      setHasChanges(true);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERSON_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -285,6 +309,30 @@ export function ContactGeneralTab({
                 />
               </div>
             </div>
+
+            {!formData.isVendor && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Categoría</label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(v) => {
+                    setFormData((prev) => ({ ...prev, category: v }));
+                    setHasChanges(true);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COMPANY_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </>
         )}
 
@@ -333,8 +381,8 @@ export function ContactGeneralTab({
         </div>
       </div>
 
-      {/* Vendor Section - Only for Companies */}
-      {contact?.type === "company" && (
+      {/* Vendor Section - Both Persons and Companies */}
+      {contact && (
         <div className="space-y-4 border-t pt-4">
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <RiStore2Line className="h-4 w-4" />

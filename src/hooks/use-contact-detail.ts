@@ -40,6 +40,7 @@ interface ContactDetail {
   isLead: boolean | null;
   leadScore: number | null;
   notes: string | null;
+  category: string | null;
   isVendor: boolean | null;
   vendorCategory: string | null;
   vendorId: number | null;
