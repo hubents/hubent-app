@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,12 +114,6 @@ export function ContactsPageContent() {
     search: search || undefined,
     ...getFilterParams(),
   });
-
-  // Helper to get display type for a contact
-  const getContactDisplayType = (contact: Contact): "Persona" | "Empresa" | "Proveedor" => {
-    if (contact.isVendor) return "Proveedor";
-    return contact.type === "company" ? "Empresa" : "Persona";
-  };
 
   // Helper to get category display
   const getContactCategory = (contact: Contact): string | null => {
