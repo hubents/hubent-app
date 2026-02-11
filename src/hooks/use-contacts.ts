@@ -16,6 +16,7 @@ interface Contact {
   tradeName: string | null;
   taxId: string | null;
   nieOrCif: string | null;
+  passportId: string | null;
   website: string | null;
   address: string | null;
   city: string | null;

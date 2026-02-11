@@ -72,6 +72,7 @@ export async function getContacts(
       tradeName: contacts.tradeName,
       taxId: contacts.taxId,
       nieOrCif: contacts.nieOrCif,
+      passportId: contacts.passportId,
       website: contacts.website,
       address: contacts.address,
       city: contacts.city,
