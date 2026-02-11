@@ -92,7 +92,7 @@ export function ContactPreviewDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-3xl overflow-y-auto">
         {loading ? (
           <div className="space-y-4 p-4">
             <div className="flex items-center gap-4">

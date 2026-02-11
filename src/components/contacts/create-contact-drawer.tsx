@@ -183,7 +183,7 @@ export function CreateContactDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-3xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nuevo Contacto</SheetTitle>
           <SheetDescription>

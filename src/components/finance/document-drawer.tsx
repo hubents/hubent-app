@@ -410,7 +410,7 @@ export function DocumentDrawer({
       <SheetContent 
         className={cn(
           "overflow-hidden p-0 flex flex-col",
-          showPreview ? "w-full sm:max-w-[1100px]" : "w-full sm:max-w-2xl"
+          showPreview ? "w-full sm:max-w-[1500px]" : "w-full sm:max-w-5xl"
         )}
       >
         <SheetHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">

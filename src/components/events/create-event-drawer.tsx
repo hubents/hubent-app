@@ -148,7 +148,7 @@ export function CreateEventDrawer({ open, onOpenChange, onEventCreated }: Create
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+      <SheetContent className="sm:max-w-5xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nuevo Evento</SheetTitle>
           <SheetDescription>

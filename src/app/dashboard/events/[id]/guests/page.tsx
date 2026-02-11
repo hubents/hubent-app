@@ -377,7 +377,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             Añadir Invitado
           </Button>
           <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <SheetContent className="sm:max-w-md overflow-y-auto">
+          <SheetContent className="sm:max-w-2xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Añadir Invitado</SheetTitle>
             </SheetHeader>
@@ -710,7 +710,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
 
       {/* Drawer: Add Group */}
       <Sheet open={showGroupDialog} onOpenChange={setShowGroupDialog}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Crear Grupo</SheetTitle>
           </SheetHeader>

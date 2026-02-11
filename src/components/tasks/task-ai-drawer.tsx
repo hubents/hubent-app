@@ -42,7 +42,7 @@ export function TaskAIDrawer({ open, onOpenChange, task, taskId }: TaskAIDrawerP
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent 
         side="right" 
-        className="w-full sm:max-w-md p-0 flex flex-col"
+        className="w-full sm:max-w-2xl p-0 flex flex-col"
         onInteractOutside={(e) => e.preventDefault()}
       >
         <SheetHeader className="px-4 py-3 border-b border-[var(--border)] flex-shrink-0">

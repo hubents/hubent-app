@@ -1358,7 +1358,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Add Itinerary Drawer */}
       <Sheet open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir al itinerario</SheetTitle>
           </SheetHeader>
@@ -1408,7 +1408,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           setEditingItem(null);
         }
       }}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar itinerario</SheetTitle>
           </SheetHeader>
@@ -1478,7 +1478,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Add Hotel Drawer */}
       <Sheet open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir hotel</SheetTitle>
           </SheetHeader>
@@ -1542,7 +1542,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           setEditingItem(null);
         }
       }}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar hotel</SheetTitle>
           </SheetHeader>
@@ -1607,7 +1607,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Add Nearby Plan Drawer */}
       <Sheet open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir plan cercano</SheetTitle>
           </SheetHeader>
@@ -1657,7 +1657,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           setEditingItem(null);
         }
       }}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar plan cercano</SheetTitle>
           </SheetHeader>
@@ -1708,7 +1708,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Add FAQ Drawer */}
       <Sheet open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir pregunta frecuente</SheetTitle>
           </SheetHeader>
@@ -1738,7 +1738,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Edit FAQ Drawer */}
       <Sheet open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar pregunta frecuente</SheetTitle>
           </SheetHeader>
@@ -1771,7 +1771,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Add Transport Drawer */}
       <Sheet open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir opción de transporte</SheetTitle>
           </SheetHeader>
@@ -1835,7 +1835,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
           setEditingItem(null);
         }
       }}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar opción de transporte</SheetTitle>
           </SheetHeader>

@@ -164,7 +164,7 @@ export default function UsersPage() {
             Invitar Admin
           </Button>
           <Sheet open={inviteOpen} onOpenChange={setInviteOpen}>
-            <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Invitar Administrador</SheetTitle>
                 <SheetDescription>

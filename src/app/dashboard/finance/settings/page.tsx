@@ -654,7 +654,7 @@ function FinanceSettingsContent() {
                 setTaxDialogOpen(open);
                 if (!open) resetTaxForm();
               }}>
-                <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetContent className="sm:max-w-2xl overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>
                       {editingTax ? "Editar Impuesto" : "Nuevo Impuesto"}
@@ -903,7 +903,7 @@ function FinanceSettingsContent() {
                 setBankDialogOpen(open);
                 if (!open) resetBankForm();
               }}>
-                <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetContent className="sm:max-w-2xl overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>
                       {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}

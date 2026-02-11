@@ -287,7 +287,7 @@ export default function AdminAIDocumentsPage() {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
-          <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          <SheetContent className="sm:max-w-5xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>
                 {editingDoc ? "Editar Documento" : "Nuevo Documento"}

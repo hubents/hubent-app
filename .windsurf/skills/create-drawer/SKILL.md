@@ -54,7 +54,7 @@ export function NombreDrawer({ open, onOpenChange, onSuccess }: NombreDrawerProp
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-3xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Título del Drawer</SheetTitle>
           <SheetDescription>Descripción opcional</SheetDescription>
@@ -87,10 +87,11 @@ export function NombreDrawer({ open, onOpenChange, onSuccess }: NombreDrawerProp
 
 | Contenido | Clase |
 |-----------|-------|
-| Form simple (1-3 campos) | `sm:max-w-md` |
-| Form mediano (4-8 campos) | `sm:max-w-lg` |
-| Form complejo (tabs, selects, muchos campos) | `sm:max-w-2xl` |
-| Panel con mucho contenido (chat, preview) | `sm:max-w-4xl` |
+| Form simple (1-3 campos) | `sm:max-w-2xl` (672px) |
+| Form mediano (4-8 campos) | `sm:max-w-3xl` (768px) |
+| Preview documentos | `sm:max-w-4xl` (896px) |
+| Form complejo (tabs, selects, muchos campos) | `sm:max-w-5xl` (1024px) |
+| Panel con mucho contenido (chat, preview) | `sm:max-w-6xl md:max-w-7xl` (1152-1280px) |
 
 ## Paso 3: Consumir el Drawer
 

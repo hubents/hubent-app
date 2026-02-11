@@ -520,7 +520,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
 
       {/* Add Payment Drawer */}
       <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Añadir pago</SheetTitle>
           </SheetHeader>

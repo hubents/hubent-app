@@ -214,7 +214,7 @@ export function CreateLeadDrawer({ open, onOpenChange, onLeadCreated, stageId, p
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-3xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Nuevo Lead</SheetTitle>
           <SheetDescription>

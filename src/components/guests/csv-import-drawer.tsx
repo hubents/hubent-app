@@ -76,7 +76,7 @@ export function CSVImportDrawer({ eventId, onSuccess }: CSVImportDrawerProps) {
         Importar CSV
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Importar Invitados desde CSV</SheetTitle>
           </SheetHeader>

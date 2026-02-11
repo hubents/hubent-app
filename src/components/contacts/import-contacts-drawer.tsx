@@ -209,7 +209,7 @@ export function ImportContactsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetDialog(); }}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
+      <SheetContent className="sm:max-w-5xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Importar Contactos</SheetTitle>
           <SheetDescription>

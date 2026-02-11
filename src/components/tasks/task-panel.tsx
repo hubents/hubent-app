@@ -140,7 +140,7 @@ export function TaskPanel({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-4xl p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-7xl p-0 flex flex-col">
         {/* Header */}
         <SheetHeader className="px-6 py-4 border-b">
           <div className="flex items-start justify-between">

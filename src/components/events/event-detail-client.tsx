@@ -558,7 +558,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 Vincular
               </Button>
               <Sheet open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-                <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetContent className="sm:max-w-2xl overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Vincular Contacto al Evento</SheetTitle>
                   </SheetHeader>
@@ -765,7 +765,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 Asignar
               </Button>
               <Sheet open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
-                <SheetContent className="sm:max-w-md overflow-y-auto">
+                <SheetContent className="sm:max-w-2xl overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
                   </SheetHeader>
@@ -865,7 +865,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Añadir
             </Button>
             <Sheet open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
-              <SheetContent className="sm:max-w-md overflow-y-auto">
+              <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Añadir Invitado</SheetTitle>
                 </SheetHeader>
@@ -956,7 +956,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Subir
             </Button>
             <Sheet open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
-              <SheetContent className="sm:max-w-md overflow-y-auto">
+              <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Subir Documento</SheetTitle>
                 </SheetHeader>

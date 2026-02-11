@@ -317,7 +317,7 @@ export function DocumentPreview({
     <>
     {/* Payment Drawer */}
     <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-      <SheetContent className="sm:max-w-md overflow-y-auto">
+      <SheetContent className="sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Registrar Pago</SheetTitle>
           <SheetDescription>
@@ -407,7 +407,7 @@ export function DocumentPreview({
 
     {/* Send Drawer */}
     <Sheet open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="sm:max-w-3xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Enviar {typeLabels[document.type] || document.type}</SheetTitle>
           <SheetDescription>
@@ -485,7 +485,7 @@ export function DocumentPreview({
       </SheetContent>
     </Sheet>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6">
+      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto p-6">
         <SheetHeader className="space-y-1">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-xl">

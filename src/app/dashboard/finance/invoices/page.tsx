@@ -621,7 +621,7 @@ export default function InvoicesPage() {
 
       {/* Payment Drawer */}
       <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Registrar Pago</SheetTitle>
             <SheetDescription>

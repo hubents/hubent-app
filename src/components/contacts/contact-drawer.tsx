@@ -116,7 +116,7 @@ export function ContactDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-4xl md:max-w-5xl p-0 flex flex-col"
+        className="w-full sm:max-w-6xl md:max-w-7xl p-0 flex flex-col"
       >
         {/* Header */}
         <SheetHeader className="px-6 py-4 border-b border-[var(--border)] flex-shrink-0">

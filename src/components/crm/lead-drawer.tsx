@@ -238,7 +238,7 @@ export function LeadDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md w-full overflow-y-auto p-6">
+      <SheetContent className="sm:max-w-2xl w-full overflow-y-auto p-6">
         {loading ? (
           <div className="space-y-4 pt-6">
             <Skeleton className="h-8 w-3/4" />

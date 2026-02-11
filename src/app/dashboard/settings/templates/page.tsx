@@ -467,7 +467,7 @@ export default function TemplatesPage() {
 
       {/* Create Template Drawer */}
       <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Nuevo Template</SheetTitle>
             <SheetDescription>
@@ -537,7 +537,7 @@ export default function TemplatesPage() {
 
       {/* Edit Template Drawer */}
       <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Editar Template</SheetTitle>
             <SheetDescription>

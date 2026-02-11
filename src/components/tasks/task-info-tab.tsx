@@ -299,7 +299,7 @@ export function TaskInfoTab({
             Agregar Pago
           </Button>
           <Sheet open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-            <SheetContent className="sm:max-w-lg overflow-y-auto">
+            <SheetContent className="sm:max-w-3xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Agregar Pago</SheetTitle>
               </SheetHeader>
@@ -695,7 +695,7 @@ export function TaskInfoTab({
             Subir Archivo
           </Button>
           <Sheet open={showFileDialog} onOpenChange={setShowFileDialog}>
-            <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Subir Archivo</SheetTitle>
               </SheetHeader>

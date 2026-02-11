@@ -92,7 +92,7 @@ export default function PaymentsPage() {
           Nuevo Pago
         </Button>
         <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetContent className="sm:max-w-3xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Nuevo Pago</SheetTitle>
               <SheetDescription>

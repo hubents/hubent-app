@@ -176,7 +176,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
             Asignar Proveedor
           </Button>
           <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
               </SheetHeader>
