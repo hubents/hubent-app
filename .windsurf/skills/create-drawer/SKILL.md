@@ -119,6 +119,7 @@ const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 - [ ] `SheetContent` tiene `overflow-y-auto`
 - [ ] Ancho usa el sistema de tallas (no valores arbitrarios)
 - [ ] `SheetHeader` con `SheetTitle` presente (accesibilidad)
+- [ ] Body del form tiene `px-4 py-4` (alineado con SheetHeader)
 - [ ] Manejo de loading state con `Loader2`
 - [ ] Toast de éxito/error con `sonner`
 

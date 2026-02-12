@@ -55,7 +55,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContacts } from "@/hooks/use-contacts";
 import { ContactDrawer } from "./contact-drawer";
-import { QuickCreateContactDrawer } from "./quick-create-contact-drawer";
 import { ImportContactsDrawer } from "./import-contacts-drawer";
 import { LinkContactDrawer } from "./link-contact-drawer";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
@@ -111,7 +110,7 @@ export function ContactsPageContent() {
       setSegment(urlSegment as Segment);
     }
   }, [searchParams]);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
@@ -300,7 +299,27 @@ export function ContactsPageContent() {
     setIsPreviewOpen(false);
     if (previewContactId) {
       setSelectedContactId(previewContactId);
+      setDrawerMode("view");
       setIsDrawerOpen(true);
+    }
+  };
+
+  const openCreateDrawer = () => {
+    setSelectedContactId(null);
+    setDrawerMode("create");
+    setIsDrawerOpen(true);
+  };
+
+  const handleContactCreated = (newContactId: number) => {
+    setSelectedContactId(newContactId);
+    setDrawerMode("view");
+    refetch();
+  };
+
+  const handleDrawerClose = (open: boolean) => {
+    setIsDrawerOpen(open);
+    if (!open) {
+      setDrawerMode("view");
     }
   };
 
@@ -407,7 +426,7 @@ export function ContactsPageContent() {
             <RiUploadLine className="h-4 w-4" />
             Importar CSV
           </Button>
-          <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+          <Button className="gap-2" onClick={openCreateDrawer}>
             <RiAddLine className="h-4 w-4" />
             Nuevo Contacto
           </Button>
@@ -590,7 +609,7 @@ export function ContactsPageContent() {
                 {search || hasActiveFilters ? "No se encontraron contactos con esos filtros" : "Crea tu primer contacto para comenzar"}
               </p>
               {!search && !hasActiveFilters && (
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Button onClick={openCreateDrawer}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Nuevo Contacto
                 </Button>
@@ -799,17 +818,6 @@ export function ContactsPageContent() {
         </CardContent>
       </Card>
 
-      {/* Quick Create Contact Drawer */}
-      <QuickCreateContactDrawer
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onContactCreated={(contactId) => {
-          refetch();
-          setSelectedContactId(contactId);
-          setIsDrawerOpen(true);
-        }}
-      />
-
       {/* Import Contacts Drawer */}
       <ImportContactsDrawer
         open={isImportDialogOpen}
@@ -841,15 +849,18 @@ export function ContactsPageContent() {
         onEdit={handleEditFromPreview}
       />
 
-      {/* Contact Drawer (full edit) */}
+      {/* Contact Drawer (full edit + create) */}
       <ContactDrawer
         contactId={selectedContactId}
         open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={handleDrawerClose}
         onContactDeleted={refetch}
         onContactUpdated={refetch}
+        onContactCreated={handleContactCreated}
+        mode={drawerMode}
         onOpenRelatedContact={(relatedId) => {
           setSelectedContactId(relatedId);
+          setDrawerMode("view");
         }}
       />
     </div>

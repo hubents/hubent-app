@@ -24,6 +24,11 @@
 | Panel | `sm:max-w-6xl md:max-w-7xl` | 1152-1280px | Paneles grandes (task drawer, contact drawer) |
 | Doc | `sm:max-w-[1500px]` | 1500px | Document drawer con preview (caso especial) |
 
+## Padding obligatorio en formularios
+- El body del formulario (div o form después del SheetHeader) **SIEMPRE** debe incluir `px-4 py-4`
+- Ejemplo: `<div className="space-y-4 px-4 py-4">` o `<form className="space-y-4 px-4 py-4">`
+- Esto alinea el contenido con el padding del SheetHeader (`p-4`)
+
 ## Reglas de SheetContent
 1. **SIEMPRE** incluir `overflow-y-auto` en el className
 2. **SIEMPRE** usar una talla del sistema de anchos (no valores arbitrarios como `[500px]`)
