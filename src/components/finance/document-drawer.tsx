@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sheet,
   SheetContent,
@@ -36,9 +37,11 @@ import {
   RiSaveLine,
   RiLoader4Line,
   RiEyeLine,
+  RiCheckDoubleLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-document-preview";
+import { ContactSelector, type ContactSelectorValue } from "./contact-selector";
 import { cn } from "@/lib/utils";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
@@ -51,20 +54,6 @@ interface DocumentItem {
   discount: number;
   taxRate: number;
   total: number;
-}
-
-interface Contact {
-  id: number;
-  name: string;
-  email: string | null;
-  type: string;
-}
-
-interface Vendor {
-  id: number;
-  name: string;
-  email: string | null;
-  category: string | null;
 }
 
 interface Event {
@@ -80,12 +69,25 @@ interface TaxRate {
   isActive?: boolean;
 }
 
+interface BankAccount {
+  id: number;
+  name: string;
+  bankName: string | null;
+  iban: string | null;
+  swift: string | null;
+  isDefault: boolean;
+}
+
 interface InitialDocumentData {
   contactId?: number;
   vendorId?: number;
   eventId?: number;
   notes?: string;
   termsAndConditions?: string;
+  globalDiscount?: number;
+  globalDiscountType?: "percentage" | "fixed";
+  paymentMethod?: string;
+  bankAccountId?: number;
   items?: DocumentItem[];
 }
 
@@ -106,6 +108,14 @@ const typeLabels: Record<DocumentType, string> = {
   credit_note: "Nota de Crédito",
 };
 
+const paymentMethodOptions = [
+  { value: "bank_transfer", label: "Transferencia bancaria" },
+  { value: "cash", label: "Efectivo" },
+  { value: "card", label: "Tarjeta" },
+  { value: "stripe", label: "Stripe" },
+  { value: "other", label: "Otro" },
+];
+
 export function DocumentDrawer({
   open,
   onOpenChange,
@@ -118,23 +128,28 @@ export function DocumentDrawer({
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  const isDeliveryNote = type === "delivery_note";
+
   // Form state
-  const [contactId, setContactId] = useState<string>("");
-  const [vendorId, setVendorId] = useState<string>("");
+  const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [eventId, setEventId] = useState<string>("");
   const [dueDate, setDueDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [termsAndConditions, setTermsAndConditions] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [bankAccountId, setBankAccountId] = useState<string>("");
+  const [globalDiscountEnabled, setGlobalDiscountEnabled] = useState(false);
+  const [globalDiscount, setGlobalDiscount] = useState(0);
+  const [globalDiscountType, setGlobalDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [items, setItems] = useState<DocumentItem[]>([
     { description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 21, total: 0 },
   ]);
 
   // Reference data
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [defaultTaxRate, setDefaultTaxRate] = useState(21);
   const [orgData, setOrgData] = useState<OrganizationPreviewData | undefined>();
 
@@ -144,12 +159,21 @@ export function DocumentDrawer({
       if (documentId) {
         fetchDocument();
       } else if (initialData) {
-        // Pre-fill form with initial data (e.g., from quote conversion)
-        setContactId(initialData.contactId?.toString() || "");
-        setVendorId(initialData.vendorId?.toString() || "");
+        if (initialData.contactId) {
+          setContactValue({ type: "contact", id: initialData.contactId });
+        } else if (initialData.vendorId) {
+          setContactValue({ type: "vendor", id: initialData.vendorId });
+        }
         setEventId(initialData.eventId?.toString() || "");
         setNotes(initialData.notes || "");
         setTermsAndConditions(initialData.termsAndConditions || "");
+        if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
+        if (initialData.bankAccountId) setBankAccountId(initialData.bankAccountId.toString());
+        if (initialData.globalDiscount && initialData.globalDiscount > 0) {
+          setGlobalDiscountEnabled(true);
+          setGlobalDiscount(initialData.globalDiscount);
+          setGlobalDiscountType(initialData.globalDiscountType || "percentage");
+        }
         if (initialData.items && initialData.items.length > 0) {
           setItems(initialData.items);
         }
@@ -160,35 +184,28 @@ export function DocumentDrawer({
   }, [open, documentId, initialData]);
 
   function resetForm() {
-    setContactId("");
-    setVendorId("");
+    setContactValue(null);
     setEventId("");
     setDueDate("");
     setValidUntil("");
     setNotes("");
     setTermsAndConditions("");
+    setPaymentMethod("");
+    setBankAccountId("");
+    setGlobalDiscountEnabled(false);
+    setGlobalDiscount(0);
+    setGlobalDiscountType("percentage");
     setItems([{ description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
   }
 
   async function fetchReferenceData() {
     try {
-      const [contactsRes, vendorsRes, eventsRes, taxRatesRes, settingsRes] = await Promise.all([
-        fetch("/api/contacts?limit=100"),
-        fetch("/api/vendors?limit=100"),
+      const [eventsRes, taxRatesRes, settingsRes, bankAccountsRes] = await Promise.all([
         fetch("/api/events?limit=100"),
         fetch("/api/finance/tax-rates"),
         fetch("/api/finance/settings"),
+        fetch("/api/finance/bank-accounts"),
       ]);
-
-      if (contactsRes.ok) {
-        const data = await contactsRes.json();
-        setContacts(data.data || []);
-      }
-
-      if (vendorsRes.ok) {
-        const data = await vendorsRes.json();
-        setVendors(data.data || []);
-      }
 
       if (eventsRes.ok) {
         const data = await eventsRes.json();
@@ -204,15 +221,24 @@ export function DocumentDrawer({
         }
       }
 
+      if (bankAccountsRes.ok) {
+        const data = await bankAccountsRes.json();
+        setBankAccounts(data.data || []);
+      }
+
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        if (data.data?.defaultTermsAndConditions && !documentId) {
+        if (data.data?.defaultTermsAndConditions && !documentId && !initialData) {
           setTermsAndConditions(data.data.defaultTermsAndConditions);
         }
-        if (data.data?.quoteValidityDays && type === "quote" && !documentId) {
+        if (data.data?.quoteValidityDays && type === "quote" && !documentId && !initialData) {
           const validDate = new Date();
           validDate.setDate(validDate.getDate() + data.data.quoteValidityDays);
           setValidUntil(validDate.toISOString().split("T")[0]);
+        }
+        if (!documentId && !initialData) {
+          if (data.data?.defaultPaymentMethod) setPaymentMethod(data.data.defaultPaymentMethod);
+          if (data.data?.defaultBankAccountId) setBankAccountId(data.data.defaultBankAccountId.toString());
         }
       }
 
@@ -248,12 +274,24 @@ export function DocumentDrawer({
         const data = await res.json();
         if (data.success && data.data) {
           const doc = data.data;
-          setContactId(doc.contactId?.toString() || "");
+          if (doc.contactId) {
+            setContactValue({ type: "contact", id: doc.contactId });
+          } else if (doc.vendorId) {
+            setContactValue({ type: "vendor", id: doc.vendorId });
+          }
           setEventId(doc.eventId?.toString() || "");
           setDueDate(doc.dueDate ? doc.dueDate.split("T")[0] : "");
           setValidUntil(doc.validUntil ? doc.validUntil.split("T")[0] : "");
           setNotes(doc.notes || "");
           setTermsAndConditions(doc.termsAndConditions || "");
+          setPaymentMethod(doc.paymentMethod || "");
+          setBankAccountId(doc.bankAccountId?.toString() || "");
+          const gd = parseFloat(doc.globalDiscount || "0");
+          if (gd > 0) {
+            setGlobalDiscountEnabled(true);
+            setGlobalDiscount(gd);
+            setGlobalDiscountType(doc.globalDiscountType || "percentage");
+          }
           if (doc.items?.length > 0) {
             setItems(
               doc.items.map((item: any) => ({
@@ -309,22 +347,39 @@ export function DocumentDrawer({
   }
 
   function calculateTotals() {
-    let subtotal = 0;
+    let subtotalLines = 0;
     let taxAmount = 0;
 
     items.forEach((item) => {
-      subtotal += item.total;
-      taxAmount += item.total * (item.taxRate / 100);
+      subtotalLines += item.total;
+    });
+
+    // Apply global discount
+    let globalDiscountAmount = 0;
+    if (globalDiscountEnabled && globalDiscount > 0) {
+      globalDiscountAmount = globalDiscountType === "percentage"
+        ? subtotalLines * (globalDiscount / 100)
+        : globalDiscount;
+    }
+    const subtotalAfterDiscount = subtotalLines - globalDiscountAmount;
+
+    // Calculate tax on subtotal after global discount
+    items.forEach((item) => {
+      const proportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
+      const taxableAmount = subtotalAfterDiscount * proportion;
+      taxAmount += taxableAmount * (item.taxRate / 100);
     });
 
     return {
-      subtotal,
+      subtotalLines,
+      globalDiscountAmount,
+      subtotalAfterDiscount,
       taxAmount,
-      total: subtotal + taxAmount,
+      total: subtotalAfterDiscount + taxAmount,
     };
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(status: "draft" | "approved" = "draft") {
     if (items.length === 0 || !items.some((item) => item.description.trim())) {
       toast.error("Agrega al menos un ítem con descripción");
       return;
@@ -332,21 +387,29 @@ export function DocumentDrawer({
 
     setSaving(true);
     try {
+      const direction = contactValue?.type === "vendor" ? "incoming" : "outgoing";
+
       const payload = {
         type,
-        contactId: contactId ? parseInt(contactId) : undefined,
-        vendorId: vendorId ? parseInt(vendorId) : undefined,
+        contactId: contactValue?.type === "contact" ? contactValue.id : undefined,
+        vendorId: contactValue?.type === "vendor" ? contactValue.id : undefined,
         eventId: eventId ? parseInt(eventId) : undefined,
         dueDate: dueDate || undefined,
         validUntil: validUntil || undefined,
         notes: notes || undefined,
         termsAndConditions: termsAndConditions || undefined,
+        paymentMethod: paymentMethod || undefined,
+        bankAccountId: bankAccountId ? parseInt(bankAccountId) : undefined,
+        globalDiscount: globalDiscountEnabled ? globalDiscount : 0,
+        globalDiscountType: globalDiscountEnabled ? globalDiscountType : "percentage",
+        direction,
+        status: documentId ? undefined : status,
         items: items.filter((item) => item.description.trim()).map((item) => ({
           description: item.description,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount,
-          taxRate: item.taxRate,
+          unitPrice: isDeliveryNote ? 0 : item.unitPrice,
+          discount: isDeliveryNote ? 0 : item.discount,
+          taxRate: isDeliveryNote ? 0 : item.taxRate,
         })),
       };
 
@@ -362,7 +425,8 @@ export function DocumentDrawer({
       });
 
       if (res.ok) {
-        toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} creado`);
+        const statusLabel = status === "approved" ? "aprobado" : "guardado";
+        toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} ${statusLabel}`);
         onOpenChange(false);
         onSuccess?.();
       } else {
@@ -385,16 +449,16 @@ export function DocumentDrawer({
     }).format(amount);
   };
 
+  const selectedBank = bankAccounts.find((b) => b.id.toString() === bankAccountId);
+
   // Build preview data
   const previewData = useMemo(() => {
-    const selectedContact = contacts.find((c) => c.id.toString() === contactId);
-    const selectedVendor = vendors.find((v) => v.id.toString() === vendorId);
     const selectedEvent = events.find((e) => e.id.toString() === eventId);
 
     return {
       type,
-      contactName: selectedContact?.name,
-      vendorName: selectedVendor?.name,
+      contactName: undefined,
+      vendorName: undefined,
       eventName: selectedEvent?.name,
       items,
       notes,
@@ -403,7 +467,7 @@ export function DocumentDrawer({
       validUntil,
       organization: orgData,
     };
-  }, [type, contactId, vendorId, eventId, items, notes, termsAndConditions, dueDate, validUntil, contacts, vendors, events, orgData]);
+  }, [type, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -451,58 +515,15 @@ export function DocumentDrawer({
               showPreview ? "w-1/2 border-r" : "w-full"
             )}>
             <div className="space-y-6">
-            {/* Client / Vendor & Event */}
+            {/* Contact Selector + Event */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Cliente / Contacto</Label>
-                <Select
-                  value={contactId || "none"}
-                  onValueChange={(v) => {
-                    setContactId(v === "none" ? "" : v);
-                    if (v !== "none") setVendorId(""); // Clear vendor if contact selected
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin cliente</SelectItem>
-                    {contacts.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id.toString()}>
-                        {contact.name}
-                        {contact.email && ` (${contact.email})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Cliente / Proveedor</Label>
+                <ContactSelector
+                  value={contactValue}
+                  onChange={setContactValue}
+                />
               </div>
-
-              <div className="space-y-2">
-                <Label>Proveedor (para pagos)</Label>
-                <Select
-                  value={vendorId || "none"}
-                  onValueChange={(v) => {
-                    setVendorId(v === "none" ? "" : v);
-                    if (v !== "none") setContactId(""); // Clear contact if vendor selected
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar proveedor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin proveedor</SelectItem>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                        {vendor.name}
-                        {vendor.category && ` (${vendor.category})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Evento (opcional)</Label>
                 <Select
@@ -547,6 +568,61 @@ export function DocumentDrawer({
               )}
             </div>
 
+            {/* Payment Method (not for delivery notes) */}
+            {!isDeliveryNote && (
+              <>
+                <Separator />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Método de pago</Label>
+                    <Select
+                      value={paymentMethod || "none"}
+                      onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin especificar</SelectItem>
+                        {paymentMethodOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {paymentMethod === "bank_transfer" && (
+                    <div className="space-y-2">
+                      <Label>Cuenta bancaria</Label>
+                      <Select
+                        value={bankAccountId || "none"}
+                        onValueChange={(v) => setBankAccountId(v === "none" ? "" : v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar cuenta..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin especificar</SelectItem>
+                          {bankAccounts.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id.toString()}>
+                              {acc.name} {acc.iban && `(${acc.iban.slice(-8)})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedBank?.iban && (
+                        <p className="text-xs text-muted-foreground">
+                          IBAN: {selectedBank.iban}
+                          {selectedBank.swift && ` · BIC: ${selectedBank.swift}`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
             <Separator />
 
             {/* Items */}
@@ -565,10 +641,14 @@ export function DocumentDrawer({
                     <TableRow>
                       <TableHead className="min-w-[200px]">Descripción</TableHead>
                       <TableHead className="w-20">Cant.</TableHead>
-                      <TableHead className="w-24">Precio</TableHead>
-                      <TableHead className="w-20">Dto.%</TableHead>
-                      <TableHead className="w-20">IVA%</TableHead>
-                      <TableHead className="w-24 text-right">Total</TableHead>
+                      {!isDeliveryNote && (
+                        <>
+                          <TableHead className="w-24">Precio</TableHead>
+                          <TableHead className="w-20">Dto.%</TableHead>
+                          <TableHead className="w-20">IVA%</TableHead>
+                          <TableHead className="w-24 text-right">Total</TableHead>
+                        </>
+                      )}
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -590,53 +670,57 @@ export function DocumentDrawer({
                             onChange={(e) => updateItem(index, "quantity", e.target.value)}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.unitPrice}
-                            onChange={(e) => updateItem(index, "unitPrice", e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={item.discount}
-                            onChange={(e) => updateItem(index, "discount", e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={item.taxRate.toString()}
-                            onValueChange={(v) => updateItem(index, "taxRate", v)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {taxRates.length > 0 ? (
-                                taxRates.filter(t => t.isActive !== false).map((tax) => (
-                                  <SelectItem key={tax.id} value={tax.rate.toString()}>
-                                    {tax.name} ({tax.rate}%)
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <>
-                                  <SelectItem value="0">Exento (0%)</SelectItem>
-                                  <SelectItem value="4">Superreducido (4%)</SelectItem>
-                                  <SelectItem value="10">Reducido (10%)</SelectItem>
-                                  <SelectItem value="21">General (21%)</SelectItem>
-                                </>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(item.total)}
-                        </TableCell>
+                        {!isDeliveryNote && (
+                          <>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unitPrice}
+                                onChange={(e) => updateItem(index, "unitPrice", e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={item.discount}
+                                onChange={(e) => updateItem(index, "discount", e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={item.taxRate.toString()}
+                                onValueChange={(v) => updateItem(index, "taxRate", v)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {taxRates.length > 0 ? (
+                                    taxRates.filter(t => t.isActive !== false).map((tax) => (
+                                      <SelectItem key={tax.id} value={tax.rate.toString()}>
+                                        {tax.name} ({tax.rate}%)
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <>
+                                      <SelectItem value="0">Exento (0%)</SelectItem>
+                                      <SelectItem value="4">Superreducido (4%)</SelectItem>
+                                      <SelectItem value="10">Reducido (10%)</SelectItem>
+                                      <SelectItem value="21">General (21%)</SelectItem>
+                                    </>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(item.total)}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <Button
                             type="button"
@@ -654,24 +738,78 @@ export function DocumentDrawer({
                 </Table>
               </div>
 
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-64 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span>{formatCurrency(totals.subtotal)}</span>
+              {/* Global Discount (not for delivery notes) */}
+              {!isDeliveryNote && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="global-discount"
+                      checked={globalDiscountEnabled}
+                      onCheckedChange={(checked) => {
+                        setGlobalDiscountEnabled(!!checked);
+                        if (!checked) setGlobalDiscount(0);
+                      }}
+                    />
+                    <Label htmlFor="global-discount" className="text-sm cursor-pointer">
+                      Descuento global
+                    </Label>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">IVA</span>
-                    <span>{formatCurrency(totals.taxAmount)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>{formatCurrency(totals.total)}</span>
+                  {globalDiscountEnabled && (
+                    <div className="flex items-center gap-2 pl-6">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={globalDiscount}
+                        onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
+                        className="w-28"
+                      />
+                      <Select
+                        value={globalDiscountType}
+                        onValueChange={(v) => setGlobalDiscountType(v as "percentage" | "fixed")}
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">%</SelectItem>
+                          <SelectItem value="fixed">€</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Totals (not for delivery notes) */}
+              {!isDeliveryNote && (
+                <div className="flex justify-end">
+                  <div className="w-72 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatCurrency(totals.subtotalLines)}</span>
+                    </div>
+                    {totals.globalDiscountAmount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>
+                          Descuento global
+                          {globalDiscountType === "percentage" && ` (${globalDiscount}%)`}
+                        </span>
+                        <span>-{formatCurrency(totals.globalDiscountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">IVA</span>
+                      <span>{formatCurrency(totals.taxAmount)}</span>
+                    </div>
+                    <Separator />
+                    <div className="flex justify-between font-semibold text-base">
+                      <span>Total</span>
+                      <span>{formatCurrency(totals.total)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <Separator />
@@ -687,34 +825,48 @@ export function DocumentDrawer({
               />
             </div>
 
-            {/* Terms */}
-            <div className="space-y-2">
-              <Label>Términos y Condiciones</Label>
-              <Textarea
-                value={termsAndConditions}
-                onChange={(e) => setTermsAndConditions(e.target.value)}
-                placeholder="Términos y condiciones..."
-                rows={3}
-              />
-            </div>
+            {/* Terms (not for delivery notes) */}
+            {!isDeliveryNote && (
+              <div className="space-y-2">
+                <Label>Términos y Condiciones</Label>
+                <Textarea
+                  value={termsAndConditions}
+                  onChange={(e) => setTermsAndConditions(e.target.value)}
+                  placeholder="Términos y condiciones..."
+                  rows={3}
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
-                className="flex-1"
                 onClick={() => onOpenChange(false)}
               >
                 Cancelar
               </Button>
-              <Button className="flex-1" onClick={handleSubmit} disabled={saving}>
+              <Button
+                variant="secondary"
+                onClick={() => handleSubmit("draft")}
+                disabled={saving}
+              >
                 {saving ? (
                   <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RiSaveLine className="mr-2 h-4 w-4" />
                 )}
-                {saving ? "Guardando..." : documentId ? "Guardar Cambios" : `Crear ${typeLabels[type]}`}
+                {documentId ? "Guardar cambios" : "Guardar borrador"}
               </Button>
+              {!documentId && (
+                <Button
+                  onClick={() => handleSubmit("approved")}
+                  disabled={saving}
+                >
+                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
+                  Aprobar
+                </Button>
+              )}
             </div>
             </div>
             </div>

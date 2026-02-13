@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const taskId = searchParams.get("taskId");
     const eventId = searchParams.get("eventId");
     const vendorId = searchParams.get("vendorId");
+    const direction = searchParams.get("direction");
 
     if (type === "schedules") {
       const schedules = await getPaymentSchedules(session, {
@@ -28,14 +29,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Default to records
-    const records = await getPaymentRecords(session, {
+    const page = searchParams.get("page");
+    const limit = searchParams.get("limit");
+
+    const result = await getPaymentRecords(session, {
       documentId: documentId ? parseInt(documentId, 10) : undefined,
       taskId: taskId ? parseInt(taskId, 10) : undefined,
+      direction: direction || undefined,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
 
     return NextResponse.json({
       success: true,
-      data: records,
+      data: result.data,
+      meta: result.meta,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch payments";

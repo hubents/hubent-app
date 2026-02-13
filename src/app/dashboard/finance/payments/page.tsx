@@ -41,11 +41,11 @@ import {
   RiAlertLine,
   RiCalendarLine,
 } from "@remixicon/react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import Link from "next/link";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
+import { cn } from "@/lib/utils";
 
 interface Payment {
   id: number;
@@ -62,7 +62,15 @@ interface Payment {
   notes: string | null;
   documentNumber?: string | null;
   documentType?: string | null;
+  contactName?: string | null;
 }
+
+type DirectionTab = "all" | "incoming" | "outgoing";
+const directionTabs: { key: DirectionTab; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "incoming", label: "Cobros" },
+  { key: "outgoing", label: "Pagos" },
+];
 
 interface FinancialDocument {
   id: number;
@@ -110,7 +118,9 @@ export default function PaymentsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [directionFilter, setDirectionFilter] = useState("all");
+  const [directionFilter, setDirectionFilter] = useState<DirectionTab>("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   
   // New payment form
@@ -129,15 +139,23 @@ export default function PaymentsPage() {
     fetchPayments();
     fetchDocuments();
     fetchSchedules();
-  }, [directionFilter]);
+  }, [directionFilter, page]);
 
   async function fetchPayments() {
     try {
-      const res = await fetch("/api/finance/payments?type=records");
+      const params = new URLSearchParams({
+        type: "records",
+        page: page.toString(),
+        limit: "20",
+      });
+      if (directionFilter !== "all") params.set("direction", directionFilter);
+
+      const res = await fetch(`/api/finance/payments?${params}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
           setPayments(data.data || []);
+          setTotalPages(data.meta?.totalPages || 1);
           calculateStats(data.data || []);
         }
       }
@@ -301,12 +319,13 @@ export default function PaymentsPage() {
   };
 
   const filteredPayments = payments.filter((p) => {
-    if (directionFilter !== "all" && p.direction !== directionFilter) return false;
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
       p.reference?.toLowerCase().includes(search) ||
-      p.notes?.toLowerCase().includes(search)
+      p.notes?.toLowerCase().includes(search) ||
+      p.documentNumber?.toLowerCase().includes(search) ||
+      p.contactName?.toLowerCase().includes(search)
     );
   });
 
@@ -595,29 +614,35 @@ export default function PaymentsPage() {
         </Card>
       )}
 
-      {/* Filters */}
+      {/* Direction Tabs */}
+      <div className="flex gap-1 border-b">
+        {directionTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setDirectionFilter(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              directionFilter === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por referencia o notas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={directionFilter} onValueChange={setDirectionFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="incoming">Cobros</SelectItem>
-                <SelectItem value="outgoing">Pagos</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por referencia, contacto o documento..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </CardContent>
       </Card>
@@ -629,8 +654,10 @@ export default function PaymentsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
+                <TableHead>Contacto</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Método</TableHead>
+                <TableHead>Conciliado con</TableHead>
                 <TableHead>Referencia</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
               </TableRow>
@@ -638,7 +665,7 @@ export default function PaymentsPage() {
             <TableBody>
               {filteredPayments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No hay pagos registrados
                   </TableCell>
                 </TableRow>
@@ -649,6 +676,9 @@ export default function PaymentsPage() {
                       {payment.paymentDate
                         ? format(new Date(payment.paymentDate), "dd MMM yyyy", { locale: es })
                         : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.contactName || "-"}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -663,6 +693,13 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell className="capitalize">
                       {payment.paymentMethod?.replace("_", " ") || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.documentNumber ? (
+                        <span className="text-sm font-medium">{payment.documentNumber}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {payment.reference || payment.notes || "-"}
@@ -686,6 +723,15 @@ export default function PaymentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex justify-center">
+        <NumericPagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </div>
     </div>
   );
 }

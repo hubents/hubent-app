@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,16 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   RiAddLine,
   RiSearchLine,
-  RiTruckLine,
   RiMoreLine,
   RiEditLine,
   RiFileCopyLine,
@@ -41,6 +39,8 @@ import {
   RiCheckLine,
   RiEyeLine,
   RiCheckDoubleLine,
+  RiExchangeLine,
+  RiMoneyDollarCircleLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -48,6 +48,7 @@ import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
+import { cn } from "@/lib/utils";
 
 interface DocumentItem {
   id: number;
@@ -59,109 +60,107 @@ interface DocumentItem {
   total: string;
 }
 
-interface DeliveryNote {
+interface Proforma {
   id: number;
   type: string;
   number: string;
   status: string;
+  contactId: number | null;
+  vendorId: number | null;
+  eventId: number | null;
+  direction: string | null;
   issueDate: string;
   dueDate: string | null;
   validUntil: string | null;
   subtotal: string;
   taxAmount: string;
   total: string;
+  paidAmount: string | null;
   currency: string;
+  globalDiscount: string | null;
+  globalDiscountType: string | null;
   notes: string | null;
   termsAndConditions: string | null;
+  contactName: string | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
-  contactName: string | null;
   eventName: string | null;
   items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-700" },
+  approved: { label: "Aprobada", color: "bg-indigo-100 text-indigo-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  delivered: { label: "Entregado", color: "bg-green-100 text-green-700" },
+  paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
+  cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
 };
 
-export default function DeliveryNotesPage() {
-  return (
-    <Suspense>
-      <DeliveryNotesContent />
-    </Suspense>
-  );
-}
+type DirectionTab = "all" | "outgoing" | "incoming";
+const directionTabs: { key: DirectionTab; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "outgoing", label: "Cobros" },
+  { key: "incoming", label: "Pagos" },
+];
 
-function DeliveryNotesContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [notes, setNotes] = useState<DeliveryNote[]>([]);
+export default function ProformasPage() {
+  const [proformas, setProformas] = useState<Proforma[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  
+  const [drawerType, setDrawerType] = useState<"proforma" | "invoice">("proforma");
+
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewNote, setPreviewNote] = useState<DeliveryNote | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<Proforma | null>(null);
 
   useEffect(() => {
-    fetchNotes();
-  }, [statusFilter, page]);
+    fetchProformas();
+  }, [page, statusFilter, directionTab]);
 
-  useEffect(() => {
-    if (searchParams.get("new") === "true") {
-      openNewDrawer();
-      router.replace("/dashboard/finance/delivery-notes");
-    }
-  }, [searchParams]);
-
-  async function fetchNotes() {
+  async function fetchProformas() {
     try {
       const params = new URLSearchParams({
-        type: "delivery_note",
+        type: "proforma",
         page: page.toString(),
         limit: "20",
       });
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (directionTab !== "all") params.set("direction", directionTab);
       if (searchTerm) params.set("search", searchTerm);
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setNotes(data.data || []);
+          setProformas(data.data || []);
           setTotalPages(data.meta?.totalPages || 1);
         }
       }
     } catch (error) {
-      console.error("Failed to fetch delivery notes:", error);
-      toast.error("Error al cargar albaranes");
+      console.error("Failed to fetch proformas:", error);
+      toast.error("Error al cargar proformas");
     } finally {
       setLoading(false);
     }
   }
 
-  async function deleteNote(id: number) {
-    if (!confirm("¿Estás seguro de eliminar este albarán?")) return;
-
+  async function deleteProforma(id: number) {
+    if (!confirm("¿Estás seguro de eliminar esta proforma?")) return;
     try {
-      const res = await fetch(`/api/finance/documents/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
       if (res.ok) {
-        toast.success("Albarán eliminado");
-        fetchNotes();
+        toast.success("Proforma eliminada");
+        fetchProformas();
       } else {
         toast.error("Error al eliminar");
       }
@@ -170,7 +169,7 @@ function DeliveryNotesContent() {
     }
   }
 
-  async function duplicateNote(id: number) {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "proforma" | "invoice") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -182,21 +181,27 @@ function DeliveryNotesContent() {
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0"),
+            globalDiscountType: doc.globalDiscountType,
+            paymentMethod: doc.paymentMethod,
+            bankAccountId: doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
-              unitPrice: 0,
-              discount: 0,
-              taxRate: 0,
-              total: 0,
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
             })),
           });
+          setDrawerType(targetType);
           setEditingId(undefined);
           setDrawerOpen(true);
         }
       }
     } catch (error) {
-      toast.error("Error al duplicar");
+      toast.error("Error al cargar documento");
     }
   }
 
@@ -209,7 +214,7 @@ function DeliveryNotesContent() {
       });
       if (res.ok) {
         toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
-        fetchNotes();
+        fetchProformas();
       } else {
         toast.error("Error al actualizar estado");
       }
@@ -221,12 +226,14 @@ function DeliveryNotesContent() {
   function openNewDrawer() {
     setEditingId(undefined);
     setDrawerInitialData(undefined);
+    setDrawerType("proforma");
     setDrawerOpen(true);
   }
 
   function openEditDrawer(id: number) {
     setEditingId(id);
     setDrawerInitialData(undefined);
+    setDrawerType("proforma");
     setDrawerOpen(true);
   }
 
@@ -236,7 +243,7 @@ function DeliveryNotesContent() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
-          setPreviewNote(data.data);
+          setPreviewDoc(data.data);
           setPreviewOpen(true);
         }
       }
@@ -245,26 +252,33 @@ function DeliveryNotesContent() {
     }
   }
 
-  const getClientName = (note: DeliveryNote) => {
-    if (note.contactName) return note.contactName;
-    if (note.companyName) return note.companyName;
-    if (note.personFirstName) {
-      return `${note.personFirstName} ${note.personLastName || ""}`.trim();
+  const formatCurrency = (amount: string, currency = "EUR") => {
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency,
+    }).format(parseFloat(amount || "0"));
+  };
+
+  const getClientName = (doc: Proforma) => {
+    if (doc.contactName) return doc.contactName;
+    if (doc.companyName) return doc.companyName;
+    if (doc.personFirstName) {
+      return `${doc.personFirstName} ${doc.personLastName || ""}`.trim();
     }
     return "Sin cliente";
   };
 
   function handleSearchSubmit() {
     setPage(1);
-    fetchNotes();
+    fetchProformas();
   }
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-10 w-40" />
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-10 w-48" />
         </div>
         <Skeleton className="h-96" />
       </div>
@@ -276,15 +290,33 @@ function DeliveryNotesContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Albaranes</h1>
+          <h1 className="text-2xl font-bold">Proformas</h1>
           <p className="text-muted-foreground">
-            Notas de entrega de productos y servicios
+            Facturas proforma para anticipos y presupuestos formales
           </p>
         </div>
         <Button onClick={openNewDrawer}>
           <RiAddLine className="mr-2 h-4 w-4" />
-          Nuevo Albarán
+          Nueva Proforma
         </Button>
+      </div>
+
+      {/* Direction Tabs */}
+      <div className="flex gap-1 border-b">
+        {directionTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setDirectionTab(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              directionTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
@@ -306,11 +338,12 @@ function DeliveryNotesContent() {
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="approved">Aprobado</SelectItem>
+                <SelectItem value="approved">Aprobada</SelectItem>
                 <SelectItem value="sent">Pendiente</SelectItem>
-                <SelectItem value="delivered">Entregado</SelectItem>
+                <SelectItem value="paid">Pagada</SelectItem>
+                <SelectItem value="cancelled">Cancelada</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -326,39 +359,38 @@ function DeliveryNotesContent() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Número</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {notes.length === 0 ? (
+              {proformas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <RiTruckLine className="h-8 w-8" />
-                      <p>No hay albaranes</p>
-                    </div>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No hay proformas
                   </TableCell>
                 </TableRow>
               ) : (
-                notes.map((note: DeliveryNote) => (
-                  <TableRow 
-                    key={note.id}
+                proformas.map((doc: Proforma) => (
+                  <TableRow
+                    key={doc.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openEditDrawer(note.id)}
+                    onClick={() => openEditDrawer(doc.id)}
                   >
                     <TableCell>
-                      {note.issueDate
-                        ? format(new Date(note.issueDate), "dd MMM yyyy", { locale: es })
+                      {doc.issueDate
+                        ? format(new Date(doc.issueDate), "dd MMM yyyy", { locale: es })
                         : "-"}
                     </TableCell>
-                    <TableCell>{getClientName(note)}</TableCell>
-                    <TableCell className="font-medium">
-                      {note.number}
+                    <TableCell>{getClientName(doc)}</TableCell>
+                    <TableCell className="font-medium">{doc.number}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(doc.total, doc.currency)}
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusConfig[note.status]?.color || "bg-gray-100"}>
-                        {statusConfig[note.status]?.label || note.status}
+                      <Badge className={statusConfig[doc.status]?.color || "bg-gray-100"}>
+                        {statusConfig[doc.status]?.label || doc.status}
                       </Badge>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -369,47 +401,59 @@ function DeliveryNotesContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDrawer(note.id)}>
+                          <DropdownMenuItem onClick={() => openEditDrawer(doc.id)}>
                             <RiEditLine className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openPreview(note.id)}>
+                          <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                             <RiEyeLine className="mr-2 h-4 w-4" />
                             Vista previa
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateNote(note.id)}>
+                          <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "proforma")}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {note.status === "draft" && (
+                          {doc.status === "draft" && (
                             <>
-                              <DropdownMenuItem onClick={() => updateStatus(note.id, "approved")}>
+                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "approved")}>
                                 <RiCheckDoubleLine className="mr-2 h-4 w-4" />
                                 Aprobar
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus(note.id, "sent")}>
+                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
                                 <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                 Marcar como Pendiente
                               </DropdownMenuItem>
                             </>
                           )}
-                          {note.status === "approved" && (
-                            <DropdownMenuItem onClick={() => updateStatus(note.id, "sent")}>
+                          {doc.status === "approved" && (
+                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
                               <RiSendPlaneLine className="mr-2 h-4 w-4" />
                               Marcar como Pendiente
                             </DropdownMenuItem>
                           )}
-                          {note.status === "sent" && (
-                            <DropdownMenuItem onClick={() => updateStatus(note.id, "delivered")}>
+                          {doc.status === "sent" && (
+                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "paid")}>
+                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                              Marcar como Pagada
+                            </DropdownMenuItem>
+                          )}
+                          {(doc.status === "sent" || doc.status === "paid") && (
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "invoice")}>
+                              <RiExchangeLine className="mr-2 h-4 w-4" />
+                              Convertir a Factura
+                            </DropdownMenuItem>
+                          )}
+                          {doc.status !== "paid" && doc.status !== "cancelled" && (
+                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "cancelled")}>
                               <RiCheckLine className="mr-2 h-4 w-4" />
-                              Marcar como Entregado
+                              Cancelar
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
-                            onClick={() => deleteNote(note.id)}
+                            onClick={() => deleteProforma(doc.id)}
                           >
                             <RiDeleteBinLine className="mr-2 h-4 w-4" />
                             Eliminar
@@ -437,23 +481,26 @@ function DeliveryNotesContent() {
       {/* Document Drawer */}
       <DocumentDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        type="delivery_note"
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) { setDrawerInitialData(undefined); setDrawerType("proforma"); }
+        }}
+        type={drawerType}
         documentId={editingId}
         initialData={drawerInitialData}
-        onSuccess={fetchNotes}
+        onSuccess={fetchProformas}
       />
 
       {/* Document Preview */}
       <DocumentPreview
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        document={previewNote}
+        document={previewDoc}
         onEdit={() => {
           setPreviewOpen(false);
-          if (previewNote) openEditDrawer(previewNote.id);
+          if (previewDoc) openEditDrawer(previewDoc.id);
         }}
-        onRefresh={fetchNotes}
+        onRefresh={fetchProformas}
       />
     </div>
   );

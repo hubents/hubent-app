@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const type = searchParams.get("type") || undefined;
     const status = searchParams.get("status") || undefined;
+    const direction = searchParams.get("direction") || undefined;
+    const search = searchParams.get("search") || undefined;
 
-    const result = await getDocuments(session, { page, limit, type, status });
+    const result = await getDocuments(session, { page, limit, type, status, direction, search });
 
     return NextResponse.json({
       success: true,
@@ -55,6 +57,12 @@ export async function POST(request: NextRequest) {
       validUntil: body.validUntil ? new Date(body.validUntil) : undefined,
       notes: body.notes,
       termsAndConditions: body.termsAndConditions,
+      globalDiscount: body.globalDiscount,
+      globalDiscountType: body.globalDiscountType,
+      paymentMethod: body.paymentMethod,
+      bankAccountId: body.bankAccountId,
+      direction: body.direction,
+      status: body.status,
       items,
     });
 

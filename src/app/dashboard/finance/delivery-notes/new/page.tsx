@@ -1,11 +1,5 @@
-import { DocumentForm } from "@/components/finance/document-form";
+import { redirect } from "next/navigation";
 
 export default function NewDeliveryNotePage() {
-  return (
-    <DocumentForm
-      type="delivery_note"
-      title="Nuevo Albarán"
-      backUrl="/dashboard/finance/delivery-notes"
-    />
-  );
+  redirect("/dashboard/finance/delivery-notes?new=true");
 }

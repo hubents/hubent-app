@@ -1,11 +1,5 @@
-import { DocumentForm } from "@/components/finance/document-form";
+import { redirect } from "next/navigation";
 
 export default function NewQuotePage() {
-  return (
-    <DocumentForm
-      type="quote"
-      title="Nuevo Presupuesto"
-      backUrl="/dashboard/finance/quotes"
-    />
-  );
+  redirect("/dashboard/finance/quotes?new=true");
 }

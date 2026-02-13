@@ -26,6 +26,9 @@ interface FinanceDocument {
   taxAmount: string | null;
   total: string | null;
   currency: string | null;
+  globalDiscount?: string | null;
+  globalDiscountType?: string | null;
+  paymentMethod?: string | null;
   notes: string | null;
   termsAndConditions: string | null;
   items: DocumentItem[];
@@ -62,12 +65,22 @@ const TYPE_LABELS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Borrador",
-  sent: "Enviado",
+  approved: "Aprobado",
+  sent: "Pendiente",
   accepted: "Aceptado",
   rejected: "Rechazado",
   paid: "Pagado",
+  overdue: "Vencido",
   cancelled: "Cancelado",
   delivered: "Entregado",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: "Efectivo",
+  bank_transfer: "Transferencia bancaria",
+  card: "Tarjeta",
+  stripe: "Stripe",
+  other: "Otro",
 };
 
 // ============================================
@@ -420,6 +433,16 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
           <span class="total-label">Subtotal</span>
           <span>${formatCurrency(doc.subtotal, doc.currency)}</span>
         </div>
+        ${(() => {
+          const gd = parseFloat(doc.globalDiscount || "0");
+          if (gd > 0) {
+            const label = doc.globalDiscountType === "fixed"
+              ? `Descuento global (${formatCurrency(gd, doc.currency)})`
+              : `Descuento global (${gd}%)`;
+            return `<div class="total-row"><span class="total-label">${label}</span><span>-</span></div>`;
+          }
+          return "";
+        })()}
         <div class="total-row">
           <span class="total-label">IVA</span>
           <span>${formatCurrency(doc.taxAmount, doc.currency)}</span>
@@ -430,6 +453,18 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
         </div>
       </div>
     </div>
+
+    <!-- Payment Method -->
+    ${
+      doc.paymentMethod
+        ? `
+    <div class="notes-section">
+      <div class="notes-title">Método de pago</div>
+      <div class="notes-content">${PAYMENT_METHOD_LABELS[doc.paymentMethod] || doc.paymentMethod}</div>
+    </div>
+    `
+        : ""
+    }
 
     <!-- Notes -->
     ${

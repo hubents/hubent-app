@@ -71,6 +71,7 @@ const moreSubNav = [
 const financeSubNav = [
   { name: "Panel de Control", href: "/dashboard/finance", icon: RiDashboardLine },
   { name: "Presupuestos", href: "/dashboard/finance/quotes", icon: RiFileTextLine },
+  { name: "Proformas", href: "/dashboard/finance/proformas", icon: RiFileTextLine },
   { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
   { name: "Facturas", href: "/dashboard/finance/invoices", icon: RiFileList2Line },
   { name: "Pagos", href: "/dashboard/finance/payments", icon: RiMoneyDollarCircleLine },

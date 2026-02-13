@@ -1,11 +1,5 @@
-import { DocumentForm } from "@/components/finance/document-form";
+import { redirect } from "next/navigation";
 
 export default function NewInvoicePage() {
-  return (
-    <DocumentForm
-      type="invoice"
-      title="Nueva Factura"
-      backUrl="/dashboard/finance/invoices"
-    />
-  );
+  redirect("/dashboard/finance/invoices?new=true");
 }

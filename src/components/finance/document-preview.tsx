@@ -70,6 +70,10 @@ interface Document {
   notes: string | null;
   termsAndConditions: string | null;
   stripePaymentUrl?: string | null;
+  globalDiscount?: string | null;
+  globalDiscountType?: string | null;
+  paymentMethod?: string | null;
+  direction?: string | null;
   items: DocumentItem[];
   contactName?: string | null;
   companyName?: string | null;
@@ -97,11 +101,13 @@ const typeLabels: Record<string, string> = {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-800" },
-  sent: { label: "Enviado", color: "bg-blue-100 text-blue-800" },
+  approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-800" },
+  sent: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-800" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-800" },
   paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-800" },
   partial: { label: "Parcialmente pagado", color: "bg-amber-100 text-amber-800" },
+  overdue: { label: "Vencido", color: "bg-orange-100 text-orange-800" },
   cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
   delivered: { label: "Entregado", color: "bg-purple-100 text-purple-800" },
 };
@@ -218,19 +224,22 @@ export function DocumentPreview({
     const current = document.status;
 
     if (type === "quote") {
-      if (current === "draft") return ["sent"];
+      if (current === "draft") return ["approved", "sent"];
+      if (current === "approved") return ["sent"];
       if (current === "sent") return ["accepted", "rejected"];
       return [];
     }
 
     if (type === "invoice" || type === "proforma" || type === "credit_note") {
-      if (current === "draft") return ["sent"];
+      if (current === "draft") return ["approved", "sent"];
+      if (current === "approved") return ["sent"];
       if (current === "sent") return ["paid", "cancelled"];
       return [];
     }
 
     if (type === "delivery_note") {
-      if (current === "draft") return ["sent"];
+      if (current === "draft") return ["approved", "sent"];
+      if (current === "approved") return ["sent"];
       if (current === "sent") return ["delivered"];
       return [];
     }
@@ -255,7 +264,7 @@ export function DocumentPreview({
           documentId: document.id,
           amount: parseFloat(paymentAmount),
           currency: document.currency,
-          direction: "incoming",
+          direction: document.direction === "incoming" ? "outgoing" : "incoming",
           paymentMethod: paymentMethod,
           reference: paymentReference || null,
           paymentDate: new Date().toISOString(),
@@ -668,6 +677,15 @@ export function DocumentPreview({
                 <span className="text-muted-foreground">Subtotal</span>
                 <span>{formatCurrency(document.subtotal, document.currency)}</span>
               </div>
+              {parseFloat(document.globalDiscount || "0") > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>
+                    Descuento global
+                    {document.globalDiscountType === "percentage" && ` (${document.globalDiscount}%)`}
+                  </span>
+                  <span>-</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">IVA</span>
                 <span>{formatCurrency(document.taxAmount, document.currency)}</span>
@@ -724,6 +742,28 @@ export function DocumentPreview({
                 Registrar pago
               </Button>
             </div>
+          )}
+
+          {/* Payment Method */}
+          {document.paymentMethod && (
+            <>
+              <Separator />
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Método de pago</p>
+                  <p className="font-medium">
+                    {{
+                      bank_transfer: "Transferencia bancaria",
+                      cash: "Efectivo",
+                      card: "Tarjeta",
+                      stripe: "Stripe",
+                      check: "Cheque",
+                      other: "Otro",
+                    }[document.paymentMethod] || document.paymentMethod}
+                  </p>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Notes */}

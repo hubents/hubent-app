@@ -64,6 +64,20 @@
       "when": 1770810023246,
       "tag": "0008_broad_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771012195675,
+      "tag": "0009_cloudy_spitfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771017039745,
+      "tag": "0010_windy_longshot",
+      "breakpoints": true
     }
   ]
 }

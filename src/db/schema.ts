@@ -96,11 +96,13 @@ export const documentTypeEnum = pgEnum("document_type", [
 
 export const documentStatusEnum = pgEnum("document_status", [
   "draft",
+  "approved",
   "sent",
   "accepted",
   "rejected",
   "paid",
   "cancelled",
+  "delivered",
 ]);
 
 export const messageTypeEnum = pgEnum("message_type", [
@@ -821,6 +823,10 @@ export const organizationFinanceSettings = pgTable("organization_finance_setting
   enableBankTransfer: boolean("enable_bank_transfer").default(true),
   enableStripe: boolean("enable_stripe").default(false),
   
+  // Default payment method for documents
+  defaultPaymentMethod: text("default_payment_method").default("bank_transfer"),
+  defaultBankAccountId: integer("default_bank_account_id").references(() => bankAccounts.id),
+  
   // Default terms
   defaultPaymentTerms: text("default_payment_terms").default("30 días"),
   defaultTermsAndConditions: text("default_terms_and_conditions"),
@@ -900,6 +906,9 @@ export const financialDocuments = pgTable("financial_documents", {
   total: decimal("total", { precision: 12, scale: 2 }),
   paidAmount: decimal("paid_amount", { precision: 12, scale: 2 }).default("0"),
   currency: text("currency").default("EUR"),
+  globalDiscount: decimal("global_discount", { precision: 10, scale: 2 }).default("0"),
+  globalDiscountType: text("global_discount_type").default("percentage"),
+  paymentMethod: text("payment_method"),
   paymentTerms: text("payment_terms"),
   bankAccountId: integer("bank_account_id").references(() => bankAccounts.id),
   notes: text("notes"),

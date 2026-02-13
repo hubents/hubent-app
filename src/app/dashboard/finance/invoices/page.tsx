@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +42,16 @@ import {
   RiExchangeLine,
   RiRefund2Line,
   RiLinkM,
+  RiEyeLine,
+  RiCheckDoubleLine,
+  RiTruckLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 import {
   Sheet,
   SheetContent,
@@ -56,6 +61,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface DocumentItem {
   id: number;
@@ -75,7 +81,9 @@ interface Invoice {
   companyId: number | null;
   personId: number | null;
   contactId: number | null;
+  vendorId: number | null;
   eventId: number | null;
+  direction: string | null;
   issueDate: string;
   dueDate: string | null;
   validUntil: string | null;
@@ -84,6 +92,8 @@ interface Invoice {
   total: string;
   paidAmount: string | null;
   currency: string;
+  globalDiscount: string | null;
+  globalDiscountType: string | null;
   notes: string | null;
   termsAndConditions: string | null;
   companyName: string | null;
@@ -96,25 +106,47 @@ interface Invoice {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  sent: { label: "Enviada", color: "bg-blue-100 text-blue-700" },
+  approved: { label: "Aprobada", color: "bg-indigo-100 text-indigo-700" },
+  sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptada", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazada", color: "bg-red-100 text-red-700" },
   paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
+  overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
   cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
 };
 
+type DirectionTab = "all" | "outgoing" | "incoming";
+
+const directionTabs: { key: DirectionTab; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "outgoing", label: "Cobros" },
+  { key: "incoming", label: "Pagos" },
+];
+
 export default function InvoicesPage() {
+  return (
+    <Suspense>
+      <InvoicesContent />
+    </Suspense>
+  );
+}
+
+function InvoicesContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
   
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -129,7 +161,14 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchInvoices();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, directionTab]);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "true") {
+      openNewDrawer();
+      router.replace("/dashboard/finance/invoices");
+    }
+  }, [searchParams]);
 
   async function fetchInvoices() {
     try {
@@ -140,6 +179,12 @@ export default function InvoicesPage() {
       });
       if (statusFilter !== "all") {
         params.set("status", statusFilter);
+      }
+      if (directionTab !== "all") {
+        params.set("direction", directionTab);
+      }
+      if (searchTerm) {
+        params.set("search", searchTerm);
       }
 
       const res = await fetch(`/api/finance/documents?${params}`);
@@ -178,14 +223,33 @@ export default function InvoicesPage() {
 
   async function duplicateInvoice(id: number) {
     try {
-      const res = await fetch(`/api/finance/documents/${id}/duplicate`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
-        toast.success("Factura duplicada");
-        fetchInvoices();
-      } else {
-        toast.error("Error al duplicar");
+        const data = await res.json();
+        if (data.success && data.data) {
+          const doc = data.data;
+          setDrawerInitialData({
+            contactId: doc.contactId,
+            vendorId: doc.vendorId,
+            eventId: doc.eventId,
+            notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0"),
+            globalDiscountType: doc.globalDiscountType,
+            paymentMethod: doc.paymentMethod,
+            bankAccountId: doc.bankAccountId,
+            items: doc.items?.map((item: any) => ({
+              description: item.description,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
+            })),
+          });
+          setEditingId(undefined);
+          setDrawerOpen(true);
+        }
       }
     } catch (error) {
       toast.error("Error al duplicar");
@@ -222,7 +286,6 @@ export default function InvoicesPage() {
         toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
         fetchInvoices();
         
-        // If marking as paid, ask if user wants to register the payment
         if (status === "paid") {
           const invoice = invoices.find(inv => inv.id === id);
           if (invoice) {
@@ -230,23 +293,7 @@ export default function InvoicesPage() {
               `¿Deseas registrar el pago de ${formatCurrency(invoice.total, invoice.currency)}?`
             );
             if (registerPayment) {
-              // Create payment record
-              const paymentRes = await fetch("/api/finance/payments", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  documentId: id,
-                  amount: parseFloat(invoice.total),
-                  currency: invoice.currency || "EUR",
-                  direction: "incoming",
-                  method: "bank_transfer",
-                  date: new Date().toISOString(),
-                  reference: `Pago ${invoice.number}`,
-                }),
-              });
-              if (paymentRes.ok) {
-                toast.success("Pago registrado correctamente");
-              }
+              openPaymentDialog(invoice);
             }
           }
         }
@@ -260,11 +307,13 @@ export default function InvoicesPage() {
 
   function openNewDrawer() {
     setEditingId(undefined);
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
   }
 
   function openEditDrawer(id: number) {
     setEditingId(id);
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
   }
 
@@ -302,7 +351,7 @@ export default function InvoicesPage() {
           documentId: paymentInvoice.id,
           amount: parseFloat(paymentAmount),
           currency: paymentInvoice.currency || "EUR",
-          direction: "incoming",
+          direction: paymentInvoice.direction === "incoming" ? "outgoing" : "incoming",
           paymentMethod: paymentMethod,
           paymentDate: new Date().toISOString(),
           reference: paymentReference,
@@ -351,6 +400,7 @@ export default function InvoicesPage() {
   }
 
   const getClientName = (invoice: Invoice) => {
+    if (invoice.contactName) return invoice.contactName;
     if (invoice.companyName) return invoice.companyName;
     if (invoice.personFirstName) {
       return `${invoice.personFirstName} ${invoice.personLastName || ""}`.trim();
@@ -358,14 +408,21 @@ export default function InvoicesPage() {
     return "Sin cliente";
   };
 
-  const filteredInvoices = invoices.filter((inv) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      inv.number.toLowerCase().includes(search) ||
-      getClientName(inv).toLowerCase().includes(search)
-    );
-  });
+  function isOverdue(invoice: Invoice): boolean {
+    if (!invoice.dueDate) return false;
+    if (invoice.status === "paid" || invoice.status === "cancelled") return false;
+    return new Date(invoice.dueDate) < new Date();
+  }
+
+  function getDisplayStatus(invoice: Invoice): string {
+    if (isOverdue(invoice)) return "overdue";
+    return invoice.status;
+  }
+
+  function handleSearchSubmit() {
+    setPage(1);
+    fetchInvoices();
+  }
 
   if (loading) {
     return (
@@ -395,6 +452,24 @@ export default function InvoicesPage() {
         </Button>
       </div>
 
+      {/* Direction Tabs */}
+      <div className="flex gap-1 border-b">
+        {directionTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setDirectionTab(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              directionTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -405,17 +480,19 @@ export default function InvoicesPage() {
                 placeholder="Buscar por número o cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="sent">Enviada</SelectItem>
+                <SelectItem value="approved">Aprobada</SelectItem>
+                <SelectItem value="sent">Pendiente</SelectItem>
                 <SelectItem value="paid">Pagada</SelectItem>
                 <SelectItem value="cancelled">Cancelada</SelectItem>
               </SelectContent>
@@ -430,155 +507,150 @@ export default function InvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Número</TableHead>
-                <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Vencimiento</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead className="text-right">Subtotal</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Pagado</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredInvoices.length === 0 ? (
+              {invoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No hay facturas
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((invoice) => (
-                  <TableRow 
-                    key={invoice.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openPreview(invoice.id)}
-                  >
-                    <TableCell className="font-medium">
-                      {invoice.number}
-                    </TableCell>
-                    <TableCell>{getClientName(invoice)}</TableCell>
-                    <TableCell>
-                      {invoice.issueDate
-                        ? format(new Date(invoice.issueDate), "dd MMM yyyy", { locale: es })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {invoice.dueDate
-                        ? format(new Date(invoice.dueDate), "dd MMM yyyy", { locale: es })
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(invoice.total, invoice.currency)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {(() => {
-                        const total = parseFloat(invoice.total || "0");
-                        const paid = parseFloat(invoice.paidAmount || "0");
-                        const percentage = total > 0 ? Math.round((paid / total) * 100) : 0;
-                        if (paid === 0) return <span className="text-muted-foreground">-</span>;
-                        return (
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={percentage >= 100 ? "text-emerald-600 font-medium" : "text-amber-600"}>
-                              {formatCurrency(paid.toString(), invoice.currency)}
-                            </span>
-                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full rounded-full ${percentage >= 100 ? "bg-emerald-500" : "bg-amber-500"}`}
-                                style={{ width: `${Math.min(percentage, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {(() => {
-                          const total = parseFloat(invoice.total || "0");
-                          const paid = parseFloat(invoice.paidAmount || "0");
-                          const isPartial = paid > 0 && paid < total;
-                          return (
-                            <>
-                              {isPartial && (
-                                <Badge className={statusConfig.partial.color}>
-                                  {statusConfig.partial.label}
+                invoices.map((invoice: Invoice) => {
+                  const displayStatus = getDisplayStatus(invoice);
+                  return (
+                    <TableRow 
+                      key={invoice.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => openEditDrawer(invoice.id)}
+                    >
+                      <TableCell>
+                        {invoice.issueDate
+                          ? format(new Date(invoice.issueDate), "dd MMM yyyy", { locale: es })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>{getClientName(invoice)}</TableCell>
+                      <TableCell className="font-medium">
+                        {invoice.number}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(invoice.subtotal, invoice.currency)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(invoice.total, invoice.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {(() => {
+                            const total = parseFloat(invoice.total || "0");
+                            const paid = parseFloat(invoice.paidAmount || "0");
+                            const isPartial = paid > 0 && paid < total;
+                            return (
+                              <>
+                                {isPartial && (
+                                  <Badge className={statusConfig.partial.color}>
+                                    {statusConfig.partial.label}
+                                  </Badge>
+                                )}
+                                <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
+                                  {statusConfig[displayStatus]?.label || invoice.status}
                                 </Badge>
-                              )}
-                              <Badge className={statusConfig[invoice.status]?.color || "bg-gray-100"}>
-                                {statusConfig[invoice.status]?.label || invoice.status}
-                              </Badge>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <RiMoreLine className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
-                            <RiEditLine className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateInvoice(invoice.id)}>
-                            <RiFileCopyLine className="mr-2 h-4 w-4" />
-                            Duplicar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {invoice.status === "draft" && (
-                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
-                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                              Marcar como Enviada
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <RiMoreLine className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
+                              <RiEditLine className="mr-2 h-4 w-4" />
+                              Editar
                             </DropdownMenuItem>
-                          )}
-                          {invoice.status === "sent" && (
-                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "paid")}>
-                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                              Marcar como Pagada
+                            <DropdownMenuItem onClick={() => openPreview(invoice.id)}>
+                              <RiEyeLine className="mr-2 h-4 w-4" />
+                              Vista previa
                             </DropdownMenuItem>
-                          )}
-                          {(invoice.status === "sent" || invoice.status === "draft") && (
-                            <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
-                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                              Añadir Pago
+                            <DropdownMenuItem onClick={() => duplicateInvoice(invoice.id)}>
+                              <RiFileCopyLine className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
-                          )}
-                          {invoice.status !== "paid" && invoice.status !== "cancelled" && (
-                            <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
-                              <RiLinkM className="mr-2 h-4 w-4" />
-                              Generar Link de Pago
+                            <DropdownMenuSeparator />
+                            {invoice.status === "draft" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(invoice.id, "approved")}>
+                                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
+                                  Aprobar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
+                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                  Marcar como Pendiente
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {invoice.status === "approved" && (
+                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
+                                <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                Marcar como Pendiente
+                              </DropdownMenuItem>
+                            )}
+                            {invoice.status === "sent" && (
+                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "paid")}>
+                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                Marcar como Pagada
+                              </DropdownMenuItem>
+                            )}
+                            {(invoice.status === "sent" || invoice.status === "approved" || invoice.status === "draft") && (
+                              <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
+                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                Añadir Pago
+                              </DropdownMenuItem>
+                            )}
+                            {invoice.status !== "paid" && invoice.status !== "cancelled" && (
+                              <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
+                                <RiLinkM className="mr-2 h-4 w-4" />
+                                Generar Link de Pago
+                              </DropdownMenuItem>
+                            )}
+                            {(invoice.status === "draft" || invoice.status === "approved" || invoice.status === "sent") && (
+                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "cancelled")}>
+                                <RiCheckLine className="mr-2 h-4 w-4" />
+                                Cancelar
+                              </DropdownMenuItem>
+                            )}
+                            {(invoice.status === "sent" || invoice.status === "paid") && (
+                              <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
+                                <RiRefund2Line className="mr-2 h-4 w-4" />
+                                Crear Factura Rectificativa
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => deleteInvoice(invoice.id)}
+                            >
+                              <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                              Eliminar
                             </DropdownMenuItem>
-                          )}
-                          {(invoice.status === "draft" || invoice.status === "sent") && (
-                            <DropdownMenuItem onClick={() => updateStatus(invoice.id, "cancelled")}>
-                              <RiCheckLine className="mr-2 h-4 w-4" />
-                              Cancelar
-                            </DropdownMenuItem>
-                          )}
-                          {(invoice.status === "sent" || invoice.status === "paid") && (
-                            <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
-                              <RiRefund2Line className="mr-2 h-4 w-4" />
-                              Crear Factura Rectificativa
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => deleteInvoice(invoice.id)}
-                          >
-                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -586,29 +658,13 @@ export default function InvoicesPage() {
       </Card>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Anterior
-          </Button>
-          <span className="flex items-center px-4 text-sm">
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Siguiente
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-center">
+        <NumericPagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </div>
 
       {/* Document Drawer */}
       <DocumentDrawer
@@ -616,6 +672,7 @@ export default function InvoicesPage() {
         onOpenChange={setDrawerOpen}
         type="invoice"
         documentId={editingId}
+        initialData={drawerInitialData}
         onSuccess={fetchInvoices}
       />
 

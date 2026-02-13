@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,12 +40,16 @@ import {
   RiSendPlaneLine,
   RiCheckLine,
   RiCloseLine,
+  RiEyeLine,
+  RiCheckDoubleLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
+import { cn } from "@/lib/utils";
 
 interface DocumentItem {
   id: number;
@@ -64,7 +69,9 @@ interface Quote {
   companyId: number | null;
   personId: number | null;
   contactId: number | null;
+  vendorId: number | null;
   eventId: number | null;
+  direction: string | null;
   issueDate: string;
   dueDate: string | null;
   validUntil: string | null;
@@ -72,6 +79,8 @@ interface Quote {
   taxAmount: string;
   total: string;
   currency: string;
+  globalDiscount: string | null;
+  globalDiscountType: string | null;
   notes: string | null;
   termsAndConditions: string | null;
   companyName: string | null;
@@ -84,49 +93,60 @@ interface Quote {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  sent: { label: "Enviado", color: "bg-blue-100 text-blue-700" },
+  approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-700" },
+  sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
+  overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
   cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
 };
 
+type DirectionTab = "all" | "outgoing" | "incoming";
+const directionTabs: { key: DirectionTab; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "outgoing", label: "Cobros" },
+  { key: "incoming", label: "Pagos" },
+];
+
 export default function QuotesPage() {
+  return (
+    <Suspense>
+      <QuotesContent />
+    </Suspense>
+  );
+}
+
+function QuotesContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
+  const [drawerType, setDrawerType] = useState<"quote" | "invoice">("quote");
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
-  
-  // Invoice drawer state (for conversion)
-  const [invoiceDrawerOpen, setInvoiceDrawerOpen] = useState(false);
-  const [invoiceInitialData, setInvoiceInitialData] = useState<{
-    contactId?: number;
-    vendorId?: number;
-    eventId?: number;
-    notes?: string;
-    termsAndConditions?: string;
-    items?: Array<{
-      description: string;
-      quantity: number;
-      unitPrice: number;
-      discount: number;
-      taxRate: number;
-      total: number;
-    }>;
-  } | undefined>(undefined);
 
   useEffect(() => {
     fetchQuotes();
-  }, [page, statusFilter]);
+  }, [page, statusFilter, directionTab]);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "true") {
+      openNewDrawer();
+      router.replace("/dashboard/finance/quotes");
+    }
+  }, [searchParams]);
 
   async function fetchQuotes() {
     try {
@@ -135,9 +155,9 @@ export default function QuotesPage() {
         page: page.toString(),
         limit: "20",
       });
-      if (statusFilter !== "all") {
-        params.set("status", statusFilter);
-      }
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (directionTab !== "all") params.set("direction", directionTab);
+      if (searchTerm) params.set("search", searchTerm);
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
@@ -173,53 +193,39 @@ export default function QuotesPage() {
     }
   }
 
-  async function convertToInvoice(id: number) {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "quote" | "invoice") {
     try {
-      // Fetch the quote data to pre-fill the invoice form
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
-          const quote = data.data;
-          // Prepare initial data for invoice drawer
-          setInvoiceInitialData({
-            contactId: quote.contactId || undefined,
-            vendorId: quote.vendorId || undefined,
-            eventId: quote.eventId || undefined,
-            notes: quote.notes || undefined,
-            termsAndConditions: quote.termsAndConditions || undefined,
-            items: quote.items?.map((item: any) => ({
+          const doc = data.data;
+          setDrawerInitialData({
+            contactId: doc.contactId,
+            vendorId: doc.vendorId,
+            eventId: doc.eventId,
+            notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0"),
+            globalDiscountType: doc.globalDiscountType,
+            paymentMethod: doc.paymentMethod,
+            bankAccountId: doc.bankAccountId,
+            items: doc.items?.map((item: any) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
               unitPrice: parseFloat(item.unitPrice),
               discount: parseFloat(item.discount || "0"),
               taxRate: parseFloat(item.taxRate || "21"),
               total: parseFloat(item.total),
-            })) || [],
+            })),
           });
-          setInvoiceDrawerOpen(true);
+          setDrawerType(targetType);
+          setEditingId(undefined);
+          setDrawerOpen(true);
         }
-      } else {
-        toast.error("Error al cargar datos del presupuesto");
       }
     } catch (error) {
-      toast.error("Error al convertir");
-    }
-  }
-
-  async function duplicateQuote(id: number) {
-    try {
-      const res = await fetch(`/api/finance/documents/${id}/duplicate`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        toast.success("Presupuesto duplicado");
-        fetchQuotes();
-      } else {
-        toast.error("Error al duplicar");
-      }
-    } catch (error) {
-      toast.error("Error al duplicar");
+      toast.error("Error al cargar documento");
     }
   }
 
@@ -238,7 +244,7 @@ export default function QuotesPage() {
         if (status === "accepted") {
           const generateInvoice = confirm("¿Deseas generar una factura a partir de este presupuesto?");
           if (generateInvoice) {
-            await convertToInvoice(id);
+            await fetchDocAndOpenDrawer(id, "invoice");
           }
         }
       } else {
@@ -251,11 +257,15 @@ export default function QuotesPage() {
 
   function openNewDrawer() {
     setEditingId(undefined);
+    setDrawerInitialData(undefined);
+    setDrawerType("quote");
     setDrawerOpen(true);
   }
 
   function openEditDrawer(id: number) {
     setEditingId(id);
+    setDrawerInitialData(undefined);
+    setDrawerType("quote");
     setDrawerOpen(true);
   }
 
@@ -282,6 +292,7 @@ export default function QuotesPage() {
   };
 
   const getClientName = (quote: Quote) => {
+    if (quote.contactName) return quote.contactName;
     if (quote.companyName) return quote.companyName;
     if (quote.personFirstName) {
       return `${quote.personFirstName} ${quote.personLastName || ""}`.trim();
@@ -289,19 +300,17 @@ export default function QuotesPage() {
     return "Sin cliente";
   };
 
-  const isExpired = (validUntil: string | null) => {
-    if (!validUntil) return false;
-    return new Date(validUntil) < new Date();
-  };
+  function getDisplayStatus(quote: Quote): string {
+    if (quote.validUntil && quote.status !== "accepted" && quote.status !== "rejected" && quote.status !== "cancelled") {
+      if (new Date(quote.validUntil) < new Date()) return "overdue";
+    }
+    return quote.status;
+  }
 
-  const filteredQuotes = quotes.filter((q) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      q.number.toLowerCase().includes(search) ||
-      getClientName(q).toLowerCase().includes(search)
-    );
-  });
+  function handleSearchSubmit() {
+    setPage(1);
+    fetchQuotes();
+  }
 
   if (loading) {
     return (
@@ -331,6 +340,24 @@ export default function QuotesPage() {
         </Button>
       </div>
 
+      {/* Direction Tabs */}
+      <div className="flex gap-1 border-b">
+        {directionTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setDirectionTab(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              directionTab === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -341,17 +368,19 @@ export default function QuotesPage() {
                 placeholder="Buscar por número o cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
               <SelectTrigger className="w-44">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los estados</SelectItem>
                 <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="sent">Enviado</SelectItem>
+                <SelectItem value="approved">Aprobado</SelectItem>
+                <SelectItem value="sent">Pendiente</SelectItem>
                 <SelectItem value="accepted">Aceptado</SelectItem>
                 <SelectItem value="rejected">Rechazado</SelectItem>
               </SelectContent>
@@ -366,110 +395,118 @@ export default function QuotesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Número</TableHead>
-                <TableHead>Cliente</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Válido hasta</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Número</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredQuotes.length === 0 ? (
+              {quotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No hay presupuestos
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredQuotes.map((quote) => (
-                  <TableRow 
-                    key={quote.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openPreview(quote.id)}
-                  >
-                    <TableCell className="font-medium">
-                      {quote.number}
-                    </TableCell>
-                    <TableCell>{getClientName(quote)}</TableCell>
-                    <TableCell>
-                      {quote.issueDate
-                        ? format(new Date(quote.issueDate), "dd MMM yyyy", { locale: es })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {quote.validUntil ? (
-                        <span className={isExpired(quote.validUntil) ? "text-red-500" : ""}>
-                          {format(new Date(quote.validUntil), "dd MMM yyyy", { locale: es })}
-                          {isExpired(quote.validUntil) && " (Vencido)"}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(quote.total, quote.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusConfig[quote.status]?.color || "bg-gray-100"}>
-                        {statusConfig[quote.status]?.label || quote.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <RiMoreLine className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
-                            <RiEditLine className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateQuote(quote.id)}>
-                            <RiFileCopyLine className="mr-2 h-4 w-4" />
-                            Duplicar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {quote.status === "draft" && (
-                            <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
-                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                              Marcar como Enviado
+                quotes.map((quote: Quote) => {
+                  const displayStatus = getDisplayStatus(quote);
+                  return (
+                    <TableRow 
+                      key={quote.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => openEditDrawer(quote.id)}
+                    >
+                      <TableCell>
+                        {quote.issueDate
+                          ? format(new Date(quote.issueDate), "dd MMM yyyy", { locale: es })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>{getClientName(quote)}</TableCell>
+                      <TableCell className="font-medium">
+                        {quote.number}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(quote.total, quote.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
+                          {statusConfig[displayStatus]?.label || quote.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <RiMoreLine className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
+                              <RiEditLine className="mr-2 h-4 w-4" />
+                              Editar
                             </DropdownMenuItem>
-                          )}
-                          {quote.status === "sent" && (
-                            <>
-                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
-                                <RiCheckLine className="mr-2 h-4 w-4" />
-                                Marcar como Aceptado
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "rejected")}>
-                                <RiCloseLine className="mr-2 h-4 w-4" />
-                                Marcar como Rechazado
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {quote.status === "accepted" && (
-                            <DropdownMenuItem onClick={() => convertToInvoice(quote.id)}>
-                              <RiExchangeLine className="mr-2 h-4 w-4" />
-                              Convertir a Factura
+                            <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                              <RiEyeLine className="mr-2 h-4 w-4" />
+                              Vista previa
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => deleteQuote(quote.id)}
-                          >
-                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "quote")}>
+                              <RiFileCopyLine className="mr-2 h-4 w-4" />
+                              Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {quote.status === "draft" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "approved")}>
+                                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
+                                  Aprobar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                  Marcar como Pendiente
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {quote.status === "approved" && (
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                Marcar como Pendiente
+                              </DropdownMenuItem>
+                            )}
+                            {quote.status === "sent" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" />
+                                  Aceptar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "rejected")}>
+                                  <RiCloseLine className="mr-2 h-4 w-4" />
+                                  Rechazar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {quote.status === "accepted" && (
+                              <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
+                                <RiExchangeLine className="mr-2 h-4 w-4" />
+                                Convertir a Factura
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => deleteQuote(quote.id)}
+                            >
+                              <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -477,52 +514,25 @@ export default function QuotesPage() {
       </Card>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Anterior
-          </Button>
-          <span className="flex items-center px-4 text-sm">
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Siguiente
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-center">
+        <NumericPagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
+      </div>
 
-      {/* Quote Drawer */}
+      {/* Document Drawer */}
       <DocumentDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        type="quote"
-        documentId={editingId}
-        onSuccess={fetchQuotes}
-      />
-
-      {/* Invoice Drawer (for conversion from quote) */}
-      <DocumentDrawer
-        open={invoiceDrawerOpen}
         onOpenChange={(open) => {
-          setInvoiceDrawerOpen(open);
-          if (!open) setInvoiceInitialData(undefined);
+          setDrawerOpen(open);
+          if (!open) { setDrawerInitialData(undefined); setDrawerType("quote"); }
         }}
-        type="invoice"
-        initialData={invoiceInitialData}
-        onSuccess={() => {
-          fetchQuotes();
-          toast.success("Factura creada desde presupuesto");
-        }}
+        type={drawerType}
+        documentId={editingId}
+        initialData={drawerInitialData}
+        onSuccess={fetchQuotes}
       />
 
       {/* Document Preview */}
