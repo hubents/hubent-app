@@ -20,6 +20,8 @@ import {
   RiLinksLine,
   RiSaveLine,
   RiStore2Line,
+  RiMapPinLine,
+  RiGlobalLine,
 } from "@remixicon/react";
 import { ContactRelationshipsSection } from "./contact-relationships-section";
 import {
@@ -53,6 +55,11 @@ interface ContactDetail {
   isVendor: boolean | null;
   vendorCategory: string | null;
   vendorId: number | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
 }
 
 interface LinkedEvent {
@@ -83,6 +90,21 @@ interface ContactRelationship {
   relatedContactAvatar: string | null;
   relatedContactType: "person" | "company";
 }
+
+const countries = [
+  { code: "ES", name: "España" },
+  { code: "US", name: "Estados Unidos" },
+  { code: "GB", name: "Reino Unido" },
+  { code: "FR", name: "Francia" },
+  { code: "DE", name: "Alemania" },
+  { code: "IT", name: "Italia" },
+  { code: "PT", name: "Portugal" },
+  { code: "MX", name: "México" },
+  { code: "AR", name: "Argentina" },
+  { code: "BR", name: "Brasil" },
+  { code: "CO", name: "Colombia" },
+  { code: "CL", name: "Chile" },
+];
 
 interface ContactGeneralTabProps {
   contact: ContactDetail | null;
@@ -124,6 +146,11 @@ export function ContactGeneralTab({
     isVendor: false,
     vendorCategory: "",
     customCategory: "",
+    address: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "ES",
   });
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -148,6 +175,11 @@ export function ContactGeneralTab({
         isVendor: contact.isVendor || false,
         vendorCategory: isCustomCategory ? "Otro" : (contact.vendorCategory || ""),
         customCategory: isCustomCategory ? contact.vendorCategory || "" : "",
+        address: contact.address || "",
+        city: contact.city || "",
+        state: contact.state || "",
+        postalCode: contact.postalCode || "",
+        country: contact.country || "ES",
       });
       setHasChanges(false);
     }
@@ -165,7 +197,14 @@ export function ContactGeneralTab({
         email: formData.email || null,
         phone: formData.phone || null,
         phoneCountryCode: formData.phoneCountryCode,
+        website: formData.website || null,
+        tradeName: formData.tradeName || null,
         notes: formData.notes || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        postalCode: formData.postalCode || null,
+        country: formData.country || null,
       };
 
       // Vendor & category fields (both types)
@@ -183,9 +222,7 @@ export function ContactGeneralTab({
           updates.name = `${formData.firstName} ${formData.lastName}`.trim();
         }
       } else {
-        updates.tradeName = formData.tradeName || null;
         updates.taxId = formData.taxId || null;
-        updates.website = formData.website || null;
         updates.contactPersonName = formData.contactPersonName || null;
         updates.contactPersonEmail = formData.contactPersonEmail || null;
       }
@@ -210,19 +247,18 @@ export function ContactGeneralTab({
 
   return (
     <div className="p-6 space-y-6">
-      {/* Contact Info */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium text-muted-foreground">Información de Contacto</h3>
-        
-        {contact?.type === "person" ? (
-          <>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-2 gap-8">
+        {/* Left Column: Address + Fiscal */}
+        <div className="space-y-4">
+          {/* Person-specific: Name fields */}
+          {contact?.type === "person" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Nombre</label>
                 <Input
                   value={formData.firstName}
                   onChange={(e) => handleChange("firstName", e.target.value)}
-                  placeholder="Nombre"
                 />
               </div>
               <div className="space-y-2">
@@ -230,54 +266,19 @@ export function ContactGeneralTab({
                 <Input
                   value={formData.lastName}
                   onChange={(e) => handleChange("lastName", e.target.value)}
-                  placeholder="Apellido"
                 />
               </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">NIE o CIF</label>
-                <Input
-                  value={formData.nieOrCif}
-                  onChange={(e) => handleChange("nieOrCif", e.target.value)}
-                  placeholder="Ingresa el NIE o CIF"
-                />
-              </div>
-              {!formData.isVendor && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Categoría</label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(v) => {
-                      setFormData((prev) => ({ ...prev, category: v }));
-                      setHasChanges(true);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PERSON_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
+          {/* Company-specific: Contact person */}
+          {contact?.type === "company" && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Persona de contacto</label>
                 <Input
                   value={formData.contactPersonName}
                   onChange={(e) => handleChange("contactPersonName", e.target.value)}
-                  placeholder="Nombre del contacto"
                 />
               </div>
               <div className="space-y-2">
@@ -286,57 +287,100 @@ export function ContactGeneralTab({
                   type="email"
                   value={formData.contactPersonEmail}
                   onChange={(e) => handleChange("contactPersonEmail", e.target.value)}
-                  placeholder="email@empresa.com"
                 />
               </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">CIF/NIF</label>
-                <Input
-                  value={formData.taxId}
-                  onChange={(e) => handleChange("taxId", e.target.value)}
-                  placeholder="B12345678"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sitio Web</label>
-                <Input
-                  value={formData.website}
-                  onChange={(e) => handleChange("website", e.target.value)}
-                  placeholder="https://www.empresa.com"
-                />
-              </div>
+          {/* Address */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <RiMapPinLine className="h-4 w-4" />
+              Dirección
+            </label>
+            <Input
+              value={formData.address}
+              onChange={(e) => handleChange("address", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Población</label>
+              <Input
+                value={formData.city}
+                onChange={(e) => handleChange("city", e.target.value)}
+              />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Código postal</label>
+              <Input
+                value={formData.postalCode}
+                onChange={(e) => handleChange("postalCode", e.target.value)}
+              />
+            </div>
+          </div>
 
-            {!formData.isVendor && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Categoría</label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(v) => {
-                    setFormData((prev) => ({ ...prev, category: v }));
-                    setHasChanges(true);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COMPANY_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </>
-        )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Provincia</label>
+              <Input
+                value={formData.state}
+                onChange={(e) => handleChange("state", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">País</label>
+              <Select
+                value={formData.country}
+                onValueChange={(v) => handleChange("country", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-2 gap-4">
+          {/* Nombre comercial (both types) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Nombre comercial</label>
+            <Input
+              value={formData.tradeName}
+              onChange={(e) => handleChange("tradeName", e.target.value)}
+            />
+          </div>
+
+          {/* Tax identification - per type */}
+          {contact?.type === "person" ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">NIF / NIE</label>
+              <Input
+                value={formData.nieOrCif}
+                onChange={(e) => handleChange("nieOrCif", e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Identificación VAT</label>
+              <Input
+                value={formData.taxId}
+                onChange={(e) => handleChange("taxId", e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Contact + Classification */}
+        <div className="space-y-4">
+          {/* Email */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <RiMailLine className="h-4 w-4" />
@@ -346,9 +390,10 @@ export function ContactGeneralTab({
               type="email"
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
-              placeholder="email@ejemplo.com"
             />
           </div>
+
+          {/* Phone */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
               <RiPhoneLine className="h-4 w-4" />
@@ -373,15 +418,51 @@ export function ContactGeneralTab({
               <Input
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
-                placeholder="612 345 678"
                 className="flex-1"
               />
             </div>
           </div>
+
+          {/* Website (both types) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <RiGlobalLine className="h-4 w-4" />
+              Website
+            </label>
+            <Input
+              value={formData.website}
+              onChange={(e) => handleChange("website", e.target.value)}
+            />
+          </div>
+
+          {/* Category + Type selectors */}
+          {!formData.isVendor && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoría</label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) => {
+                  setFormData((prev) => ({ ...prev, category: v }));
+                  setHasChanges(true);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin especificar" />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {(contact?.type === "company" ? COMPANY_CATEGORIES : PERSON_CATEGORIES).map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Vendor Section - Both Persons and Companies */}
+      {/* Vendor Section */}
       {contact && (
         <div className="space-y-4 border-t pt-4">
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -443,7 +524,6 @@ export function ContactGeneralTab({
                       setFormData((prev) => ({ ...prev, customCategory: e.target.value }));
                       setHasChanges(true);
                     }}
-                    placeholder="Ej: Iluminación"
                     disabled={!!contact.vendorId}
                   />
                 </div>
@@ -499,7 +579,6 @@ export function ContactGeneralTab({
         <Textarea
           value={formData.notes}
           onChange={(e) => handleChange("notes", e.target.value)}
-          placeholder="Notas o comentarios sobre el contacto..."
           rows={4}
         />
       </div>

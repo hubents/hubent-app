@@ -17,7 +17,6 @@ import {
   RiDeleteBinLine,
   RiUserLine,
   RiBuilding2Line,
-  RiMapPinLine,
   RiFolderLine,
   RiBankLine,
   RiHistoryLine,
@@ -26,7 +25,6 @@ import {
 import { FileUploader } from "@/components/ui/file-uploader";
 import { useContactDetail } from "@/hooks/use-contact-detail";
 import { ContactGeneralTab } from "./contact-general-tab";
-import { ContactAddressTab } from "./contact-address-tab";
 import { ContactFilesTab } from "./contact-files-tab";
 import { ContactBankTab } from "./contact-bank-tab";
 import { ContactActivityTab } from "./contact-activity-tab";
@@ -426,11 +424,7 @@ export function ContactDrawer({
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="general" className="gap-2">
                     <RiUserLine className="h-4 w-4" />
-                    {contact?.type === "company" ? "Acerca de" : "General"}
-                  </TabsTrigger>
-                  <TabsTrigger value="address" className="gap-2">
-                    <RiMapPinLine className="h-4 w-4" />
-                    Dirección
+                    Básico
                   </TabsTrigger>
                   <TabsTrigger value="files" className="gap-2">
                     <RiFolderLine className="h-4 w-4" />
@@ -459,14 +453,6 @@ export function ContactDrawer({
                     onAddRelationship={addRelationship}
                     onRemoveRelationship={removeRelationship}
                     onOpenRelatedContact={onOpenRelatedContact}
-                  />
-                </TabsContent>
-
-                <TabsContent value="address" className="h-full m-0">
-                  <ContactAddressTab
-                    contact={contact}
-                    loading={loading}
-                    onUpdateContact={handleContactUpdate}
                   />
                 </TabsContent>
 
