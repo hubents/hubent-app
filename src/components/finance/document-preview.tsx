@@ -324,7 +324,7 @@ export function DocumentPreview({
             Registrar pago para {document.number}
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           {/* Document Summary */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
             <div className="flex justify-between text-sm">
@@ -414,7 +414,7 @@ export function DocumentPreview({
             Enviar {document.number} por email con PDF adjunto
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           {/* Document Summary */}
           <div className="p-3 bg-muted/50 rounded-lg space-y-2">
             <div className="flex justify-between text-sm">

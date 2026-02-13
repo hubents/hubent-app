@@ -135,7 +135,7 @@ export function UserDetailDrawer({
         )}
 
         {user && !loading && (
-          <div className="space-y-6">
+          <div className="space-y-6 px-4 py-4">
             {/* Header with avatar */}
             <div className="flex items-start gap-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">

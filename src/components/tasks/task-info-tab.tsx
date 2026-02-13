@@ -303,7 +303,7 @@ export function TaskInfoTab({
               <SheetHeader>
                 <SheetTitle>Agregar Pago</SheetTitle>
               </SheetHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 px-4 py-4">
                 <div className="space-y-2">
                   <Label>Descripción *</Label>
                   <Input
@@ -699,7 +699,7 @@ export function TaskInfoTab({
               <SheetHeader>
                 <SheetTitle>Subir Archivo</SheetTitle>
               </SheetHeader>
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 px-4 py-4">
                 <FileUploader
                   folder="task-attachments"
                   onUpload={async (result) => {

@@ -25,6 +25,9 @@ import {
   RiCalendarEventLine,
   RiFileListLine,
   RiIdCardLine,
+  RiContactsLine,
+  RiTimeLine,
+  RiPriceTag3Line,
 } from "@remixicon/react";
 import { useContactDetail } from "@/hooks/use-contact-detail";
 
@@ -86,8 +89,22 @@ export function ContactPreviewDrawer({
 
   const formatAddress = () => {
     if (!contact) return null;
-    const parts = [contact.address, contact.city, contact.state, contact.postalCode, contact.country].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : null;
+    const parts = [contact.address, contact.city, contact.state, contact.postalCode].filter(Boolean);
+    if (parts.length > 0) {
+      return contact.country ? `${parts.join(", ")}, ${contact.country}` : parts.join(", ");
+    }
+    return null;
+  };
+
+  const hasContactInfo = !!(contact?.email || contact?.phone || contact?.website || formatAddress());
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    return new Date(dateStr).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
   };
 
   return (
@@ -140,49 +157,78 @@ export function ContactPreviewDrawer({
               </div>
             </SheetHeader>
 
-            <div className="space-y-6 py-4">
+            <div className="space-y-6 px-4 py-4">
               {/* Contact Info */}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-muted-foreground">Datos de contacto</h3>
-                <div className="space-y-2">
-                  {contact.email && (
-                    <div className="flex items-center gap-3">
-                      <RiMailLine className="h-4 w-4 text-muted-foreground" />
-                      <a href={`mailto:${contact.email}`} className="text-sm hover:underline">
-                        {contact.email}
-                      </a>
-                    </div>
-                  )}
-                  {contact.phone && (
-                    <div className="flex items-center gap-3">
-                      <RiPhoneLine className="h-4 w-4 text-muted-foreground" />
-                      <a href={`tel:${contact.phoneCountryCode}${contact.phone}`} className="text-sm hover:underline">
-                        {contact.phoneCountryCode} {contact.phone}
-                      </a>
-                    </div>
-                  )}
-                  {contact.website && (
-                    <div className="flex items-center gap-3">
-                      <RiGlobalLine className="h-4 w-4 text-muted-foreground" />
-                      <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">
-                        {contact.website}
-                      </a>
-                    </div>
-                  )}
-                  {formatAddress() && (
-                    <div className="flex items-start gap-3">
-                      <RiMapPinLine className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-sm">{formatAddress()}</span>
-                    </div>
-                  )}
-                </div>
+                {hasContactInfo ? (
+                  <div className="space-y-2">
+                    {contact.email && (
+                      <div className="flex items-center gap-3">
+                        <RiMailLine className="h-4 w-4 text-muted-foreground" />
+                        <a href={`mailto:${contact.email}`} className="text-sm hover:underline">
+                          {contact.email}
+                        </a>
+                      </div>
+                    )}
+                    {contact.phone && (
+                      <div className="flex items-center gap-3">
+                        <RiPhoneLine className="h-4 w-4 text-muted-foreground" />
+                        <a href={`tel:${contact.phoneCountryCode}${contact.phone}`} className="text-sm hover:underline">
+                          {contact.phoneCountryCode} {contact.phone}
+                        </a>
+                      </div>
+                    )}
+                    {contact.website && (
+                      <div className="flex items-center gap-3">
+                        <RiGlobalLine className="h-4 w-4 text-muted-foreground" />
+                        <a href={contact.website} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">
+                          {contact.website}
+                        </a>
+                      </div>
+                    )}
+                    {formatAddress() && (
+                      <div className="flex items-start gap-3">
+                        <RiMapPinLine className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span className="text-sm">{formatAddress()}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Sin información de contacto</p>
+                )}
               </div>
 
-              <Separator />
+              {/* Company Contact Person */}
+              {contact.type === "company" && (contact.contactPersonName || contact.contactPersonEmail) && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground">Persona de contacto</h3>
+                    <div className="space-y-2">
+                      {contact.contactPersonName && (
+                        <div className="flex items-center gap-3">
+                          <RiContactsLine className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{contact.contactPersonName}</span>
+                        </div>
+                      )}
+                      {contact.contactPersonEmail && (
+                        <div className="flex items-center gap-3">
+                          <RiMailLine className="h-4 w-4 text-muted-foreground" />
+                          <a href={`mailto:${contact.contactPersonEmail}`} className="text-sm hover:underline">
+                            {contact.contactPersonEmail}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Identification */}
               {(contact.nieOrCif || contact.taxId) && (
                 <>
+                  <Separator />
                   <div className="space-y-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Identificación</h3>
                     <div className="space-y-2">
@@ -200,13 +246,37 @@ export function ContactPreviewDrawer({
                       )}
                     </div>
                   </div>
+                </>
+              )}
+
+              {/* Tags & Category */}
+              {(contact.category || (contact.tags && contact.tags.length > 0) || contact.source) && (
+                <>
                   <Separator />
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground">Etiquetas</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {contact.category && (
+                        <Badge variant="outline" className="gap-1">
+                          <RiPriceTag3Line className="h-3 w-3" />
+                          {contact.category}
+                        </Badge>
+                      )}
+                      {contact.source && (
+                        <Badge variant="secondary">{contact.source}</Badge>
+                      )}
+                      {contact.tags?.map((tag) => (
+                        <Badge key={tag} variant="outline">{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
 
               {/* Linked Events */}
               {linkedEvents && linkedEvents.length > 0 && (
                 <>
+                  <Separator />
                   <div className="space-y-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Eventos vinculados</h3>
                     <div className="space-y-2">
@@ -228,35 +298,37 @@ export function ContactPreviewDrawer({
                       )}
                     </div>
                   </div>
-                  <Separator />
                 </>
               )}
 
               {/* Linked Tasks */}
               {linkedTasks && linkedTasks.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-muted-foreground">Tareas vinculadas</h3>
-                  <div className="space-y-2">
-                    {linkedTasks.slice(0, 5).map((task) => (
-                      <div key={task.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
-                        <RiFileListLine className="h-4 w-4 text-muted-foreground" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.taskTitle}</p>
-                          {task.taskStatus && (
-                            <Badge variant="outline" className="text-xs mt-1">
-                              {task.taskStatus}
-                            </Badge>
-                          )}
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-muted-foreground">Tareas vinculadas</h3>
+                    <div className="space-y-2">
+                      {linkedTasks.slice(0, 5).map((task) => (
+                        <div key={task.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
+                          <RiFileListLine className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{task.taskTitle}</p>
+                            {task.taskStatus && (
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {task.taskStatus}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {linkedTasks.length > 5 && (
-                      <p className="text-xs text-muted-foreground">
-                        +{linkedTasks.length - 5} más
-                      </p>
-                    )}
+                      ))}
+                      {linkedTasks.length > 5 && (
+                        <p className="text-xs text-muted-foreground">
+                          +{linkedTasks.length - 5} más
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               {/* Notes */}
@@ -269,9 +341,17 @@ export function ContactPreviewDrawer({
                   </div>
                 </>
               )}
+
+              {/* Created date */}
+              {contact.createdAt && (
+                <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground">
+                  <RiTimeLine className="h-3.5 w-3.5" />
+                  <span>Creado el {formatDate(contact.createdAt)}</span>
+                </div>
+              )}
             </div>
 
-            <SheetFooter className="pt-4">
+            <SheetFooter className="px-4 pt-4">
               <Button onClick={onEdit} className="w-full gap-2">
                 <RiEditLine className="h-4 w-4" />
                 Editar contacto

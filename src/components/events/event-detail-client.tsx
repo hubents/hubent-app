@@ -769,7 +769,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   <SheetHeader>
                     <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
                   </SheetHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 px-4 py-4">
                     <div className="space-y-2">
                       <Label>Seleccionar Proveedor</Label>
                       {availableVendors.length > 0 ? (
@@ -869,7 +869,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                 <SheetHeader>
                   <SheetTitle>Añadir Invitado</SheetTitle>
                 </SheetHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 px-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Nombre *</Label>
