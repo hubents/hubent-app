@@ -29,9 +29,14 @@ const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, permission: null },
   { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine, permission: null },
   { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine, permission: null },
+  { name: "Contactos", href: "/vendor/contacts", icon: RiContactsBookLine, permission: "crm:read" },
 ];
 
-const financeSubNav: typeof mainNav = [];
+const financeSubNav = [
+  { name: "Presupuestos", href: "/vendor/finance/quotes", icon: RiFileTextLine, permission: null },
+  { name: "Facturas", href: "/vendor/finance/invoices", icon: RiFileList2Line, permission: null },
+  { name: "Pagos", href: "/vendor/finance/payments", icon: RiBankLine, permission: null },
+];
 
 const bottomNav = [
   { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine, permission: null },

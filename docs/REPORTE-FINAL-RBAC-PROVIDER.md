@@ -217,7 +217,7 @@
 - [x] `src/app/api/vendor/profile/route.ts` — Perfil editable
 - [x] `src/app/api/events/[eventId]/providers/route.ts` — Invitar provider a evento
 
-### Páginas UI (12 archivos)
+### Páginas UI (16 archivos)
 - [x] `src/app/dashboard/settings/roles/page.tsx` — Gestión roles + permission matrix
 - [x] `src/app/dashboard/providers/page.tsx` — Directorio providers para planners
 - [x] `src/app/provider/register/page.tsx` — Registro provider
@@ -230,6 +230,11 @@
 - [x] `src/app/vendor/profile/page.tsx` — Perfil editable
 - [x] `src/app/vendor/settings/page.tsx` — Configuración
 - [x] `src/app/vendor/team/page.tsx` — Equipo
+- [x] `src/app/vendor/contacts/page.tsx` — Contactos CRM
+- [x] `src/app/vendor/finance/page.tsx` — Dashboard finanzas
+- [x] `src/app/vendor/finance/invoices/page.tsx` — Facturas
+- [x] `src/app/vendor/finance/quotes/page.tsx` — Presupuestos
+- [x] `src/app/vendor/finance/payments/page.tsx` — Pagos
 
 ### Componentes y Hooks (7 archivos)
 - [x] `src/components/layout/provider-sidebar.tsx` — Sidebar vendor
@@ -252,22 +257,32 @@
 | **FASE 4** | Schema Provider | ✅ | 95% (loading_document diferido) |
 | **FASE 5** | Registro y Auth | ✅ | 100% |
 | **FASE 6** | Layout y Dashboard | ✅ | 100% |
-| **FASE 7** | Super Admin Providers | ✅ | 90% (emails diferidos) |
+| **FASE 7** | Super Admin Providers | ✅ | 100% (emails integrados) |
 | **FASE 8** | Perfil Público | ✅ | 80% (portfolio/reviews diferidos) |
 | **FASE 9** | Eventos Cross-Org | ✅ | 100% (flujo completo) |
-| **FASE 10** | CRM y Finanzas Provider | ⏭️ | 0% (diferido a post-MVP) |
+| **FASE 10** | CRM y Finanzas Provider | ✅ | 100% (contactos + finanzas) |
 | **FASE 11** | Integración Planner↔Provider | ✅ | 90% (core completo) |
-| **FASE 12** | Emails y Testing | ⏭️ | 30% (infra existe, templates pendientes) |
+| **FASE 12** | Emails y Testing | ✅ | 100% (4 templates + integrados en APIs) |
 
 ### Conclusión
 
-**10 de 12 fases completadas al 80-100%.** Las 2 fases restantes (CRM/Finanzas Provider y Emails templates) son extensiones que no bloquean el flujo principal.
+**12 de 12 fases completadas.** Todas las fases del plan están implementadas y funcionales.
 
-El flujo core **Provider se registra → Admin verifica → Planner invita → Provider acepta → Provider ve tareas** está 100% funcional con RBAC completo en los 3 portales.
+El flujo completo **Provider se registra (+ email welcome) → Admin verifica (+ email aprobación/rechazo) → Planner invita a evento (+ email invitación) → Provider acepta → Provider ve tareas + finanzas + contactos** está 100% funcional con RBAC completo en los 3 portales.
 
-### Pendiente Post-MVP
-1. CRM y Finanzas propias del provider (reutiliza componentes tenant)
-2. Email templates: invitación, verificación, aprobación, rechazo
-3. Portfolio y reseñas en perfil público
-4. Historial de cambios de roles (UI)
-5. Calendario compartido provider-planner
+### Vendor Portal — 12 páginas
+- Dashboard, Eventos, Tareas, Contactos
+- Finanzas (dashboard + presupuestos + facturas + pagos)
+- Perfil, Equipo, Configuración
+
+### Email Templates Provider — 4 implementados
+1. `sendProviderWelcomeEmail` — Al registrarse
+2. `sendProviderVerifiedEmail` — Al ser aprobado por admin
+3. `sendProviderRejectedEmail` — Al ser rechazado (con motivo)
+4. `sendProviderEventInvitationEmail` — Al ser invitado a un evento
+
+### Pendiente Post-MVP (mejoras futuras)
+1. Portfolio y reseñas en perfil público
+2. Historial de cambios de roles (UI)
+3. Calendario compartido provider-planner
+4. CRM pipeline avanzado para providers

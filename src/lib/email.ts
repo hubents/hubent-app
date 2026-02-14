@@ -378,3 +378,129 @@ export async function sendContactTaskNotificationEmail(
     text: `Hola ${contactName}, ${addedByName} de ${organizationName} te ha agregado como participante en la tarea: ${taskTitle}.`,
   });
 }
+
+// ============================================
+// PROVIDER: WELCOME AFTER REGISTRATION
+// ============================================
+
+export async function sendProviderWelcomeEmail(
+  to: string,
+  ownerName: string,
+  companyName: string
+) {
+  const content = `
+    ${heading("Bienvenido a HubEnts")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(`Tu empresa <strong>${companyName}</strong> ha sido registrada como proveedor en la plataforma HubEnts.`)}
+    ${infoBox("Tu cuenta está <strong>pendiente de verificación</strong>. Nuestro equipo revisará tu perfil y te notificaremos cuando esté aprobada.", "warning")}
+    ${paragraph("Mientras tanto, puedes completar tu perfil para agilizar el proceso:")}
+    ${primaryButton("Completar mi perfil", `${getAppUrl()}/vendor/profile`)}
+    ${mutedText("Recibirás un email cuando tu cuenta sea verificada.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Bienvenido a HubEnts, ${ownerName}`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido registrada como proveedor en HubEnts. Tu cuenta está pendiente de verificación. Completa tu perfil en ${getAppUrl()}/vendor/profile`,
+  });
+}
+
+// ============================================
+// PROVIDER: VERIFICATION APPROVED
+// ============================================
+
+export async function sendProviderVerifiedEmail(
+  to: string,
+  ownerName: string,
+  companyName: string
+) {
+  const content = `
+    ${heading("¡Tu cuenta ha sido verificada!")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${infoBox(`<strong>${companyName}</strong> ha sido verificada exitosamente. Ya apareces en el directorio de proveedores y los planners pueden invitarte a sus eventos.`, "success")}
+    ${paragraph("¿Qué puedes hacer ahora?")}
+    <ul style="margin: 0 0 16px; padding-left: 20px; font-size: 15px; color: ${COLORS.textPrimary}; line-height: 1.8;">
+      <li>Recibir invitaciones a eventos</li>
+      <li>Gestionar tareas asignadas</li>
+      <li>Emitir presupuestos y facturas</li>
+      <li>Administrar tu equipo</li>
+    </ul>
+    ${primaryButton("Ir a mi panel", `${getAppUrl()}/vendor`)}
+    ${mutedText("¿Necesitas ayuda? Responde a este email.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `✅ ${companyName} verificada en HubEnts`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido verificada en HubEnts. Ya puedes recibir invitaciones a eventos. Accede a tu panel en ${getAppUrl()}/vendor`,
+  });
+}
+
+// ============================================
+// PROVIDER: VERIFICATION REJECTED
+// ============================================
+
+export async function sendProviderRejectedEmail(
+  to: string,
+  ownerName: string,
+  companyName: string,
+  rejectionReason: string
+) {
+  const content = `
+    ${heading("Verificación no aprobada")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(`Lamentamos informarte que la verificación de <strong>${companyName}</strong> no ha sido aprobada en este momento.`)}
+    <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 14px 16px; margin: 24px 0;">
+      <p style="margin: 0 0 4px; font-size: 13px; color: #991b1b; font-weight: 500;">Motivo:</p>
+      <p style="margin: 0; font-size: 14px; color: #991b1b; line-height: 1.5;">${rejectionReason}</p>
+    </div>
+    ${paragraph("Puedes actualizar tu perfil y solicitar una nueva revisión:")}
+    ${primaryButton("Actualizar perfil", `${getAppUrl()}/vendor/profile`)}
+    ${mutedText("Si crees que es un error, responde a este email.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Verificación pendiente - ${companyName}`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, la verificación de ${companyName} no ha sido aprobada. Motivo: ${rejectionReason}. Actualiza tu perfil en ${getAppUrl()}/vendor/profile`,
+  });
+}
+
+// ============================================
+// PROVIDER: EVENT INVITATION
+// ============================================
+
+export async function sendProviderEventInvitationEmail(
+  to: string,
+  providerName: string,
+  eventName: string,
+  eventDate: string | null,
+  plannerOrgName: string
+) {
+  const dateText = eventDate
+    ? new Date(eventDate).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
+    : "Fecha por confirmar";
+
+  const content = `
+    ${heading("Invitación a evento")}
+    ${paragraph(`Hola <strong>${providerName}</strong>,`)}
+    ${paragraph(`<strong>${plannerOrgName}</strong> te ha invitado a participar como proveedor en un evento:`)}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
+      <p style="margin: 0 0 4px; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${eventName}</p>
+      <p style="margin: 0; font-size: 14px; color: ${COLORS.textSecondary};">📅 ${dateText}</p>
+    </div>
+    ${paragraph("Accede a tu portal para aceptar o rechazar la invitación:")}
+    ${primaryButton("Ver invitación", `${getAppUrl()}/vendor/events`)}
+    ${mutedText("Este es un mensaje automático de HubEnts.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Invitación a evento: ${eventName}`,
+    html: emailWrapper(content),
+    text: `Hola ${providerName}, ${plannerOrgName} te ha invitado al evento "${eventName}" (${dateText}). Accede a ${getAppUrl()}/vendor/events para responder.`,
+  });
+}

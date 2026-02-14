@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
-import { organizations } from "@/db/schema";
+import { organizations, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { sendProviderVerifiedEmail, sendProviderRejectedEmail } from "@/lib/email";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -68,6 +69,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         })
         .where(eq(organizations.id, providerId));
 
+      // Send approval email (non-blocking)
+      if (provider.ownerId) {
+        db.query.users.findFirst({ where: eq(users.id, provider.ownerId) }).then((owner) => {
+          if (owner?.email) {
+            sendProviderVerifiedEmail(owner.email, owner.name || provider.name, provider.name).catch((e) =>
+              console.error("Failed to send provider verified email:", e)
+            );
+          }
+        });
+      }
+
       return NextResponse.json({
         success: true,
         data: { status: "verified" },
@@ -81,6 +93,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           updatedAt: new Date(),
         })
         .where(eq(organizations.id, providerId));
+
+      // Send rejection email (non-blocking)
+      if (provider.ownerId) {
+        db.query.users.findFirst({ where: eq(users.id, provider.ownerId) }).then((owner) => {
+          if (owner?.email) {
+            sendProviderRejectedEmail(owner.email, owner.name || provider.name, provider.name, rejectionReason || "No cumple los requisitos").catch((e) =>
+              console.error("Failed to send provider rejected email:", e)
+            );
+          }
+        });
+      }
 
       return NextResponse.json({
         success: true,

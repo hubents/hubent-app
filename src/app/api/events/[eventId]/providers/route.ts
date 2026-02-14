@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, organizations, events } from "@/db/schema";
+import { providerEventAccess, organizations, events, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { sendProviderEventInvitationEmail } from "@/lib/email";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -147,6 +148,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "pending",
       })
       .returning();
+
+    // Send event invitation email to provider owner (non-blocking)
+    const plannerOrg = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+      columns: { name: true },
+    });
+    if (providerOrg.ownerId) {
+      db.query.users.findFirst({ where: eq(users.id, providerOrg.ownerId) }).then((owner) => {
+        if (owner?.email) {
+          sendProviderEventInvitationEmail(
+            owner.email,
+            providerOrg.name,
+            event.name || "Evento",
+            event.date?.toISOString() ?? null,
+            plannerOrg?.name || "Un organizador"
+          ).catch((e) => console.error("Failed to send event invitation email:", e));
+        }
+      });
+    }
 
     return NextResponse.json({ success: true, data: newAccess }, { status: 201 });
   } catch (error) {

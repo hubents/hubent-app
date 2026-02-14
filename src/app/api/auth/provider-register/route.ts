@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, organizations, organizationMembers, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
+import { sendProviderWelcomeEmail } from "@/lib/email";
 import { z } from "zod";
 
 const registerSchema = z.object({
@@ -122,6 +123,11 @@ export async function POST(request: NextRequest) {
       await db.delete(users).where(eq(users.id, newUser.id));
       throw memberError;
     }
+
+    // Send welcome email (non-blocking)
+    sendProviderWelcomeEmail(email, newUser.name || companyName, companyName).catch((e) =>
+      console.error("Failed to send provider welcome email:", e)
+    );
 
     return NextResponse.json({
       success: true,
