@@ -46,6 +46,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
+import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
 
 interface Payment {
   id: number;
@@ -122,7 +123,8 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+  const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
+
   // New payment form
   const [newPayment, setNewPayment] = useState({
     amount: "",
@@ -258,6 +260,8 @@ export default function PaymentsPage() {
           notes: newPayment.notes || null,
           paymentDate: new Date(newPayment.paymentDate),
           documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
+          contactId: contactValue?.type === "contact" ? contactValue.id : null,
+          vendorId: contactValue?.type === "vendor" ? contactValue.id : null,
         }),
       });
 
@@ -274,6 +278,7 @@ export default function PaymentsPage() {
           paymentDate: new Date().toISOString().split("T")[0],
           documentId: "",
         });
+        setContactValue(null);
         fetchPayments();
         fetchDocuments();
       } else {
@@ -369,11 +374,21 @@ export default function PaymentsPage() {
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-4 px-4 py-4">
+              {/* Contact selector */}
+              <div className="space-y-2">
+                <Label>Contacto</Label>
+                <ContactSelector
+                  value={contactValue}
+                  onChange={setContactValue}
+                  placeholder="Seleccionar contacto"
+                />
+              </div>
+
               {/* Document selector */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <RiFileTextLine className="h-4 w-4" />
-                  Vincular a documento (opcional)
+                  Conciliar a (opcional)
                 </Label>
                 <Select
                   value={newPayment.documentId || "none"}
@@ -482,7 +497,7 @@ export default function PaymentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Notas</Label>
+                <Label>Descripción</Label>
                 <Input
                   value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
