@@ -449,7 +449,7 @@ export function ContactGeneralTab({
                 <SelectTrigger>
                   <SelectValue placeholder="Sin especificar" />
                 </SelectTrigger>
-                <SelectContent side="top">
+                <SelectContent>
                   {(contact?.type === "company" ? COMPANY_CATEGORIES : PERSON_CATEGORIES).map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
