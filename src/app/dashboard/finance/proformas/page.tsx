@@ -41,6 +41,7 @@ import {
   RiCheckDoubleLine,
   RiExchangeLine,
   RiMoneyDollarCircleLine,
+  RiTruckLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -117,7 +118,7 @@ export default function ProformasPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"proforma" | "invoice">("proforma");
+  const [drawerType, setDrawerType] = useState<"proforma" | "invoice" | "delivery_note">("proforma");
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -169,30 +170,31 @@ export default function ProformasPage() {
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "proforma" | "invoice") {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "proforma" | "invoice" | "delivery_note") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
           const doc = data.data;
+          const isDeliveryNote = targetType === "delivery_note";
           setDrawerInitialData({
             contactId: doc.contactId,
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: doc.termsAndConditions,
-            globalDiscount: parseFloat(doc.globalDiscount || "0"),
-            globalDiscountType: doc.globalDiscountType,
-            paymentMethod: doc.paymentMethod,
-            bankAccountId: doc.bankAccountId,
+            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
+            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
+            bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
-              unitPrice: parseFloat(item.unitPrice),
-              discount: parseFloat(item.discount || "0"),
-              taxRate: parseFloat(item.taxRate || "21"),
-              total: parseFloat(item.total),
+              unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
+              discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
+              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+              total: isDeliveryNote ? 0 : parseFloat(item.total),
             })),
           });
           setDrawerType(targetType);
@@ -444,6 +446,12 @@ export default function ProformasPage() {
                               Convertir a Factura
                             </DropdownMenuItem>
                           )}
+                          {(doc.status === "sent" || doc.status === "paid") && (
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "delivery_note")}>
+                              <RiTruckLine className="mr-2 h-4 w-4" />
+                              Convertir a Albarán
+                            </DropdownMenuItem>
+                          )}
                           {doc.status !== "paid" && doc.status !== "cancelled" && (
                             <DropdownMenuItem onClick={() => updateStatus(doc.id, "cancelled")}>
                               <RiCheckLine className="mr-2 h-4 w-4" />
@@ -489,6 +497,14 @@ export default function ProformasPage() {
         documentId={editingId}
         initialData={drawerInitialData}
         onSuccess={fetchProformas}
+        onDuplicate={() => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, "proforma");
+        }}
+        onConvert={(targetType) => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "proforma" | "invoice" | "delivery_note");
+        }}
       />
 
       {/* Document Preview */}

@@ -38,6 +38,9 @@ import {
   RiLoader4Line,
   RiEyeLine,
   RiCheckDoubleLine,
+  RiFileCopyLine,
+  RiExchangeLine,
+  RiTruckLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-document-preview";
@@ -98,6 +101,8 @@ interface DocumentDrawerProps {
   documentId?: number;
   initialData?: InitialDocumentData;
   onSuccess?: () => void;
+  onDuplicate?: () => void;
+  onConvert?: (targetType: string) => void;
 }
 
 const typeLabels: Record<DocumentType, string> = {
@@ -123,6 +128,8 @@ export function DocumentDrawer({
   documentId,
   initialData,
   onSuccess,
+  onDuplicate,
+  onConvert,
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -835,6 +842,54 @@ export function DocumentDrawer({
                   placeholder="Términos y condiciones..."
                   rows={3}
                 />
+              </div>
+            )}
+
+            {/* Convert/Duplicate actions (edit mode) */}
+            {documentId && (onDuplicate || onConvert) && (
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
+                {onDuplicate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`¿Duplicar este ${typeLabels[type].toLowerCase()}?`)) {
+                        onDuplicate();
+                      }
+                    }}
+                  >
+                    <RiFileCopyLine className="mr-2 h-4 w-4" />
+                    Duplicar
+                  </Button>
+                )}
+                {onConvert && type !== "invoice" && type !== "credit_note" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`¿Convertir este ${typeLabels[type].toLowerCase()} a factura?`)) {
+                        onConvert("invoice");
+                      }
+                    }}
+                  >
+                    <RiExchangeLine className="mr-2 h-4 w-4" />
+                    Convertir a Factura
+                  </Button>
+                )}
+                {onConvert && type !== "delivery_note" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`¿Convertir este ${typeLabels[type].toLowerCase()} a albarán?`)) {
+                        onConvert("delivery_note");
+                      }
+                    }}
+                  >
+                    <RiTruckLine className="mr-2 h-4 w-4" />
+                    Convertir a Albarán
+                  </Button>
+                )}
               </div>
             )}
 

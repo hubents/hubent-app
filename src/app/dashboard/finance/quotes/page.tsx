@@ -42,6 +42,7 @@ import {
   RiCloseLine,
   RiEyeLine,
   RiCheckDoubleLine,
+  RiTruckLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -131,7 +132,7 @@ function QuotesContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"quote" | "invoice">("quote");
+  const [drawerType, setDrawerType] = useState<"quote" | "invoice" | "delivery_note">("quote");
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -193,30 +194,31 @@ function QuotesContent() {
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "quote" | "invoice") {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "quote" | "invoice" | "delivery_note") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
           const doc = data.data;
+          const isDeliveryNote = targetType === "delivery_note";
           setDrawerInitialData({
             contactId: doc.contactId,
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: doc.termsAndConditions,
-            globalDiscount: parseFloat(doc.globalDiscount || "0"),
-            globalDiscountType: doc.globalDiscountType,
-            paymentMethod: doc.paymentMethod,
-            bankAccountId: doc.bankAccountId,
+            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
+            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
+            bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
-              unitPrice: parseFloat(item.unitPrice),
-              discount: parseFloat(item.discount || "0"),
-              taxRate: parseFloat(item.taxRate || "21"),
-              total: parseFloat(item.total),
+              unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
+              discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
+              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+              total: isDeliveryNote ? 0 : parseFloat(item.total),
             })),
           });
           setDrawerType(targetType);
@@ -487,10 +489,16 @@ function QuotesContent() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {quote.status === "accepted" && (
+                            {(quote.status === "sent" || quote.status === "accepted") && (
                               <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
                                 <RiExchangeLine className="mr-2 h-4 w-4" />
                                 Convertir a Factura
+                              </DropdownMenuItem>
+                            )}
+                            {(quote.status === "sent" || quote.status === "accepted") && (
+                              <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "delivery_note")}>
+                                <RiTruckLine className="mr-2 h-4 w-4" />
+                                Convertir a Albarán
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -533,6 +541,14 @@ function QuotesContent() {
         documentId={editingId}
         initialData={drawerInitialData}
         onSuccess={fetchQuotes}
+        onDuplicate={() => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, "quote");
+        }}
+        onConvert={(targetType) => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "quote" | "invoice" | "delivery_note");
+        }}
       />
 
       {/* Document Preview */}

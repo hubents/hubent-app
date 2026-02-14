@@ -41,6 +41,7 @@ import {
   RiCheckLine,
   RiEyeLine,
   RiCheckDoubleLine,
+  RiExchangeLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -110,6 +111,7 @@ function DeliveryNotesContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
+  const [drawerType, setDrawerType] = useState<"delivery_note" | "invoice">("delivery_note");
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -170,33 +172,40 @@ function DeliveryNotesContent() {
     }
   }
 
-  async function duplicateNote(id: number) {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "delivery_note" | "invoice") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
           const doc = data.data;
+          const isDeliveryNote = targetType === "delivery_note";
           setDrawerInitialData({
             contactId: doc.contactId,
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
+            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
+            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
+            bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
-              unitPrice: 0,
-              discount: 0,
-              taxRate: 0,
-              total: 0,
+              unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice || "0"),
+              discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
+              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+              total: isDeliveryNote ? 0 : parseFloat(item.total || "0"),
             })),
           });
+          setDrawerType(targetType);
           setEditingId(undefined);
           setDrawerOpen(true);
         }
       }
     } catch (error) {
-      toast.error("Error al duplicar");
+      toast.error("Error al cargar documento");
     }
   }
 
@@ -377,7 +386,7 @@ function DeliveryNotesContent() {
                             <RiEyeLine className="mr-2 h-4 w-4" />
                             Vista previa
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateNote(note.id)}>
+                          <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(note.id, "delivery_note")}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
@@ -404,6 +413,12 @@ function DeliveryNotesContent() {
                             <DropdownMenuItem onClick={() => updateStatus(note.id, "delivered")}>
                               <RiCheckLine className="mr-2 h-4 w-4" />
                               Marcar como Entregado
+                            </DropdownMenuItem>
+                          )}
+                          {note.status !== "draft" && note.status !== "cancelled" && (
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(note.id, "invoice")}>
+                              <RiExchangeLine className="mr-2 h-4 w-4" />
+                              Convertir a Factura
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -437,11 +452,22 @@ function DeliveryNotesContent() {
       {/* Document Drawer */}
       <DocumentDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        type="delivery_note"
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) { setDrawerInitialData(undefined); setDrawerType("delivery_note"); }
+        }}
+        type={drawerType}
         documentId={editingId}
         initialData={drawerInitialData}
         onSuccess={fetchNotes}
+        onDuplicate={() => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, "delivery_note");
+        }}
+        onConvert={(targetType) => {
+          setDrawerOpen(false);
+          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "delivery_note" | "invoice");
+        }}
       />
 
       {/* Document Preview */}
