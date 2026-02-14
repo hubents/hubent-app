@@ -419,15 +419,42 @@ export async function updateContact(
     )
     .returning();
 
+  // If isVendor was toggled to true and no vendor record exists, create one
+  if (updated && data.isVendor === true && !updated.vendorId) {
+    const [vendor] = await db
+      .insert(vendors)
+      .values({
+        organizationId: session.organizationId,
+        name: updated.name,
+        category: data.vendorCategory || updated.vendorCategory || "General",
+        email: updated.email,
+        phone: updated.phone,
+        website: updated.website,
+        address: updated.address,
+        notes: updated.notes,
+        contactId: updated.id,
+        createdBy: session.user.userId,
+      })
+      .returning();
+
+    await db
+      .update(contacts)
+      .set({ vendorId: vendor.id })
+      .where(eq(contacts.id, updated.id));
+
+    updated.vendorId = vendor.id;
+  }
+
   // Sync common fields to linked vendor if exists
   if (updated?.vendorId) {
     const vendorUpdates: Record<string, unknown> = { updatedAt: new Date() };
-    if (data.name) vendorUpdates.name = data.name;
-    if (data.email) vendorUpdates.email = data.email;
-    if (data.phone) vendorUpdates.phone = data.phone;
-    if (data.website) vendorUpdates.website = data.website;
-    if (data.address) vendorUpdates.address = data.address;
-    if (data.notes) vendorUpdates.notes = data.notes;
+    if ("name" in data) vendorUpdates.name = data.name;
+    if ("email" in data) vendorUpdates.email = data.email;
+    if ("phone" in data) vendorUpdates.phone = data.phone;
+    if ("website" in data) vendorUpdates.website = data.website;
+    if ("address" in data) vendorUpdates.address = data.address;
+    if ("notes" in data) vendorUpdates.notes = data.notes;
+    if ("vendorCategory" in data) vendorUpdates.category = data.vendorCategory;
 
     if (Object.keys(vendorUpdates).length > 1) {
       await db.update(vendors)

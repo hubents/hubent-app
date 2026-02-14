@@ -120,13 +120,13 @@ export async function updateVendor(
   // Sync common fields to linked contact if exists
   if (updated?.contactId) {
     const contactUpdates: Record<string, unknown> = { updatedAt: new Date() };
-    if (data.name) contactUpdates.name = data.name;
-    if (data.email) contactUpdates.email = data.email;
-    if (data.phone) contactUpdates.phone = data.phone;
-    if (data.website) contactUpdates.website = data.website;
-    if (data.address) contactUpdates.address = data.address;
-    if (data.notes) contactUpdates.notes = data.notes;
-    if (data.category) contactUpdates.vendorCategory = data.category;
+    if ("name" in data) contactUpdates.name = data.name;
+    if ("email" in data) contactUpdates.email = data.email;
+    if ("phone" in data) contactUpdates.phone = data.phone;
+    if ("website" in data) contactUpdates.website = data.website;
+    if ("address" in data) contactUpdates.address = data.address;
+    if ("notes" in data) contactUpdates.notes = data.notes;
+    if ("category" in data) contactUpdates.vendorCategory = data.category;
 
     if (Object.keys(contactUpdates).length > 1) {
       await db.update(contacts)
