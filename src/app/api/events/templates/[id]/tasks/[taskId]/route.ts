@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { updateTaskTemplate, deleteTaskTemplate } from "@/lib/events";
 
 // PATCH /api/events/templates/[id]/tasks/[taskId] - Update task template
@@ -8,7 +8,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
   try {
-    await requireRole("admin");
+    await requirePermission("events:read");
     const { taskId } = await params;
     const taskTemplateId = parseInt(taskId, 10);
 
@@ -45,7 +45,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
   try {
-    await requireRole("admin");
+    await requirePermission("events:read");
     const { taskId } = await params;
     const taskTemplateId = parseInt(taskId, 10);
 

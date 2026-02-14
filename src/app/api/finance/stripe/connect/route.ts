@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { organizationFinanceSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 // GET /api/finance/stripe/connect - Get Stripe Connect OAuth URL
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
 
     const stripeClientId = process.env.STRIPE_CLIENT_ID;
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/stripe/connect - Disconnect Stripe account
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 

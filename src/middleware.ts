@@ -2,8 +2,9 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Routes configuration
-const PUBLIC_ROUTES = ["/", "/api/auth", "/components", "/terms", "/privacy"];
+const PUBLIC_ROUTES = ["/", "/api/auth", "/components", "/terms", "/privacy", "/providers"];
 const TENANT_AUTH_ROUTES = ["/auth"];
+const PROVIDER_AUTH_ROUTES = ["/provider/register", "/provider/login"];
 const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];
 const ADMIN_PROTECTED_ROUTES = ["/admin"];
 const DASHBOARD_ROUTES = ["/dashboard", "/onboarding", "/billing", "/select-org"];
@@ -35,7 +36,10 @@ export default auth((req) => {
   const isInviteRoute = INVITE_ROUTES.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
-  const isVendorPortal = VENDOR_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
+  const isProviderAuthRoute = PROVIDER_AUTH_ROUTES.some((route) =>
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isVendorPortal = VENDOR_PORTAL_ROUTES.some((route) => pathname.startsWith(route)) && !isProviderAuthRoute;
   const isClientPortal = CLIENT_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
 
   // Allow public routes
@@ -51,6 +55,15 @@ export default auth((req) => {
   // Tenant auth routes (/auth/*) - redirect to dashboard if already logged in
   if (isTenantAuthRoute) {
     if (isLoggedIn) {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  // Provider auth routes (/provider/register, /provider/login) - allow public access
+  if (isProviderAuthRoute) {
+    if (isLoggedIn) {
+      // Redirect to /dashboard — vendor layout validates orgType separately
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
     return NextResponse.next();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { organizationFinanceSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 // GET /api/finance/settings - Get organization finance settings
 export async function GET() {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
 
     const [settings] = await db
@@ -62,7 +62,7 @@ export async function GET() {
 // PATCH /api/finance/settings - Update organization finance settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:update");
     const orgId = session.organizationId;
     const body = await request.json();
 

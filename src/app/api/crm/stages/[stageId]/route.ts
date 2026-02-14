@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { leadStages, leads } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ stageId: string }> };
 // GET /api/crm/stages/[stageId] - Get single stage with lead count
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { stageId } = await params;
 
     const stage = await db.query.leadStages.findFirst({
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/crm/stages/[stageId] - Update stage
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("crm:manage");
     const { stageId } = await params;
     const body = await request.json();
 
@@ -119,7 +119,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/crm/stages/[stageId] - Delete stage
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("crm:manage");
     const { stageId } = await params;
     const stageIdNum = parseInt(stageId, 10);
 

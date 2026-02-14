@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getContact, updateContact, deleteContact } from "@/lib/contacts";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 // GET /api/contacts/[id] - Get single contact
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { id } = await params;
 
     const contact = await getContact(session, parseInt(id, 10));
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/contacts/[id] - Update contact
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
 
@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/contacts/[id] - Partial update contact
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
 
@@ -109,7 +109,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/contacts/[id] - Delete contact (soft delete)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
 
     await deleteContact(session, parseInt(id, 10));

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { financialDocuments, documentItems, contacts, organizationFinanceSettings } from "@/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq, and, gte, lte, desc } from "drizzle-orm";
 // GET /api/finance/export - Export financial data to CSV
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
     const { searchParams } = new URL(request.url);
 

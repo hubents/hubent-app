@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, taskPayments, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
 
@@ -73,7 +73,7 @@ export async function POST(
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
     const body = await request.json();
@@ -146,7 +146,7 @@ export async function DELETE(
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
     const { searchParams } = new URL(request.url);

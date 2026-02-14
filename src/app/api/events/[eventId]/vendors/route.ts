@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { events, eventVendors, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/vendors - List vendors for an event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("vendors:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/vendors - Add a vendor to an event
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("vendors:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const body = await request.json();
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/vendors - Remove a vendor from an event
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("vendors:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const { searchParams } = new URL(request.url);

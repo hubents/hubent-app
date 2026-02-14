@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getLead, updateLead, deleteLead, moveLead } from "@/lib/crm";
 
 type RouteParams = { params: Promise<{ leadId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ leadId: string }> };
 // GET /api/crm/leads/[leadId] - Get single lead
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { leadId } = await params;
 
     const lead = await getLead(session, parseInt(leadId, 10));
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/crm/leads/[leadId] - Update lead
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { leadId } = await params;
     const body = await request.json();
 
@@ -73,7 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/crm/leads/[leadId] - Delete lead
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { leadId } = await params;
 
     await deleteLead(session, parseInt(leadId, 10));

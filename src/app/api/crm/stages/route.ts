@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { leadStages } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -18,7 +18,7 @@ const DEFAULT_STAGES = [
 // GET /api/crm/stages - List stages
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
 
     const stages = await db.query.leadStages.findMany({
       where: eq(leadStages.organizationId, session.organizationId),
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 // POST /api/crm/stages - Create stage or initialize defaults
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     // If body has "initializeDefaults" flag, create default stages

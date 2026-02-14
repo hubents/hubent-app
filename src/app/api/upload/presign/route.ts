@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getPresignedUploadUrl, isR2Configured } from "@/lib/r2";
 
 // POST /api/upload/presign - Get a presigned URL for direct upload to R2
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await requireRole("viewer");
+    await requirePermission("events:update");
 
     const body = await request.json();
     const { filename, contentType, size, folder } = body;

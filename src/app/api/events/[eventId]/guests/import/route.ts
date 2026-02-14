@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { guests, guestGroups } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -54,7 +54,7 @@ function parseCSV(csvText: string): CSVGuest[] {
 // POST /api/events/[eventId]/guests/import - Import guests from CSV
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
 

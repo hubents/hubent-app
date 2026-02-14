@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { linkContactToTask, unlinkContactFromTask } from "@/lib/contacts";
 import { db } from "@/db";
 import { contactTasks, tasks } from "@/db/schema";
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("viewer");
+    await requirePermission("crm:read");
 
     const { id } = await params;
     const contactId = parseInt(id, 10);
@@ -42,7 +42,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("planner");
+    await requirePermission("crm:manage");
 
     const { id } = await params;
     const contactId = parseInt(id, 10);
@@ -68,7 +68,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("planner");
+    await requirePermission("crm:manage");
 
     const { id } = await params;
     const contactId = parseInt(id, 10);

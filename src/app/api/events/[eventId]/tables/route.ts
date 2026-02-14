@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getEventTables, createEventTable } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/tables - List tables with guests
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("viewer");
+    await requirePermission("events:read");
     const { eventId } = await params;
     
     const tables = await getEventTables(parseInt(eventId, 10));
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/tables - Create table
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { eventId } = await params;
     const body = await request.json();
 

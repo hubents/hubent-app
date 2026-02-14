@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getDocument } from "@/lib/finance";
 import { generateDocumentHTML } from "@/lib/pdf-templates";
 import { createPDF } from "@/lib/pdf-generator";
@@ -12,7 +12,7 @@ type RouteParams = { params: Promise<{ documentId: string }> };
 // GET /api/finance/documents/[documentId]/pdf - Generate PDF HTML for printing/download
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const { documentId } = await params;
 
     const document = await getDocument(session, parseInt(documentId, 10));

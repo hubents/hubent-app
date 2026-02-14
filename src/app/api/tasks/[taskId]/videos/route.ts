@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { taskVideos, tasks } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ taskId: string }> };
 // GET /api/tasks/[taskId]/videos - List task videos
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("tasks:read");
     const { taskId } = await params;
 
     // Verify task belongs to organization
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/tasks/[taskId]/videos - Add video to task
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/tasks/[taskId]/videos - Delete video
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("videoId");

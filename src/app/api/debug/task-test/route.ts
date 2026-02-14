@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getSession, requireRole } from "@/lib/session";
+import { getSession, requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, events, taskVideos, taskAttachments, taskScheduleItems, taskHtmlContent, taskParticipants, taskMessages } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // 3. Check requireRole
     try {
-      const session = await requireRole("viewer");
+      const session = await requirePermission("tasks:read");
       results.requireRole = {
         success: true,
         organizationId: session.organizationId,

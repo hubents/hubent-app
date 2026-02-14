@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getDocument, updateDocumentStatus } from "@/lib/finance";
 import { generateDocumentHTML, generateDocumentEmailHTML, generateDocumentEmailSubject } from "@/lib/pdf-templates";
 import { createPDF } from "@/lib/pdf-generator";
@@ -25,7 +25,7 @@ function getFromEmail() {
 // POST /api/finance/documents/[documentId]/send - Send document via email
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { documentId } = await params;
     const body = await request.json().catch(() => ({}));
 

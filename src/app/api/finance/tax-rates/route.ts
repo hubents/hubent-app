@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { taxRates } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq, and } from "drizzle-orm";
 // GET /api/finance/tax-rates - List tax rates
 export async function GET() {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
 
     const rates = await db
@@ -32,7 +32,7 @@ export async function GET() {
 // POST /api/finance/tax-rates - Create tax rate
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/finance/tax-rates - Update tax rate
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 
@@ -136,7 +136,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/finance/tax-rates - Delete tax rate
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

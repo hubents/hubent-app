@@ -142,6 +142,19 @@ export const vendorClaimStatusEnum = pgEnum("vendor_claim_status", [
   "rejected",
 ]);
 
+export const orgTypeEnum = pgEnum("org_type", [
+  "tenant",
+  "provider",
+  "client",
+]);
+
+export const verificationStatusEnum = pgEnum("verification_status", [
+  "unverified",
+  "verified",
+  "rejected",
+  "suspended",
+]);
+
 // ============================================
 // NEXTAUTH TABLES
 // ============================================
@@ -227,20 +240,22 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  orgType: orgTypeEnum("org_type").default("tenant"),
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }).default("0"),
   priceYearly: decimal("price_yearly", { precision: 10, scale: 2 }).default("0"),
   features: json("features").$type<string[]>(),
-  limits: json("limits").$type<{
-    users: number;
-    events: number;
-    vendors: number;
-    storage: number;
-  }>(),
+  limits: json("limits").$type<PlanLimits>(),
   isActive: boolean("is_active").default(true),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export interface PlanLimits {
+  maxUsers: number;
+  maxEvents: number;
+  maxStorage: number;
+}
 
 export const featureFlags = pgTable("feature_flags", {
   id: serial("id").primaryKey(),
@@ -300,6 +315,7 @@ export const organizations = pgTable("organizations", {
   phone: text("phone"),
   website: text("website"),
   address: text("address"),
+  orgType: orgTypeEnum("org_type").default("tenant"),
   status: orgStatusEnum("status").default("active"),
   planId: integer("plan_id").references(() => subscriptionPlans.id),
   settings: json("settings").$type<{
@@ -308,6 +324,15 @@ export const organizations = pgTable("organizations", {
     language?: string;
   }>(),
   ownerId: text("owner_id").references(() => users.id),
+  // Provider-specific fields
+  instagramHandle: text("instagram_handle"),
+  serviceRadius: integer("service_radius"),
+  serviceAreas: json("service_areas").$type<string[]>(),
+  verificationStatus: verificationStatusEnum("verification_status").default("unverified"),
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: text("verified_by").references(() => users.id),
+  rejectionReason: text("rejection_reason"),
+  providerCategory: text("provider_category"),
   // Fiscal data (unified source of truth for documents)
   fiscalName: text("fiscal_name"),
   taxId: text("tax_id"),
@@ -475,6 +500,18 @@ export const eventVendors = pgTable("event_vendors", {
   status: text("status").default("pending"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const providerEventAccess = pgTable("provider_event_access", {
+  id: serial("id").primaryKey(),
+  providerOrgId: integer("provider_org_id").notNull().references(() => organizations.id),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  plannerOrgId: integer("planner_org_id").notNull().references(() => organizations.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  invitedBy: text("invited_by").references(() => users.id),
+  status: text("status").default("pending"),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
 });
 
 export const tasks = pgTable("tasks", {

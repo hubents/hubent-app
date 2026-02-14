@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getPerson, updatePerson, deletePerson } from "@/lib/crm";
 
 type RouteParams = { params: Promise<{ personId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ personId: string }> };
 // GET /api/crm/people/[personId] - Get single person
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { personId } = await params;
 
     const person = await getPerson(session, parseInt(personId, 10));
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/crm/people/[personId] - Update person
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { personId } = await params;
     const body = await request.json();
 
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/crm/people/[personId] - Delete person
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { personId } = await params;
 
     await deletePerson(session, parseInt(personId, 10));

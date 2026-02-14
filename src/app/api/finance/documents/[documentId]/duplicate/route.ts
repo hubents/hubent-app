@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { duplicateDocument } from "@/lib/finance";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ documentId: string }> };
 // POST /api/finance/documents/[documentId]/duplicate - Duplicate document
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { documentId } = await params;
 
     const newDoc = await duplicateDocument(session, parseInt(documentId, 10));

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getLeads, getLeadsByStage, createLead } from "@/lib/crm";
 import { updateContact, getContact } from "@/lib/contacts";
 import { notifyNewLead } from "@/lib/push-notifications";
@@ -7,7 +7,7 @@ import { notifyNewLead } from "@/lib/push-notifications";
 // GET /api/crm/leads - List leads
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { searchParams } = new URL(request.url);
     
     const view = searchParams.get("view"); // "kanban" or "list"
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 // POST /api/crm/leads - Create lead
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     const { title, description, value, currency, stageId, probability, expectedCloseDate, source, contactId, companyId, personId, assignedTo } = body;

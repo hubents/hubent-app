@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getContactActivities, createContactActivity } from "@/lib/contacts";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 // GET /api/contacts/[id]/activities - List contact activities
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("viewer");
+    await requirePermission("crm:read");
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/contacts/[id]/activities - Add activity to contact
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
 

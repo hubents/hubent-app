@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { updateGuest, updateGuestRsvpStatus, deleteGuest } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 // PATCH /api/events/[eventId]/guests/[guestId] - Update guest
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { guestId } = await params;
     const body = await request.json();
 
@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/guests/[guestId] - Delete guest
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { guestId } = await params;
 
     await deleteGuest(parseInt(guestId, 10));

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ taskId: string }> };
 // GET /api/tasks/[taskId] - Get single task
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("tasks:read");
     const { taskId } = await params;
 
     const task = await db.query.tasks.findFirst({
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/tasks/[taskId] - Update task
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
 
@@ -131,7 +131,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/tasks/[taskId] - Delete task
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
 
     await db.delete(tasks)

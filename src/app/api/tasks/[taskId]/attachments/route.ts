@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { taskAttachments, tasks } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ taskId: string }> };
 // GET /api/tasks/[taskId]/attachments - List task attachments
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("tasks:read");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/tasks/[taskId]/attachments - Add attachment to task
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
 
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/tasks/[taskId]/attachments - Delete attachment
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const attachmentId = searchParams.get("attachmentId");

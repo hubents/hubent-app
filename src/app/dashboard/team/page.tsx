@@ -38,14 +38,20 @@ import {
   RiCloseLine,
 } from "@remixicon/react";
 import { useTeam } from "@/hooks/use-team";
+import { useRoles } from "@/hooks/use-roles";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-const roleLabels: Record<string, string> = {
+const DEFAULT_ROLE_LABELS: Record<string, string> = {
   owner: "Propietario",
   admin: "Administrador",
-  member: "Miembro",
+  planner: "Planner",
+  assistant: "Asistente",
+  accountant: "Contable",
   viewer: "Visualizador",
+  vendor: "Proveedor",
+  client: "Cliente",
 };
 
 // Email validation regex
@@ -54,14 +60,26 @@ const isValidEmail = (email: string) => {
 };
 
 export default function TeamPage() {
+  const router = useRouter();
   const { members, invitations, loading, inviteMember, removeMember, cancelInvitation, resendInvitation } = useTeam();
+  const { systemRoles, customRoles, loading: rolesLoading } = useRoles();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newInvite, setNewInvite] = useState({
     email: "",
-    role: "member",
+    role: "planner",
   });
+
+  const allRoles = [...systemRoles, ...customRoles];
+  const invitableRoles = allRoles.filter(
+    (r) => r.slug !== "owner" && r.slug !== "vendor" && r.slug !== "client"
+  );
+  const getRoleLabel = (slug: string) => {
+    const role = allRoles.find((r) => r.slug === slug);
+    if (role) return role.name;
+    return DEFAULT_ROLE_LABELS[slug] || slug;
+  };
 
   const handleEmailChange = (email: string) => {
     setNewInvite({ ...newInvite, email });
@@ -85,7 +103,7 @@ export default function TeamPage() {
         toast.success("Invitación enviada", {
           description: `Se envió una invitación a ${newInvite.email}`,
         });
-        setNewInvite({ email: "", role: "member" });
+        setNewInvite({ email: "", role: "planner" });
         setEmailError(null);
         setIsDrawerOpen(false);
       } else {
@@ -145,10 +163,16 @@ export default function TeamPage() {
             Gestiona los miembros de tu equipo
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
-          <RiUserAddLine className="h-4 w-4" />
-          Invitar Miembro
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push("/dashboard/settings/roles")}>
+            <RiTeamLine className="h-4 w-4 mr-2" />
+            Roles
+          </Button>
+          <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
+            <RiUserAddLine className="h-4 w-4" />
+            Invitar Miembro
+          </Button>
+        </div>
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
           <SheetContent className="sm:max-w-2xl overflow-y-auto">
             <SheetHeader>
@@ -181,9 +205,15 @@ export default function TeamPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="member">Miembro</SelectItem>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
+                    {rolesLoading ? (
+                      <SelectItem value="planner" disabled>Cargando...</SelectItem>
+                    ) : (
+                      invitableRoles.map((role) => (
+                        <SelectItem key={role.slug} value={role.slug}>
+                          {role.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -240,7 +270,7 @@ export default function TeamPage() {
                     <p className="text-sm text-[var(--muted-foreground)]">{member.email}</p>
                   </div>
                   <Badge variant="secondary">
-                    {roleLabels[member.role || "member"] || member.role}
+                    {getRoleLabel(member.role || "viewer")}
                   </Badge>
                   {member.role !== "owner" && (
                     <Button

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { assignGuestToTable } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; tableId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string; tableId: string }> };
 // POST /api/events/[eventId]/tables/[tableId]/assign - Assign guest to table
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { tableId } = await params;
     const body = await request.json();
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/tables/[tableId]/assign - Remove guest from table
 export async function DELETE(request: NextRequest, { params: _params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     void _params;
     const { searchParams } = new URL(request.url);
     const guestId = searchParams.get("guestId");

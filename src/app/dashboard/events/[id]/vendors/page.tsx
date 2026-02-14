@@ -28,6 +28,8 @@ import {
   RiDeleteBinLine,
   RiPhoneLine,
   RiMailLine,
+  RiShieldCheckLine,
+  RiSendPlaneLine,
 } from "@remixicon/react";
 import Link from "next/link";
 
@@ -49,6 +51,25 @@ interface Vendor {
   contactPhone: string | null;
 }
 
+interface PlatformProvider {
+  id: number;
+  providerOrgId: number;
+  vendorId: number | null;
+  status: string;
+  invitedAt: string;
+  acceptedAt: string | null;
+  providerName: string;
+  providerSlug: string;
+}
+
+interface DirectoryProvider {
+  id: number;
+  name: string;
+  slug: string;
+  providerCategory: string | null;
+  instagramHandle: string | null;
+}
+
 export default function EventVendorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const eventId = parseInt(id, 10);
@@ -62,6 +83,13 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
   const [vendorService, setVendorService] = useState("");
   const [adding, setAdding] = useState(false);
+
+  // Platform providers state
+  const [platformProviders, setPlatformProviders] = useState<PlatformProvider[]>([]);
+  const [directoryProviders, setDirectoryProviders] = useState<DirectoryProvider[]>([]);
+  const [providerSearch, setProviderSearch] = useState("");
+  const [showInviteDrawer, setShowInviteDrawer] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -102,9 +130,62 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const fetchPlatformProviders = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/providers`);
+      const data = await res.json();
+      if (data.success) {
+        setPlatformProviders(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch platform providers:", error);
+    }
+  };
+
+  const fetchDirectoryProviders = async (search: string) => {
+    try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/providers?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setDirectoryProviders(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch directory:", error);
+    }
+  };
+
+  const handleInviteProvider = async (providerOrgId: number) => {
+    setInviting(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/providers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerOrgId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPlatformProviders();
+        setShowInviteDrawer(false);
+      }
+    } catch (error) {
+      console.error("Failed to invite provider:", error);
+    } finally {
+      setInviting(false);
+    }
+  };
+
   useEffect(() => {
-    Promise.all([fetchVendors(), fetchAllVendors()]).finally(() => setLoading(false));
+    Promise.all([fetchVendors(), fetchAllVendors(), fetchPlatformProviders()]).finally(() => setLoading(false));
   }, [eventId]);
+
+  useEffect(() => {
+    if (showInviteDrawer) {
+      const timer = setTimeout(() => fetchDirectoryProviders(providerSearch), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [providerSearch, showInviteDrawer]);
 
   const handleAddVendor = async () => {
     if (!selectedVendorId) return;
@@ -244,7 +325,107 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      {/* Vendors Grid */}
+      {/* Platform Providers Section */}
+      {platformProviders.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <RiShieldCheckLine className="h-5 w-5 text-green-600" />
+              Proveedores de Plataforma
+            </h2>
+            <Button size="sm" variant="outline" onClick={() => setShowInviteDrawer(true)}>
+              <RiSendPlaneLine className="h-4 w-4 mr-1" />
+              Invitar
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {platformProviders.map((pp) => {
+              const statusMap: Record<string, { label: string; variant: "success" | "warning" | "secondary" | "destructive" }> = {
+                active: { label: "Activo", variant: "success" },
+                pending: { label: "Pendiente", variant: "warning" },
+                rejected: { label: "Rechazado", variant: "destructive" },
+                revoked: { label: "Revocado", variant: "secondary" },
+              };
+              const st = statusMap[pp.status] || statusMap.pending;
+              return (
+                <Card key={pp.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <RiShieldCheckLine className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{pp.providerName}</p>
+                        <Badge variant={st.variant} className="mt-0.5">{st.label}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Invite Provider Drawer */}
+      <Sheet open={showInviteDrawer} onOpenChange={setShowInviteDrawer}>
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Invitar Proveedor de Plataforma</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            <div className="relative">
+              <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={providerSearch}
+                onChange={(e) => setProviderSearch(e.target.value)}
+                placeholder="Buscar proveedor verificado..."
+                className="pl-10"
+              />
+            </div>
+            {directoryProviders.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No se encontraron proveedores verificados
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {directoryProviders.map((dp) => {
+                  const alreadyInvited = platformProviders.some((pp) => pp.providerOrgId === dp.id);
+                  return (
+                    <div key={dp.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                          <RiStore2Line className="h-4 w-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{dp.name}</p>
+                          {dp.providerCategory && (
+                            <p className="text-xs text-muted-foreground">{dp.providerCategory}</p>
+                          )}
+                        </div>
+                      </div>
+                      {alreadyInvited ? (
+                        <Badge variant="secondary">Invitado</Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleInviteProvider(dp.id)}
+                          disabled={inviting}
+                        >
+                          <RiSendPlaneLine className="h-3.5 w-3.5 mr-1" />
+                          Invitar
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Local Vendors Grid */}
       {filteredVendors.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredVendors.map((vendor) => (

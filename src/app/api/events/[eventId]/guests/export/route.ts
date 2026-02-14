@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { guests, rsvpResponses, guestGroups, guestCompanions, rsvpTransportBookings, rsvpTransportOptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -9,7 +9,7 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/guests/export - Export guests to CSV
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("viewer");
+    await requirePermission("events:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
 

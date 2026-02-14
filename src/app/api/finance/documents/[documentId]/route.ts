@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getDocument, updateDocument, updateDocumentStatus, convertDocument, deleteDocument } from "@/lib/finance";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ documentId: string }> };
 // GET /api/finance/documents/[documentId] - Get single document
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const { documentId } = await params;
 
     const document = await getDocument(session, parseInt(documentId, 10));
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/finance/documents/[documentId] - Update document status or convert
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { documentId } = await params;
     const body = await request.json();
 
@@ -99,7 +99,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/finance/documents/[documentId] - Delete document
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { documentId } = await params;
 
     const deleted = await deleteDocument(session, parseInt(documentId, 10));

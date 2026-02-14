@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getContactPhotos, addContactPhoto, deleteContactPhoto } from "@/lib/contacts";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 // GET /api/contacts/[id]/photos - List contact photos
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("viewer");
+    await requirePermission("crm:read");
     const { id } = await params;
 
     const photos = await getContactPhotos(parseInt(id, 10));
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/contacts/[id]/photos - Add photo to contact
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/contacts/[id]/photos - Delete photo
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("crm:manage");
     const { searchParams } = new URL(request.url);
     const photoId = searchParams.get("photoId");
 

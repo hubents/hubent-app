@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { buildUserContext, createTenantSession } from "@/lib/tenant";
+import { getUsage } from "@/lib/entitlements";
 import type { TenantSession, UserContext } from "@/types";
 
 /**
@@ -43,8 +44,8 @@ export async function getSession(): Promise<TenantSession | null> {
     isImpersonating
   );
 
-  // Create tenant session
-  return createTenantSession(userContext);
+  // Create tenant session (async - fetches plan info)
+  return await createTenantSession(userContext);
 }
 
 /**
@@ -103,6 +104,84 @@ export async function requireRole(
 
   if (userRoleIndex < requiredRoleIndex) {
     throw new Error(`Forbidden: Requires ${minRole} role or higher`);
+  }
+
+  return session;
+}
+
+/**
+ * Require a specific permission (granular RBAC)
+ */
+export async function requirePermission(
+  permission: string
+): Promise<TenantSession> {
+  const session = await requireAuth();
+
+  // Platform admins bypass
+  if (session.user.platformLevel === "super_admin") return session;
+
+  // Impersonation has full access
+  if (session.isImpersonating) return session;
+
+  // Owner and admin have all permissions
+  if (session.role === "owner" || session.role === "admin" || 
+      session.role === "provider_owner") {
+    return session;
+  }
+
+  // Check specific permission
+  if (session.permissions.includes(permission)) return session;
+
+  // Check wildcard (e.g., "events:*")
+  const [resource] = permission.split(":");
+  if (session.permissions.includes(`${resource}:*`)) return session;
+
+  throw new Error(`Forbidden: Missing permission ${permission}`);
+}
+
+/**
+ * Require a feature enabled in the org's plan
+ */
+export async function requireFeature(
+  feature: string
+): Promise<TenantSession> {
+  const session = await requireAuth();
+
+  // Platform admins bypass
+  if (session.user.platformLevel === "super_admin") return session;
+  if (session.isImpersonating) return session;
+
+  if (!session.plan?.features.includes(feature)) {
+    throw new Error(`UpgradeRequired: Feature '${feature}' not available in your plan`);
+  }
+
+  return session;
+}
+
+/**
+ * Require that the org hasn't exceeded a plan limit
+ */
+export async function requireLimit(
+  resource: "users" | "events" | "storage"
+): Promise<TenantSession> {
+  const session = await requireAuth();
+
+  // Platform admins bypass
+  if (session.user.platformLevel === "super_admin") return session;
+  if (session.isImpersonating) return session;
+
+  if (!session.plan) return session; // No plan = no limits enforced (trial/legacy)
+
+  const limitKey = `max${resource.charAt(0).toUpperCase() + resource.slice(1)}` as keyof typeof session.plan.limits;
+  const max = session.plan.limits[limitKey];
+
+  if (max === -1) return session; // Unlimited
+
+  const usage = await getUsage(session.organizationId);
+  const current = usage[resource];
+
+  if (current >= max) {
+    throw new Error(`LimitReached: Maximum ${resource} (${max}) reached for your plan`);
   }
 
   return session;

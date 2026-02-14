@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { financialDocuments, organizationFinanceSettings, contacts, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -16,7 +16,7 @@ function getStripe() {
 // POST /api/finance/stripe/checkout - Create Stripe Checkout session for a document
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
     const { documentId } = body;
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
 // GET /api/finance/stripe/checkout - Get existing payment link for a document
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("documentId");

@@ -11,6 +11,7 @@ import {
   RiCalendarEventLine,
   RiUserLine,
   RiStore2Line,
+  RiStoreLine,
   RiFileListLine,
   RiSettings4Line,
   RiTeamLine,
@@ -33,7 +34,8 @@ import {
   RiGroupLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Tooltip,
   TooltipContent,
@@ -42,12 +44,12 @@ import {
 } from "@/components/ui/tooltip";
 
 const navigationBeforeFinance = [
-  { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
-  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line },
-  { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
+  { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine, permission: null },
+  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line, permission: null },
+  { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine, permission: "events:read" },
   // Contactos is now a submenu, handled separately
-  { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
-  { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
+  { name: "CRM", href: "/dashboard/crm", icon: RiUserLine, permission: "crm:read" },
+  { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine, permission: "tasks:read" },
 ];
 
 const contactsSubNav = [
@@ -58,8 +60,9 @@ const contactsSubNav = [
 ];
 
 const navigationAfterFinance = [
-  { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine },
-  { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine },
+  { name: "Proveedores", href: "/dashboard/providers", icon: RiStoreLine, permission: "vendors:read" },
+  { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine, permission: "team:read" },
+  { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null },
 ];
 
 const moreSubNav = [
@@ -90,9 +93,21 @@ interface MainSidebarProps {
 export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const pathname = usePathname();
   const { isEventView } = useEvent();
+  const { can, loading: sessionLoading } = useUserSession();
   const [financeExpanded, setFinanceExpanded] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
   const [contactsExpanded, setContactsExpanded] = useState(false);
+
+  const filteredNavBefore = useMemo(() => 
+    navigationBeforeFinance.filter((item) => !item.permission || can(item.permission)),
+    [can]
+  );
+  const filteredNavAfter = useMemo(() =>
+    navigationAfterFinance.filter((item) => !item.permission || can(item.permission)),
+    [can]
+  );
+  const showFinance = useMemo(() => can("finance:read"), [can]);
+  const showContacts = useMemo(() => can("crm:read"), [can]);
   
   // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
@@ -147,7 +162,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
             {/* Items before Finance */}
-            {navigationBeforeFinance.map((item) => {
+            {filteredNavBefore.map((item) => {
               const isActive = item.href === "/dashboard" 
                 ? pathname === item.href 
                 : pathname === item.href || pathname.startsWith(item.href + "/");
@@ -193,7 +208,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             })}
 
             {/* Contactos Menu with Submenu */}
-            {isCollapsed ? (
+            {showContacts && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -261,10 +276,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   </div>
                 )}
               </div>
-            )}
+            ))}
 
             {/* Finance Menu with Submenu */}
-            {isCollapsed ? (
+            {showFinance && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -331,7 +346,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   </div>
                 )}
               </div>
-            )}
+            ))}
 
             {/* More Menu with Submenu */}
             {isCollapsed ? (
@@ -408,7 +423,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             )}
 
             {/* Items after Finance */}
-            {navigationAfterFinance.map((item) => {
+            {filteredNavAfter.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               
               if (isCollapsed) {

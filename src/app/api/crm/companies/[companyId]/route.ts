@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getCompany, updateCompany, deleteCompany, getCompanyPeople } from "@/lib/crm";
 
 type RouteParams = { params: Promise<{ companyId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ companyId: string }> };
 // GET /api/crm/companies/[companyId] - Get single company
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { companyId } = await params;
     const { searchParams } = new URL(request.url);
     const includePeople = searchParams.get("includePeople") === "true";
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/crm/companies/[companyId] - Update company
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { companyId } = await params;
     const body = await request.json();
 
@@ -74,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/crm/companies/[companyId] - Delete company
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { companyId } = await params;
 
     await deleteCompany(session, parseInt(companyId, 10));

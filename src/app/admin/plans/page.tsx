@@ -101,15 +101,15 @@ export default async function PlansPage() {
                     <ul className="space-y-1 text-sm text-[var(--muted-foreground)]">
                       <li className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-500" />
-                        {plan.limits.users === -1 ? "Usuarios ilimitados" : `${plan.limits.users} usuarios`}
+                        {plan.limits.maxUsers === -1 ? "Usuarios ilimitados" : `${plan.limits.maxUsers} usuarios`}
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-500" />
-                        {plan.limits.events === -1 ? "Eventos ilimitados" : `${plan.limits.events} eventos`}
+                        {plan.limits.maxEvents === -1 ? "Eventos ilimitados" : `${plan.limits.maxEvents} eventos`}
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-500" />
-                        {plan.limits.vendors === -1 ? "Vendors ilimitados" : `${plan.limits.vendors} vendors`}
+                        {plan.limits.maxStorage === -1 ? "Storage ilimitado" : `${plan.limits.maxStorage} MB storage`}
                       </li>
                     </ul>
                   </div>

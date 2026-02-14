@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { checkInGuest } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 // POST /api/events/[eventId]/guests/[guestId]/checkin - Check in a guest
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("events:update");
     const { guestId } = await params;
     const body = await request.json().catch(() => ({}));
 

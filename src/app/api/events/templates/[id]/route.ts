@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { 
   getEventTemplate, 
   updateEventTemplate, 
@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("events:read");
     const { id } = await params;
     const templateId = parseInt(id, 10);
 
@@ -48,7 +48,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("events:update");
     const { id } = await params;
     const templateId = parseInt(id, 10);
 
@@ -85,7 +85,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("admin");
+    await requirePermission("events:update");
     const { id } = await params;
     const templateId = parseInt(id, 10);
 

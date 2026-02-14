@@ -4,17 +4,46 @@
 
 // User roles within a tenant (organization)
 export type TenantRole = 
-  | "owner"      // Full control, can delete org
-  | "admin"      // Full control except delete org
-  | "planner"    // Event planner - main user
-  | "assistant"  // Planner assistant
-  | "accountant" // Finance only
-  | "viewer";    // Read only
+  | "owner"           // Full control, can delete org
+  | "admin"           // Full control except delete org
+  | "planner"         // Event planner - main user
+  | "assistant"       // Planner assistant
+  | "accountant"      // Finance only
+  | "viewer"          // Read only
+  | "provider_owner"  // Provider org owner
+  | "provider_admin"  // Provider org admin
+  | "provider_tech";  // Provider technician
+
+// Organization types
+export type OrgType = "tenant" | "provider" | "client";
 
 // External user types (portal access)
 export type ExternalUserType =
   | "vendor"     // Vendor with portal access
   | "client";    // Client (novios) with portal access
+
+// Plan limits enforced by entitlement engine
+export interface PlanLimits {
+  maxUsers: number;    // -1 = unlimited
+  maxEvents: number;   // -1 = unlimited
+  maxStorage: number;  // MB, -1 = unlimited
+}
+
+// Plan info attached to session
+export interface PlanInfo {
+  id: number;
+  slug: string;
+  name: string;
+  features: string[];
+  limits: PlanLimits;
+}
+
+// Usage counters for quota checks
+export interface UsageInfo {
+  users: number;
+  events: number;
+  storage: number;
+}
 
 // Platform admin levels
 export type PlatformAdminLevel =
@@ -39,6 +68,7 @@ export interface UserContext {
     id: number;
     name: string;
     slug: string;
+    orgType: OrgType;
     role: TenantRole;
     permissions: string[];
   };
@@ -56,8 +86,10 @@ export interface UserContext {
 export interface TenantSession {
   user: UserContext;
   organizationId: number;
+  orgType: OrgType;
   role: TenantRole;
   permissions: string[];
+  plan: PlanInfo | null;
   isImpersonating?: boolean;
 }
 

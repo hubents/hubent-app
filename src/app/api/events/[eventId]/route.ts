@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getEvent, updateEvent, deleteEvent, cancelEvent } from "@/lib/events";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId] - Get single event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("events:read");
     const { eventId } = await params;
 
     const event = await getEvent(session, parseInt(eventId, 10));
@@ -35,13 +35,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/events/[eventId] - Update event
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("events:update");
     const { eventId } = await params;
     const body = await request.json();
 
     // Handle cancel action (soft delete)
     if (body.action === "cancel") {
-      const adminSession = await requireRole("admin");
+      const adminSession = await requirePermission("events:delete");
       const result = await cancelEvent(adminSession, parseInt(eventId, 10));
       
       if (!result.event) {
@@ -83,7 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId] - Delete event
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("events:delete");
     const { eventId } = await params;
 
     await deleteEvent(session, parseInt(eventId, 10));

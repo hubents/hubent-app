@@ -1,0 +1,209 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  RiStoreLine,
+  RiSearchLine,
+  RiInstagramLine,
+  RiMapPinLine,
+  RiShieldCheckLine,
+  RiExternalLinkLine,
+} from "@remixicon/react";
+import Link from "next/link";
+
+interface ProviderOrg {
+  id: number;
+  name: string;
+  slug: string;
+  logo: string | null;
+  instagramHandle: string | null;
+  providerCategory: string | null;
+  serviceRadius: number | null;
+  serviceAreas: string[] | null;
+  phone: string | null;
+  website: string | null;
+}
+
+const CATEGORIES = [
+  "Catering",
+  "Fotografía",
+  "Video",
+  "Música / DJ",
+  "Decoración",
+  "Florería",
+  "Iluminación",
+  "Sonido",
+  "Mobiliario",
+  "Transporte",
+  "Animación",
+  "Wedding Planner",
+  "Pastelería",
+  "Bartender",
+  "Otro",
+];
+
+export default function ProvidersDirectoryPage() {
+  const [providers, setProviders] = useState<ProviderOrg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [total, setTotal] = useState(0);
+
+  const fetchProviders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (category) params.set("category", category);
+      params.set("limit", "50");
+
+      const res = await fetch(`/api/providers?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setProviders(data.data);
+        setTotal(data.meta?.total ?? data.data.length);
+      }
+    } catch {
+      console.error("Error fetching providers");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, category]);
+
+  useEffect(() => {
+    const timer = setTimeout(fetchProviders, 300);
+    return () => clearTimeout(timer);
+  }, [fetchProviders]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Directorio de Proveedores</h1>
+        <p className="text-muted-foreground">
+          Proveedores verificados disponibles en la plataforma
+        </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre o Instagram..."
+            className="pl-10"
+          />
+        </div>
+        <Select value={category} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            {CATEGORIES.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Results */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : providers.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <RiStoreLine className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">No se encontraron proveedores</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {search || category
+                ? "Intenta con otros filtros de búsqueda"
+                : "Aún no hay proveedores verificados en la plataforma"}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">{total} proveedores encontrados</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {providers.map((provider) => (
+              <Card key={provider.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+                      <RiStoreLine className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate">{provider.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-1 mt-0.5">
+                        <RiShieldCheckLine className="h-3 w-3 text-green-600" />
+                        Verificado
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {provider.providerCategory && (
+                      <Badge variant="secondary">{provider.providerCategory}</Badge>
+                    )}
+                    {provider.serviceRadius && (
+                      <Badge variant="outline" className="gap-1">
+                        <RiMapPinLine className="h-3 w-3" />
+                        {provider.serviceRadius} km
+                      </Badge>
+                    )}
+                  </div>
+
+                  {provider.instagramHandle && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <RiInstagramLine className="h-3.5 w-3.5" />
+                      @{provider.instagramHandle}
+                    </p>
+                  )}
+
+                  {provider.serviceAreas && provider.serviceAreas.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {provider.serviceAreas.slice(0, 3).map((area) => (
+                        <Badge key={area} variant="outline" className="text-xs">{area}</Badge>
+                      ))}
+                      {provider.serviceAreas.length > 3 && (
+                        <Badge variant="outline" className="text-xs">+{provider.serviceAreas.length - 3}</Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link href={`/providers/${provider.slug}`} target="_blank">
+                        <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
+                        Ver Perfil
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

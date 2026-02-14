@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { saveEventAsTemplate } from "@/lib/events";
 
 // POST /api/events/[eventId]/save-as-template - Save event as template
@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("events:create");
     const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 

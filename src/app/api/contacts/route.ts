@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getContacts, createContact, findDuplicateContacts } from "@/lib/contacts";
 import { notifyNewContact } from "@/lib/push-notifications";
 
 // GET /api/contacts - List contacts
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { searchParams } = new URL(request.url);
 
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 // POST /api/contacts - Create contact
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     const { type, name } = body;

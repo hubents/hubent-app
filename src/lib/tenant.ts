@@ -5,10 +5,13 @@ import {
   roles, 
   rolePermissions, 
   permissions,
-  platformAdmins 
+  platformAdmins,
+  subscriptionPlans,
+  subscriptions,
+  featureFlags,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import type { TenantRole, UserContext, TenantSession, PermissionCheck } from "@/types";
+import { eq, and, inArray } from "drizzle-orm";
+import type { TenantRole, OrgType, UserContext, TenantSession, PermissionCheck, PlanInfo } from "@/types";
 
 // ============================================
 // TENANT HELPERS
@@ -53,6 +56,7 @@ export async function getUserOrganizations(userId: string) {
       slug: organizations.slug,
       logo: organizations.logo,
       status: organizations.status,
+      orgType: organizations.orgType,
       role: roles.slug,
       roleName: roles.name,
     })
@@ -135,6 +139,7 @@ export async function getUserOrganizations(userId: string) {
           slug: organizations.slug,
           logo: organizations.logo,
           status: organizations.status,
+          orgType: organizations.orgType,
           role: roles.slug,
           roleName: roles.name,
         })
@@ -213,6 +218,7 @@ export async function buildUserContext(
         slug: organizations.slug,
         logo: organizations.logo,
         status: organizations.status,
+        orgType: organizations.orgType,
       })
       .from(organizations)
       .where(eq(organizations.id, currentOrgId))
@@ -255,6 +261,7 @@ export async function buildUserContext(
           id: currentOrg.id,
           name: currentOrg.name,
           slug: currentOrg.slug,
+          orgType: (currentOrg.orgType ?? "tenant") as OrgType,
           role: currentOrg.role as TenantRole,
           permissions: currentOrgPermissions,
         }
@@ -271,17 +278,69 @@ export async function buildUserContext(
 /**
  * Create a tenant session from user context
  */
-export function createTenantSession(userContext: UserContext): TenantSession | null {
+export async function createTenantSession(userContext: UserContext): Promise<TenantSession | null> {
   if (!userContext.currentOrganization) {
     return null;
   }
 
+  const orgId = userContext.currentOrganization.id;
+  const plan = await getOrgPlanInfo(orgId);
+
   return {
     user: userContext,
-    organizationId: userContext.currentOrganization.id,
+    organizationId: orgId,
+    orgType: userContext.currentOrganization.orgType ?? "tenant",
     role: userContext.currentOrganization.role,
     permissions: userContext.currentOrganization.permissions,
+    plan,
     isImpersonating: userContext.isImpersonating,
+  };
+}
+
+/**
+ * Get plan info with features for an organization
+ */
+export async function getOrgPlanInfo(orgId: number): Promise<PlanInfo | null> {
+  // Get subscription → plan
+  const sub = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.organizationId, orgId),
+  });
+
+  let planId = sub?.planId;
+
+  // Fallback to org.planId if no subscription
+  if (!planId) {
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { planId: true },
+    });
+    planId = org?.planId ?? undefined;
+  }
+
+  if (!planId) return null;
+
+  const plan = await db.query.subscriptionPlans.findFirst({
+    where: eq(subscriptionPlans.id, planId),
+  });
+
+  if (!plan) return null;
+
+  // Get features from featureFlags where planIds includes this plan
+  const allFlags = await db
+    .select({ key: featureFlags.key, planIds: featureFlags.planIds, enabled: featureFlags.enabled })
+    .from(featureFlags)
+    .where(eq(featureFlags.enabled, true));
+
+  const features = allFlags
+    .filter((f) => f.planIds && f.planIds.includes(planId!))
+    .map((f) => f.key);
+
+  return {
+    id: plan.id,
+    slug: plan.slug,
+    name: plan.name,
+    features,
+    limits: plan.limits ?? { maxUsers: 1, maxEvents: 1, maxStorage: 100 },
   };
 }
 
@@ -299,12 +358,27 @@ const ROLE_HIERARCHY: TenantRole[] = [
   "owner",
 ];
 
+// Provider role hierarchy (separate track)
+const PROVIDER_ROLE_HIERARCHY: TenantRole[] = [
+  "provider_tech",
+  "provider_admin",
+  "provider_owner",
+];
+
 /**
  * Check if a role has at least the required level
  */
 export function hasRoleLevel(userRole: TenantRole, requiredRole: TenantRole): boolean {
-  const userLevel = ROLE_HIERARCHY.indexOf(userRole);
-  const requiredLevel = ROLE_HIERARCHY.indexOf(requiredRole);
+  // Check if roles are in provider hierarchy
+  const isProviderUser = PROVIDER_ROLE_HIERARCHY.includes(userRole);
+  const isProviderRequired = PROVIDER_ROLE_HIERARCHY.includes(requiredRole);
+
+  // Cross-hierarchy comparison: provider roles can't match tenant requirements and vice versa
+  if (isProviderUser !== isProviderRequired) return false;
+
+  const hierarchy = isProviderUser ? PROVIDER_ROLE_HIERARCHY : ROLE_HIERARCHY;
+  const userLevel = hierarchy.indexOf(userRole);
+  const requiredLevel = hierarchy.indexOf(requiredRole);
   return userLevel >= requiredLevel;
 }
 

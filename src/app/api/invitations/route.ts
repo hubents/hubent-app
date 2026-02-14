@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { createOrganizationInvitation, revokeInvitation } from "@/lib/invitations";
 import { db } from "@/db";
 import { invitations, organizations, roles } from "@/db/schema";
@@ -10,7 +10,7 @@ import { sendOrganizationInviteEmail } from "@/lib/email";
 // GET /api/invitations - List pending invitations
 export async function GET() {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("team:invite");
 
     const pendingInvitations = await db.query.invitations.findMany({
       where: (i, { eq, and }) => 
@@ -40,7 +40,7 @@ export async function GET() {
 // POST /api/invitations - Create new invitation
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("team:invite");
     const body = await request.json();
 
     const { email, role } = body;
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 // DELETE /api/invitations - Revoke invitation
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("team:invite");
     const { searchParams } = new URL(request.url);
     const invitationId = searchParams.get("id");
 
@@ -129,7 +129,7 @@ export async function DELETE(request: NextRequest) {
 // PUT /api/invitations - Resend invitation (regenerate token and extend expiry)
 export async function PUT(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("team:invite");
     const { searchParams } = new URL(request.url);
     const invitationId = searchParams.get("id");
 

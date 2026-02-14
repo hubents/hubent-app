@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { linkContactToEvent, unlinkContactFromEvent } from "@/lib/contacts";
 import { db } from "@/db";
 import { contactEvents, contacts } from "@/db/schema";
@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    await requireRole("viewer");
+    await requirePermission("events:read");
 
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
@@ -44,7 +44,7 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
 
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
@@ -70,7 +70,7 @@ export async function DELETE(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
 
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);

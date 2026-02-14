@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getPaymentRecords, createPaymentRecord, getPaymentSchedules, createPaymentSchedule, markSchedulePaid } from "@/lib/finance";
 
 // GET /api/finance/payments - List payment records or schedules
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const { searchParams } = new URL(request.url);
     
     const type = searchParams.get("type"); // "records" or "schedules"
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 // POST /api/finance/payments - Create payment record or schedule
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const body = await request.json();
 
     const { type } = body;
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/finance/payments - Mark schedule as paid
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const body = await request.json();
 
     const { scheduleId, paymentRecordId } = body;

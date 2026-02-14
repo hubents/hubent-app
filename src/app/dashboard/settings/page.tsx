@@ -103,8 +103,16 @@ const settingsSections = [
   {
     id: "team",
     title: "Equipo",
-    description: "Roles y permisos del equipo",
+    description: "Miembros del equipo",
     icon: RiTeamLine,
+    href: "/dashboard/team",
+  },
+  {
+    id: "roles",
+    title: "Roles y Permisos",
+    description: "Gestión de roles y permisos",
+    icon: RiShieldLine,
+    href: "/dashboard/settings/roles",
   },
   {
     id: "templates",

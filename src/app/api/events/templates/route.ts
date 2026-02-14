@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getEventTemplates, createEventTemplate } from "@/lib/events";
 
 // GET /api/events/templates - List event templates
 export async function GET() {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("events:read");
 
     const templates = await getEventTemplates(session);
 
@@ -25,7 +25,7 @@ export async function GET() {
 // POST /api/events/templates - Create event template
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("events:create");
     const body = await request.json();
 
     const { name } = body;

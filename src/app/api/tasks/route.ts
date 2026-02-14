@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, events, users } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq, and, desc, asc, sql } from "drizzle-orm";
 // GET /api/tasks - List tasks
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("tasks:read");
     const { searchParams } = new URL(request.url);
     
     const eventId = searchParams.get("eventId");
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 // POST /api/tasks - Create task
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:create");
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;

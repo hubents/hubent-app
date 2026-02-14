@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { updateEventTable, deleteEventTable } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; tableId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ eventId: string; tableId: string }> };
 // PATCH /api/events/[eventId]/tables/[tableId] - Update table
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { tableId } = await params;
     const body = await request.json();
 
@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/tables/[tableId] - Delete table
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("planner");
+    await requirePermission("events:update");
     const { tableId } = await params;
 
     await deleteEventTable(parseInt(tableId, 10));

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { 
   addTaskParticipant, 
   removeTaskParticipant, 
@@ -16,7 +16,7 @@ type RouteParams = { params: Promise<{ taskId: string }> };
 // GET /api/tasks/[taskId]/participants - List task participants
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requireRole("viewer");
+    await requirePermission("tasks:read");
     const { taskId } = await params;
 
     const participants = await getTaskParticipants(parseInt(taskId, 10));
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/tasks/[taskId]/participants - Add participant to task (user or vendor)
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/tasks/[taskId]/participants - Update participant permissions
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
 
@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/tasks/[taskId]/participants - Remove participant from task
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const participantId = searchParams.get("participantId");

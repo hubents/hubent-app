@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { createCreditNote } from "@/lib/finance";
 
 // POST /api/finance/documents/[documentId]/credit-note - Create credit note from invoice
@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ documentId: string }> }
 ) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("finance:create");
     const { documentId } = await params;
     const invoiceId = parseInt(documentId, 10);
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { contacts, contactRelationships } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("crm:read");
     const { id } = await params;
     const contactId = parseInt(id, 10);
 
@@ -99,7 +99,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const contactId = parseInt(id, 10);
     const body = await request.json();
@@ -212,7 +212,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("crm:manage");
     const { id } = await params;
     const contactId = parseInt(id, 10);
     const { searchParams } = new URL(request.url);

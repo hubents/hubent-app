@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getVendors, createVendor } from "@/lib/vendors";
 
 // GET /api/vendors - List vendors
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("vendors:read");
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 // POST /api/vendors - Create vendor
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("vendors:update");
     const body = await request.json();
 
     const { name } = body;

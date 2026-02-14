@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { EventProvider } from "@/contexts/event-context";
+import { UserSessionProvider } from "@/contexts/user-session-context";
 import { DashboardContent } from "@/components/layout/dashboard-content";
 import { RealtimeNotifications } from "@/components/notifications/realtime-notifications";
 import { NotificationPrompt } from "@/components/notifications/notification-prompt";
@@ -17,6 +18,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+    <UserSessionProvider>
     <EventProvider>
       <div className="min-h-screen bg-[var(--background)]">
         <Suspense fallback={null}>
@@ -46,5 +48,6 @@ export default function DashboardLayout({
         <BottomNav />
       </div>
     </EventProvider>
+    </UserSessionProvider>
   );
 }

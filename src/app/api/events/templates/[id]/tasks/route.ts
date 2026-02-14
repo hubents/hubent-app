@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { addTaskToTemplate } from "@/lib/events";
 
 // POST /api/events/templates/[id]/tasks - Add task to template
@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireRole("admin");
+    await requirePermission("events:read");
     const { id } = await params;
     const templateId = parseInt(id, 10);
 

@@ -63,7 +63,7 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
       priceMonthly: "0",
       priceYearly: "0",
       features: ["1 evento", "2 usuarios", "Funciones básicas"],
-      limits: { users: 2, events: 1, vendors: 5, storage: 500 },
+      limits: { maxUsers: 2, maxEvents: 1, maxStorage: 500 },
       isActive: true,
       sortOrder: 0,
     }).returning();

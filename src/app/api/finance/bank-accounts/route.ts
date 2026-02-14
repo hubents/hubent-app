@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { bankAccounts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -7,7 +7,7 @@ import { eq, and } from "drizzle-orm";
 // GET /api/finance/bank-accounts - List bank accounts
 export async function GET() {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
 
     const accounts = await db
@@ -32,7 +32,7 @@ export async function GET() {
 // POST /api/finance/bank-accounts - Create bank account
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 // PATCH /api/finance/bank-accounts - Update bank account
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 
@@ -140,7 +140,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/finance/bank-accounts - Delete (soft) bank account
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await requireRole("admin");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

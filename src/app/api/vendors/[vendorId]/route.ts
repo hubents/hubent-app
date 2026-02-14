@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getVendor, updateVendor, deleteVendor } from "@/lib/vendors";
 
 type RouteParams = { params: Promise<{ vendorId: string }> };
@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ vendorId: string }> };
 // GET /api/vendors/[vendorId] - Get single vendor
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("viewer");
+    const session = await requirePermission("vendors:read");
     const { vendorId } = await params;
 
     const vendor = await getVendor(session, parseInt(vendorId, 10));
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/vendors/[vendorId] - Update vendor
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("vendors:update");
     const { vendorId } = await params;
     const body = await request.json();
 
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/vendors/[vendorId] - Delete vendor
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("vendors:update");
     const { vendorId } = await params;
 
     await deleteVendor(session, parseInt(vendorId, 10));

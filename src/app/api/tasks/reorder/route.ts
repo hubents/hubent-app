@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -12,7 +12,7 @@ interface ReorderItem {
 // POST /api/tasks/reorder - Reorder tasks within a column (per event)
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireRole("planner");
+    const session = await requirePermission("tasks:update");
     const body = await request.json();
     const { items, eventId } = body as { items: ReorderItem[]; eventId?: number | null };
 

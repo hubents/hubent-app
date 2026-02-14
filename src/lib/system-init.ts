@@ -15,6 +15,10 @@ const SYSTEM_ROLES = [
   { name: "Assistant", slug: "assistant", description: "Asistente - apoyo en tareas asignadas" },
   { name: "Accountant", slug: "accountant", description: "Contador - acceso a finanzas y reportes" },
   { name: "Viewer", slug: "viewer", description: "Visualizador - solo lectura" },
+  // Provider roles
+  { name: "Provider Owner", slug: "provider_owner", description: "Dueño de la organización proveedora" },
+  { name: "Provider Admin", slug: "provider_admin", description: "Administrador del proveedor" },
+  { name: "Provider Technician", slug: "provider_tech", description: "Técnico del proveedor - acceso a tareas y eventos asignados" },
 ];
 
 // Default subscription plans
@@ -26,7 +30,7 @@ const DEFAULT_PLANS = [
     priceMonthly: "0",
     priceYearly: "0",
     features: ["1 evento activo", "2 usuarios", "50 invitados RSVP", "500MB almacenamiento"],
-    limits: { users: 2, events: 1, vendors: 5, storage: 500 },
+    limits: { maxUsers: 2, maxEvents: 1, maxStorage: 500 },
     sortOrder: 0,
   },
   {
@@ -36,7 +40,7 @@ const DEFAULT_PLANS = [
     priceMonthly: "29",
     priceYearly: "290",
     features: ["10 eventos activos", "10 usuarios", "500 invitados RSVP", "5GB almacenamiento", "Soporte prioritario"],
-    limits: { users: 10, events: 10, vendors: 50, storage: 5000 },
+    limits: { maxUsers: 10, maxEvents: 10, maxStorage: 5000 },
     sortOrder: 1,
   },
   {
@@ -46,7 +50,7 @@ const DEFAULT_PLANS = [
     priceMonthly: "79",
     priceYearly: "790",
     features: ["Eventos ilimitados", "Usuarios ilimitados", "Invitados ilimitados", "50GB almacenamiento", "API access", "Soporte 24/7"],
-    limits: { users: 999, events: 999, vendors: 999, storage: 50000 },
+    limits: { maxUsers: -1, maxEvents: -1, maxStorage: 50000 },
     sortOrder: 2,
   },
 ];
@@ -74,7 +78,11 @@ const BASE_PERMISSIONS = [
   { name: "Gestionar roles", slug: "team:manage", resource: "team", action: "manage" },
   // Finance
   { name: "Ver finanzas", slug: "finance:read", resource: "finance", action: "read" },
+  { name: "Crear documentos financieros", slug: "finance:create", resource: "finance", action: "create" },
   { name: "Gestionar pagos", slug: "finance:manage", resource: "finance", action: "manage" },
+  // CRM
+  { name: "Ver CRM", slug: "crm:read", resource: "crm", action: "read" },
+  { name: "Gestionar CRM", slug: "crm:manage", resource: "crm", action: "manage" },
   // Settings
   { name: "Ver configuración", slug: "settings:read", resource: "settings", action: "read" },
   { name: "Editar configuración", slug: "settings:update", resource: "settings", action: "update" },

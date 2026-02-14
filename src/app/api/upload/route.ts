@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { uploadToR2, deleteFromR2, isR2Configured } from "@/lib/r2";
 
 // NOTE: For large files, use /api/upload/presign instead to upload directly to R2
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await requireRole("viewer");
+    await requirePermission("events:read");
 
     const contentType = request.headers.get("content-type") || "";
     
@@ -117,7 +117,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await requireRole("planner");
+    await requirePermission("events:update");
 
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
