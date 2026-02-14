@@ -27,26 +27,15 @@ import { useState, useEffect, useMemo } from "react";
 
 const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, permission: null },
-  { name: "Calendario", href: "/vendor/calendar", icon: RiCalendarEventLine, permission: null },
-  { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine, permission: "events:read" },
-  { name: "Contactos", href: "/vendor/contacts", icon: RiContactsBookLine, permission: "crm:read" },
-  { name: "CRM", href: "/vendor/crm", icon: RiUserLine, permission: "crm:read" },
-  { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine, permission: "tasks:read" },
+  { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine, permission: null },
+  { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine, permission: null },
 ];
 
-const financeSubNav = [
-  { name: "Panel de Control", href: "/vendor/finance", icon: RiDashboardLine },
-  { name: "Presupuestos", href: "/vendor/finance/quotes", icon: RiFileTextLine },
-  { name: "Facturas", href: "/vendor/finance/invoices", icon: RiFileList2Line },
-  { name: "Albaranes", href: "/vendor/finance/delivery-notes", icon: RiTruckLine },
-  { name: "Pagos", href: "/vendor/finance/payments", icon: RiMoneyDollarCircleLine },
-  { name: "Configuración", href: "/vendor/finance/settings", icon: RiSettings4Line },
-];
+const financeSubNav: typeof mainNav = [];
 
 const bottomNav = [
-  { name: "Enti IA", href: "/vendor/ai", icon: RiSparklingLine, permission: null },
   { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine, permission: null },
-  { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: "team:read" },
+  { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: null },
   { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line, permission: null },
 ];
 

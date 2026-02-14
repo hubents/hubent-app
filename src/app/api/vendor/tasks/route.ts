@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerEventAccess, tasks, events, organizations } from "@/db/schema";
-import { eq, and, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 
 /**
  * GET /api/vendor/tasks
@@ -31,7 +31,7 @@ export async function GET() {
       .where(
         and(
           eq(providerEventAccess.providerOrgId, session.organizationId),
-          sql`${providerEventAccess.status} IN ('active', 'pending')`
+          eq(providerEventAccess.status, "active")
         )
       );
 

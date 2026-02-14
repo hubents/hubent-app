@@ -99,6 +99,13 @@ export async function requireRole(
   const session = await requireAuth();
   
   const roleHierarchy = ["viewer", "accountant", "assistant", "planner", "admin", "owner"];
+  const providerBypass = ["provider_owner", "provider_admin", "provider_tech"];
+
+  // Provider owner/admin bypass tenant role checks (they operate in their own hierarchy)
+  if (providerBypass.includes(session.role)) {
+    return session;
+  }
+
   const userRoleIndex = roleHierarchy.indexOf(session.role);
   const requiredRoleIndex = roleHierarchy.indexOf(minRole);
 

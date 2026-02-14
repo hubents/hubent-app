@@ -24,7 +24,6 @@ const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, exact: true },
   { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine },
   { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine },
-  { name: "Finanzas", href: "/vendor/finance", icon: RiMoneyDollarCircleLine },
 ];
 
 const moreItems = [

@@ -395,7 +395,8 @@ export function hasPermission(
   }
 
   // Owner and admin have all permissions within their org
-  if (session.role === "owner" || session.role === "admin") {
+  if (session.role === "owner" || session.role === "admin" ||
+      session.role === "provider_owner") {
     return { allowed: true };
   }
 

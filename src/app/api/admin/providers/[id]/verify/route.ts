@@ -10,7 +10,10 @@ type RouteParams = { params: Promise<{ id: string }> };
 const verifySchema = z.object({
   action: z.enum(["verify", "reject"]),
   rejectionReason: z.string().optional(),
-});
+}).refine(
+  (data) => data.action !== "reject" || (data.rejectionReason && data.rejectionReason.trim().length > 0),
+  { message: "Motivo de rechazo es requerido", path: ["rejectionReason"] }
+);
 
 /**
  * POST /api/admin/providers/[id]/verify

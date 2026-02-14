@@ -1,5 +1,6 @@
 import { ProviderSidebar } from "@/components/layout/provider-sidebar";
 import { VendorBottomNav } from "@/components/layout/vendor-bottom-nav";
+import { VendorGuard } from "@/components/layout/vendor-guard";
 import { Header } from "@/components/layout/header";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
@@ -14,29 +15,31 @@ export default function VendorLayout({
 }) {
   return (
     <UserSessionProvider>
-      <div className="min-h-screen bg-[var(--background)]">
-        <Suspense fallback={null}>
-          <OrgCookieSetter />
-        </Suspense>
-        <ImpersonationBanner />
-        <RealtimeNotifications />
+      <Suspense fallback={null}>
+        <OrgCookieSetter />
+      </Suspense>
+      <VendorGuard>
+        <div className="min-h-screen bg-[var(--background)]">
+          <ImpersonationBanner />
+          <RealtimeNotifications />
 
-        {/* Provider Sidebar (desktop) */}
-        <ProviderSidebar />
+          {/* Provider Sidebar (desktop) */}
+          <ProviderSidebar />
 
-        {/* Main Content */}
-        <div className="md:ml-[260px]">
-          <div className="hidden md:block">
-            <Header />
+          {/* Main Content */}
+          <div className="md:ml-[260px]">
+            <div className="hidden md:block">
+              <Header />
+            </div>
+            <main className="p-[var(--padding-page)] md:p-[var(--padding-page-lg)] pb-20 md:pb-[var(--padding-page-lg)]">
+              {children}
+            </main>
           </div>
-          <main className="p-[var(--padding-page)] md:p-[var(--padding-page-lg)] pb-20 md:pb-[var(--padding-page-lg)]">
-            {children}
-          </main>
-        </div>
 
-        {/* Mobile Bottom Navigation */}
-        <VendorBottomNav />
-      </div>
+          {/* Mobile Bottom Navigation */}
+          <VendorBottomNav />
+        </div>
+      </VendorGuard>
     </UserSessionProvider>
   );
 }

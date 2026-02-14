@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { organizations, providerEventAccess, tasks, financialDocuments, organizationFinanceSettings } from "@/db/schema";
-import { eq, and, count, sum, sql } from "drizzle-orm";
+import { organizations, providerEventAccess, tasks, events, financialDocuments, organizationFinanceSettings } from "@/db/schema";
+import { eq, and, count, sum, sql, inArray } from "drizzle-orm";
 
 /**
  * GET /api/vendor/dashboard
@@ -41,16 +41,31 @@ export async function GET() {
         )
       );
 
-    // Count pending tasks
-    const [taskCount] = await db
-      .select({ count: count() })
-      .from(tasks)
+    // Count pending tasks from shared events (where provider has active access)
+    const activeAccess = await db
+      .select({ eventId: providerEventAccess.eventId })
+      .from(providerEventAccess)
       .where(
         and(
-          eq(tasks.organizationId, session.organizationId),
-          sql`${tasks.status} NOT IN ('completed', 'cancelled')`
+          eq(providerEventAccess.providerOrgId, session.organizationId),
+          eq(providerEventAccess.status, "active")
         )
       );
+    const activeEventIds = activeAccess.map((a) => a.eventId);
+
+    let taskCountValue = 0;
+    if (activeEventIds.length > 0) {
+      const [taskCount] = await db
+        .select({ count: count() })
+        .from(tasks)
+        .where(
+          and(
+            inArray(tasks.eventId, activeEventIds),
+            sql`${tasks.status} NOT IN ('completed', 'cancelled')`
+          )
+        );
+      taskCountValue = taskCount?.count ?? 0;
+    }
 
     // Revenue from paid invoices
     const [revenue] = await db
@@ -93,7 +108,7 @@ export async function GET() {
         },
         stats: {
           activeEvents: eventCount?.count ?? 0,
-          pendingTasks: taskCount?.count ?? 0,
+          pendingTasks: taskCountValue,
           totalRevenue: Number(revenue?.total ?? 0),
           pendingInvoices: pendingInvoices?.count ?? 0,
           currency: financeSettings?.defaultCurrency || "EUR",
