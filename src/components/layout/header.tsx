@@ -2,6 +2,7 @@
 
 import { RiSearchLine, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
 import { AIHeaderButton } from "@/components/ai/ai-header-button";
+import { CalendarHeaderButton } from "@/components/calendar/calendar-header-button";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,9 @@ export function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-4">
+        {/* Calendar */}
+        <CalendarHeaderButton />
+
         {/* AI Assistant */}
         <AIHeaderButton />
 
