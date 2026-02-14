@@ -46,7 +46,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-full sm:max-w-3xl p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:max-w-3xl p-0 flex flex-col">
         <SheetHeader className="px-4 py-3 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

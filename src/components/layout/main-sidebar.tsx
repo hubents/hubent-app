@@ -43,6 +43,7 @@ import {
 
 const navigationBeforeFinance = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
+  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line },
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine },
   // Contactos is now a submenu, handled separately
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine },
@@ -62,7 +63,6 @@ const navigationAfterFinance = [
 ];
 
 const moreSubNav = [
-  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line, comingSoon: false },
   { name: "Menús", href: "/dashboard/menus", icon: RiRestaurantLine, comingSoon: true },
   { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
   { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, comingSoon: true },
