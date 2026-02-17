@@ -34,6 +34,9 @@ import {
   RiMapPinLine,
   RiTimeLine,
   RiSearchLine,
+  RiGlobalLine,
+  RiMapPin2Line,
+  RiPriceTag3Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
 
@@ -50,10 +53,22 @@ interface Provider {
   verifiedAt: string | null;
   rejectionReason: string | null;
   serviceRadius: number | null;
+  serviceAreas: string[] | null;
+  address: string | null;
   createdAt: string;
   memberCount: number;
   owner: { name: string | null; email: string } | null;
+  planName: string | null;
+  planSlug: string | null;
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
 }
+
+const SUB_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  active: { label: "Activa", color: "bg-green-500/10 text-green-600" },
+  trialing: { label: "Trial", color: "bg-yellow-500/10 text-yellow-600" },
+  canceled: { label: "Cancelada", color: "bg-red-500/10 text-red-600" },
+};
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "warning" | "destructive" }> = {
   verified: { label: "Verificado", variant: "success" },
@@ -272,6 +287,13 @@ export default function AdminProvidersPage() {
                         {provider.providerCategory && (
                           <Badge variant="outline">{provider.providerCategory}</Badge>
                         )}
+                        {provider.planName && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            SUB_STATUS_CONFIG[provider.subscriptionStatus || ""]?.color || "bg-gray-500/10 text-gray-600"
+                          }`}>
+                            {provider.planName} · {SUB_STATUS_CONFIG[provider.subscriptionStatus || ""]?.label || provider.subscriptionStatus || "—"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                         {provider.instagramHandle && (
@@ -332,6 +354,29 @@ export default function AdminProvidersPage() {
                 </div>
               )}
 
+              {/* Plan y Suscripción */}
+              <div className="p-4 rounded-lg border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <RiPriceTag3Line className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium text-sm">Plan y Suscripción</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold">{selectedProvider.planName || "Sin plan"}</span>
+                  {selectedProvider.subscriptionStatus && (
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      SUB_STATUS_CONFIG[selectedProvider.subscriptionStatus]?.color || "bg-gray-500/10 text-gray-600"
+                    }`}>
+                      {SUB_STATUS_CONFIG[selectedProvider.subscriptionStatus]?.label || selectedProvider.subscriptionStatus}
+                    </span>
+                  )}
+                </div>
+                {selectedProvider.subscriptionStatus === "trialing" && selectedProvider.trialEndsAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Trial hasta: {new Date(selectedProvider.trialEndsAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
               {/* Info Grid */}
               <div className="space-y-3">
                 {selectedProvider.owner && (
@@ -362,6 +407,25 @@ export default function AdminProvidersPage() {
                     <span>{selectedProvider.phone}</span>
                   </div>
                 )}
+                {selectedProvider.website && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <RiGlobalLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <a
+                      href={selectedProvider.website.startsWith("http") ? selectedProvider.website : `https://${selectedProvider.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {selectedProvider.website}
+                    </a>
+                  </div>
+                )}
+                {selectedProvider.address && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <RiMapPin2Line className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span>{selectedProvider.address}</span>
+                  </div>
+                )}
                 {selectedProvider.serviceRadius && (
                   <div className="flex items-center gap-3 text-sm">
                     <RiMapPinLine className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -380,14 +444,30 @@ export default function AdminProvidersPage() {
                 )}
               </div>
 
+              {/* Service Areas */}
+              {selectedProvider.serviceAreas && selectedProvider.serviceAreas.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Áreas de servicio</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProvider.serviceAreas.map((area, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">{area}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
                   <p className="text-2xl font-bold">{selectedProvider.memberCount}</p>
                   <p className="text-xs text-muted-foreground">Miembros</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 text-center">
-                  <p className="text-2xl font-bold">{selectedProvider.slug}</p>
+                  <p className="text-sm font-bold">{selectedProvider.planName || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Plan</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-sm font-bold">{selectedProvider.slug}</p>
                   <p className="text-xs text-muted-foreground">Slug</p>
                 </div>
               </div>

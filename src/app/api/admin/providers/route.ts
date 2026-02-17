@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
-import { organizations, organizationMembers, users } from "@/db/schema";
+import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,8 @@ export async function GET() {
         verifiedAt: organizations.verifiedAt,
         rejectionReason: organizations.rejectionReason,
         serviceRadius: organizations.serviceRadius,
+        serviceAreas: organizations.serviceAreas,
+        address: organizations.address,
         createdAt: organizations.createdAt,
       })
       .from(organizations)
@@ -60,8 +62,28 @@ export async function GET() {
       }
     }
 
+    // Fetch subscription + plan info for each provider
+    const subsData = await db
+      .select({
+        orgId: subscriptions.organizationId,
+        status: subscriptions.status,
+        trialEndsAt: subscriptions.trialEndsAt,
+        planName: subscriptionPlans.name,
+        planSlug: subscriptionPlans.slug,
+      })
+      .from(subscriptions)
+      .innerJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId));
+
+    const subsMap = new Map<number, { planName: string; planSlug: string; status: string | null; trialEndsAt: Date | null }>();
+    for (const s of subsData) {
+      if (providerIds.includes(s.orgId)) {
+        subsMap.set(s.orgId, { planName: s.planName, planSlug: s.planSlug, status: s.status, trialEndsAt: s.trialEndsAt });
+      }
+    }
+
     const data = providerOrgs.map((p) => {
       const memberInfo = membersMap.get(p.id);
+      const subInfo = subsMap.get(p.id);
       return {
         id: p.id,
         name: p.name,
@@ -75,11 +97,17 @@ export async function GET() {
         verifiedAt: p.verifiedAt,
         rejectionReason: p.rejectionReason,
         serviceRadius: p.serviceRadius,
+        serviceAreas: p.serviceAreas,
+        address: p.address,
         createdAt: p.createdAt,
         memberCount: memberInfo?.count || 0,
         owner: memberInfo?.ownerEmail
           ? { name: memberInfo.ownerName, email: memberInfo.ownerEmail }
           : null,
+        planName: subInfo?.planName || null,
+        planSlug: subInfo?.planSlug || null,
+        subscriptionStatus: subInfo?.status || null,
+        trialEndsAt: subInfo?.trialEndsAt?.toISOString() || null,
       };
     });
 
