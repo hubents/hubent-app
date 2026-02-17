@@ -19,8 +19,6 @@ export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 
-  console.log("[Webhook] POST received, body length:", body.length, "signature present:", !!signature);
-
   if (!signature) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
@@ -29,26 +27,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const secret = getWebhookSecret();
-    console.log("[Webhook] Secret prefix:", secret.substring(0, 10) + "...");
     const stripe = getStripePlatform();
     event = stripe.webhooks.constructEvent(body, signature, secret);
-    console.log("[Webhook] Signature verified OK, event:", event.type);
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    const secretRaw = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET || "";
-    console.error("[Webhook] Signature verification FAILED:", errMsg);
-    console.error("[Webhook] Secret length:", secretRaw.length, "trimmed:", secretRaw.trim().length, "body length:", body.length);
-    return NextResponse.json({
-      error: "Invalid signature",
-      detail: errMsg,
-      debug: {
-        secretLen: secretRaw.length,
-        secretTrimmedLen: secretRaw.trim().length,
-        secretPrefix: secretRaw.trim().substring(0, 12),
-        bodyLen: body.length,
-        sigPrefix: signature?.substring(0, 30),
-      },
-    }, { status: 400 });
+    console.error("[Webhook] Signature verification failed:", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
