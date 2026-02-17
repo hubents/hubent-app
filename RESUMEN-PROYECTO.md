@@ -1,14 +1,16 @@
 # HubEnts - Resumen Ejecutivo del Proyecto
 
-**Fecha:** 19 de Diciembre, 2025  
-**Versión:** 1.0.0  
-**URL Producción:** https://hubents-new.vercel.app
+**Fecha:** 17 de Febrero, 2026  
+**Versión:** 2.0.0  
+**URL Producción:** https://app.hubents.com  
+**Vercel Project:** hubents-new  
+**GitHub:** german-gimenez/hubents-app
 
 ---
 
 ## 📋 Descripción del Proyecto
 
-HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos (bodas, fiestas, corporativos). Combina funcionalidades de CRM, gestión de proyectos, finanzas y coordinación de proveedores en una sola aplicación.
+HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos (bodas, fiestas, corporativos). Combina funcionalidades de CRM, gestión de proyectos, finanzas, coordinación de proveedores y billing con Stripe en una sola aplicación.
 
 ---
 
@@ -19,22 +21,29 @@ HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos
 |------------|------------|--------|
 | Frontend | Next.js 16, React 19, TypeScript 5 | ✅ Completo |
 | UI/UX | Tailwind CSS v4, shadcn/ui, Radix UI | ✅ Completo |
-| Base de Datos | Neon PostgreSQL Serverless | ✅ Configurado |
+| Base de Datos | Neon PostgreSQL Serverless | ✅ Producción |
 | ORM | Drizzle ORM con migraciones | ✅ Completo |
-| Autenticación | NextAuth v5 (Google, Email Magic Link) | ✅ Implementado |
-| Deploy | Vercel (CI/CD automático) | ✅ Activo |
+| Autenticación | NextAuth v5 (Google, Email, Credentials) | ✅ Producción |
+| Deploy | Vercel (CI/CD automático desde GitHub) | ✅ Activo |
+| Storage | Cloudflare R2 (uploads) | ✅ Configurado |
+| Email | Resend (transaccional) | ✅ Producción |
+| Billing | Stripe (platform + tenant payments) | ✅ Producción |
+| AI | Vercel AI SDK con AI Gateway | ✅ Integrado |
 
-### 2. Sistema Multi-Tenant
-- **Organizaciones:** Cada cliente tiene su espacio aislado
-- **Roles del Sistema:**
+### 2. Sistema Multi-Tenant con RBAC
+- **Organizaciones:** Cada cliente tiene su espacio aislado (tenant o provider)
+- **Roles Tenant:**
   - `owner` - Propietario con acceso total
   - `admin` - Administrador de la organización
   - `planner` - Wedding planner con permisos de gestión
   - `assistant` - Asistente con permisos limitados
   - `accountant` - Solo acceso a finanzas
   - `viewer` - Solo lectura
-  - `vendor` - Proveedor externo
-  - `client` - Cliente/novios
+- **Roles Provider:**
+  - `provider_owner` - Dueño del proveedor
+  - `provider_admin` - Admin del proveedor
+  - `provider_tech` - Técnico del proveedor
+- **Permisos granulares** por recurso (events:read, team:invite, finance:*, etc.)
 
 ### 3. Módulos Desarrollados
 
@@ -82,96 +91,91 @@ HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos
 - Portfolio con imágenes
 - Sistema de reseñas y calificaciones
 - Categorías (fotografía, catering, música, etc.)
-- Proceso de "claim" para verificar proveedores
+- Proceso de verificación de proveedores
+- Portal independiente para providers con su propio registro
+
+#### 💳 SaaS Billing & Subscriptions
+- **Stripe Platform Integration** (suscripciones SaaS)
+  - Checkout sessions con trial automático
+  - Billing portal para autogestión
+  - Webhooks: checkout.completed, invoice.paid, payment_failed, sub.updated, sub.deleted
+  - Idempotency en invoice webhooks
+- **Stripe Tenant Integration** (cobros a clientes del tenant)
+  - OAuth Connect para cada org
+  - Checkout para facturas individuales
+  - Webhook de payment intents
+- **5 planes activos**: Starter (€14.50), Standard (€29.50), Agency (€49.50), Provider Free, Provider Pro (€14.50)
+- **Entitlements engine**: limits (maxUsers, maxEvents, maxStorage) + feature flags gated por plan
+- **Subscription lifecycle**: trial 14d → active/canceled, emails automáticos (expiring, expired, win-back)
+- **Guards**: `requireActiveSubscription()`, `requireLimit()`, `requireFeature()` en APIs de escritura
 
 ### 4. Panel de Administración (Platform Admin)
-- Gestión de tenants/organizaciones
-- Planes de suscripción
+- Dashboard con stats separados tenants vs providers
+- Gestión de tenants con subscription status
+- Gestión de providers con plan, verificación, categoría
+- Gestión de usuarios con organizaciones
+- CRUD completo de planes de suscripción
+- Billing dashboard: MRR, revenue, facturas recientes
 - Feature flags
 - Logs de auditoría
-- Anuncios del sistema
+- AI settings
 
 ---
 
-## 🎯 Estado Actual del Proyecto
+## 🎯 Estado Actual del Proyecto (Feb 2026)
 
-### Lo Que Funciona HOY
+### Lo Que Funciona en Producción
 | Funcionalidad | Estado |
 |---------------|--------|
-| Login con Google | ✅ Funcional |
-| Login con Magic Link | ✅ Funcional |
-| Dashboard principal | ✅ UI completa |
-| Vista CRM Kanban | ✅ UI + API conectada |
-| Lista de Tareas | ✅ UI + API conectada |
-| Calendario | ✅ UI (mock data) |
-| Gestión de Eventos | ✅ UI + API |
-| Finanzas | ✅ API completa |
-| RSVP público | ✅ API completa |
+| Login con Google / Email / Credentials | ✅ Producción |
+| Dashboard principal | ✅ Producción |
+| CRM Kanban + contactos | ✅ Producción |
+| Gestión de Tareas + Chat | ✅ Producción |
+| Calendario | ✅ Producción |
+| Gestión de Eventos | ✅ Producción |
+| Finanzas + Pagos Stripe | ✅ Producción |
+| RSVP + Lista de Invitados | ✅ Producción |
+| Billing SaaS + Suscripciones | ✅ Producción |
+| Provider Portal + Registro | ✅ Producción |
+| Admin Panel completo | ✅ Producción |
+| AI Chat (Vercel AI SDK) | ✅ Producción |
+| Push Notifications | ✅ Producción |
+| File uploads (R2) | ✅ Producción |
 
-### APIs Disponibles (35+ endpoints)
+### APIs Disponibles (80+ endpoints)
 ```
-/api/crm/leads          - Gestión de leads
-/api/crm/companies      - Gestión de empresas
-/api/crm/people         - Gestión de contactos
-/api/tasks              - Gestión de tareas
-/api/tasks/[id]/messages - Chat de tareas
-/api/events             - Gestión de eventos
-/api/events/templates   - Plantillas
-/api/events/[id]/guests - Invitados
-/api/finance/documents  - Documentos financieros
-/api/finance/payments   - Pagos
-/api/vendors            - Proveedores
-/api/rsvp/[slug]        - Landing RSVP pública
-/api/invitations        - Invitaciones al equipo
+/api/auth/*              - Autenticación (register, provider-register, login)
+/api/crm/*               - CRM (leads, companies, people)
+/api/tasks/*             - Tareas + chat + attachments
+/api/events/*            - Eventos + guests + templates
+/api/finance/*           - Documentos financieros + pagos + Stripe Connect
+/api/team/*              - Equipo + invitaciones
+/api/vendors/*           - Proveedores
+/api/rsvp/*              - RSVP público
+/api/subscriptions/*     - Checkout + portal Stripe
+/api/webhooks/*          - Stripe platform webhooks
+/api/entitlements        - Plan limits + features + usage
+/api/user/*              - Perfil + billing + notifications
+/api/admin/*             - Dashboard, tenants, providers, users, plans, billing
+/api/cron/*              - Subscription lifecycle
+/api/ai/*                - AI chat + suggestions
 ```
 
 ---
 
-## 🔧 Lo Que Falta Para Producción
+## 🔧 Mejoras Pendientes (Post-Launch)
 
-### Prioridad ALTA (Necesario para lanzar)
+### P2 - Nice to Have
 
-1. **Ejecutar Migraciones de Base de Datos**
-   ```bash
-   npx drizzle-kit push
-   ```
-   - Las tablas están definidas pero no creadas en Neon
-   - Tiempo estimado: 5 minutos
-
-2. **Seed de Datos Iniciales**
-   ```bash
-   npx tsx src/db/seed-roles.ts
-   ```
-   - Crear roles y permisos base
-   - Tiempo estimado: 2 minutos
-
-3. **Configurar Variables de Entorno en Vercel**
-   - `DATABASE_URL` - Conexión a Neon
-   - `AUTH_SECRET` - Secreto para NextAuth
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - OAuth Google
-   - `RESEND_API_KEY` - Para emails magic link
-
-4. **Crear Primera Organización**
-   - Registro del primer usuario owner
-   - Configuración inicial del tenant
-
-### Prioridad MEDIA (Mejoras post-lanzamiento)
-
-| Mejora | Descripción | Esfuerzo |
-|--------|-------------|----------|
-| Dashboard dinámico | Conectar stats reales | 4h |
-| Calendario funcional | Integrar con eventos | 8h |
-| Notificaciones | Email/push para tareas | 8h |
-| Reportes PDF | Exportar presupuestos | 6h |
-| Búsqueda global | Buscar en toda la app | 4h |
-
-### Prioridad BAJA (Futuras versiones)
-
-- Integración con WhatsApp Business
-- App móvil (React Native)
-- Integración con calendarios externos (Google, Outlook)
-- Pasarela de pagos (Stripe/MercadoPago)
-- Multi-idioma
+| Mejora | Descripción |
+|--------|-------------|
+| Rate limiting | APIs sensibles (auth, checkout, webhooks) |
+| Storage tracking real | `getUsage()` devuelve storage:0 |
+| Downgrade flow UI | UI para comunicar proración al bajar de plan |
+| useEntitlements en UI | Mostrar warnings visuales de límites en componentes |
+| Multi-idioma | Soporte i18n |
+| WhatsApp Business | Integración con WhatsApp |
+| App móvil | React Native |
 
 ---
 
@@ -181,85 +185,81 @@ HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos
 hubents-new/
 ├── src/
 │   ├── app/                    # Páginas Next.js
-│   │   ├── api/               # 35+ API endpoints
-│   │   ├── dashboard/         # Panel principal
-│   │   ├── admin/             # Panel administrador
-│   │   └── login/             # Autenticación
+│   │   ├── api/               # 80+ API endpoints
+│   │   ├── dashboard/         # Panel principal (tenant)
+│   │   ├── admin/             # Panel administrador (platform)
+│   │   ├── auth/              # Login, register, provider-register
+│   │   └── provider/          # Portal de proveedores
 │   ├── components/            # Componentes React
 │   │   ├── ui/               # shadcn/ui components
 │   │   ├── crm/              # LeadKanban
-│   │   └── tasks/            # TaskPanel
+│   │   ├── tasks/            # TaskPanel + Chat
+│   │   ├── calendar/         # Calendario
+│   │   ├── admin/            # Admin components
+│   │   └── ai/               # AI chat components
+│   ├── contexts/              # React contexts
+│   │   ├── ai-context.tsx
+│   │   ├── event-context.tsx
+│   │   └── user-session-context.tsx
 │   ├── db/                    # Base de datos
-│   │   ├── schema.ts         # 55 tablas definidas
-│   │   ├── index.ts          # Conexión Drizzle
-│   │   └── seed-roles.ts     # Script de seed
+│   │   ├── schema.ts         # 55+ tablas definidas
+│   │   ├── index.ts          # Conexión Drizzle (Neon HTTP)
+│   │   └── seed-plans.ts     # Seed planes + feature flags
 │   ├── hooks/                 # React hooks
-│   │   ├── use-leads.ts      # Hook CRM
-│   │   ├── use-tasks.ts      # Hook tareas
-│   │   └── use-events.ts     # Hook eventos
+│   │   ├── use-entitlements.ts # Plan limits + features
+│   │   ├── use-leads.ts
+│   │   ├── use-tasks.ts
+│   │   └── use-events.ts
 │   └── lib/                   # Utilidades
-│       ├── crm.ts            # Helpers CRM
-│       ├── finance.ts        # Helpers finanzas
-│       ├── events.ts         # Helpers eventos
-│       ├── vendors.ts        # Helpers proveedores
-│       ├── guests.ts         # Helpers RSVP
-│       └── session.ts        # Auth helpers
-├── drizzle/                   # Migraciones SQL
-└── public/                    # Assets estáticos
+│       ├── session.ts         # Auth + requireLimit + requireActiveSubscription
+│       ├── tenant.ts          # RBAC + permissions + plan info
+│       ├── entitlements.ts    # Usage + feature flags
+│       ├── stripe-platform.ts # Stripe SaaS billing
+│       ├── email.ts           # Resend emails
+│       ├── r2.ts              # Cloudflare R2 uploads
+│       ├── events.ts          # Event helpers
+│       ├── finance.ts         # Finance helpers
+│       ├── guests.ts          # RSVP helpers
+│       └── audit.ts           # Audit logging
+├── scripts/                   # 25+ scripts de utilidad
+├── drizzle/                   # 35+ migraciones SQL
+├── docs/                      # Documentación
+└── .windsurf/                 # Cascade rules + skills
 ```
 
 ---
 
-## 📊 Métricas del Desarrollo
+## 📊 Métricas del Proyecto
 
 | Métrica | Valor |
 |---------|-------|
-| Líneas de código | ~15,000+ |
-| Tablas en BD | 55 |
-| API endpoints | 35+ |
-| Componentes UI | 50+ |
-| Hooks personalizados | 6 |
-| Páginas | 27 |
-
----
-
-## 🚀 Pasos Inmediatos Recomendados
-
-1. **Configurar Neon PostgreSQL** (si no está hecho)
-   - Crear proyecto en neon.tech
-   - Obtener DATABASE_URL
-
-2. **Ejecutar migraciones**
-   ```bash
-   npx drizzle-kit push
-   npx tsx src/db/seed-roles.ts
-   ```
-
-3. **Configurar OAuth Google**
-   - Crear proyecto en Google Cloud Console
-   - Configurar OAuth consent screen
-   - Obtener credenciales
-
-4. **Configurar Resend** (para emails)
-   - Crear cuenta en resend.com
-   - Verificar dominio
-   - Obtener API key
-
-5. **Probar flujo completo**
-   - Registro → Login → Crear evento → Agregar tareas → Invitar equipo
+| Tablas en BD | 55+ |
+| API endpoints | 80+ |
+| Componentes UI | 100+ |
+| Hooks personalizados | 15+ |
+| Páginas | 40+ |
+| Scripts de utilidad | 25+ |
+| Migraciones SQL | 35+ |
+| Feature flags | 7 |
+| Planes activos | 5 (3 tenant + 2 provider) |
+| Tenants registrados | 33 |
+| Providers registrados | 2 |
 
 ---
 
 ## 💡 Conclusión
 
-El proyecto HubEnts está **técnicamente completo** con toda la arquitectura, APIs y UI desarrolladas. Solo requiere:
+HubEnts está **en producción** en https://app.hubents.com con:
 
-1. ✅ Ejecutar migraciones (5 min)
-2. ✅ Configurar variables de entorno (10 min)
-3. ✅ Crear organización inicial (5 min)
+- ✅ Billing SaaS completo con Stripe (checkout, portal, webhooks, lifecycle)
+- ✅ Plan enforcement (limits + features + subscription status)
+- ✅ RBAC granular para tenants y providers
+- ✅ Admin panel completo con billing dashboard
+- ✅ 33 tenants + 2 providers registrados
+- ✅ Auditoría SaaS completada Feb 2026 — todos los P0 y P1 resueltos
 
-**Tiempo estimado para tener el sistema operativo: 30 minutos**
+**Estado: Listo para cobrar suscripciones.**
 
 ---
 
-*Documento generado automáticamente - HubEnts v1.0.0*
+*Última actualización: 17 Febrero 2026 - HubEnts v2.0.0*
