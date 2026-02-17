@@ -94,19 +94,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     .where(eq(subscriptions.organizationId, orgId))
     .limit(1);
 
-  // Determine initial status — if checkout had a trial, Stripe sets status to trialing
-  const stripeSubObj = session.subscription;
+  // Retrieve full subscription from Stripe to get accurate status and trial info
+  const stripe = getStripePlatform();
+  const stripeSubRaw = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const stripeSub = stripeSubRaw as unknown as {
+    status: string;
+    trial_end: number | null;
+    current_period_end: number;
+  };
+
   let initialStatus: "active" | "trialing" = "active";
   let trialEndsAt: Date | null = null;
+  let currentPeriodEnd: Date | null = null;
 
-  if (typeof stripeSubObj === "object" && stripeSubObj !== null) {
-    const subAny = stripeSubObj as unknown as Record<string, unknown>;
-    if (subAny.status === "trialing") {
-      initialStatus = "trialing";
-    }
-    if (subAny.trial_end && typeof subAny.trial_end === "number") {
-      trialEndsAt = new Date((subAny.trial_end as number) * 1000);
-    }
+  if (stripeSub.status === "trialing") {
+    initialStatus = "trialing";
+  }
+  if (stripeSub.trial_end) {
+    trialEndsAt = new Date(stripeSub.trial_end * 1000);
+  }
+  if (stripeSub.current_period_end) {
+    currentPeriodEnd = new Date(stripeSub.current_period_end * 1000);
   }
 
   if (existing) {
@@ -120,6 +128,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         stripeCustomerId,
         presentmentCurrency,
         trialEndsAt,
+        currentPeriodEnd,
         updatedAt: new Date(),
       })
       .where(eq(subscriptions.id, existing.id));
@@ -134,6 +143,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       presentmentCurrency,
       trialEndsAt,
       currentPeriodStart: new Date(),
+      currentPeriodEnd,
     });
   }
 
