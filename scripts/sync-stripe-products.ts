@@ -40,6 +40,16 @@ async function syncProducts() {
 
     let productId = plan.stripeProductId;
 
+    // Verify existing product is accessible (handles live↔test mode switches)
+    if (productId) {
+      try {
+        await stripe.products.retrieve(productId);
+      } catch {
+        console.log(`  ⚠️  Product ${productId} not found in current Stripe mode — will create new`);
+        productId = null;
+      }
+    }
+
     // Create or update Stripe Product
     if (!productId) {
       const product = await stripe.products.create({
@@ -66,10 +76,26 @@ async function syncProducts() {
       console.log(`  ✅ Updated Product: ${productId}`);
     }
 
-    // Create or find monthly price
+    // Verify existing prices are accessible
     let monthlyPriceId = plan.stripePriceIdMonthly;
-    const monthlyAmount = Math.round(Number(plan.priceMonthly) * 100);
+    if (monthlyPriceId) {
+      try {
+        await stripe.prices.retrieve(monthlyPriceId);
+      } catch {
+        monthlyPriceId = null;
+      }
+    }
+    let yearlyPriceId = plan.stripePriceIdYearly;
+    if (yearlyPriceId) {
+      try {
+        await stripe.prices.retrieve(yearlyPriceId);
+      } catch {
+        yearlyPriceId = null;
+      }
+    }
 
+    // Create monthly price if needed
+    const monthlyAmount = Math.round(Number(plan.priceMonthly) * 100);
     if (!monthlyPriceId && monthlyAmount > 0) {
       const price = await stripe.prices.create({
         product: productId,
@@ -82,10 +108,8 @@ async function syncProducts() {
       console.log(`  ✅ Created Monthly Price: €${plan.priceMonthly}/mo → ${monthlyPriceId}`);
     }
 
-    // Create or find yearly price
-    let yearlyPriceId = plan.stripePriceIdYearly;
+    // Create yearly price if needed
     const yearlyAmount = Math.round(Number(plan.priceYearly) * 100);
-
     if (!yearlyPriceId && yearlyAmount > 0) {
       const price = await stripe.prices.create({
         product: productId,
