@@ -624,6 +624,40 @@ export async function sendWinBackEmail(
   });
 }
 
+export async function sendTrialRenewedEmail(
+  to: string,
+  ownerName: string,
+  orgName: string,
+  planName: string,
+  trialDays: number,
+  trialEndsAt: Date
+) {
+  const trialEndDate = trialEndsAt.toLocaleDateString("es", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const content = `
+    ${heading("Tu prueba gratuita ha sido renovada")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(`Buenas noticias para <strong>${orgName}</strong>: hemos renovado tu período de prueba gratuita.`)}
+    ${infoBox(`Tienes <strong>${trialDays} días más</strong> para explorar todas las funcionalidades de tu plan <strong>${planName}</strong>. Tu prueba vence el <strong>${trialEndDate}</strong>.`, "success")}
+    ${paragraph("Durante este período tienes acceso completo a todas las herramientas de tu plan. Aprovecha para:")}
+    ${paragraph("• Crear y gestionar tus eventos<br>• Organizar contactos y proveedores<br>• Administrar finanzas y pagos<br>• Colaborar con tu equipo")}
+    ${primaryButton("Acceder a mi cuenta", `${getAppUrl()}/dashboard`)}
+    ${paragraph("Cuando estés listo, puedes elegir un plan de pago desde tu configuración para no perder el acceso.")}
+    ${mutedText("¿Tienes preguntas? Responde a este email y te ayudamos.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Buenas noticias — Tu prueba gratuita fue renovada, ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, hemos renovado tu prueba gratuita del plan ${planName} en ${orgName}. Tienes ${trialDays} días más hasta el ${trialEndDate}. Accede en ${getAppUrl()}/dashboard`,
+  });
+}
+
 export async function sendPlansAvailableEmail(
   to: string,
   ownerName: string,
