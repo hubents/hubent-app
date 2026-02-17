@@ -90,6 +90,7 @@ export interface TenantSession {
   role: TenantRole;
   permissions: string[];
   plan: PlanInfo | null;
+  subscriptionStatus: string | null;
   isImpersonating?: boolean;
 }
 

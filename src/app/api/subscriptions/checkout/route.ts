@@ -33,6 +33,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate plan matches org type
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+      columns: { orgType: true },
+    });
+    if (org && plan.orgType && org.orgType !== plan.orgType) {
+      return NextResponse.json(
+        { success: false, error: "Plan not compatible with your organization type" },
+        { status: 400 }
+      );
+    }
+
     // Get Stripe Price ID
     const priceId =
       interval === "month"

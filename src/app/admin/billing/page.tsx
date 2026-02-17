@@ -105,10 +105,6 @@ export default async function BillingPage() {
               <div className="p-3 rounded-lg bg-green-500/10">
                 <DollarSign className="h-5 w-5 text-green-500" />
               </div>
-              <div className="flex items-center gap-1 text-sm text-green-500">
-                +12%
-                <ArrowUpRight className="h-4 w-4" />
-              </div>
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold">

@@ -286,6 +286,11 @@ export async function createTenantSession(userContext: UserContext): Promise<Ten
   const orgId = userContext.currentOrganization.id;
   const plan = await getOrgPlanInfo(orgId);
 
+  const sub = await db.query.subscriptions.findFirst({
+    where: eq(subscriptions.organizationId, orgId),
+    columns: { status: true },
+  });
+
   return {
     user: userContext,
     organizationId: orgId,
@@ -293,6 +298,7 @@ export async function createTenantSession(userContext: UserContext): Promise<Ten
     role: userContext.currentOrganization.role,
     permissions: userContext.currentOrganization.permissions,
     plan,
+    subscriptionStatus: sub?.status ?? null,
     isImpersonating: userContext.isImpersonating,
   };
 }

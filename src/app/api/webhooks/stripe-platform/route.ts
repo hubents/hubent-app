@@ -174,6 +174,18 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     return;
   }
 
+  // Idempotency: check if invoice already processed
+  const [existingInv] = await db
+    .select({ id: invoices.id })
+    .from(invoices)
+    .where(eq(invoices.stripeInvoiceId, invoice.id))
+    .limit(1);
+
+  if (existingInv) {
+    console.log(`Invoice already processed: ${invoice.id}`);
+    return;
+  }
+
   // Extract presentment details
   const presentmentDetailsInv = invoiceAny.presentment_details as
     | { presentment_amount?: number; presentment_currency?: string }

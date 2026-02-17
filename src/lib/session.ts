@@ -166,6 +166,27 @@ export async function requireFeature(
 }
 
 /**
+ * Require an active (or trialing) subscription — blocks canceled/past_due orgs
+ */
+export async function requireActiveSubscription(): Promise<TenantSession> {
+  const session = await requireAuth();
+
+  // Platform admins and impersonation bypass
+  if (session.user.platformLevel === "super_admin") return session;
+  if (session.isImpersonating) return session;
+
+  // No subscription record = legacy/trial user, allow (for now)
+  if (!session.subscriptionStatus) return session;
+
+  const blocked = ["canceled"];
+  if (blocked.includes(session.subscriptionStatus)) {
+    throw new Error("SubscriptionInactive: Your subscription is inactive. Please upgrade to continue.");
+  }
+
+  return session;
+}
+
+/**
  * Require that the org hasn't exceeded a plan limit
  */
 export async function requireLimit(

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission, requireLimit } from "@/lib/session";
+import { requirePermission, requireLimit, requireActiveSubscription } from "@/lib/session";
 import { getEvents, createEvent } from "@/lib/events";
 import { notifyNewEvent } from "@/lib/push-notifications";
 
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission("events:create");
+    await requireActiveSubscription();
     await requireLimit("events");
     const body = await request.json();
 

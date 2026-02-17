@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, subscriptions, subscriptionPlans, invoices } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getUsage } from "@/lib/entitlements";
 
 /**
  * GET /api/user/billing
@@ -39,12 +40,7 @@ export async function GET() {
       .orderBy(desc(invoices.createdAt))
       .limit(10);
 
-    // Calculate usage (simplified - in production would query actual usage)
-    const usage = {
-      users: 1, // Would count actual members
-      events: 0, // Would count actual events
-      storage: 0, // Would calculate actual storage
-    };
+    const usage = await getUsage(orgId);
 
     // Get all active plans for comparison
     const allPlans = await db

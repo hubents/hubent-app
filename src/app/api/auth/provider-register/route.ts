@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, organizationMembers, roles } from "@/db/schema";
+import { users, organizations, organizationMembers, roles, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
 import { sendProviderWelcomeEmail } from "@/lib/email";
@@ -122,6 +122,27 @@ export async function POST(request: NextRequest) {
       await db.delete(organizations).where(eq(organizations.id, newOrg.id));
       await db.delete(users).where(eq(users.id, newUser.id));
       throw memberError;
+    }
+
+    // Auto-assign provider-free plan
+    try {
+      const freePlan = await db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.slug, "provider_free"),
+      });
+      if (freePlan) {
+        await db.insert(subscriptions).values({
+          organizationId: newOrg.id,
+          planId: freePlan.id,
+          status: "active",
+          currentPeriodStart: new Date(),
+        });
+        await db
+          .update(organizations)
+          .set({ planId: freePlan.id })
+          .where(eq(organizations.id, newOrg.id));
+      }
+    } catch (planError) {
+      console.error("Failed to assign provider-free plan:", planError);
     }
 
     // Send welcome email (non-blocking)

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { invitations, roles, organizations, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requirePermission, requireLimit } from "@/lib/session";
+import { requirePermission, requireLimit, requireActiveSubscription } from "@/lib/session";
 import { canInviteRole } from "@/lib/tenant";
 import { sendOrganizationInviteEmail } from "@/lib/email";
 import type { TenantRole } from "@/types";
@@ -11,6 +11,9 @@ export async function POST(request: NextRequest) {
   try {
     // Enforce RBAC: must have team:invite permission
     const session = await requirePermission("team:invite");
+
+    // Enforce active subscription
+    await requireActiveSubscription();
 
     // Enforce plan limit: check user count
     await requireLimit("users");
