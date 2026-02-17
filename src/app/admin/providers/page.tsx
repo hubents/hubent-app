@@ -80,8 +80,12 @@ export default function AdminProvidersPage() {
       const data = await res.json();
       if (data.success) {
         setProviders(data.data);
+      } else {
+        console.error("Providers API error:", data);
+        toast.error(data.error?.message || "Error al cargar proveedores");
       }
-    } catch {
+    } catch (err) {
+      console.error("Providers fetch error:", err);
       toast.error("Error al cargar proveedores");
     } finally {
       setLoading(false);

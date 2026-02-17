@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { organizations, organizationMembers, users } from "@/db/schema";
 import { eq, count, desc, sql } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/providers
  * List all provider organizations for super admin
