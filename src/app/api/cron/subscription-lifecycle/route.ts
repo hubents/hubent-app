@@ -125,6 +125,13 @@ export async function GET(request: NextRequest) {
             .update(subscriptions)
             .set({ status: "canceled", canceledAt: now, updatedAt: now })
             .where(eq(subscriptions.id, trial.subId));
+
+          // Downgrade org to Free plan (id=1) — data is preserved
+          const FREE_PLAN_ID = 1;
+          await db
+            .update(organizations)
+            .set({ planId: FREE_PLAN_ID, updatedAt: now })
+            .where(eq(organizations.id, trial.orgId));
         }
       } catch (err) {
         results.errors.push(`trial-expired org=${trial.orgId}: ${err}`);

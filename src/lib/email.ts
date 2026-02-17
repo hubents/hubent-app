@@ -623,3 +623,55 @@ export async function sendWinBackEmail(
     text: `Hola ${orgName}, te extrañamos en HubEnts. Suscríbete en ${getAppUrl()}/dashboard/settings`,
   });
 }
+
+export async function sendPlansAvailableEmail(
+  to: string,
+  ownerName: string,
+  orgName: string,
+  wasTrialing: boolean
+) {
+  const introText = wasTrialing
+    ? `Tu período de prueba en <strong>${orgName}</strong> ha finalizado. Tu cuenta ha pasado al plan <strong>Free</strong>, pero toda tu información está segura.`
+    : `Tenemos novedades para <strong>${orgName}</strong> en HubEnts.`;
+
+  const content = `
+    ${heading("Nuevos planes disponibles")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(introText)}
+    ${paragraph("Ahora puedes elegir el plan que mejor se adapte a tu negocio:")}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border: 1px solid ${COLORS.border}; border-radius: 8px; overflow: hidden;">
+      <tr style="background-color: ${COLORS.background};">
+        <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border};">Plan</td>
+        <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border}; text-align: center;">Mensual</td>
+        <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border}; text-align: center;">Anual</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; border-bottom: 1px solid ${COLORS.border};"><strong>Starter</strong></td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center; border-bottom: 1px solid ${COLORS.border};">€14,50/mes</td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center; border-bottom: 1px solid ${COLORS.border};">€145/año</td>
+      </tr>
+      <tr style="background-color: ${COLORS.successBg};">
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; border-bottom: 1px solid ${COLORS.border};"><strong>Standard</strong> ⭐</td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center; border-bottom: 1px solid ${COLORS.border};">€29,50/mes</td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center; border-bottom: 1px solid ${COLORS.border};">€295/año</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary};"><strong>Agency</strong></td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center;">€49,50/mes</td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center;">€495/año</td>
+      </tr>
+    </table>
+    ${infoBox("El precio se mostrará en tu moneda local al momento de pagar. Todos los planes incluyen prueba gratuita de 7 días.", "success")}
+    ${primaryButton("Elegir mi plan", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${mutedText("¿Tienes preguntas? Responde a este email y te ayudamos.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: wasTrialing
+      ? `Tu prueba terminó — Elige tu plan en HubEnts, ${orgName}`
+      : `Nuevos planes disponibles en HubEnts — ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, ${wasTrialing ? "tu prueba ha terminado" : "tenemos novedades"}. Nuevos planes: Starter €14,50/mes, Standard €29,50/mes, Agency €49,50/mes. Elige tu plan en ${getAppUrl()}/dashboard/settings`,
+  });
+}
