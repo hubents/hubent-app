@@ -39,6 +39,18 @@ export async function getEvents(
     whereClause = and(whereClause, eq(events.type, type as any))!;
   }
 
+  // For eventScoped roles, filter to only events where user is a participant
+  if (session.eventScoped) {
+    whereClause = and(
+      whereClause,
+      sql`${events.id} IN (
+        SELECT ${eventParticipants.eventId} 
+        FROM ${eventParticipants} 
+        WHERE ${eventParticipants.userId} = ${session.user.userId}
+      )`
+    )!;
+  }
+
   const results = await db
     .select({
       id: events.id,
@@ -89,6 +101,21 @@ export async function getEvent(session: TenantSession, eventId: number) {
 
   if (!event) return null;
 
+  // For eventScoped roles, verify user is a participant of this event
+  if (session.eventScoped) {
+    const [isParticipant] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(
+        and(
+          eq(eventParticipants.eventId, eventId),
+          eq(eventParticipants.userId, session.user.userId)
+        )
+      )
+      .limit(1);
+    if (!isParticipant) return null;
+  }
+
   // Get participants
   const participants = await db
     .select({
@@ -98,9 +125,11 @@ export async function getEvent(session: TenantSession, eventId: number) {
       clientId: eventParticipants.clientId,
       type: eventParticipants.type,
       role: eventParticipants.role,
+      permissions: eventParticipants.permissions,
       invitedAt: eventParticipants.invitedAt,
       acceptedAt: eventParticipants.acceptedAt,
       userName: users.name,
+      userEmail: users.email,
       userImage: users.image,
     })
     .from(eventParticipants)
@@ -789,6 +818,7 @@ export async function getEventParticipants(eventId: number) {
       clientId: eventParticipants.clientId,
       type: eventParticipants.type,
       role: eventParticipants.role,
+      permissions: eventParticipants.permissions,
       invitedAt: eventParticipants.invitedAt,
       acceptedAt: eventParticipants.acceptedAt,
       userName: users.name,
@@ -809,8 +839,19 @@ export async function addEventParticipant(
     clientId?: number;
     type: "planner" | "vendor" | "client" | "assistant" | "guest";
     role?: string;
+    permissions?: Record<string, string>;
   }
 ) {
+  // Check for existing participant
+  if (data.userId) {
+    const [existing] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, data.userId)))
+      .limit(1);
+    if (existing) throw new Error("El usuario ya es colaborador de este evento");
+  }
+
   const [participant] = await db.insert(eventParticipants).values({
     eventId,
     userId: data.userId,
@@ -818,10 +859,38 @@ export async function addEventParticipant(
     clientId: data.clientId,
     type: data.type,
     role: data.role,
+    permissions: data.permissions || null,
     invitedBy: session.user.userId,
   }).returning();
 
   return participant;
+}
+
+export async function updateEventParticipant(
+  eventId: number,
+  participantId: number,
+  data: {
+    permissions?: Record<string, string>;
+    role?: string;
+  }
+) {
+  const updateData: Record<string, unknown> = {};
+  if (data.permissions !== undefined) updateData.permissions = data.permissions;
+  if (data.role !== undefined) updateData.role = data.role;
+
+  if (Object.keys(updateData).length === 0) return null;
+
+  const [updated] = await db.update(eventParticipants)
+    .set(updateData)
+    .where(
+      and(
+        eq(eventParticipants.id, participantId),
+        eq(eventParticipants.eventId, eventId)
+      )
+    )
+    .returning();
+
+  return updated;
 }
 
 export async function removeEventParticipant(participantId: number) {

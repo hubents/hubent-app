@@ -71,6 +71,7 @@ export interface UserContext {
     orgType: OrgType;
     role: TenantRole;
     permissions: string[];
+    eventScoped?: boolean;
   };
   
   // All organizations user belongs to
@@ -89,6 +90,7 @@ export interface TenantSession {
   orgType: OrgType;
   role: TenantRole;
   permissions: string[];
+  eventScoped: boolean;
   plan: PlanInfo | null;
   subscriptionStatus: string | null;
   isImpersonating?: boolean;
@@ -139,6 +141,51 @@ export type EventParticipantType =
   | "vendor"
   | "client"
   | "guest";
+
+// Event section permission levels
+export type EventSectionLevel = "view" | "edit" | "none";
+
+// Per-section permissions for event collaborators
+export interface EventSectionPermissions {
+  general?: EventSectionLevel;
+  tasks?: EventSectionLevel;
+  guests?: EventSectionLevel;
+  rsvp?: EventSectionLevel;
+  vendors?: "view" | "none";
+  finances?: "view" | "none";
+  settings?: "none";
+}
+
+// Default permissions presets
+export const EVENT_PERMISSION_PRESETS = {
+  full: {
+    general: "edit" as const,
+    tasks: "edit" as const,
+    guests: "edit" as const,
+    rsvp: "edit" as const,
+    vendors: "view" as const,
+    finances: "view" as const,
+    settings: "none" as const,
+  },
+  readonly: {
+    general: "view" as const,
+    tasks: "view" as const,
+    guests: "view" as const,
+    rsvp: "view" as const,
+    vendors: "view" as const,
+    finances: "view" as const,
+    settings: "none" as const,
+  },
+  rsvpOnly: {
+    general: "view" as const,
+    tasks: "none" as const,
+    guests: "view" as const,
+    rsvp: "view" as const,
+    vendors: "none" as const,
+    finances: "none" as const,
+    settings: "none" as const,
+  },
+};
 
 // Task participant with role
 export interface TaskParticipant {

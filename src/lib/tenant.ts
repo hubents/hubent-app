@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import type { TenantRole, OrgType, UserContext, TenantSession, PermissionCheck, PlanInfo } from "@/types";
+import { getEventParticipant, getTaskParticipantAccess } from "@/lib/event-permissions";
 
 // ============================================
 // TENANT HELPERS
@@ -59,6 +60,7 @@ export async function getUserOrganizations(userId: string) {
       orgType: organizations.orgType,
       role: roles.slug,
       roleName: roles.name,
+      eventScoped: roles.eventScoped,
     })
     .from(organizationMembers)
     .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
@@ -142,6 +144,7 @@ export async function getUserOrganizations(userId: string) {
           orgType: organizations.orgType,
           role: roles.slug,
           roleName: roles.name,
+          eventScoped: roles.eventScoped,
         })
         .from(organizationMembers)
         .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
@@ -229,6 +232,7 @@ export async function buildUserContext(
         ...impersonatedOrg,
         role: "owner",
         roleName: "Owner (Impersonating)",
+        eventScoped: false,
       };
       impersonating = true;
     }
@@ -264,6 +268,7 @@ export async function buildUserContext(
           orgType: (currentOrg.orgType ?? "tenant") as OrgType,
           role: currentOrg.role as TenantRole,
           permissions: currentOrgPermissions,
+          eventScoped: (currentOrg as Record<string, unknown>).eventScoped as boolean | undefined,
         }
       : undefined,
     organizations: userOrgs.map((o) => ({
@@ -297,6 +302,7 @@ export async function createTenantSession(userContext: UserContext): Promise<Ten
     orgType: userContext.currentOrganization.orgType ?? "tenant",
     role: userContext.currentOrganization.role,
     permissions: userContext.currentOrganization.permissions,
+    eventScoped: userContext.currentOrganization.eventScoped ?? false,
     plan,
     subscriptionStatus: sub?.status ?? null,
     isImpersonating: userContext.isImpersonating,
@@ -470,41 +476,78 @@ export function canInviteRole(
 
 /**
  * Check if user can access a specific event
+ * Non-eventScoped roles bypass this check (they see all events)
+ * eventScoped roles must be in event_participants
  */
 export async function canAccessEvent(
   session: TenantSession,
   eventId: number
 ): Promise<PermissionCheck> {
-  // Planners and above can access all events in their org
-  if (hasRoleLevel(session.role, "planner")) {
+  // Non-scoped roles can access all events in their org
+  if (!session.eventScoped) {
     return { allowed: true };
   }
 
-  // For vendors and clients, check if they're participants
-  // This will be implemented when we have event_participants table
-  // For now, deny access
+  // Platform admins and impersonation bypass
+  if (session.user.platformLevel === "super_admin" || session.isImpersonating) {
+    return { allowed: true };
+  }
+
+  // For event-scoped roles, check event_participants
+  const participant = await getEventParticipant(session.user.userId, eventId);
+  if (participant) {
+    return { allowed: true };
+  }
+
   return {
     allowed: false,
-    reason: "You don't have access to this event",
+    reason: "No tienes acceso a este evento",
   };
 }
 
 /**
  * Check if user can access a specific task
+ * Non-eventScoped roles bypass this check
+ * eventScoped roles must be a task participant OR have tasks access on the event
  */
 export async function canAccessTask(
   session: TenantSession,
   taskId: number
 ): Promise<PermissionCheck> {
-  // Planners and above can access all tasks in their org
-  if (hasRoleLevel(session.role, "planner")) {
+  // Non-scoped roles can access all tasks in their org
+  if (!session.eventScoped) {
     return { allowed: true };
   }
 
-  // For others, check if they're participants
-  // This will be implemented when we have task_participants table
+  // Platform admins and impersonation bypass
+  if (session.user.platformLevel === "super_admin" || session.isImpersonating) {
+    return { allowed: true };
+  }
+
+  // Check if user is a direct participant of the task
+  const taskAccess = await getTaskParticipantAccess(session.user.userId, taskId);
+  if (taskAccess) {
+    return { allowed: true };
+  }
+
+  // Check if user is a participant of the task's event with tasks permission
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq }) => eq(t.id, taskId),
+    columns: { eventId: true },
+  });
+
+  if (task?.eventId) {
+    const eventAccess = await getEventParticipant(session.user.userId, task.eventId);
+    if (eventAccess) {
+      const perms = (eventAccess.permissions as Record<string, string>) || {};
+      if (perms.tasks && perms.tasks !== "none") {
+        return { allowed: true };
+      }
+    }
+  }
+
   return {
     allowed: false,
-    reason: "You don't have access to this task",
+    reason: "No tienes acceso a esta tarea",
   };
 }

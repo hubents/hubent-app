@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, events, users } from "@/db/schema";
+import { tasks, events, users, eventParticipants } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 
 // GET /api/tasks - List tasks
@@ -24,6 +24,18 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       whereClause = and(whereClause, eq(tasks.status, status as "pending" | "in_progress" | "completed" | "cancelled"))!;
+    }
+
+    // For eventScoped roles, only show tasks from events where user is a participant
+    if (session.eventScoped) {
+      whereClause = and(
+        whereClause,
+        sql`${tasks.eventId} IN (
+          SELECT ${eventParticipants.eventId}
+          FROM ${eventParticipants}
+          WHERE ${eventParticipants.userId} = ${session.user.userId}
+        )`
+      )!;
     }
 
     const results = await db

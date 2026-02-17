@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { useEvent } from "@/contexts/event-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,11 @@ import {
   RiMapPinLine,
   RiUserAddLine,
 } from "@remixicon/react";
+import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { LocationMap } from "@/components/ui/location-map";
+import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
+import { toast } from "sonner";
 
 interface EventData {
   id: number;
@@ -48,9 +51,16 @@ interface EventData {
 }
 
 interface Collaborator {
-  id: string;
-  name: string;
-  email: string;
+  id: number;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  userImage: string | null;
+  type: string;
+  role: string | null;
+  permissions: Record<string, string> | null;
+  invitedAt: string | null;
+  acceptedAt: string | null;
 }
 
 export default function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +76,8 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
   const [taskCount, setTaskCount] = useState(0);
   const [event, setEvent] = useState<EventData | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingParticipant, setEditingParticipant] = useState<Collaborator | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -105,6 +117,39 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
     }
     fetchEvent();
   }, [eventId, setActiveEvent]);
+
+  const fetchCollaborators = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators`);
+      const data = await res.json();
+      if (data.success) {
+        setCollaborators(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch collaborators:", error);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    fetchCollaborators();
+  }, [fetchCollaborators]);
+
+  async function handleRemoveCollaborator(participantId: number) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Colaborador eliminado");
+        fetchCollaborators();
+      } else {
+        toast.error(data.error?.message || "Error al eliminar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true);
@@ -382,7 +427,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
             <RiUserAddLine className="h-5 w-5" />
             Colaboradores
           </CardTitle>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => { setEditingParticipant(null); setDrawerOpen(true); }}>
             Agregar colaborador
           </Button>
         </CardHeader>
@@ -390,12 +435,34 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
           {collaborators.length > 0 ? (
             <div className="space-y-2">
               {collaborators.map((collab) => (
-                <div key={collab.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium">{collab.name}</p>
-                    <p className="text-sm text-[var(--muted-foreground)]">{collab.email}</p>
+                <div
+                  key={collab.id}
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-[var(--muted)]/50 cursor-pointer transition-colors"
+                  onClick={() => { setEditingParticipant(collab); setDrawerOpen(true); }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{collab.userName || collab.userEmail || "Sin nombre"}</p>
+                    {collab.userEmail && collab.userName && (
+                      <p className="text-sm text-[var(--muted-foreground)]">{collab.userEmail}</p>
+                    )}
+                    {collab.permissions && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {Object.entries(collab.permissions)
+                          .filter(([, level]) => level !== "none")
+                          .map(([section, level]) => (
+                            <Badge key={section} variant={level === "edit" ? "default" : "secondary"} className="text-xs">
+                              {section}
+                            </Badge>
+                          ))}
+                      </div>
+                    )}
                   </div>
-                  <Button variant="ghost" size="icon" className="text-[var(--destructive)]">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-[var(--destructive)] shrink-0"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveCollaborator(collab.id); }}
+                  >
                     <RiDeleteBinLine className="h-4 w-4" />
                   </Button>
                 </div>
@@ -408,6 +475,14 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
           )}
         </CardContent>
       </Card>
+
+      <CollaboratorDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        eventId={eventId}
+        onSuccess={fetchCollaborators}
+        editingParticipant={editingParticipant}
+      />
 
       {/* Save Button */}
       <div className="flex justify-end">

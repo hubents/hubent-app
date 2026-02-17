@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, users } from "@/db/schema";
+import { tasks, users, eventParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/push-notifications";
+import { canAccessTask } from "@/lib/tenant";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -12,11 +13,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePermission("tasks:read");
     const { taskId } = await params;
+    const taskIdNum = parseInt(taskId, 10);
 
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) => 
         and(
-          eq(t.id, parseInt(taskId, 10)),
+          eq(t.id, taskIdNum),
           eq(t.organizationId, session.organizationId)
         ),
     });
@@ -26,6 +28,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    // For eventScoped roles, verify access via event_participants or task_participants
+    if (session.eventScoped) {
+      const access = await canAccessTask(session, taskIdNum);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json({

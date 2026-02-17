@@ -20,6 +20,7 @@ export async function GET() {
         slug: roles.slug,
         description: roles.description,
         isSystem: roles.isSystem,
+        eventScoped: roles.eventScoped,
         organizationId: roles.organizationId,
       })
       .from(roles)
@@ -33,6 +34,7 @@ export async function GET() {
         slug: roles.slug,
         description: roles.description,
         isSystem: roles.isSystem,
+        eventScoped: roles.eventScoped,
         organizationId: roles.organizationId,
       })
       .from(roles)
@@ -124,6 +126,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { eventScoped } = body;
+
     // Create the role
     const [newRole] = await db
       .insert(roles)
@@ -132,6 +136,7 @@ export async function POST(request: NextRequest) {
         slug,
         description: description || null,
         isSystem: false,
+        eventScoped: eventScoped ?? false,
         organizationId: session.organizationId,
       })
       .returning();

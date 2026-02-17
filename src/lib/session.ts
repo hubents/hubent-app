@@ -2,7 +2,8 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { buildUserContext, createTenantSession } from "@/lib/tenant";
 import { getUsage } from "@/lib/entitlements";
-import type { TenantSession, UserContext } from "@/types";
+import { checkEventSectionAccess } from "@/lib/event-permissions";
+import type { TenantSession, UserContext, EventSectionPermissions } from "@/types";
 
 /**
  * Get the current authenticated session with tenant context
@@ -210,6 +211,36 @@ export async function requireLimit(
 
   if (current >= max) {
     throw new Error(`LimitReached: Maximum ${resource} (${max}) reached for your plan`);
+  }
+
+  return session;
+}
+
+/**
+ * Require access to a specific event, optionally checking section-level permissions.
+ * For non-eventScoped roles, this just validates org-level events:read.
+ * For eventScoped roles, checks event_participants + section permissions.
+ */
+export async function requireEventAccess(
+  eventId: number,
+  section?: keyof EventSectionPermissions,
+  level: "view" | "edit" = "view"
+): Promise<TenantSession> {
+  const session = await requirePermission("events:read");
+
+  // If section check is needed and user is event-scoped
+  if (section) {
+    const access = await checkEventSectionAccess(session, eventId, section, level);
+    if (!access.allowed) {
+      throw new Error(`Forbidden: ${access.reason}`);
+    }
+  } else if (session.eventScoped) {
+    // Just check basic event access for scoped roles
+    const { canAccessEvent } = await import("@/lib/tenant");
+    const access = await canAccessEvent(session, eventId);
+    if (!access.allowed) {
+      throw new Error(`Forbidden: ${access.reason}`);
+    }
   }
 
   return session;

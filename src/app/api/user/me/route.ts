@@ -24,6 +24,7 @@ export async function GET() {
         permissions: session.permissions,
         organizationId: session.organizationId,
         isImpersonating: session.isImpersonating || false,
+        eventScoped: session.eventScoped,
       },
     });
   } catch (error) {

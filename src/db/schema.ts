@@ -393,6 +393,7 @@ export const roles = pgTable("roles", {
   slug: text("slug").notNull(),
   description: text("description"),
   isSystem: boolean("is_system").default(false),
+  eventScoped: boolean("event_scoped").default(false),
   organizationId: integer("organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1212,6 +1213,15 @@ export const eventParticipants = pgTable("event_participants", {
   clientId: integer("client_id").references(() => clients.id),
   type: participantTypeEnum("type").notNull(),
   role: text("role"),
+  permissions: json("permissions").$type<{
+    general?: "view" | "edit" | "none";
+    tasks?: "view" | "edit" | "none";
+    guests?: "view" | "edit" | "none";
+    rsvp?: "view" | "edit" | "none";
+    vendors?: "view" | "none";
+    finances?: "view" | "none";
+    settings?: "none";
+  }>(),
   invitedBy: text("invited_by").references(() => users.id),
   invitedAt: timestamp("invited_at").defaultNow(),
   acceptedAt: timestamp("accepted_at"),

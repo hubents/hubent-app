@@ -12,9 +12,9 @@ const SYSTEM_ROLES = [
   { name: "Owner", slug: "owner", description: "Propietario - acceso completo a la organización" },
   { name: "Admin", slug: "admin", description: "Administrador - gestión completa excepto facturación" },
   { name: "Planner", slug: "planner", description: "Planificador - gestión de eventos y tareas" },
-  { name: "Assistant", slug: "assistant", description: "Asistente - apoyo en tareas asignadas" },
+  { name: "Assistant", slug: "assistant", description: "Asistente - apoyo en tareas asignadas", eventScoped: true },
   { name: "Accountant", slug: "accountant", description: "Contador - acceso a finanzas y reportes" },
-  { name: "Viewer", slug: "viewer", description: "Visualizador - solo lectura" },
+  { name: "Viewer", slug: "viewer", description: "Visualizador - solo lectura", eventScoped: true },
   // Provider roles
   { name: "Provider Owner", slug: "provider_owner", description: "Dueño de la organización proveedora" },
   { name: "Provider Admin", slug: "provider_admin", description: "Administrador del proveedor" },

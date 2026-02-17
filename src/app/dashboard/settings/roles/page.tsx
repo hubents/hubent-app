@@ -43,6 +43,7 @@ interface Role {
   slug: string;
   description: string | null;
   isSystem: boolean | null;
+  eventScoped: boolean | null;
   organizationId: number | null;
   permissionCount: number;
   memberCount: number;
@@ -108,6 +109,7 @@ export default function RolesPage() {
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formPermissionIds, setFormPermissionIds] = useState<Set<number>>(new Set());
+  const [formEventScoped, setFormEventScoped] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -175,6 +177,7 @@ export default function RolesPage() {
     await fetchRoleDetail(role.id);
     setFormName(role.name);
     setFormDescription(role.description || "");
+    setFormEventScoped(role.eventScoped ?? false);
   };
 
   const handleCreateRole = () => {
@@ -183,6 +186,7 @@ export default function RolesPage() {
     setFormName("");
     setFormDescription("");
     setFormPermissionIds(new Set());
+    setFormEventScoped(false);
     setDrawerOpen(true);
   };
 
@@ -202,6 +206,7 @@ export default function RolesPage() {
             name: formName.trim(),
             description: formDescription.trim() || null,
             permissionIds: Array.from(formPermissionIds),
+            eventScoped: formEventScoped,
           }),
         });
         const data = await res.json();
@@ -220,6 +225,7 @@ export default function RolesPage() {
             name: formName.trim(),
             description: formDescription.trim() || null,
             permissionIds: Array.from(formPermissionIds),
+            eventScoped: formEventScoped,
           }),
         });
         const data = await res.json();
@@ -533,26 +539,46 @@ export default function RolesPage() {
                         onChange={(e) => setFormDescription(e.target.value)}
                       />
                     </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg border">
+                      <div>
+                        <p className="text-sm font-medium">Limitar acceso a eventos asignados</p>
+                        <p className="text-xs text-[var(--muted-foreground)]">
+                          Los usuarios con este rol solo verán los eventos donde son colaboradores
+                        </p>
+                      </div>
+                      <Checkbox
+                        checked={formEventScoped}
+                        onCheckedChange={(checked) => setFormEventScoped(checked === true)}
+                      />
+                    </div>
                   </div>
                 )}
 
                 {/* Role info (view mode) */}
                 {drawerMode === "view" && selectedRole && (
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
-                      <p className="text-2xl font-bold">{selectedRole.permissions.length}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">Permisos</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
+                        <p className="text-2xl font-bold">{selectedRole.permissions.length}</p>
+                        <p className="text-xs text-[var(--muted-foreground)]">Permisos</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
+                        <p className="text-2xl font-bold">{selectedRole.memberCount}</p>
+                        <p className="text-xs text-[var(--muted-foreground)]">Miembros</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
+                        <p className="text-2xl font-bold">
+                          {selectedRole.isSystem ? "Sí" : "No"}
+                        </p>
+                        <p className="text-xs text-[var(--muted-foreground)]">Sistema</p>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
-                      <p className="text-2xl font-bold">{selectedRole.memberCount}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">Miembros</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-[var(--muted)]/50 text-center">
-                      <p className="text-2xl font-bold">
-                        {selectedRole.isSystem ? "Sí" : "No"}
-                      </p>
-                      <p className="text-xs text-[var(--muted-foreground)]">Sistema</p>
-                    </div>
+                    {(selectedRole as unknown as Role).eventScoped && (
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                        <RiLockLine className="h-4 w-4 text-amber-600" />
+                        <p className="text-sm text-amber-800">Este rol solo ve eventos donde es colaborador</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -593,6 +619,7 @@ export default function RolesPage() {
                   setDrawerMode("edit");
                   setFormName(selectedRole.name);
                   setFormDescription(selectedRole.description || "");
+                  setFormEventScoped((selectedRole as unknown as Role).eventScoped ?? false);
                 }}
               >
                 <RiEditLine className="h-4 w-4 mr-2" />

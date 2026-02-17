@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -14,8 +15,10 @@ import {
   RiSettings4Line,
   RiArrowLeftLine,
   RiCalendarEventLine,
+  RiLockLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
+import { useUserSessionContext } from "@/contexts/user-session-context";
 
 const statusMap: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
@@ -25,16 +28,50 @@ const statusMap: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Cancelado", color: "bg-red-100 text-red-700" },
 };
 
+// Map sidebar items to event permission section keys
+const SECTION_MAP: Record<string, string> = {
+  "General": "general",
+  "Tareas": "tasks",
+  "Lista de Invitados": "guests",
+  "RSVP": "rsvp",
+  "Proveedores": "vendors",
+  "Finanzas": "finances",
+  "Configuración": "settings",
+};
+
 export function EventSidebar() {
   const pathname = usePathname();
   const { activeEvent, setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const [eventPermissions, setEventPermissions] = useState<Record<string, string> | null>(null);
+
+  const eventId = activeEvent?.id;
+
+  // Fetch event permissions for eventScoped users
+  useEffect(() => {
+    if (!eventScoped || !eventId) {
+      setEventPermissions(null);
+      return;
+    }
+    async function fetchPermissions() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/collaborators/me`);
+        const data = await res.json();
+        if (data.success && data.data?.permissions) {
+          setEventPermissions(data.data.permissions);
+        }
+      } catch {
+        // Non-scoped users won't need this
+      }
+    }
+    fetchPermissions();
+  }, [eventScoped, eventId]);
 
   if (!activeEvent) return null;
 
-  const eventId = activeEvent.id;
-  const basePath = `/dashboard/events/${eventId}`;
+  const basePath = `/dashboard/events/${activeEvent.id}`;
 
-  const navigation = [
+  const allNavigation = [
     { name: "General", href: basePath, icon: RiDashboardLine, exact: true },
     { name: "Tareas", href: `${basePath}/tasks`, icon: RiFileListLine },
     { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
@@ -43,6 +80,15 @@ export function EventSidebar() {
     { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine },
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];
+
+  // Filter navigation based on event permissions for scoped users
+  const navigation = eventScoped && eventPermissions
+    ? allNavigation.filter((item) => {
+        const section = SECTION_MAP[item.name];
+        if (!section) return true;
+        return eventPermissions[section] !== "none";
+      })
+    : allNavigation;
 
   const status = statusMap[activeEvent.status] || statusMap.draft;
 
