@@ -1,11 +1,12 @@
 import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
 
-async function colExists(sql: ReturnType<typeof neon>, table: string, col: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function colExists(sql: any, table: string, col: string) {
   const r = await sql`
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = ${table} AND column_name = ${col}
-  `;
+  ` as Record<string, unknown>[];
   return r.length > 0;
 }
 
