@@ -12,7 +12,7 @@ import {
 function getWebhookSecret() {
   const secret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET;
   if (!secret) throw new Error("STRIPE_PLATFORM_WEBHOOK_SECRET not configured");
-  return secret;
+  return secret.trim();
 }
 
 export async function POST(request: NextRequest) {
@@ -35,8 +35,20 @@ export async function POST(request: NextRequest) {
     console.log("[Webhook] Signature verified OK, event:", event.type);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
+    const secretRaw = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET || "";
     console.error("[Webhook] Signature verification FAILED:", errMsg);
-    return NextResponse.json({ error: "Invalid signature", detail: errMsg }, { status: 400 });
+    console.error("[Webhook] Secret length:", secretRaw.length, "trimmed:", secretRaw.trim().length, "body length:", body.length);
+    return NextResponse.json({
+      error: "Invalid signature",
+      detail: errMsg,
+      debug: {
+        secretLen: secretRaw.length,
+        secretTrimmedLen: secretRaw.trim().length,
+        secretPrefix: secretRaw.trim().substring(0, 12),
+        bodyLen: body.length,
+        sigPrefix: signature?.substring(0, 30),
+      },
+    }, { status: 400 });
   }
 
   try {
