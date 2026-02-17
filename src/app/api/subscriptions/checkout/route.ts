@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Validate plan matches org type
     const org = await db.query.organizations.findFirst({
       where: eq(organizations.id, session.organizationId),
-      columns: { orgType: true },
+      columns: { orgType: true, name: true },
     });
     if (org && plan.orgType && org.orgType !== plan.orgType) {
       return NextResponse.json(
