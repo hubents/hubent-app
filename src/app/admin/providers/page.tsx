@@ -175,10 +175,17 @@ export default function AdminProvidersPage() {
     );
   }
 
+  const statCards = [
+    { key: "all" as const, label: "Total", icon: RiStoreLine, color: "text-blue-500", bgColor: "bg-blue-500/10" },
+    { key: "unverified" as const, label: "Pendiente", icon: RiTimeLine, color: "text-yellow-500", bgColor: "bg-yellow-500/10" },
+    { key: "verified" as const, label: "Verificado", icon: RiShieldCheckLine, color: "text-green-500", bgColor: "bg-green-500/10" },
+    { key: "rejected" as const, label: "Rechazado", icon: RiCloseCircleLine, color: "text-red-500", bgColor: "bg-red-500/10" },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="p-8">
       {/* Header */}
-      <div>
+      <div className="mb-8">
         <h1 className="text-2xl font-bold">Proveedores</h1>
         <p className="text-muted-foreground">
           Gestiona y verifica las organizaciones proveedoras
@@ -186,27 +193,34 @@ export default function AdminProvidersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {(["all", "unverified", "verified", "rejected"] as const).map((key) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`p-4 rounded-lg border text-left transition-colors ${
-              filter === key
-                ? "border-primary bg-primary/5"
-                : "border-border hover:bg-muted/50"
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+        {statCards.map((stat) => (
+          <Card
+            key={stat.key}
+            className={`cursor-pointer transition-all ${
+              filter === stat.key
+                ? "ring-2 ring-primary"
+                : "hover:bg-muted/50"
             }`}
+            onClick={() => setFilter(stat.key)}
           >
-            <p className="text-2xl font-bold">{counts[key]}</p>
-            <p className="text-sm text-muted-foreground">
-              {key === "all" ? "Total" : STATUS_CONFIG[key]?.label || key}
-            </p>
-          </button>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-2xl font-bold">{counts[stat.key]}</p>
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Search */}
-      <div className="relative">
+      <div className="relative mb-6">
         <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={search}
@@ -217,7 +231,7 @@ export default function AdminProvidersPage() {
       </div>
 
       {/* Provider List */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>
             {filter === "all" ? "Todos los Proveedores" : `Proveedores - ${STATUS_CONFIG[filter]?.label || filter}`}
@@ -226,9 +240,10 @@ export default function AdminProvidersPage() {
         </CardHeader>
         <CardContent>
           {filtered.length === 0 ? (
-            <div className="text-center py-8">
-              <RiStoreLine className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No se encontraron proveedores</p>
+            <div className="text-center py-12">
+              <RiStoreLine className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="font-medium mb-1">No se encontraron proveedores</h3>
+              <p className="text-sm text-muted-foreground">Aún no hay organizaciones proveedoras registradas</p>
             </div>
           ) : (
             <div className="space-y-2">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizations, subscriptionPlans, users, organizationMembers, subscriptions, roles } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, ne, desc } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
 import { sendTenantWelcomeEmail } from "@/lib/email";
 import { requirePlatformAdmin } from "@/lib/session";
@@ -38,6 +38,7 @@ export async function GET() {
         subscriptionPlanName: subscriptionPlans.name,
       })
       .from(organizations)
+      .where(ne(organizations.orgType, "provider"))
       .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
       .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
       .orderBy(desc(organizations.createdAt));

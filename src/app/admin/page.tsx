@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Building2, 
+  Store,
   Users, 
   DollarSign, 
   TrendingUp,
@@ -10,12 +11,13 @@ import {
 } from "lucide-react";
 import { db } from "@/db";
 import { organizations, users, subscriptions, invoices } from "@/db/schema";
-import { count, sum, eq } from "drizzle-orm";
+import { count, sum, eq, ne } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
 
 async function getStats() {
-  const [tenantsCount] = await db.select({ count: count() }).from(organizations);
+  const [tenantsCount] = await db.select({ count: count() }).from(organizations).where(ne(organizations.orgType, "provider"));
+  const [providersCount] = await db.select({ count: count() }).from(organizations).where(eq(organizations.orgType, "provider"));
   const [usersCount] = await db.select({ count: count() }).from(users);
   const [activeSubscriptions] = await db
     .select({ count: count() })
@@ -28,6 +30,7 @@ async function getStats() {
 
   return {
     tenants: tenantsCount?.count || 0,
+    providers: providersCount?.count || 0,
     users: usersCount?.count || 0,
     activeSubscriptions: activeSubscriptions?.count || 0,
     mrr: Number(revenue?.total || 0),
@@ -55,6 +58,15 @@ export default async function AdminDashboardPage() {
       icon: Building2,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
+    },
+    {
+      title: "Proveedores",
+      value: stats.providers,
+      change: "",
+      trend: "up",
+      icon: Store,
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10",
     },
     {
       title: "Total Usuarios",

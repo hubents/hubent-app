@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   Building2, 
+  Store,
   Users, 
   CreditCard, 
   Settings, 
@@ -20,11 +21,11 @@ import { AdminHeader } from "@/components/layout/admin-header";
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/tenants", label: "Tenants", icon: Building2 },
+  { href: "/admin/providers", label: "Proveedores", icon: Store },
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/plans", label: "Planes", icon: CreditCard },
   { href: "/admin/billing", label: "Billing", icon: CreditCard },
   { href: "/admin/ai", label: "Asistente IA", icon: Bot },
-  { href: "/admin/providers", label: "Proveedores", icon: Building2 },
   { href: "/admin/audit", label: "Auditoría", icon: ScrollText },
   { href: "/admin/announcements", label: "Anuncios", icon: Megaphone },
   { href: "/admin/settings", label: "Configuración", icon: Settings },

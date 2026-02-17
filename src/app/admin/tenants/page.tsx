@@ -26,6 +26,8 @@ interface Tenant {
   slug: string;
   status: string | null;
   planId: number | null;
+  planName: string | null;
+  subscriptionStatus: string | null;
   phone: string | null;
   website: string | null;
   createdAt: string | null;
@@ -306,9 +308,21 @@ export default function TenantsPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge variant="secondary">
-                        {getPlanName(tenant.planId)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {tenant.planName || getPlanName(tenant.planId)}
+                        </Badge>
+                        {tenant.subscriptionStatus && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            tenant.subscriptionStatus === "active" ? "bg-green-500/10 text-green-600" :
+                            tenant.subscriptionStatus === "trialing" ? "bg-yellow-500/10 text-yellow-600" :
+                            tenant.subscriptionStatus === "canceled" ? "bg-red-500/10 text-red-600" :
+                            "bg-gray-500/10 text-gray-600"
+                          }`}>
+                            {tenant.subscriptionStatus}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4">
                       <span

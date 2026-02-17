@@ -37,6 +37,12 @@ import { UserDetailDrawer } from "@/components/admin/user-detail-drawer";
 import { EditUserDrawer } from "@/components/admin/edit-user-drawer";
 import { Toaster } from "sonner";
 
+interface UserOrg {
+  id: number;
+  name: string;
+  orgType: string;
+}
+
 interface User {
   id: string;
   name: string | null;
@@ -47,6 +53,7 @@ interface User {
   isAdmin: boolean;
   adminLevel?: string | null;
   status?: string;
+  organizations: UserOrg[];
 }
 
 interface PendingAdminInvitation {
@@ -327,6 +334,7 @@ export default function UsersPage() {
                   <th className="text-left p-4 font-medium text-[var(--muted-foreground)]">Email</th>
                   <th className="text-left p-4 font-medium text-[var(--muted-foreground)]">Estado</th>
                   <th className="text-left p-4 font-medium text-[var(--muted-foreground)]">Rol</th>
+                  <th className="text-left p-4 font-medium text-[var(--muted-foreground)]">Organización</th>
                   <th className="text-left p-4 font-medium text-[var(--muted-foreground)]">Registrado</th>
                   <th className="text-right p-4 font-medium text-[var(--muted-foreground)]">Acciones</th>
                 </tr>
@@ -382,6 +390,24 @@ export default function UsersPage() {
                         <Badge variant="secondary">Usuario</Badge>
                       )}
                     </td>
+                    <td className="p-4">
+                      {user.organizations.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {user.organizations.map((org) => (
+                            <span key={org.id} className="text-sm">
+                              {org.name}
+                              <span className={`ml-1 text-[10px] px-1 py-0.5 rounded ${
+                                org.orgType === "provider" ? "bg-purple-500/10 text-purple-600" : "bg-blue-500/10 text-blue-600"
+                              }`}>
+                                {org.orgType === "provider" ? "Proveedor" : "Planner"}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[var(--muted-foreground)]">—</span>
+                      )}
+                    </td>
                     <td className="p-4 text-[var(--muted-foreground)]">
                       {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
                     </td>
@@ -391,7 +417,7 @@ export default function UsersPage() {
                           user={user}
                           currentUserId={session?.user?.id || ""}
                           onViewDetails={(u) => setDetailUserId(u.id)}
-                          onEdit={(u) => setEditUser(u)}
+                          onEdit={(u) => setEditUser(u as User)}
                           onRefresh={fetchData}
                         />
                       </div>
