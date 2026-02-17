@@ -135,7 +135,7 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    // Match all routes except static files and images
-    "/((?!_next/static|_next/image|favicon.ico|images|icons|fonts|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|css)$).*)",
+    // Match all routes except static files, images, and webhook endpoints
+    "/((?!_next/static|_next/image|favicon.ico|images|icons|fonts|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|css)$).*)",
   ],
 };
