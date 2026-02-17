@@ -97,7 +97,7 @@ export function CollaboratorDrawer({
       const res = await fetch("/api/team");
       const data = await res.json();
       if (data.success) {
-        setMembers(data.data || []);
+        setMembers(data.data?.members || []);
       }
     } catch {
       console.error("Error fetching team members");
