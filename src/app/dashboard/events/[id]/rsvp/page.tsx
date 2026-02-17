@@ -723,7 +723,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
 
       {/* Send Invitations Drawer */}
       <Sheet open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <SheetContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Enviar Invitaciones por Email</SheetTitle>
             <SheetDescription>
@@ -746,7 +746,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 px-4 py-4">
               {guests.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between">

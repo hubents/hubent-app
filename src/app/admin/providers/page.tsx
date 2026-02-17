@@ -286,7 +286,7 @@ export default function AdminProvidersPage() {
 
       {/* Provider Detail Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="sm:max-w-xl overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{selectedProvider?.name}</SheetTitle>
             <SheetDescription>

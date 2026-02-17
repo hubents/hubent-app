@@ -415,14 +415,14 @@ export default function PlansPage() {
 
       {/* Create/Edit Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
+        <SheetContent className="overflow-y-auto w-full sm:max-w-3xl">
           <SheetHeader>
             <SheetTitle>
               {editingPlan ? `Editar: ${editingPlan.name}` : "Nuevo Plan"}
             </SheetTitle>
           </SheetHeader>
 
-          <div className="space-y-6 py-6">
+          <div className="space-y-6 px-4 py-4">
             {/* Basic Info */}
             <div className="space-y-4">
               <div>

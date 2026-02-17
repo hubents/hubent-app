@@ -293,7 +293,7 @@ export default function AdminAIDocumentsPage() {
                 {editingDoc ? "Editar Documento" : "Nuevo Documento"}
               </SheetTitle>
             </SheetHeader>
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4 px-4 py-4">
               {/* Tipo de documento */}
               <div className="flex gap-2">
                 <Button
