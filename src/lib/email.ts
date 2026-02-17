@@ -504,3 +504,122 @@ export async function sendProviderEventInvitationEmail(
     text: `Hola ${providerName}, ${plannerOrgName} te ha invitado al evento "${eventName}" (${dateText}). Accede a ${getAppUrl()}/vendor/events para responder.`,
   });
 }
+
+// ============================================
+// SUBSCRIPTION LIFECYCLE EMAILS
+// ============================================
+
+export async function sendTrialExpiringEmail(
+  to: string,
+  orgName: string,
+  daysLeft: number,
+  planName: string
+) {
+  const content = `
+    ${heading("Tu prueba gratuita está por terminar")}
+    ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
+    ${infoBox(`Tu prueba del plan <strong>${planName}</strong> finaliza en <strong>${daysLeft} día${daysLeft > 1 ? "s" : ""}</strong>.`)}
+    ${paragraph("Para seguir disfrutando de todas las funcionalidades, suscríbete a un plan antes de que termine tu prueba.")}
+    ${paragraph("El precio se mostrará en tu moneda local al momento de pagar.")}
+    ${primaryButton("Elegir mi plan", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${mutedText("Si tienes alguna pregunta, responde a este email.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `⏰ Tu prueba gratuita termina en ${daysLeft} día${daysLeft > 1 ? "s" : ""} — ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${orgName}, tu prueba del plan ${planName} termina en ${daysLeft} días. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+  });
+}
+
+export async function sendTrialExpiredEmail(
+  to: string,
+  orgName: string,
+  planName: string
+) {
+  const content = `
+    ${heading("Tu prueba gratuita ha terminado")}
+    ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
+    ${infoBox("Tu período de prueba ha finalizado. Tu cuenta ahora tiene acceso limitado en modo lectura.")}
+    ${paragraph("Para recuperar el acceso completo a todas las funcionalidades, elige un plan:")}
+    ${primaryButton("Suscribirse ahora", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${paragraph("Tus datos están seguros y no se eliminarán. Puedes reactivar tu cuenta en cualquier momento.")}
+    ${mutedText("Si necesitas ayuda, responde a este email.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Tu prueba de HubEnts ha terminado — ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${orgName}, tu prueba del plan ${planName} ha terminado. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+  });
+}
+
+export async function sendPaymentFailedEmail(
+  to: string,
+  orgName: string,
+  planName: string
+) {
+  const content = `
+    ${heading("Problema con tu pago")}
+    ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
+    ${infoBox("No pudimos procesar el pago de tu suscripción al plan <strong>" + planName + "</strong>.")}
+    ${paragraph("Por favor, actualiza tu método de pago para evitar la suspensión de tu cuenta:")}
+    ${primaryButton("Actualizar método de pago", `${getAppUrl()}/dashboard/settings?billing=update-payment`)}
+    ${paragraph("Si crees que esto es un error, contacta a tu banco o responde a este email.")}
+    ${mutedText("Stripe reintentará el cobro automáticamente en los próximos días.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `⚠️ Problema con el pago de tu suscripción — ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${orgName}, no pudimos procesar el pago de tu plan ${planName}. Actualiza tu método de pago en ${getAppUrl()}/dashboard/settings`,
+  });
+}
+
+export async function sendSubscriptionCanceledEmail(
+  to: string,
+  orgName: string,
+  planName: string
+) {
+  const content = `
+    ${heading("Tu suscripción ha sido cancelada")}
+    ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
+    ${paragraph(`Tu suscripción al plan <strong>${planName}</strong> ha sido cancelada.`)}
+    ${paragraph("Tu cuenta seguirá activa hasta el final del período facturado. Después, pasará a modo lectura.")}
+    ${paragraph("¿Cambiaste de opinión? Puedes reactivar tu suscripción en cualquier momento:")}
+    ${primaryButton("Reactivar suscripción", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${mutedText("Nos encantaría saber cómo mejorar. Responde a este email con tu feedback.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Tu suscripción de HubEnts ha sido cancelada — ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${orgName}, tu suscripción al plan ${planName} ha sido cancelada. Reactívala en ${getAppUrl()}/dashboard/settings`,
+  });
+}
+
+export async function sendWinBackEmail(
+  to: string,
+  orgName: string
+) {
+  const content = `
+    ${heading("Te extrañamos en HubEnts")}
+    ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
+    ${paragraph("Hace unos días que tu prueba gratuita terminó y queremos asegurarnos de que no te pierdas todo lo que HubEnts puede ofrecer.")}
+    ${infoBox("🎁 <strong>Oferta especial:</strong> Suscríbete hoy y obtén un descuento en tu primer mes.", "success")}
+    ${paragraph("Con HubEnts puedes gestionar eventos, contactos, finanzas y mucho más desde una sola plataforma.")}
+    ${primaryButton("Volver a HubEnts", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${mutedText("Si ya no deseas recibir estos emails, responde con 'cancelar'.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Te extrañamos — Vuelve a HubEnts, ${orgName}`,
+    html: emailWrapper(content),
+    text: `Hola ${orgName}, te extrañamos en HubEnts. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+  });
+}

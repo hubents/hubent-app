@@ -660,11 +660,59 @@ function LanguageSection() {
 
 // Billing Section Component
 function BillingSection() {
+  const router = useRouter();
   const [billing, setBilling] = useState<{
-    plan: { name: string; slug: string; features: string[] } | null;
-    subscription: { status: string; trialEndsAt: string | null } | null;
+    plan: {
+      id: number;
+      name: string;
+      slug: string;
+      features: string[];
+      priceMonthly: string;
+      priceYearly: string;
+      currency: string;
+      limits: { maxUsers: number; maxEvents: number; maxStorage: number };
+    } | null;
+    subscription: {
+      id: number;
+      status: string;
+      trialEndsAt: string | null;
+      currentPeriodEnd: string | null;
+      cancelAt: string | null;
+      presentmentCurrency: string | null;
+      hasStripeSubscription: boolean;
+    } | null;
+    availablePlans: {
+      id: number;
+      name: string;
+      slug: string;
+      description: string | null;
+      priceMonthly: string;
+      priceYearly: string;
+      currency: string;
+      features: string[];
+      limits: { maxUsers: number; maxEvents: number; maxStorage: number };
+      highlighted: boolean;
+      stripePriceIdMonthly: string | null;
+      stripePriceIdYearly: string | null;
+    }[];
+    invoices: {
+      id: number;
+      amount: string;
+      currency: string;
+      status: string;
+      paidAt: string | null;
+      pdfUrl: string | null;
+      presentmentAmount: string | null;
+      presentmentCurrency: string | null;
+      period: string | null;
+      createdAt: string | null;
+    }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPlans, setShowPlans] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  const [checkoutLoading, setCheckoutLoading] = useState<number | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
     async function loadBilling() {
@@ -685,6 +733,64 @@ function BillingSection() {
     loadBilling();
   }, []);
 
+  async function handleCheckout(planId: number) {
+    setCheckoutLoading(planId);
+    try {
+      const res = await fetch("/api/subscriptions/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, interval: billingInterval }),
+      });
+      const data = await res.json();
+      if (data.success && data.data.url) {
+        window.location.href = data.data.url;
+      } else {
+        toast.error(data.error || "Error al crear checkout");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  }
+
+  async function handlePortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/subscriptions/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.data.url) {
+        window.location.href = data.data.url;
+      } else {
+        toast.error(data.error || "Error al abrir portal");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  function getStatusBadge(status: string) {
+    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      active: { label: "Activo", variant: "default" },
+      trialing: { label: "Prueba gratuita", variant: "secondary" },
+      past_due: { label: "Pago pendiente", variant: "destructive" },
+      canceled: { label: "Cancelado", variant: "outline" },
+      paused: { label: "Pausado", variant: "outline" },
+    };
+    const info = map[status] || { label: status, variant: "outline" as const };
+    return <Badge variant={info.variant}>{info.label}</Badge>;
+  }
+
+  function getTrialDaysLeft() {
+    if (!billing?.subscription?.trialEndsAt) return null;
+    const end = new Date(billing.subscription.trialEndsAt);
+    const now = new Date();
+    const days = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  }
+
   if (loading) {
     return (
       <Card>
@@ -695,45 +801,213 @@ function BillingSection() {
     );
   }
 
+  const trialDays = getTrialDaysLeft();
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Plan y Facturación</CardTitle>
-        <CardDescription>Gestiona tu suscripción</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border border-[var(--border)] p-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold">{billing?.plan?.name || "Plan Starter"}</h3>
-              <Badge variant={billing?.subscription?.status === "trialing" ? "warning" : "success"}>
-                {billing?.subscription?.status === "trialing" ? "Prueba" : "Activo"}
-              </Badge>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan y Facturación</CardTitle>
+          <CardDescription>
+            Gestiona tu suscripción · Precios en EUR · Tu moneda local se aplica al pagar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Current Plan */}
+          <div className="flex items-center justify-between rounded-lg border border-[var(--border)] p-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-lg">
+                  {billing?.plan?.name || "Sin plan"}
+                </h3>
+                {billing?.subscription && getStatusBadge(billing.subscription.status)}
+              </div>
+              {billing?.plan && (
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  €{billing.plan.priceMonthly}/mes · €{billing.plan.priceYearly}/año
+                </p>
+              )}
+              {trialDays !== null && trialDays > 0 && (
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <RiAlertLine className="h-4 w-4 text-amber-500" />
+                    <span>{trialDays} días restantes de prueba</span>
+                  </div>
+                  <div className="mt-1 h-2 w-48 rounded-full bg-[var(--muted)]">
+                    <div
+                      className="h-2 rounded-full bg-amber-500 transition-all"
+                      style={{ width: `${Math.max(5, ((14 - trialDays) / 14) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {billing?.subscription?.currentPeriodEnd && billing.subscription.status === "active" && (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Próxima facturación: {new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}
+                </p>
+              )}
             </div>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {billing?.subscription?.trialEndsAt 
-                ? `Prueba hasta: ${new Date(billing.subscription.trialEndsAt).toLocaleDateString()}`
-                : "Acceso completo a las funcionalidades del plan"
-              }
-            </p>
+            <div className="flex gap-2">
+              {billing?.subscription?.hasStripeSubscription && (
+                <Button
+                  variant="outline"
+                  onClick={handlePortal}
+                  disabled={portalLoading}
+                >
+                  {portalLoading ? "Cargando..." : "Gestionar"}
+                </Button>
+              )}
+              <Button onClick={() => setShowPlans(true)}>
+                Cambiar Plan
+              </Button>
+            </div>
           </div>
-          <Button>Cambiar Plan</Button>
+
+          {/* Features */}
+          {billing?.plan?.features && billing.plan.features.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Incluido en tu plan:</p>
+              <div className="grid grid-cols-2 gap-1">
+                {billing.plan.features.map((feature, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                    <RiCheckLine className="h-4 w-4 text-green-500 shrink-0" />
+                    {feature}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Invoices */}
+          {billing?.invoices && billing.invoices.length > 0 && (
+            <div className="space-y-2 pt-4 border-t border-[var(--border)]">
+              <p className="text-sm font-medium">Últimas facturas</p>
+              <div className="space-y-1">
+                {billing.invoices.slice(0, 5).map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between text-sm py-1">
+                    <div className="flex items-center gap-2">
+                      <RiFileList3Line className="h-4 w-4 text-[var(--muted-foreground)]" />
+                      <span>{inv.period || (inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : "—")}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span>
+                        {inv.presentmentAmount && inv.presentmentCurrency
+                          ? `${inv.presentmentCurrency} ${inv.presentmentAmount}`
+                          : `€${inv.amount}`}
+                      </span>
+                      <Badge variant={inv.status === "paid" ? "default" : "outline"} className="text-xs">
+                        {inv.status === "paid" ? "Pagado" : inv.status}
+                      </Badge>
+                      {inv.pdfUrl && (
+                        <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline text-xs">
+                          PDF
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Plan Selector Dialog */}
+      {showPlans && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-[var(--background)] rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold">Elige tu plan</h2>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  El precio se mostrará en tu moneda local al pagar
+                </p>
+              </div>
+              <button onClick={() => setShowPlans(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                ✕
+              </button>
+            </div>
+
+            {/* Interval Toggle */}
+            <div className="flex justify-center mb-6">
+              <div className="flex gap-1 p-1 bg-[var(--muted)]/50 rounded-lg">
+                <button
+                  onClick={() => setBillingInterval("month")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    billingInterval === "month" ? "bg-[var(--background)] shadow-sm" : "text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Mensual
+                </button>
+                <button
+                  onClick={() => setBillingInterval("year")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    billingInterval === "year" ? "bg-[var(--background)] shadow-sm" : "text-[var(--muted-foreground)]"
+                  }`}
+                >
+                  Anual <span className="text-green-600 text-xs ml-1">Ahorra 2 meses</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Plans Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {billing?.availablePlans?.map((plan) => {
+                const isCurrent = plan.id === billing?.plan?.id;
+                const price = billingInterval === "month" ? plan.priceMonthly : plan.priceYearly;
+                const hasPriceId = billingInterval === "month" ? plan.stripePriceIdMonthly : plan.stripePriceIdYearly;
+                const isFree = Number(plan.priceMonthly) === 0;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`rounded-lg border p-4 space-y-4 ${
+                      plan.highlighted ? "border-[var(--primary)] ring-1 ring-[var(--primary)]" : "border-[var(--border)]"
+                    } ${isCurrent ? "bg-[var(--muted)]/30" : ""}`}
+                  >
+                    {plan.highlighted && (
+                      <Badge className="w-fit">POPULAR</Badge>
+                    )}
+                    <div>
+                      <h3 className="font-semibold text-lg">{plan.name}</h3>
+                      {plan.description && (
+                        <p className="text-xs text-[var(--muted-foreground)] mt-1">{plan.description}</p>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-3xl font-bold">€{price}</span>
+                      <span className="text-[var(--muted-foreground)]">/{billingInterval === "month" ? "mes" : "año"}</span>
+                    </div>
+                    {plan.features?.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <RiCheckLine className="h-4 w-4 text-green-500 shrink-0" />
+                        {f}
+                      </div>
+                    ))}
+                    <Button
+                      className="w-full"
+                      variant={isCurrent ? "outline" : "default"}
+                      disabled={isCurrent || !hasPriceId || checkoutLoading === plan.id || isFree}
+                      onClick={() => handleCheckout(plan.id)}
+                    >
+                      {checkoutLoading === plan.id
+                        ? "Redirigiendo..."
+                        : isCurrent
+                        ? "Tu plan actual"
+                        : isFree
+                        ? "Plan gratuito"
+                        : !hasPriceId
+                        ? "No disponible"
+                        : "Suscribirse"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        {billing?.plan?.features && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Incluido en tu plan:</p>
-            <ul className="space-y-1">
-              {billing.plan.features.map((feature, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-                  <RiCheckLine className="h-4 w-4 text-green-500" />
-                  {feature}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </>
   );
 }
 

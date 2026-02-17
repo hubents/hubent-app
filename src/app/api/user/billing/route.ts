@@ -46,12 +46,20 @@ export async function GET() {
       storage: 0, // Would calculate actual storage
     };
 
+    // Get all active plans for comparison
+    const allPlans = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(subscriptionPlans.sortOrder);
+
     return NextResponse.json({
       success: true,
       data: {
         organization: {
           id: org?.id,
           name: org?.name,
+          orgType: org?.orgType,
         },
         plan: plan ? {
           id: plan.id,
@@ -60,8 +68,10 @@ export async function GET() {
           description: plan.description,
           priceMonthly: plan.priceMonthly,
           priceYearly: plan.priceYearly,
+          currency: plan.currency,
           features: plan.features,
           limits: plan.limits,
+          trialDays: plan.trialDays,
         } : null,
         subscription: subscription ? {
           id: subscription.id,
@@ -70,8 +80,27 @@ export async function GET() {
           currentPeriodStart: subscription.currentPeriodStart?.toISOString(),
           currentPeriodEnd: subscription.currentPeriodEnd?.toISOString(),
           cancelAt: subscription.cancelAt?.toISOString(),
+          presentmentCurrency: subscription.presentmentCurrency,
+          hasStripeSubscription: !!subscription.stripeSubscriptionId,
         } : null,
         usage,
+        availablePlans: allPlans
+          .filter(p => p.orgType === (org?.orgType || "tenant"))
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            description: p.description,
+            priceMonthly: p.priceMonthly,
+            priceYearly: p.priceYearly,
+            currency: p.currency,
+            features: p.features,
+            limits: p.limits,
+            highlighted: p.highlighted,
+            trialDays: p.trialDays,
+            stripePriceIdMonthly: p.stripePriceIdMonthly,
+            stripePriceIdYearly: p.stripePriceIdYearly,
+          })),
         invoices: recentInvoices.map(inv => ({
           id: inv.id,
           amount: inv.amount,
@@ -80,6 +109,9 @@ export async function GET() {
           paidAt: inv.paidAt?.toISOString(),
           dueDate: inv.dueDate?.toISOString(),
           pdfUrl: inv.pdfUrl,
+          presentmentAmount: inv.presentmentAmount,
+          presentmentCurrency: inv.presentmentCurrency,
+          period: inv.period,
           createdAt: inv.createdAt?.toISOString(),
         })),
       },

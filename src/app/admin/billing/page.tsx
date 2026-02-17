@@ -30,10 +30,28 @@ async function getBillingStats() {
     .from(subscriptions)
     .where(eq(subscriptions.status, "active"));
 
+  const [trialingCount] = await db
+    .select({ count: count() })
+    .from(subscriptions)
+    .where(eq(subscriptions.status, "trialing"));
+
+  // MRR = sum of monthly prices for active subscriptions
+  const activeSubs = await db
+    .select({
+      priceMonthly: subscriptionPlans.priceMonthly,
+    })
+    .from(subscriptions)
+    .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+    .where(eq(subscriptions.status, "active"));
+
+  const mrr = activeSubs.reduce((sum, s) => sum + Number(s.priceMonthly || 0), 0);
+
   return {
     totalRevenue: Number(totalRevenue?.total || 0),
     pendingRevenue: Number(pendingRevenue?.total || 0),
     activeSubscriptions: activeSubscriptionsCount?.count || 0,
+    trialingSubscriptions: trialingCount?.count || 0,
+    mrr,
   };
 }
 
@@ -80,7 +98,7 @@ export default async function BillingPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -94,7 +112,7 @@ export default async function BillingPage() {
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold">
-                ${stats.totalRevenue.toLocaleString()}
+                €{stats.totalRevenue.toLocaleString()}
               </p>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Ingresos Totales
@@ -112,7 +130,7 @@ export default async function BillingPage() {
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold">
-                ${stats.pendingRevenue.toLocaleString()}
+                €{stats.pendingRevenue.toLocaleString()}
               </p>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Pagos Pendientes
@@ -132,6 +150,23 @@ export default async function BillingPage() {
               <p className="text-2xl font-bold">{stats.activeSubscriptions}</p>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Suscripciones Activas
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-purple-500/10">
+                <TrendingUp className="h-5 w-5 text-purple-500" />
+              </div>
+              <span className="text-sm text-[var(--muted-foreground)]">{stats.trialingSubscriptions} en trial</span>
+            </div>
+            <div className="mt-4">
+              <p className="text-2xl font-bold">€{stats.mrr.toFixed(2)}</p>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                MRR (Monthly Recurring Revenue)
               </p>
             </div>
           </CardContent>
@@ -181,7 +216,7 @@ export default async function BillingPage() {
                   >
                     <td className="p-4 font-mono text-sm">#{invoice.id}</td>
                     <td className="p-4">{invoice.orgName || "-"}</td>
-                    <td className="p-4 font-medium">${invoice.amount}</td>
+                    <td className="p-4 font-medium">€{invoice.amount}</td>
                     <td className="p-4">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
