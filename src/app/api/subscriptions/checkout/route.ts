@@ -7,7 +7,9 @@ import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[checkout] Starting checkout request...");
     const session = await requireAuth();
+    console.log(`[checkout] Auth OK: orgId=${session.organizationId}, userId=${session.user.userId}`);
     const body = await request.json();
     const { planId, interval } = body as {
       planId: number;
@@ -70,14 +72,11 @@ export async function POST(request: NextRequest) {
     let customerId = existingSub?.stripeCustomerId;
 
     if (!customerId) {
-      // Get org and user details for customer creation
-      const org = await db.query.organizations.findFirst({
-        where: eq(organizations.id, session.organizationId),
-      });
       const user = await db.query.users.findFirst({
         where: eq(users.id, session.user.userId),
       });
 
+      console.log(`[checkout] Creating Stripe customer for org=${session.organizationId}`);
       const customer = await stripe.customers.create({
         email: user?.email || session.user.email,
         name: org?.name || undefined,
