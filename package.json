@@ -51,6 +51,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@remixicon/react": "^4.7.0",
     "@sparticuz/chromium-min": "^143.0.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@uploadthing/react": "^7.3.3",
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
