@@ -46,11 +46,18 @@ interface VendorItem {
 
 type SourceTab = "members" | "contacts" | "vendors";
 
+interface ExistingParticipant {
+  userId: string | null;
+  contactId: number | null;
+  vendorId: number | null;
+}
+
 interface CollaboratorDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: number;
   onSuccess: () => void;
+  existingParticipants?: ExistingParticipant[];
   editingParticipant?: {
     id: number;
     userId: string | null;
@@ -118,6 +125,7 @@ export function CollaboratorDrawer({
   onOpenChange,
   eventId,
   onSuccess,
+  existingParticipants = [],
   editingParticipant,
 }: CollaboratorDrawerProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -273,22 +281,29 @@ export function CollaboratorDrawer({
     }
   }
 
+  const assignedUserIds = new Set(existingParticipants.filter(p => p.userId).map(p => p.userId!));
+  const assignedContactIds = new Set(existingParticipants.filter(p => p.contactId).map(p => p.contactId!));
+  const assignedVendorIds = new Set(existingParticipants.filter(p => p.vendorId).map(p => p.vendorId!));
+
   const filteredMembers = members.filter(
     (m) =>
-      (m.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      m.email.toLowerCase().includes(search.toLowerCase())
+      !assignedUserIds.has(m.id) &&
+      ((m.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      m.email.toLowerCase().includes(search.toLowerCase()))
   );
 
   const filteredContacts = contactsList.filter(
     (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.email || "").toLowerCase().includes(search.toLowerCase())
+      !assignedContactIds.has(c.id) &&
+      (c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.email || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   const filteredVendors = vendorsList.filter(
     (v) =>
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
-      (v.category || "").toLowerCase().includes(search.toLowerCase())
+      !assignedVendorIds.has(v.id) &&
+      (v.name.toLowerCase().includes(search.toLowerCase()) ||
+      (v.category || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   const TABS: { key: SourceTab; label: string; icon: typeof RiTeamLine; count: number }[] = [

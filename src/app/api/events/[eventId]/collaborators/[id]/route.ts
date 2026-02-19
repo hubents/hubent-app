@@ -88,7 +88,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    await removeEventParticipant(pId);
+    await removeEventParticipant(pId, eId);
 
     return NextResponse.json({ success: true, data: { message: "Colaborador eliminado" } });
   } catch (error) {

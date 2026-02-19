@@ -980,6 +980,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onOpenChange={setCollabDrawerOpen}
         eventId={eventId}
         onSuccess={fetchCollaborators}
+        existingParticipants={collaborators}
       />
     </div>
   );

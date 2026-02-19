@@ -5,7 +5,6 @@ import {
   contactPhotos,
   contactActivities,
   contactTags,
-  contactEvents,
   contactTasks,
   contactRelationships,
   eventParticipants,
@@ -657,10 +656,17 @@ export async function linkContactToEvent(
   eventId: number,
   role?: string
 ) {
+  const [existing] = await db
+    .select({ id: eventParticipants.id })
+    .from(eventParticipants)
+    .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.contactId, contactId)))
+    .limit(1);
+
+  if (existing) return existing;
+
   const [link] = await db
-    .insert(contactEvents)
-    .values({ contactId, eventId, role })
-    .onConflictDoNothing()
+    .insert(eventParticipants)
+    .values({ eventId, contactId, type: "contact", role: role || null })
     .returning();
 
   return link;
@@ -668,11 +674,11 @@ export async function linkContactToEvent(
 
 export async function unlinkContactFromEvent(contactId: number, eventId: number) {
   await db
-    .delete(contactEvents)
+    .delete(eventParticipants)
     .where(
       and(
-        eq(contactEvents.contactId, contactId),
-        eq(contactEvents.eventId, eventId)
+        eq(eventParticipants.contactId, contactId),
+        eq(eventParticipants.eventId, eventId)
       )
     );
 }

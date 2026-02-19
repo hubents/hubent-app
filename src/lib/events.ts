@@ -924,9 +924,13 @@ export async function updateEventParticipant(
   return updated;
 }
 
-export async function removeEventParticipant(participantId: number) {
+export async function removeEventParticipant(participantId: number, eventId?: number) {
+  const conditions = [eq(eventParticipants.id, participantId)];
+  if (eventId !== undefined) {
+    conditions.push(eq(eventParticipants.eventId, eventId));
+  }
   await db.delete(eventParticipants)
-    .where(eq(eventParticipants.id, participantId));
+    .where(and(...conditions));
 }
 
 export async function acceptEventInvitation(participantId: number) {

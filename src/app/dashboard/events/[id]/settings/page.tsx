@@ -526,6 +526,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
         onOpenChange={setDrawerOpen}
         eventId={eventId}
         onSuccess={fetchCollaborators}
+        existingParticipants={collaborators}
         editingParticipant={editingParticipant}
       />
 
