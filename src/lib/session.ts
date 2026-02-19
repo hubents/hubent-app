@@ -10,57 +10,44 @@ import type { TenantSession, UserContext, EventSectionPermissions } from "@/type
  * Use this in Server Components and API Routes
  */
 export async function getSession(): Promise<TenantSession | null> {
-  try {
-    const session = await auth();
-    
-    if (!session?.user?.id || !session?.user?.email) {
-      console.log("[getSession] No auth session found");
-      return null;
-    }
+  const session = await auth();
+  
+  if (!session?.user?.id || !session?.user?.email) {
+    return null;
+  }
 
-    console.log(`[getSession] Auth OK: userId=${session.user.id}, email=${session.user.email}`);
+  // Get organization ID from headers (set by middleware) or cookies
+  const headersList = await headers();
+  const orgIdHeader = headersList.get("x-organization-id");
+  let orgId = orgIdHeader ? parseInt(orgIdHeader, 10) : undefined;
 
-    // Get organization ID from headers (set by middleware) or cookies
-    const headersList = await headers();
-    const orgIdHeader = headersList.get("x-organization-id");
-    let orgId = orgIdHeader ? parseInt(orgIdHeader, 10) : undefined;
-
-    // If no org ID from header, try to get from cookie header
-    if (!orgId) {
-      const cookieHeader = headersList.get("cookie");
-      if (cookieHeader) {
-        const match = cookieHeader.match(/hubents-org-id=(\d+)/);
-        if (match) {
-          orgId = parseInt(match[1], 10);
-        }
+  // If no org ID from header, try to get from cookie header
+  if (!orgId) {
+    const cookieHeader = headersList.get("cookie");
+    if (cookieHeader) {
+      const match = cookieHeader.match(/hubents-org-id=(\d+)/);
+      if (match) {
+        orgId = parseInt(match[1], 10);
       }
     }
-
-    console.log(`[getSession] orgId=${orgId}`);
-
-    // Check if impersonating (header set by middleware from cookie)
-    const isImpersonating = headersList.get("x-impersonating") === "true";
-
-    // Build full user context
-    const userContext = await buildUserContext(
-      session.user.id,
-      session.user.email,
-      session.user.name ?? undefined,
-      session.user.image ?? undefined,
-      orgId,
-      isImpersonating
-    );
-
-    console.log(`[getSession] buildUserContext OK, currentOrg=${userContext.currentOrganization?.id}`);
-
-    // Create tenant session (async - fetches plan info)
-    const tenantSession = await createTenantSession(userContext);
-    console.log(`[getSession] createTenantSession OK, orgId=${tenantSession?.organizationId}`);
-    return tenantSession;
-  } catch (error) {
-    console.error("[getSession] FATAL ERROR:", error);
-    throw error;
   }
+
+  // Check if impersonating (header set by middleware from cookie)
+  const isImpersonating = headersList.get("x-impersonating") === "true";
+
+  // Build full user context
+  const userContext = await buildUserContext(
+    session.user.id,
+    session.user.email,
+    session.user.name ?? undefined,
+    session.user.image ?? undefined,
+    orgId,
+    isImpersonating
+  );
+
+  // Create tenant session (async - fetches plan info)
+  const tenantSession = await createTenantSession(userContext);
+  return tenantSession;
 }
 
 /**
