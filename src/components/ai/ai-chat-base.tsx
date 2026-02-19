@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { X, Send, Sparkles, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { AIMessage } from "./ai-message";
 import { useAIChat, Message } from "@/hooks/use-ai-chat";
 import { cn } from "@/lib/utils";
@@ -62,17 +61,33 @@ export function AIChatBase({
 
   const suggestions = customSuggestions || defaultSuggestions;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
-  }, [messages]);
+  }, []);
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 100);
+    scrollToBottom();
+  }, [messages, isLoading, scrollToBottom]);
+
+  useEffect(() => {
+    setTimeout(() => textareaRef.current?.focus(), 100);
   }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  };
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -124,7 +139,7 @@ export function AIChatBase({
         </div>
       )}
 
-      <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto px-4" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="py-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center">
@@ -169,7 +184,7 @@ export function AIChatBase({
             )}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {error && (
         <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20 flex-shrink-0">
@@ -189,24 +204,29 @@ export function AIChatBase({
       )}
 
       <div className="p-4 border-t border-[var(--border)] flex-shrink-0">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            ref={inputRef}
+        <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+          <Textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              autoResize(e.target);
+            }}
+            onKeyDown={handleKeyDown}
             placeholder="Escribe tu mensaje..."
             disabled={isLoading}
-            className="flex-1"
+            rows={1}
+            className="flex-1 min-h-[40px] max-h-[120px] resize-none"
           />
           {isLoading ? (
-            <Button type="button" onClick={stop} variant="outline" size="icon">
+            <Button type="button" onClick={stop} variant="outline" size="icon" className="shrink-0">
               <X className="w-4 h-4" />
             </Button>
           ) : (
             <Button
               type="submit"
               disabled={!input.trim()}
-              className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+              className="shrink-0 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
             >
               <Send className="w-4 h-4" />
             </Button>

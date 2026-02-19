@@ -46,7 +46,7 @@ export default function AIPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chat Panel - Takes 2 columns */}
         <div className="lg:col-span-2">
-          <Card className="h-[600px] flex flex-col">
+          <Card className="h-[calc(100vh-12rem)] min-h-[500px] flex flex-col">
             <CardHeader className="pb-3 border-b">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-violet-500" />
