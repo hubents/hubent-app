@@ -219,6 +219,19 @@
   --spacing-padding-page-lg: var(--padding-page-lg);
 }
 
+/* AI Chat Markdown - Override prose colors with theme variables */
+.ai-prose {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-links: var(--ai-accent);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
 * {
   border-color: var(--border);
 }
