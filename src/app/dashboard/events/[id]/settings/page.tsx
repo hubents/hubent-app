@@ -53,14 +53,47 @@ interface EventData {
 interface Collaborator {
   id: number;
   userId: string | null;
+  contactId: number | null;
+  vendorId: number | null;
   userName: string | null;
   userEmail: string | null;
   userImage: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  vendorName: string | null;
+  vendorCategory: string | null;
   type: string;
   role: string | null;
   permissions: Record<string, string> | null;
   invitedAt: string | null;
   acceptedAt: string | null;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  client: "Cliente",
+  organizer: "Organizador",
+  assistant: "Asistente",
+  sponsor: "Patrocinador",
+  speaker: "Ponente",
+  vendor: "Proveedor",
+  other: "Otro",
+};
+
+function getCollabDisplayName(c: Collaborator): string {
+  return c.userName || c.userEmail || c.contactName || c.vendorName || "Sin nombre";
+}
+
+function getCollabSubtext(c: Collaborator): string | null {
+  if (c.userName && c.userEmail) return c.userEmail;
+  if (c.contactEmail) return c.contactEmail;
+  if (c.vendorCategory) return c.vendorCategory;
+  return null;
+}
+
+function getCollabTypeColor(type: string): string {
+  if (type === "contact") return "bg-green-100 text-green-700";
+  if (type === "vendor") return "bg-orange-100 text-orange-700";
+  return "bg-blue-100 text-blue-700";
 }
 
 export default function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -437,30 +470,42 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
               {collaborators.map((collab) => (
                 <div
                   key={collab.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-[var(--muted)]/50 cursor-pointer transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => { setEditingParticipant(collab); setDrawerOpen(true); }}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{collab.userName || collab.userEmail || "Sin nombre"}</p>
-                    {collab.userEmail && collab.userName && (
-                      <p className="text-sm text-[var(--muted-foreground)]">{collab.userEmail}</p>
-                    )}
-                    {collab.permissions && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {Object.entries(collab.permissions)
-                          .filter(([, level]) => level !== "none")
-                          .map(([section, level]) => (
-                            <Badge key={section} variant={level === "edit" ? "default" : "secondary"} className="text-xs">
-                              {section}
-                            </Badge>
-                          ))}
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${getCollabTypeColor(collab.type)}`}>
+                      {getCollabDisplayName(collab).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{getCollabDisplayName(collab)}</p>
+                        {collab.role && (
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {ROLE_LABELS[collab.role] || collab.role}
+                          </Badge>
+                        )}
                       </div>
-                    )}
+                      {getCollabSubtext(collab) && (
+                        <p className="text-xs text-muted-foreground truncate">{getCollabSubtext(collab)}</p>
+                      )}
+                      {collab.permissions && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(collab.permissions)
+                            .filter(([, level]) => level !== "none")
+                            .map(([section, level]) => (
+                              <Badge key={section} variant={level === "edit" ? "default" : "secondary"} className="text-[10px]">
+                                {section}
+                              </Badge>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-[var(--destructive)] shrink-0"
+                    className="text-destructive shrink-0"
                     onClick={(e) => { e.stopPropagation(); handleRemoveCollaborator(collab.id); }}
                   >
                     <RiDeleteBinLine className="h-4 w-4" />

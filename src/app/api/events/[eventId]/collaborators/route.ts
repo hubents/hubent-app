@@ -47,7 +47,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 /**
  * POST /api/events/[eventId]/collaborators
  * Add a collaborator to an event
- * Body: { userId, type?, role?, permissions? }
+ * Body: { userId?, contactId?, vendorId?, type?, role?, permissions? }
+ * At least one of userId, contactId, or vendorId is required.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -56,11 +57,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const id = parseInt(eventId, 10);
     const body = await request.json();
 
-    const { userId, type = "planner", role, permissions } = body;
+    const { userId, contactId, vendorId, type = "planner", role, permissions } = body;
 
-    if (!userId) {
+    if (!userId && !contactId && !vendorId) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "userId es requerido" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Se requiere userId, contactId o vendorId" } },
         { status: 400 }
       );
     }
@@ -79,27 +80,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify user is a member of the organization
-    const [member] = await db
-      .select({ id: organizationMembers.id })
-      .from(organizationMembers)
-      .where(
-        and(
-          eq(organizationMembers.userId, userId),
-          eq(organizationMembers.organizationId, session.organizationId)
+    // If userId provided, verify user is a member of the organization
+    if (userId) {
+      const [member] = await db
+        .select({ id: organizationMembers.id })
+        .from(organizationMembers)
+        .where(
+          and(
+            eq(organizationMembers.userId, userId),
+            eq(organizationMembers.organizationId, session.organizationId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!member) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_MEMBER", message: "El usuario no es miembro de la organización" } },
-        { status: 400 }
-      );
+      if (!member) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_MEMBER", message: "El usuario no es miembro de la organización" } },
+          { status: 400 }
+        );
+      }
     }
 
     const participant = await addEventParticipant(session, id, {
       userId,
+      contactId: contactId ? parseInt(contactId, 10) : undefined,
+      vendorId: vendorId ? parseInt(vendorId, 10) : undefined,
       type,
       role,
       permissions,

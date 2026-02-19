@@ -23,7 +23,6 @@ import {
   RiMoreLine,
   RiFileCopyLine,
   RiFileList3Line,
-  RiContactsLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -31,6 +30,7 @@ import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { EditEventDrawer } from "@/components/events/edit-event-drawer";
 import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
+import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
 import { useEvent } from "@/contexts/event-context";
 import {
   DropdownMenu,
@@ -116,19 +116,22 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [newDoc, setNewDoc] = useState({ name: "", url: "" });
   const [addingGuest, setAddingGuest] = useState(false);
   const [addingDoc, setAddingDoc] = useState(false);
-  const [linkedContacts, setLinkedContacts] = useState<Array<{
+  const [collaborators, setCollaborators] = useState<Array<{
     id: number;
-    contactId: number;
-    role: string | null;
-    contactName: string;
+    userId: string | null;
+    contactId: number | null;
+    vendorId: number | null;
+    userName: string | null;
+    userEmail: string | null;
+    contactName: string | null;
     contactEmail: string | null;
-    contactType: string;
+    vendorName: string | null;
+    vendorCategory: string | null;
+    type: string;
+    role: string | null;
+    permissions: Record<string, string> | null;
   }>>([]);
-  const [allContacts, setAllContacts] = useState<Array<{ id: number; name: string; type: string; email: string | null }>>([]);
-  const [showAddContactDialog, setShowAddContactDialog] = useState(false);
-  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
-  const [contactRole, setContactRole] = useState("");
-  const [addingContact, setAddingContact] = useState(false);
+  const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
 
   // Set active event when loaded
   useEffect(() => {
@@ -209,34 +212,22 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
-  const fetchLinkedContacts = async () => {
+  const fetchCollaborators = async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/contacts`);
+      const res = await fetch(`/api/events/${eventId}/collaborators`);
       const data = await res.json();
       if (data.success) {
-        setLinkedContacts(data.data || []);
+        setCollaborators(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch linked contacts:", error);
-    }
-  };
-
-  const fetchAllContacts = async () => {
-    try {
-      const res = await fetch("/api/contacts?limit=100");
-      const data = await res.json();
-      if (data.success) {
-        setAllContacts(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch all contacts:", error);
+      console.error("Failed to fetch collaborators:", error);
     }
   };
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchLinkedContacts(), fetchAllContacts()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchCollaborators()]);
       setLoading(false);
     }
     loadData();
@@ -300,45 +291,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     (v) => !vendors.some((ev) => ev.vendorId === v.id)
   );
 
-  // Filter out contacts already linked to this event
-  const availableContacts = allContacts.filter(
-    (c) => !linkedContacts.some((lc) => lc.contactId === c.id)
-  );
-
-  const handleAddContactToEvent = async () => {
-    if (!selectedContactId) return;
-    setAddingContact(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/contacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: selectedContactId,
-          role: contactRole || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSelectedContactId(null);
-        setContactRole("");
-        setShowAddContactDialog(false);
-        fetchLinkedContacts();
-      }
-    } finally {
-      setAddingContact(false);
-    }
-  };
-
-  const handleRemoveContact = async (contactId: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/contacts?contactId=${contactId}`, {
-        method: "DELETE",
-      });
-      fetchLinkedContacts();
-    } catch (error) {
-      console.error("Failed to remove contact:", error);
-    }
-  };
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
@@ -545,125 +497,63 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
       {/* Content Grid */}
       <div className="grid gap-[var(--gap-cards-lg)] lg:grid-cols-2">
-        {/* Linked Contacts */}
+        {/* Equipo del Evento */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <RiContactsLine className="h-5 w-5" />
-              Contactos ({linkedContacts.length})
+              <RiUserAddLine className="h-5 w-5" />
+              Equipo ({collaborators.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddContactDialog(true)}>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setCollabDrawerOpen(true)}>
                 <RiAddLine className="h-4 w-4" />
-                Vincular
+                Agregar
               </Button>
-              <Sheet open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-                <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>Vincular Contacto al Evento</SheetTitle>
-                  </SheetHeader>
-                  <div className="space-y-4 px-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Seleccionar Contacto</Label>
-                      {availableContacts.length > 0 ? (
-                        <Select
-                          value={selectedContactId?.toString() || ""}
-                          onValueChange={(value) => setSelectedContactId(parseInt(value, 10))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Elegir contacto..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableContacts.map((c) => (
-                              <SelectItem key={c.id} value={c.id.toString()}>
-                                {c.name} {c.email && `(${c.email})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No hay contactos disponibles.{" "}
-                          <Link href="/dashboard/contacts" className="text-primary underline">
-                            Crear nuevo contacto
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Rol (opcional)</Label>
-                      <Select
-                        value={contactRole}
-                        onValueChange={setContactRole}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar rol..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="client">Cliente</SelectItem>
-                          <SelectItem value="organizer">Organizador</SelectItem>
-                          <SelectItem value="sponsor">Patrocinador</SelectItem>
-                          <SelectItem value="speaker">Ponente</SelectItem>
-                          <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowAddContactDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddContactToEvent} disabled={addingContact || !selectedContactId}>
-                        {addingContact ? "Vinculando..." : "Vincular Contacto"}
-                      </Button>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-              <Link href="/dashboard/contacts">
+              <Link href={`/dashboard/events/${eventId}/settings`}>
                 <Button variant="ghost" size="sm">
-                  + Nuevo
+                  Ver todos
                 </Button>
               </Link>
             </div>
           </CardHeader>
           <CardContent>
-            {linkedContacts.length > 0 ? (
+            {collaborators.length > 0 ? (
               <div className="space-y-2">
-                {linkedContacts.map((contact) => (
-                  <div key={contact.id} className="flex items-center justify-between p-2 rounded border group">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-sm font-medium text-green-700">
-                        {contact.contactName.charAt(0).toUpperCase()}
+                {collaborators.slice(0, 6).map((collab) => {
+                  const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
+                  const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
+                  const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
+                  const roleLabel: Record<string, string> = { client: "Cliente", organizer: "Organizador", assistant: "Asistente", sponsor: "Patrocinador", speaker: "Ponente", vendor: "Proveedor", other: "Otro" };
+                  return (
+                    <div key={collab.id} className="flex items-center gap-3 p-2 rounded border">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${colorClass}`}>
+                        {name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <span className="font-medium">{contact.contactName}</span>
-                        {contact.role && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {contact.role === "client" ? "Cliente" : 
-                             contact.role === "organizer" ? "Organizador" :
-                             contact.role === "sponsor" ? "Patrocinador" :
-                             contact.role === "speaker" ? "Ponente" : contact.role}
-                          </Badge>
-                        )}
-                        {contact.contactEmail && (
-                          <p className="text-xs text-muted-foreground">{contact.contactEmail}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{name}</span>
+                          {collab.role && (
+                            <Badge variant="outline" className="text-[10px] shrink-0">
+                              {roleLabel[collab.role] || collab.role}
+                            </Badge>
+                          )}
+                        </div>
+                        {subtext && (
+                          <p className="text-xs text-muted-foreground truncate">{subtext}</p>
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
-                      onClick={() => handleRemoveContact(contact.contactId)}
-                    >
-                      <RiDeleteBinLine className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
+                {collaborators.length > 6 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    +{collaborators.length - 6} más
+                  </p>
+                )}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No hay contactos vinculados
+                No hay colaboradores asignados
               </div>
             )}
           </CardContent>
@@ -1082,6 +972,14 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onOpenChange={setIsSaveTemplateOpen}
         eventId={eventId}
         eventName={event.name}
+      />
+
+      {/* Collaborator Drawer */}
+      <CollaboratorDrawer
+        open={collabDrawerOpen}
+        onOpenChange={setCollabDrawerOpen}
+        eventId={eventId}
+        onSuccess={fetchCollaborators}
       />
     </div>
   );

@@ -1211,6 +1211,7 @@ export const eventParticipants = pgTable("event_participants", {
   userId: text("user_id").references(() => users.id),
   vendorId: integer("vendor_id").references(() => vendors.id),
   clientId: integer("client_id").references(() => clients.id),
+  contactId: integer("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
   type: participantTypeEnum("type").notNull(),
   role: text("role"),
   permissions: json("permissions").$type<{

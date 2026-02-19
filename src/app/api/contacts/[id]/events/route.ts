@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
-import { linkContactToEvent, unlinkContactFromEvent } from "@/lib/contacts";
 import { db } from "@/db";
-import { contactEvents, events } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eventParticipants, events } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
-// GET - List events linked to a contact
+// GET - List events linked to a contact (reads from unified event_participants)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,16 +17,16 @@ export async function GET(
 
     const linkedEvents = await db
       .select({
-        id: contactEvents.id,
-        eventId: contactEvents.eventId,
-        role: contactEvents.role,
+        id: eventParticipants.id,
+        eventId: eventParticipants.eventId,
+        role: eventParticipants.role,
         eventName: events.name,
         eventDate: events.date,
         eventStatus: events.status,
       })
-      .from(contactEvents)
-      .innerJoin(events, eq(contactEvents.eventId, events.id))
-      .where(eq(contactEvents.contactId, contactId));
+      .from(eventParticipants)
+      .innerJoin(events, eq(eventParticipants.eventId, events.id))
+      .where(eq(eventParticipants.contactId, contactId));
 
     return NextResponse.json({ success: true, data: linkedEvents });
   } catch (error) {
@@ -36,13 +35,13 @@ export async function GET(
   }
 }
 
-// POST - Link contact to event
+// POST - Link contact to event via unified event_participants
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission("crm:manage");
+    const session = await requirePermission("crm:manage");
 
     const { id } = await params;
     const contactId = parseInt(id, 10);
@@ -53,16 +52,35 @@ export async function POST(
       return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
     }
 
-    const link = await linkContactToEvent(contactId, eventId, role);
+    const eId = parseInt(eventId, 10);
 
-    return NextResponse.json({ success: true, data: link });
+    // Check if already linked
+    const [existing] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eId), eq(eventParticipants.contactId, contactId)))
+      .limit(1);
+
+    if (existing) {
+      return NextResponse.json({ success: true, data: existing });
+    }
+
+    const [participant] = await db.insert(eventParticipants).values({
+      eventId: eId,
+      contactId,
+      type: "contact",
+      role: role || null,
+      invitedBy: session.user.userId,
+    }).returning();
+
+    return NextResponse.json({ success: true, data: participant });
   } catch (error) {
     console.error("Error linking contact to event:", error);
     return NextResponse.json({ success: false, error: "Failed to link contact" }, { status: 500 });
   }
 }
 
-// DELETE - Unlink contact from event
+// DELETE - Unlink contact from event via unified event_participants
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -79,7 +97,12 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
     }
 
-    await unlinkContactFromEvent(contactId, parseInt(eventId, 10));
+    await db.delete(eventParticipants).where(
+      and(
+        eq(eventParticipants.contactId, contactId),
+        eq(eventParticipants.eventId, parseInt(eventId, 10))
+      )
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -118,10 +118,14 @@ export function CreateEventDrawer({ open, onOpenChange, onEventCreated }: Create
         // Si hay contacto seleccionado, vincularlo al evento
         if (selectedContact && data.data?.id) {
           try {
-            await fetch(`/api/events/${data.data.id}/contacts`, {
+            await fetch(`/api/events/${data.data.id}/collaborators`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contactId: selectedContact.id, role: "client" }),
+              body: JSON.stringify({
+                contactId: selectedContact.id,
+                type: "contact",
+                role: "client",
+              }),
             });
           } catch (linkError) {
             console.error("Error linking contact to event:", linkError);

@@ -9,6 +9,8 @@ import {
   taskChecklistItems,
   taskHtmlContent,
   clients,
+  contacts,
+  vendors,
   users,
   payments,
   leads,
@@ -816,6 +818,7 @@ export async function getEventParticipants(eventId: number) {
       userId: eventParticipants.userId,
       vendorId: eventParticipants.vendorId,
       clientId: eventParticipants.clientId,
+      contactId: eventParticipants.contactId,
       type: eventParticipants.type,
       role: eventParticipants.role,
       permissions: eventParticipants.permissions,
@@ -824,9 +827,15 @@ export async function getEventParticipants(eventId: number) {
       userName: users.name,
       userEmail: users.email,
       userImage: users.image,
+      contactName: contacts.name,
+      contactEmail: contacts.email,
+      vendorName: vendors.name,
+      vendorCategory: vendors.category,
     })
     .from(eventParticipants)
     .leftJoin(users, eq(eventParticipants.userId, users.id))
+    .leftJoin(contacts, eq(eventParticipants.contactId, contacts.id))
+    .leftJoin(vendors, eq(eventParticipants.vendorId, vendors.id))
     .where(eq(eventParticipants.eventId, eventId));
 }
 
@@ -837,12 +846,13 @@ export async function addEventParticipant(
     userId?: string;
     vendorId?: number;
     clientId?: number;
-    type: "planner" | "vendor" | "client" | "assistant" | "guest";
+    contactId?: number;
+    type: "planner" | "vendor" | "client" | "assistant" | "guest" | "contact";
     role?: string;
     permissions?: Record<string, string>;
   }
 ) {
-  // Check for existing participant
+  // Check for existing participant by userId
   if (data.userId) {
     const [existing] = await db
       .select({ id: eventParticipants.id })
@@ -852,11 +862,32 @@ export async function addEventParticipant(
     if (existing) throw new Error("El usuario ya es colaborador de este evento");
   }
 
+  // Check for existing participant by contactId
+  if (data.contactId) {
+    const [existing] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.contactId, data.contactId)))
+      .limit(1);
+    if (existing) throw new Error("El contacto ya es colaborador de este evento");
+  }
+
+  // Check for existing participant by vendorId
+  if (data.vendorId) {
+    const [existing] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.vendorId, data.vendorId)))
+      .limit(1);
+    if (existing) throw new Error("El proveedor ya es colaborador de este evento");
+  }
+
   const [participant] = await db.insert(eventParticipants).values({
     eventId,
     userId: data.userId,
     vendorId: data.vendorId,
     clientId: data.clientId,
+    contactId: data.contactId,
     type: data.type,
     role: data.role,
     permissions: data.permissions || null,

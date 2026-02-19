@@ -8,6 +8,7 @@ import {
   contactEvents,
   contactTasks,
   contactRelationships,
+  eventParticipants,
   users,
   events,
   tasks,
@@ -175,19 +176,19 @@ export async function getContact(session: TenantSession, contactId: number) {
     .orderBy(desc(contactActivities.createdAt))
     .limit(50);
 
-  // Get linked events
+  // Get linked events (from unified event_participants)
   const linkedEvents = await db
     .select({
-      id: contactEvents.id,
-      eventId: contactEvents.eventId,
-      role: contactEvents.role,
+      id: eventParticipants.id,
+      eventId: eventParticipants.eventId,
+      role: eventParticipants.role,
       eventName: events.name,
       eventDate: events.date,
       eventStatus: events.status,
     })
-    .from(contactEvents)
-    .innerJoin(events, eq(contactEvents.eventId, events.id))
-    .where(eq(contactEvents.contactId, contactId));
+    .from(eventParticipants)
+    .innerJoin(events, eq(eventParticipants.eventId, events.id))
+    .where(eq(eventParticipants.contactId, contactId));
 
   // Get linked tasks
   const linkedTasks = await db
