@@ -468,6 +468,7 @@ export function CollaboratorDrawer({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">Etiqueta descriptiva. Los permisos reales se configuran abajo.</p>
           </div>
 
           {/* Presets */}
