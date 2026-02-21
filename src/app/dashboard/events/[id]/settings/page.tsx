@@ -31,6 +31,8 @@ import {
   RiDeleteBinLine,
   RiMapPinLine,
   RiUserAddLine,
+  RiMailSendLine,
+  RiCloseLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
@@ -68,6 +70,8 @@ interface Collaborator {
   invitedAt: string | null;
   acceptedAt: string | null;
   invitationStatus: "active" | "pending" | "no_email" | "not_invited" | null;
+  invitationId: number | null;
+  invitationExpiresAt: string | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -167,6 +171,55 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     fetchCollaborators();
   }, [fetchCollaborators]);
+
+  async function handleResendInvitation(invitationId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "PUT" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Invitación reenviada");
+        fetchCollaborators();
+      } else {
+        toast.error(data.error?.message || "Error al reenviar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }
+
+  async function handleRevokeInvitation(invitationId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("¿Revocar esta invitación? El contacto ya no podrá aceptarla.")) return;
+    try {
+      const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Invitación revocada");
+        fetchCollaborators();
+      } else {
+        toast.error(data.error?.message || "Error al revocar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }
+
+  async function handleSendInvitation(participantId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}/invite`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.data?.status === "invited" ? "Invitación enviada" : "Contacto vinculado");
+        fetchCollaborators();
+      } else {
+        toast.error(data.error?.message || "Error al invitar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }
 
   async function handleRemoveCollaborator(participantId: number) {
     try {
@@ -489,14 +542,43 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
                         {collab.invitationStatus === "active" && (
                           <Badge className="text-[10px] shrink-0 bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
                         )}
-                        {collab.invitationStatus === "pending" && (
-                          <Badge className="text-[10px] shrink-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100">Pendiente</Badge>
-                        )}
+                        {collab.invitationStatus === "pending" && (() => {
+                          const expires = collab.invitationExpiresAt ? new Date(collab.invitationExpiresAt) : null;
+                          const now = new Date();
+                          const isExpired = expires && expires < now;
+                          const isExpiringSoon = expires && !isExpired && (expires.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
+                          return (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Badge className={`text-[10px] ${
+                                isExpired ? "bg-gray-100 text-gray-500 hover:bg-gray-100" :
+                                isExpiringSoon ? "bg-red-100 text-red-600 hover:bg-red-100" :
+                                "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                              }`}>
+                                {isExpired ? "Expirada" : isExpiringSoon ? "Expira pronto" : "Pendiente"}
+                              </Badge>
+                              {collab.invitationId && (
+                                <>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Reenviar invitación" onClick={(e) => handleResendInvitation(collab.invitationId!, e)}>
+                                    <RiMailSendLine className="h-3.5 w-3.5 text-blue-600" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Revocar invitación" onClick={(e) => handleRevokeInvitation(collab.invitationId!, e)}>
+                                    <RiCloseLine className="h-3.5 w-3.5 text-red-500" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {collab.invitationStatus === "no_email" && collab.contactId && (
                           <Badge className="text-[10px] shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-100">Sin email</Badge>
                         )}
                         {collab.invitationStatus === "not_invited" && collab.contactId && (
-                          <Badge className="text-[10px] shrink-0 bg-orange-100 text-orange-600 hover:bg-orange-100">No invitado</Badge>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Badge className="text-[10px] bg-orange-100 text-orange-600 hover:bg-orange-100">No invitado</Badge>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Enviar invitación" onClick={(e) => handleSendInvitation(collab.id, e)}>
+                              <RiMailSendLine className="h-3.5 w-3.5 text-blue-600" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                       {getCollabSubtext(collab) && (

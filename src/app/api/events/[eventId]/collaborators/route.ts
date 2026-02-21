@@ -51,25 +51,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .filter(p => p.contactId && p.contactEmail)
       .map(p => p.contactEmail!.toLowerCase());
 
-    let pendingInvitations: { email: string; status: string | null }[] = [];
+    let orgInvitations: { id: number; email: string; status: string | null; expiresAt: Date }[] = [];
     if (contactEmails.length > 0) {
-      pendingInvitations = await db
-        .select({ email: invitations.email, status: invitations.status })
+      orgInvitations = await db
+        .select({ id: invitations.id, email: invitations.email, status: invitations.status, expiresAt: invitations.expiresAt })
         .from(invitations)
         .where(eq(invitations.organizationId, session.organizationId));
     }
 
     const enriched = participants.map(p => {
-      if (!p.contactId) return { ...p, invitationStatus: null };
-      // If participant has userId linked, they have access
-      if (p.acceptedAt || p.userId) return { ...p, invitationStatus: "active" as const };
-      if (!p.contactEmail) return { ...p, invitationStatus: "no_email" as const };
-      const inv = pendingInvitations.find(
+      const base = { invitationStatus: null as string | null, invitationId: null as number | null, invitationExpiresAt: null as string | null };
+      if (!p.contactId) return { ...p, ...base };
+      if (p.acceptedAt || p.userId) return { ...p, ...base, invitationStatus: "active" };
+      if (!p.contactEmail) return { ...p, ...base, invitationStatus: "no_email" };
+      const inv = orgInvitations.find(
         i => i.email.toLowerCase() === p.contactEmail!.toLowerCase() && i.status === "pending"
       );
-      if (inv) return { ...p, invitationStatus: "pending" as const };
-      // Has email but no invitation yet (legacy data or not yet invited)
-      return { ...p, invitationStatus: "not_invited" as const };
+      if (inv) return { ...p, ...base, invitationStatus: "pending", invitationId: inv.id, invitationExpiresAt: inv.expiresAt.toISOString() };
+      return { ...p, ...base, invitationStatus: "not_invited" };
     });
 
     return NextResponse.json({ success: true, data: enriched });
