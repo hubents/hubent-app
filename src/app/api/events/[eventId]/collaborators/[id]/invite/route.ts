@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Find participant
     const [participant] = await db
-      .select({ id: eventParticipants.id, contactId: eventParticipants.contactId })
+      .select({ id: eventParticipants.id, contactId: eventParticipants.contactId, role: eventParticipants.role })
       .from(eventParticipants)
       .where(and(eq(eventParticipants.id, pId), eq(eventParticipants.eventId, eId)))
       .limit(1);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const result = await inviteCollaboratorContact(session, participant.contactId, eId);
+    const result = await inviteCollaboratorContact(session, participant.contactId, eId, participant.role);
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {

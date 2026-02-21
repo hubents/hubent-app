@@ -719,15 +719,21 @@ export async function sendClientCollaboratorInviteEmail(
   eventName: string,
   organizationName: string,
   inviterName: string | null,
-  inviteUrl: string
+  inviteUrl: string,
+  roleName?: string | null
 ) {
+  const roleText = roleName ? ` como <strong>${roleName}</strong>` : "";
   const inviterText = inviterName
     ? `<strong>${inviterName}</strong> te ha invitado`
     : "Has sido invitado";
 
+  const headingText = roleName
+    ? `Te invitaron como ${roleName}`
+    : "Te invitaron a colaborar en un evento";
+
   const content = `
-    ${heading("Te invitaron a colaborar en un evento")}
-    ${paragraph(`${inviterText} a colaborar en el evento <strong>${eventName}</strong> de <strong>${organizationName}</strong> en HubEnts.`)}
+    ${heading(headingText)}
+    ${paragraph(`${inviterText}${roleText} al evento <strong>${eventName}</strong> de <strong>${organizationName}</strong> en HubEnts.`)}
     <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
       <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Evento:</p>
       <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${eventName}</p>
@@ -737,11 +743,12 @@ export async function sendClientCollaboratorInviteEmail(
     ${mutedText("Esta invitación expira en 7 días.")}
   `;
 
+  const subjectRole = roleName ? ` como ${roleName}` : " a colaborar";
   return sendEmail({
     to,
-    subject: `Te invitaron a colaborar en "${eventName}" — ${organizationName}`,
+    subject: `Te invitaron${subjectRole} en "${eventName}" — ${organizationName}`,
     html: emailWrapper(content),
-    text: `${inviterName || "Alguien"} te invitó a colaborar en el evento "${eventName}" de ${organizationName}. Acepta la invitación aquí: ${inviteUrl}`,
+    text: `${inviterName || "Alguien"} te invitó${roleName ? ` como ${roleName}` : " a colaborar"} en el evento "${eventName}" de ${organizationName}. Acepta la invitación aquí: ${inviteUrl}`,
   });
 }
 
@@ -753,23 +760,26 @@ export async function sendClientCollaboratorNotificationEmail(
   to: string,
   eventName: string,
   organizationName: string,
-  inviterName: string | null
+  inviterName: string | null,
+  roleName?: string | null
 ) {
+  const roleLabel = roleName || "colaborador";
   const inviterText = inviterName
     ? `<strong>${inviterName}</strong> te ha agregado`
     : "Has sido agregado";
 
   const content = `
-    ${heading("Te agregaron como colaborador")}
-    ${paragraph(`${inviterText} como colaborador del evento <strong>${eventName}</strong> de <strong>${organizationName}</strong>.`)}
+    ${heading(`Te agregaron como ${roleLabel}`)}
+    ${paragraph(`${inviterText} como <strong>${roleLabel}</strong> del evento <strong>${eventName}</strong> de <strong>${organizationName}</strong>.`)}
     ${paragraph("Ya puedes acceder al evento desde tu panel de HubEnts.")}
     ${primaryButton("Ver evento", `${getAppUrl()}/dashboard`)}
   `;
 
+  const subjectRole = roleName || "colaborador";
   return sendEmail({
     to,
-    subject: `Nuevo evento asignado: "${eventName}" — ${organizationName}`,
+    subject: `Te agregaron como ${subjectRole} en "${eventName}" — ${organizationName}`,
     html: emailWrapper(content),
-    text: `${inviterName || "Alguien"} te agregó como colaborador del evento "${eventName}" de ${organizationName}. Accede desde ${getAppUrl()}/dashboard`,
+    text: `${inviterName || "Alguien"} te agregó como ${subjectRole} del evento "${eventName}" de ${organizationName}. Accede desde ${getAppUrl()}/dashboard`,
   });
 }

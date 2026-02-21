@@ -185,7 +185,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let invitationStatus = null;
     if (contactId && (type === "contact" || type === "client")) {
       try {
-        invitationStatus = await inviteCollaboratorContact(session, contactId, id);
+        invitationStatus = await inviteCollaboratorContact(session, contactId, id, role);
       } catch (inviteErr) {
         console.error("Auto-invite failed (non-blocking):", inviteErr);
       }

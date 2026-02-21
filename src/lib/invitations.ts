@@ -482,6 +482,16 @@ export async function getTaskParticipants(taskId: number) {
 // COLLABORATOR CONTACT INVITATION
 // ============================================
 
+const ROLE_LABELS: Record<string, string> = {
+  client: "Cliente",
+  organizer: "Organizador",
+  assistant: "Asistente",
+  sponsor: "Patrocinador",
+  speaker: "Ponente",
+  vendor: "Proveedor",
+  other: "Colaborador",
+};
+
 export type CollaboratorInviteResult = {
   status: "invited" | "linked" | "notified" | "no_email";
   inviteUrl?: string;
@@ -498,7 +508,8 @@ export type CollaboratorInviteResult = {
 export async function inviteCollaboratorContact(
   session: TenantSession,
   contactId: number,
-  eventId: number
+  eventId: number,
+  role?: string | null
 ): Promise<CollaboratorInviteResult> {
   const contact = await db.query.contacts.findFirst({
     where: (c, { eq }) => eq(c.id, contactId),
@@ -524,6 +535,7 @@ export async function inviteCollaboratorContact(
   const eventName = event?.name || "Evento";
   const orgName = org?.name || "Organización";
   const inviterName = inviter?.name || null;
+  const roleName = role ? (ROLE_LABELS[role] || role) : null;
 
   // Check if user already exists
   const existingUser = await db.query.users.findFirst({
@@ -578,7 +590,8 @@ export async function inviteCollaboratorContact(
       contactEmail,
       eventName,
       orgName,
-      inviterName
+      inviterName,
+      roleName
     ).catch((err) => console.error("Failed to send collaborator notification:", err));
 
     return { status: existingMember ? "notified" : "linked" };
@@ -640,7 +653,8 @@ export async function inviteCollaboratorContact(
     eventName,
     orgName,
     inviterName,
-    inviteUrl
+    inviteUrl,
+    roleName
   ).catch((err) => console.error("Failed to send collaborator invite:", err));
 
   return { status: "invited", inviteUrl };

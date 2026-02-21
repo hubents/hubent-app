@@ -77,7 +77,7 @@ export async function POST(
     // Auto-invite contact to the platform
     let invitationStatus = null;
     try {
-      invitationStatus = await inviteCollaboratorContact(session, contactId, eId);
+      invitationStatus = await inviteCollaboratorContact(session, contactId, eId, role || null);
     } catch (inviteErr) {
       console.error("Auto-invite failed (non-blocking):", inviteErr);
     }
