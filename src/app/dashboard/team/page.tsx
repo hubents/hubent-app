@@ -181,7 +181,7 @@ export default function TeamPage() {
                 Envía una invitación por email para unirse a tu equipo
               </SheetDescription>
             </SheetHeader>
-            <div className="grid gap-4 px-4 pb-4">
+            <div className="grid gap-4 px-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email *</label>
                 <Input

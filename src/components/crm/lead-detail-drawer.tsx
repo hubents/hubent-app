@@ -247,7 +247,7 @@ export function LeadDetailDrawer({
         {loadingLead ? (
           <div className="py-12 text-center text-muted-foreground">Cargando...</div>
         ) : isEditing ? (
-          <div className="space-y-4 px-4 pb-4">
+          <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Título *</label>
               <Input

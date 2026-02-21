@@ -222,7 +222,7 @@ export function CreateLeadDrawer({ open, onOpenChange, onLeadCreated, stageId, p
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 px-4 pb-4">
+        <div className="space-y-6 px-4 py-4">
           {/* Contact Selection */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Contacto *</label>

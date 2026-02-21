@@ -712,3 +712,14 @@ body {
 .animate-progress-indeterminate {
   animation: progressIndeterminate 1.5s ease-in-out infinite;
 }
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}

@@ -134,6 +134,8 @@ export function DocumentDrawer({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [documentNumber, setDocumentNumber] = useState<string | undefined>();
+  const [documentStatus, setDocumentStatus] = useState<string | undefined>();
 
   const isDeliveryNote = type === "delivery_note";
 
@@ -202,6 +204,8 @@ export function DocumentDrawer({
     setGlobalDiscountEnabled(false);
     setGlobalDiscount(0);
     setGlobalDiscountType("percentage");
+    setDocumentNumber(undefined);
+    setDocumentStatus(undefined);
     setItems([{ description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
   }
 
@@ -282,10 +286,12 @@ export function DocumentDrawer({
         if (data.success && data.data) {
           const doc = data.data;
           if (doc.contactId) {
-            setContactValue({ type: "contact", id: doc.contactId });
+            setContactValue({ type: "contact", id: doc.contactId, name: doc.contactName || undefined });
           } else if (doc.vendorId) {
-            setContactValue({ type: "vendor", id: doc.vendorId });
+            setContactValue({ type: "vendor", id: doc.vendorId, name: doc.vendorName || undefined });
           }
+          setDocumentNumber(doc.number || undefined);
+          setDocumentStatus(doc.status || undefined);
           setEventId(doc.eventId?.toString() || "");
           setDueDate(doc.dueDate ? doc.dueDate.split("T")[0] : "");
           setValidUntil(doc.validUntil ? doc.validUntil.split("T")[0] : "");
@@ -464,17 +470,22 @@ export function DocumentDrawer({
 
     return {
       type,
-      contactName: undefined,
-      vendorName: undefined,
+      contactName: contactValue?.type === "contact" ? contactValue.name : undefined,
+      vendorName: contactValue?.type === "vendor" ? contactValue.name : undefined,
       eventName: selectedEvent?.name,
+      documentNumber,
+      status: documentStatus,
       items,
       notes,
       termsAndConditions,
       dueDate,
       validUntil,
       organization: orgData,
+      globalDiscount,
+      globalDiscountType,
+      globalDiscountEnabled,
     };
-  }, [type, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData]);
+  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -515,7 +526,7 @@ export function DocumentDrawer({
             <RiLoader4Line className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className={cn("flex-1 overflow-hidden", showPreview ? "flex" : "")}>
+          <div className={cn("flex-1 overflow-hidden", showPreview ? "flex" : "overflow-y-auto")}>
             {/* Form Section */}
             <div className={cn(
               "overflow-y-auto p-6",
@@ -646,14 +657,14 @@ export function DocumentDrawer({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="min-w-[200px]">Descripción</TableHead>
-                      <TableHead className="w-20">Cant.</TableHead>
+                      <TableHead className="min-w-[180px]">Descripción</TableHead>
+                      <TableHead className="w-24">Cant.</TableHead>
                       {!isDeliveryNote && (
                         <>
-                          <TableHead className="w-24">Precio</TableHead>
-                          <TableHead className="w-20">Dto.%</TableHead>
-                          <TableHead className="w-20">IVA%</TableHead>
-                          <TableHead className="w-24 text-right">Total</TableHead>
+                          <TableHead className="w-28">Precio</TableHead>
+                          <TableHead className="w-24">Dto.%</TableHead>
+                          <TableHead className="w-32">IVA%</TableHead>
+                          <TableHead className="w-28 text-right">Total</TableHead>
                         </>
                       )}
                       <TableHead className="w-10"></TableHead>

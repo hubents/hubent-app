@@ -30,12 +30,17 @@ export interface PreviewData {
   contactName?: string;
   vendorName?: string;
   eventName?: string;
+  documentNumber?: string;
+  status?: string;
   items: DocumentItem[];
   notes?: string;
   termsAndConditions?: string;
   dueDate?: string;
   validUntil?: string;
   organization?: OrganizationPreviewData;
+  globalDiscount?: number;
+  globalDiscountType?: "percentage" | "fixed";
+  globalDiscountEnabled?: boolean;
 }
 
 interface LiveDocumentPreviewProps {
@@ -74,15 +79,32 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
 
     data.items.forEach((item) => {
       subtotal += item.total;
-      taxAmount += item.total * (item.taxRate / 100);
+    });
+
+    // Apply global discount
+    let globalDiscountAmount = 0;
+    if (data.globalDiscountEnabled && data.globalDiscount && data.globalDiscount > 0) {
+      globalDiscountAmount = data.globalDiscountType === "percentage"
+        ? subtotal * (data.globalDiscount / 100)
+        : data.globalDiscount;
+    }
+    const subtotalAfterDiscount = subtotal - globalDiscountAmount;
+
+    // Calculate tax on subtotal after global discount
+    data.items.forEach((item) => {
+      const proportion = subtotal > 0 ? item.total / subtotal : 0;
+      const taxableAmount = subtotalAfterDiscount * proportion;
+      taxAmount += taxableAmount * (item.taxRate / 100);
     });
 
     return {
       subtotal,
+      globalDiscountAmount,
+      subtotalAfterDiscount,
       taxAmount,
-      total: subtotal + taxAmount,
+      total: subtotalAfterDiscount + taxAmount,
     };
-  }, [data.items]);
+  }, [data.items, data.globalDiscount, data.globalDiscountType, data.globalDiscountEnabled]);
 
   const typeLabel = TYPE_LABELS[data.type] || data.type.toUpperCase();
   const clientName = data.contactName || data.vendorName || "Sin cliente";
@@ -130,9 +152,11 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-gray-900">{typeLabel}</div>
-              <div className="text-gray-500">BORRADOR</div>
+              {data.documentNumber && (
+                <div className="text-gray-500 font-medium">{data.documentNumber}</div>
+              )}
               <span className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                Borrador
+                {data.status === "approved" ? "Aprobado" : data.status === "sent" ? "Enviado" : "Borrador"}
               </span>
             </div>
           </div>
@@ -242,6 +266,14 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
                 <span className="text-gray-500">Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
+              {totals.globalDiscountAmount > 0 && (
+                <div className="flex justify-between py-2 border-b border-gray-200 text-green-600">
+                  <span>
+                    Descuento{data.globalDiscountType === "percentage" && ` (${data.globalDiscount}%)`}
+                  </span>
+                  <span>-{formatCurrency(totals.globalDiscountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between py-2 border-b border-gray-200">
                 <span className="text-gray-500">IVA</span>
                 <span>{formatCurrency(totals.taxAmount)}</span>

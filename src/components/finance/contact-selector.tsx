@@ -33,6 +33,7 @@ interface ContactOption {
 export interface ContactSelectorValue {
   type: EntityType;
   id: number;
+  name?: string;
 }
 
 interface ContactSelectorProps {
@@ -229,7 +230,7 @@ export function ContactSelector({
                   key={`${option.type}-${option.id}`}
                   value={`${option.type}-${option.id}`}
                   onSelect={() => {
-                    onChange({ type: option.type, id: option.id });
+                    onChange({ type: option.type, id: option.id, name: option.name });
                     setOpen(false);
                     setSearch("");
                   }}

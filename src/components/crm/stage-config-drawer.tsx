@@ -183,7 +183,7 @@ export function StageConfigDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-4 pb-4">
+        <form onSubmit={handleSubmit} className="space-y-4 px-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input
