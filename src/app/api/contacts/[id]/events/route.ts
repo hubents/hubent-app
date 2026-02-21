@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
+import { inviteCollaboratorContact } from "@/lib/invitations";
 import { db } from "@/db";
 import { eventParticipants, events } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -73,7 +74,15 @@ export async function POST(
       invitedBy: session.user.userId,
     }).returning();
 
-    return NextResponse.json({ success: true, data: participant });
+    // Auto-invite contact to the platform
+    let invitationStatus = null;
+    try {
+      invitationStatus = await inviteCollaboratorContact(session, contactId, eId);
+    } catch (inviteErr) {
+      console.error("Auto-invite failed (non-blocking):", inviteErr);
+    }
+
+    return NextResponse.json({ success: true, data: { ...participant, invitationStatus } });
   } catch (error) {
     console.error("Error linking contact to event:", error);
     return NextResponse.json({ success: false, error: "Failed to link contact" }, { status: 500 });

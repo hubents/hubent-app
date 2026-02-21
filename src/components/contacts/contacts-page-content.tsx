@@ -79,6 +79,8 @@ interface Contact {
   isVendor: boolean | null;
   vendorCategory: string | null;
   category: string | null;
+  userId: string | null;
+  eventCount: number;
 }
 
 type Segment = "all" | "vendors" | "companies" | "persons";
@@ -647,6 +649,7 @@ export function ContactsPageContent() {
                       Tipo {getSortIcon("type")}
                     </button>
                   </TableHead>
+                  <TableHead className="hidden md:table-cell">Estado</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -741,6 +744,24 @@ export function ContactsPageContent() {
                           <Badge variant="outline" className="text-xs font-normal">
                             {typeBadge.label}
                           </Badge>
+                        </div>
+                      </TableCell>
+
+                      {/* Status + Events */}
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex flex-col gap-1">
+                          {contact.userId ? (
+                            <Badge className="text-[10px] w-fit bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
+                          ) : contact.email ? (
+                            <Badge className="text-[10px] w-fit bg-gray-100 text-gray-500 hover:bg-gray-100">Solo CRM</Badge>
+                          ) : (
+                            <Badge className="text-[10px] w-fit bg-gray-100 text-gray-400 hover:bg-gray-100">Sin email</Badge>
+                          )}
+                          {Number(contact.eventCount) > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {Number(contact.eventCount)} evento{Number(contact.eventCount) !== 1 ? "s" : ""}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
 

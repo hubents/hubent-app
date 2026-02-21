@@ -433,6 +433,26 @@ export function CollaboratorDrawer({
             </div>
           )}
 
+          {/* Invitation indicator for contacts */}
+          {!isEditing && selectedContactId && (() => {
+            const selected = contactsList.find(c => c.id === selectedContactId);
+            if (!selected) return null;
+            if (selected.email) {
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                  <span className="shrink-0">📧</span>
+                  <span>Se enviará invitación a <strong>{selected.email}</strong> para acceder al evento</span>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <span className="shrink-0">⚠️</span>
+                <span>Este contacto no tiene email — no podrá acceder a la plataforma</span>
+              </div>
+            );
+          })()}
+
           {/* Role in event */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Rol en el evento</label>

@@ -67,6 +67,7 @@ interface Collaborator {
   permissions: Record<string, string> | null;
   invitedAt: string | null;
   acceptedAt: string | null;
+  invitationStatus: "active" | "pending" | "no_email" | "not_invited" | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -484,6 +485,18 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
                           <Badge variant="outline" className="text-[10px] shrink-0">
                             {ROLE_LABELS[collab.role] || collab.role}
                           </Badge>
+                        )}
+                        {collab.invitationStatus === "active" && (
+                          <Badge className="text-[10px] shrink-0 bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
+                        )}
+                        {collab.invitationStatus === "pending" && (
+                          <Badge className="text-[10px] shrink-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100">Pendiente</Badge>
+                        )}
+                        {collab.invitationStatus === "no_email" && collab.contactId && (
+                          <Badge className="text-[10px] shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-100">Sin email</Badge>
+                        )}
+                        {collab.invitationStatus === "not_invited" && collab.contactId && (
+                          <Badge className="text-[10px] shrink-0 bg-orange-100 text-orange-600 hover:bg-orange-100">No invitado</Badge>
                         )}
                       </div>
                       {getCollabSubtext(collab) && (

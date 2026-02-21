@@ -15,6 +15,7 @@ const SYSTEM_ROLES = [
   { name: "Assistant", slug: "assistant", description: "Asistente - apoyo en tareas asignadas", eventScoped: true },
   { name: "Accountant", slug: "accountant", description: "Contador - acceso a finanzas y reportes" },
   { name: "Viewer", slug: "viewer", description: "Visualizador - solo lectura", eventScoped: true },
+  { name: "Client", slug: "client", description: "Cliente - acceso limitado a eventos asignados", eventScoped: true },
   // Provider roles
   { name: "Provider Owner", slug: "provider_owner", description: "Dueño de la organización proveedora" },
   { name: "Provider Admin", slug: "provider_admin", description: "Administrador del proveedor" },

@@ -477,3 +477,171 @@ export async function getTaskParticipants(taskId: number) {
     isContact: !!p.contactId,
   }));
 }
+
+// ============================================
+// COLLABORATOR CONTACT INVITATION
+// ============================================
+
+export type CollaboratorInviteResult = {
+  status: "invited" | "linked" | "notified" | "no_email";
+  inviteUrl?: string;
+};
+
+/**
+ * Invite a contact to the platform when they are added as an event collaborator.
+ * Handles 4 cases:
+ *   1. Contact has no email → return no_email
+ *   2. User exists + already org member → link userId, notify
+ *   3. User exists + NOT org member → add to org as client, link userId, notify
+ *   4. User does NOT exist → create invitation, send invite email
+ */
+export async function inviteCollaboratorContact(
+  session: TenantSession,
+  contactId: number,
+  eventId: number
+): Promise<CollaboratorInviteResult> {
+  const contact = await db.query.contacts.findFirst({
+    where: (c, { eq }) => eq(c.id, contactId),
+  });
+
+  if (!contact || !contact.email) {
+    return { status: "no_email" };
+  }
+
+  const contactEmail = contact.email.trim().toLowerCase();
+
+  // Get event name and org name for emails
+  const event = await db.query.events.findFirst({
+    where: (e, { eq }) => eq(e.id, eventId),
+  });
+  const org = await db.query.organizations.findFirst({
+    where: (o, { eq }) => eq(o.id, session.organizationId),
+  });
+  const inviter = await db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, session.user.userId),
+  });
+
+  const eventName = event?.name || "Evento";
+  const orgName = org?.name || "Organización";
+  const inviterName = inviter?.name || null;
+
+  // Check if user already exists
+  const existingUser = await db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.email, contactEmail),
+  });
+
+  if (existingUser) {
+    // Link contact to user
+    await db.update(contacts)
+      .set({ userId: existingUser.id })
+      .where(eq(contacts.id, contactId));
+
+    // Update event_participants to also have userId
+    await db.update(eventParticipants)
+      .set({ userId: existingUser.id, acceptedAt: new Date() })
+      .where(
+        and(
+          eq(eventParticipants.eventId, eventId),
+          eq(eventParticipants.contactId, contactId)
+        )
+      );
+
+    // Check if already a member
+    const existingMember = await db.query.organizationMembers.findFirst({
+      where: (m, { eq, and }) =>
+        and(
+          eq(m.userId, existingUser.id),
+          eq(m.organizationId, session.organizationId)
+        ),
+    });
+
+    if (!existingMember) {
+      // Get client role
+      const clientRole = await db.query.roles.findFirst({
+        where: (r, { eq }) => eq(r.slug, "client"),
+      });
+
+      if (clientRole) {
+        await db.insert(organizationMembers).values({
+          organizationId: session.organizationId,
+          userId: existingUser.id,
+          roleId: clientRole.id,
+          invitedBy: session.user.userId,
+          joinedAt: new Date(),
+        });
+      }
+    }
+
+    // Send notification email (non-blocking)
+    const { sendClientCollaboratorNotificationEmail } = await import("@/lib/email");
+    sendClientCollaboratorNotificationEmail(
+      contactEmail,
+      eventName,
+      orgName,
+      inviterName
+    ).catch((err) => console.error("Failed to send collaborator notification:", err));
+
+    return { status: existingMember ? "notified" : "linked" };
+  }
+
+  // User does NOT exist → create invitation
+  // Check for existing pending invitation for same email+org
+  const existingInvitation = await db.query.invitations.findFirst({
+    where: (i, { eq, and }) =>
+      and(
+        eq(i.email, contactEmail),
+        eq(i.organizationId, session.organizationId),
+        eq(i.status, "pending")
+      ),
+  });
+
+  if (existingInvitation) {
+    // Update metadata if missing (invitation may have been created without contact context)
+    if (!existingInvitation.metadata) {
+      await db.update(invitations)
+        .set({ metadata: { contactId, eventId } })
+        .where(eq(invitations.id, existingInvitation.id));
+    }
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${existingInvitation.token}`;
+    return { status: "invited", inviteUrl };
+  }
+
+  // Get client role
+  const clientRole = await db.query.roles.findFirst({
+    where: (r, { eq }) => eq(r.slug, "client"),
+  });
+
+  if (!clientRole) {
+    console.error("Client role not found in database");
+    return { status: "no_email" };
+  }
+
+  const token = generateToken();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  await db.insert(invitations).values({
+    organizationId: session.organizationId,
+    email: contactEmail,
+    roleId: clientRole.id,
+    token,
+    status: "pending",
+    invitedBy: session.user.userId,
+    expiresAt,
+    metadata: { contactId, eventId },
+  });
+
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+
+  // Send invitation email (non-blocking)
+  const { sendClientCollaboratorInviteEmail } = await import("@/lib/email");
+  sendClientCollaboratorInviteEmail(
+    contactEmail,
+    eventName,
+    orgName,
+    inviterName,
+    inviteUrl
+  ).catch((err) => console.error("Failed to send collaborator invite:", err));
+
+  return { status: "invited", inviteUrl };
+}

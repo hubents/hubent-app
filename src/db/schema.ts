@@ -434,6 +434,7 @@ export const invitations = pgTable("invitations", {
   invitedBy: text("invited_by").references(() => users.id),
   expiresAt: timestamp("expires_at").notNull(),
   acceptedAt: timestamp("accepted_at"),
+  metadata: json("metadata").$type<{ contactId?: number; eventId?: number }>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -746,6 +747,9 @@ export const contacts = pgTable("contacts", {
   isVendor: boolean("is_vendor").default(false),
   vendorCategory: text("vendor_category"),
   vendorId: integer("vendor_id").references(() => vendors.id),
+  
+  // Platform user link (when contact accepts invitation and becomes a user)
+  userId: text("user_id").references(() => users.id),
   
   // Metadata
   createdBy: text("created_by").references(() => users.id),

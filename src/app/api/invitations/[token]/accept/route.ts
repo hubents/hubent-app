@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { invitations, organizations, users, organizationMembers } from "@/db/schema";
+import { invitations, organizations, users, organizationMembers, contacts, eventParticipants } from "@/db/schema";
 import { eq, and, gt } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
@@ -95,6 +95,31 @@ export async function POST(
         acceptedAt: new Date(),
       })
       .where(eq(invitations.id, invitation.id));
+
+    // Link contact↔user if this invitation has contact metadata
+    const metadata = invitation.metadata as { contactId?: number; eventId?: number } | null;
+    if (metadata?.contactId && user) {
+      try {
+        // Update contacts.userId
+        await db.update(contacts)
+          .set({ userId: user.id })
+          .where(eq(contacts.id, metadata.contactId));
+
+        // Update event_participants to link userId + set acceptedAt
+        if (metadata.eventId) {
+          await db.update(eventParticipants)
+            .set({ userId: user.id, acceptedAt: new Date() })
+            .where(
+              and(
+                eq(eventParticipants.eventId, metadata.eventId),
+                eq(eventParticipants.contactId, metadata.contactId)
+              )
+            );
+        }
+      } catch (linkErr) {
+        console.error("Failed to link contact to user (non-blocking):", linkErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

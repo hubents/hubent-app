@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getEventParticipants, addEventParticipant } from "@/lib/events";
+import { inviteCollaboratorContact } from "@/lib/invitations";
 import { db } from "@/db";
-import { events, organizationMembers, contacts, vendors } from "@/db/schema";
+import { events, organizationMembers, contacts, vendors, invitations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -45,7 +46,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const participants = await getEventParticipants(id);
 
-    return NextResponse.json({ success: true, data: participants });
+    // Enrich contact participants with invitation status
+    const contactEmails = participants
+      .filter(p => p.contactId && p.contactEmail)
+      .map(p => p.contactEmail!.toLowerCase());
+
+    let pendingInvitations: { email: string; status: string | null }[] = [];
+    if (contactEmails.length > 0) {
+      pendingInvitations = await db
+        .select({ email: invitations.email, status: invitations.status })
+        .from(invitations)
+        .where(eq(invitations.organizationId, session.organizationId));
+    }
+
+    const enriched = participants.map(p => {
+      if (!p.contactId) return { ...p, invitationStatus: null };
+      // If participant has userId linked, they have access
+      if (p.acceptedAt || p.userId) return { ...p, invitationStatus: "active" as const };
+      if (!p.contactEmail) return { ...p, invitationStatus: "no_email" as const };
+      const inv = pendingInvitations.find(
+        i => i.email.toLowerCase() === p.contactEmail!.toLowerCase() && i.status === "pending"
+      );
+      if (inv) return { ...p, invitationStatus: "pending" as const };
+      // Has email but no invitation yet (legacy data or not yet invited)
+      return { ...p, invitationStatus: "not_invited" as const };
+    });
+
+    return NextResponse.json({ success: true, data: enriched });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al obtener colaboradores";
     const status = message.includes("Forbidden") ? 403 : 500;
@@ -155,7 +182,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       permissions,
     });
 
-    return NextResponse.json({ success: true, data: participant }, { status: 201 });
+    // Auto-invite contact to the platform
+    let invitationStatus = null;
+    if (contactId && (type === "contact" || type === "client")) {
+      try {
+        invitationStatus = await inviteCollaboratorContact(session, contactId, id);
+      } catch (inviteErr) {
+        console.error("Auto-invite failed (non-blocking):", inviteErr);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: { ...participant, invitationStatus } }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al agregar colaborador";
     const status = message.includes("Forbidden") ? 403

@@ -44,6 +44,7 @@ interface ContactDetail {
   isVendor: boolean | null;
   vendorCategory: string | null;
   vendorId: number | null;
+  userId: string | null;
   createdBy: string | null;
   createdAt: string | null;
   updatedAt: string | null;

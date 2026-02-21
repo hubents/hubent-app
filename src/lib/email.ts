@@ -709,3 +709,67 @@ export async function sendPlansAvailableEmail(
     text: `Hola ${ownerName}, ${wasTrialing ? "tu prueba ha terminado" : "tenemos novedades"}. Nuevos planes: Starter €14,50/mes, Standard €29,50/mes, Agency €49,50/mes. Elige tu plan en ${getAppUrl()}/dashboard/settings`,
   });
 }
+
+// ============================================
+// CLIENT COLLABORATOR INVITATION EMAIL
+// ============================================
+
+export async function sendClientCollaboratorInviteEmail(
+  to: string,
+  eventName: string,
+  organizationName: string,
+  inviterName: string | null,
+  inviteUrl: string
+) {
+  const inviterText = inviterName
+    ? `<strong>${inviterName}</strong> te ha invitado`
+    : "Has sido invitado";
+
+  const content = `
+    ${heading("Te invitaron a colaborar en un evento")}
+    ${paragraph(`${inviterText} a colaborar en el evento <strong>${eventName}</strong> de <strong>${organizationName}</strong> en HubEnts.`)}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
+      <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Evento:</p>
+      <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${eventName}</p>
+    </div>
+    ${paragraph("Al aceptar, podrás acceder a la información del evento según los permisos que te han asignado.")}
+    ${primaryButton("Aceptar invitación", inviteUrl)}
+    ${mutedText("Esta invitación expira en 7 días.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Te invitaron a colaborar en "${eventName}" — ${organizationName}`,
+    html: emailWrapper(content),
+    text: `${inviterName || "Alguien"} te invitó a colaborar en el evento "${eventName}" de ${organizationName}. Acepta la invitación aquí: ${inviteUrl}`,
+  });
+}
+
+// ============================================
+// CLIENT COLLABORATOR NOTIFICATION EMAIL (existing user)
+// ============================================
+
+export async function sendClientCollaboratorNotificationEmail(
+  to: string,
+  eventName: string,
+  organizationName: string,
+  inviterName: string | null
+) {
+  const inviterText = inviterName
+    ? `<strong>${inviterName}</strong> te ha agregado`
+    : "Has sido agregado";
+
+  const content = `
+    ${heading("Te agregaron como colaborador")}
+    ${paragraph(`${inviterText} como colaborador del evento <strong>${eventName}</strong> de <strong>${organizationName}</strong>.`)}
+    ${paragraph("Ya puedes acceder al evento desde tu panel de HubEnts.")}
+    ${primaryButton("Ver evento", `${getAppUrl()}/dashboard`)}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Nuevo evento asignado: "${eventName}" — ${organizationName}`,
+    html: emailWrapper(content),
+    text: `${inviterName || "Alguien"} te agregó como colaborador del evento "${eventName}" de ${organizationName}. Accede desde ${getAppUrl()}/dashboard`,
+  });
+}

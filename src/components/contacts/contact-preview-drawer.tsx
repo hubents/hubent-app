@@ -273,6 +273,28 @@ export function ContactPreviewDrawer({
                 </>
               )}
 
+              {/* Platform Access */}
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">Acceso a plataforma</h3>
+                {contact.userId ? (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
+                    <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                    <span className="text-sm text-green-700 font-medium">Tiene acceso a la plataforma</span>
+                  </div>
+                ) : contact.email ? (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                    <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
+                    <span className="text-sm text-gray-600">Sin acceso — se invitará al vincularlo a un evento</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                    <span className="text-sm text-amber-700">Sin email — no puede ser invitado a la plataforma</span>
+                  </div>
+                )}
+              </div>
+
               {/* Linked Events */}
               {linkedEvents && linkedEvents.length > 0 && (
                 <>

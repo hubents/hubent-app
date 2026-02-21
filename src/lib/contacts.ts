@@ -84,8 +84,10 @@ export async function getContacts(
       isVendor: contacts.isVendor,
       vendorCategory: contacts.vendorCategory,
       category: contacts.category,
+      userId: contacts.userId,
       createdAt: contacts.createdAt,
       createdByName: users.name,
+      eventCount: sql<number>`(SELECT count(*) FROM event_participants ep WHERE ep.contact_id = ${contacts.id})`,
     })
     .from(contacts)
     .leftJoin(users, eq(contacts.createdBy, users.id))

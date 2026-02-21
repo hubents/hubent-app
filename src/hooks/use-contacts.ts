@@ -28,6 +28,8 @@ interface Contact {
   isVendor: boolean | null;
   vendorCategory: string | null;
   category: string | null;
+  userId: string | null;
+  eventCount: number;
   createdAt: Date | null;
   createdByName: string | null;
 }
