@@ -286,9 +286,22 @@ export function DocumentDrawer({
         if (data.success && data.data) {
           const doc = data.data;
           if (doc.contactId) {
-            setContactValue({ type: "contact", id: doc.contactId, name: doc.contactName || undefined });
+            setContactValue({
+              type: "contact", id: doc.contactId,
+              name: doc.contactName || undefined,
+              email: doc.contactEmail || undefined,
+              phone: doc.contactPhone || undefined,
+              address: doc.contactAddress || undefined,
+              taxId: doc.contactTaxId || undefined,
+            });
           } else if (doc.vendorId) {
-            setContactValue({ type: "vendor", id: doc.vendorId, name: doc.vendorName || undefined });
+            setContactValue({
+              type: "vendor", id: doc.vendorId,
+              name: doc.vendorName || undefined,
+              email: doc.vendorEmail || undefined,
+              phone: doc.vendorPhone || undefined,
+              address: doc.vendorAddress || undefined,
+            });
           }
           setDocumentNumber(doc.number || undefined);
           setDocumentStatus(doc.status || undefined);
@@ -472,8 +485,13 @@ export function DocumentDrawer({
       type,
       contactName: contactValue?.type === "contact" ? contactValue.name : undefined,
       vendorName: contactValue?.type === "vendor" ? contactValue.name : undefined,
+      contactEmail: contactValue?.email || undefined,
+      contactPhone: contactValue?.phone || undefined,
+      contactAddress: contactValue?.address || undefined,
+      contactTaxId: contactValue?.taxId || undefined,
       eventName: selectedEvent?.name,
       documentNumber,
+      documentId: documentId || undefined,
       status: documentStatus,
       items,
       notes,
@@ -485,7 +503,7 @@ export function DocumentDrawer({
       globalDiscountType,
       globalDiscountEnabled,
     };
-  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled]);
+  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

@@ -324,6 +324,12 @@ export async function getDocument(session: TenantSession, documentId: number) {
     ? await db.query.vendors.findFirst({ where: (v, { eq }) => eq(v.id, doc.vendorId!) })
     : null;
 
+  const fullContactAddress = contact
+    ? [contact.address, contact.postalCode, contact.city, contact.country].filter(Boolean).join(", ")
+    : null;
+
+  const fullVendorAddress = vendor?.address || null;
+
   return {
     ...doc,
     items,
@@ -333,7 +339,14 @@ export async function getDocument(session: TenantSession, documentId: number) {
     contact,
     vendor,
     contactName: contact?.name || null,
+    contactEmail: contact?.email || null,
+    contactPhone: contact?.phone || null,
+    contactAddress: fullContactAddress || null,
+    contactTaxId: contact?.taxId || contact?.nieOrCif || null,
     vendorName: vendor?.name || null,
+    vendorEmail: vendor?.email || null,
+    vendorPhone: vendor?.phone || null,
+    vendorAddress: fullVendorAddress || null,
     eventName: event?.name || null,
     companyName: company?.tradeName || company?.legalName || null,
     personFirstName: person?.firstName || null,

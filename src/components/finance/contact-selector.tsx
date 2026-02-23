@@ -26,6 +26,9 @@ interface ContactOption {
   type: EntityType;
   name: string;
   email: string | null;
+  phone?: string | null;
+  address?: string | null;
+  taxId?: string | null;
   category?: string | null;
   contactType?: string;
 }
@@ -34,6 +37,10 @@ export interface ContactSelectorValue {
   type: EntityType;
   id: number;
   name?: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  taxId?: string | null;
 }
 
 interface ContactSelectorProps {
@@ -89,6 +96,9 @@ export function ContactSelector({
             type: "contact" as EntityType,
             name: c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
             email: c.email,
+            phone: c.phone || null,
+            address: [c.address, c.postalCode, c.city, c.country].filter(Boolean).join(", ") || null,
+            taxId: c.taxId || c.nieOrCif || null,
             contactType: c.type,
           }))
         );
@@ -102,6 +112,8 @@ export function ContactSelector({
             type: "vendor" as EntityType,
             name: v.name,
             email: v.email,
+            phone: v.phone || null,
+            address: v.address || null,
             category: v.category,
           }))
         );
@@ -230,7 +242,7 @@ export function ContactSelector({
                   key={`${option.type}-${option.id}`}
                   value={`${option.type}-${option.id}`}
                   onSelect={() => {
-                    onChange({ type: option.type, id: option.id, name: option.name });
+                    onChange({ type: option.type, id: option.id, name: option.name, email: option.email, phone: option.phone, address: option.address, taxId: option.taxId });
                     setOpen(false);
                     setSearch("");
                   }}

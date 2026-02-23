@@ -76,6 +76,14 @@ interface Document {
   direction?: string | null;
   items: DocumentItem[];
   contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactAddress?: string | null;
+  contactTaxId?: string | null;
+  vendorName?: string | null;
+  vendorEmail?: string | null;
+  vendorPhone?: string | null;
+  vendorAddress?: string | null;
   companyName?: string | null;
   personFirstName?: string | null;
   personLastName?: string | null;
@@ -151,12 +159,23 @@ export function DocumentPreview({
 
   const getClientName = () => {
     if (document.contactName) return document.contactName;
+    if (document.vendorName) return document.vendorName;
     if (document.companyName) return document.companyName;
     if (document.personFirstName) {
       return `${document.personFirstName} ${document.personLastName || ""}`.trim();
     }
     return "Sin cliente";
   };
+
+  const getClientDetails = () => {
+    const email = document.contactEmail || document.vendorEmail || null;
+    const phone = document.contactPhone || document.vendorPhone || null;
+    const address = document.contactAddress || document.vendorAddress || null;
+    const taxId = document.contactTaxId || null;
+    return { email, phone, address, taxId };
+  };
+
+  const clientDetails = getClientDetails();
 
   const handleViewHTML = () => {
     window.open(`/api/finance/documents/${document.id}/pdf?format=html`, "_blank");
@@ -499,6 +518,7 @@ export function DocumentPreview({
           <div className="flex items-center justify-between">
             <SheetTitle className="text-xl">
               {typeLabels[document.type] || document.type} {document.number}
+              <span className="text-sm font-normal text-muted-foreground ml-2">#{document.id}</span>
             </SheetTitle>
             <div className="flex items-center gap-2">
               {isPartiallyPaid && (
@@ -604,6 +624,14 @@ export function DocumentPreview({
             <div>
               <p className="text-muted-foreground">Cliente</p>
               <p className="font-medium">{getClientName()}</p>
+              {(clientDetails.email || clientDetails.phone || clientDetails.address || clientDetails.taxId) && (
+                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                  {clientDetails.email && <p>{clientDetails.email}</p>}
+                  {clientDetails.phone && <p>{clientDetails.phone}</p>}
+                  {clientDetails.address && <p>{clientDetails.address}</p>}
+                  {clientDetails.taxId && <p>CIF/NIF: {clientDetails.taxId}</p>}
+                </div>
+              )}
             </div>
             {document.eventName && (
               <div>
@@ -649,6 +677,8 @@ export function DocumentPreview({
                     <th className="text-left p-2">Descripción</th>
                     <th className="text-right p-2 w-16">Cant.</th>
                     <th className="text-right p-2 w-20">Precio</th>
+                    <th className="text-right p-2 w-16">Dto.</th>
+                    <th className="text-right p-2 w-16">IVA</th>
                     <th className="text-right p-2 w-20">Total</th>
                   </tr>
                 </thead>
@@ -660,6 +690,8 @@ export function DocumentPreview({
                       <td className="text-right p-2">
                         {formatCurrency(item.unitPrice, document.currency)}
                       </td>
+                      <td className="text-right p-2">{item.discount || "0"}%</td>
+                      <td className="text-right p-2">{item.taxRate || "21"}%</td>
                       <td className="text-right p-2">
                         {formatCurrency(item.total, document.currency)}
                       </td>

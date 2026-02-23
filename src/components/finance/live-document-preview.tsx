@@ -29,8 +29,13 @@ export interface PreviewData {
   type: "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
   contactName?: string;
   vendorName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactAddress?: string;
+  contactTaxId?: string;
   eventName?: string;
   documentNumber?: string;
+  documentId?: number;
   status?: string;
   items: DocumentItem[];
   notes?: string;
@@ -155,6 +160,9 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
               {data.documentNumber && (
                 <div className="text-gray-500 font-medium">{data.documentNumber}</div>
               )}
+              {data.documentId && (
+                <div className="text-gray-400 text-xs">#{data.documentId}</div>
+              )}
               <span className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs">
                 {data.status === "approved" ? "Aprobado" : data.status === "sent" ? "Enviado" : "Borrador"}
               </span>
@@ -170,6 +178,14 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
               <div className="font-semibold text-base">
                 {clientName}
               </div>
+              {(data.contactEmail || data.contactPhone || data.contactAddress || data.contactTaxId) && (
+                <div className="text-gray-500 text-xs mt-1 space-y-0.5">
+                  {data.contactEmail && <div>{data.contactEmail}</div>}
+                  {data.contactPhone && <div>{data.contactPhone}</div>}
+                  {data.contactAddress && <div>{data.contactAddress}</div>}
+                  {data.contactTaxId && <div>CIF/NIF: {data.contactTaxId}</div>}
+                </div>
+              )}
             </div>
             {data.eventName && (
               <div className="text-right">
