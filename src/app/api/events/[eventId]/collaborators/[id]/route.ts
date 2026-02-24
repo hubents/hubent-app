@@ -4,6 +4,12 @@ import { updateEventParticipant, removeEventParticipant } from "@/lib/events";
 import { db } from "@/db";
 import { events, eventParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { z } from "zod";
+
+const updateCollaboratorSchema = z.object({
+  role: z.string().min(1, "El rol es obligatorio").optional(),
+  permissions: z.record(z.string(), z.string()).optional(),
+});
 
 type RouteParams = { params: Promise<{ eventId: string; id: string }> };
 
@@ -18,6 +24,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const eId = parseInt(eventId, 10);
     const pId = parseInt(id, 10);
     const body = await request.json();
+
+    const parsed = updateCollaboratorSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message || "Datos inválidos" } },
+        { status: 400 }
+      );
+    }
 
     // Verify event belongs to org
     const event = await db.query.events.findFirst({
@@ -48,8 +62,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await updateEventParticipant(eId, pId, {
-      permissions: body.permissions,
-      role: body.role,
+      permissions: parsed.data.permissions,
+      role: parsed.data.role,
     });
 
     return NextResponse.json({ success: true, data: updated });

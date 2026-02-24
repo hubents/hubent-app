@@ -140,6 +140,7 @@ export function CollaboratorDrawer({
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
 
   const [role, setRole] = useState<string>("");
+  const [roleError, setRoleError] = useState(false);
   const [permissions, setPermissions] = useState<Record<string, string>>(DEFAULT_PERMISSIONS);
   const [saving, setSaving] = useState(false);
 
@@ -185,6 +186,7 @@ export function CollaboratorDrawer({
       setSelectedContactId(null);
       setSelectedVendorId(null);
       setRole("");
+      setRoleError(false);
       setSearch("");
       setPermissions(DEFAULT_PERMISSIONS);
       setActiveTab("members");
@@ -234,13 +236,19 @@ export function CollaboratorDrawer({
       return;
     }
 
+    if (!role) {
+      setRoleError(true);
+      toast.error("Seleccioná un rol para el colaborador");
+      return;
+    }
+
     setSaving(true);
     try {
       if (isEditing && editingParticipant) {
         const res = await fetch(`/api/events/${eventId}/collaborators/${editingParticipant.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ permissions, role: role || null }),
+          body: JSON.stringify({ permissions, role }),
         });
         const data = await res.json();
         if (data.success) {
@@ -253,7 +261,7 @@ export function CollaboratorDrawer({
       } else {
         const body: Record<string, unknown> = {
           type: getParticipantType(),
-          role: role || null,
+          role,
           permissions,
         };
         if (selectedUserId) body.userId = selectedUserId;
@@ -455,10 +463,10 @@ export function CollaboratorDrawer({
 
           {/* Role in event */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Rol en el evento</label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar rol (opcional)..." />
+            <label className="text-sm font-medium">Rol en el evento <span className="text-destructive">*</span></label>
+            <Select value={role} onValueChange={(v) => { setRole(v); setRoleError(false); }}>
+              <SelectTrigger className={roleError ? "border-destructive" : ""}>
+                <SelectValue placeholder="Seleccionar rol..." />
               </SelectTrigger>
               <SelectContent>
                 {ROLE_OPTIONS.map((r) => (

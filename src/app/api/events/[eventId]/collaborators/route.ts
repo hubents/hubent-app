@@ -12,7 +12,7 @@ const addCollaboratorSchema = z.object({
   contactId: z.number().int().positive().optional(),
   vendorId: z.number().int().positive().optional(),
   type: z.enum(["planner", "vendor", "client", "assistant", "guest", "contact"]).default("planner"),
-  role: z.string().optional(),
+  role: z.string().min(1, "El rol es obligatorio"),
   permissions: z.record(z.string(), z.string()).optional(),
 }).refine(d => d.userId || d.contactId || d.vendorId, {
   message: "Se requiere userId, contactId o vendorId",
