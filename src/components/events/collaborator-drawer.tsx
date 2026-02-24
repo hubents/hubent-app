@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -141,6 +141,7 @@ export function CollaboratorDrawer({
 
   const [role, setRole] = useState<string>("");
   const [roleError, setRoleError] = useState(false);
+  const roleRef = useRef<HTMLDivElement>(null);
   const [permissions, setPermissions] = useState<Record<string, string>>(DEFAULT_PERMISSIONS);
   const [saving, setSaving] = useState(false);
 
@@ -239,6 +240,7 @@ export function CollaboratorDrawer({
     if (!role) {
       setRoleError(true);
       toast.error("Seleccioná un rol para el colaborador");
+      roleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -462,10 +464,10 @@ export function CollaboratorDrawer({
           })()}
 
           {/* Role in event */}
-          <div className="space-y-2">
+          <div ref={roleRef} className="space-y-2">
             <label className="text-sm font-medium">Rol en el evento <span className="text-destructive">*</span></label>
             <Select value={role} onValueChange={(v) => { setRole(v); setRoleError(false); }}>
-              <SelectTrigger className={roleError ? "border-destructive" : ""}>
+              <SelectTrigger aria-invalid={roleError || undefined}>
                 <SelectValue placeholder="Seleccionar rol..." />
               </SelectTrigger>
               <SelectContent>
@@ -476,6 +478,7 @@ export function CollaboratorDrawer({
                 ))}
               </SelectContent>
             </Select>
+            {roleError && <p className="text-xs text-destructive">Seleccioná un rol para continuar</p>}
             <p className="text-xs text-muted-foreground">Etiqueta descriptiva. Los permisos reales se configuran abajo.</p>
           </div>
 
