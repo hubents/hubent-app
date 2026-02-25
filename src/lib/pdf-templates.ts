@@ -191,6 +191,11 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
       color: #6b7280;
       margin-bottom: 8px;
     }
+    .doc-id {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
     .doc-status {
       display: inline-block;
       padding: 4px 12px;
@@ -352,7 +357,7 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
       </div>
       <div class="doc-info">
         <div class="doc-type">${typeLabel}</div>
-        <div class="doc-number">${doc.number}</div>
+        <div class="doc-number">${doc.number} <span class="doc-id">#${doc.id}</span></div>
         <span class="doc-status">${STATUS_LABELS[doc.status] || doc.status}</span>
       </div>
     </div>

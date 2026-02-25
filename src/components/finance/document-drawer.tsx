@@ -737,8 +737,8 @@ export function DocumentDrawer({
                                 <SelectContent>
                                   {taxRates.length > 0 ? (
                                     taxRates.filter(t => t.isActive !== false).map((tax) => (
-                                      <SelectItem key={tax.id} value={tax.rate.toString()}>
-                                        {tax.name} ({tax.rate}%)
+                                      <SelectItem key={tax.id} value={parseFloat(tax.rate).toString()}>
+                                        {tax.name} ({parseFloat(tax.rate)}%)
                                       </SelectItem>
                                     ))
                                   ) : (
