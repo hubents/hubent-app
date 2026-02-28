@@ -68,6 +68,9 @@ export async function getEvents(
       clientId: events.clientId,
       createdAt: events.createdAt,
       clientName: clients.name,
+      totalTasks: sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id}), 0)`.as("total_tasks"),
+      completedTasks: sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id} AND ${tasks.status} = 'completed'), 0)`.as("completed_tasks"),
+      participantCount: sql<number>`COALESCE((SELECT count(*) FROM ${eventParticipants} WHERE ${eventParticipants.eventId} = ${events.id}), 0)`.as("participant_count"),
     })
     .from(events)
     .leftJoin(clients, eq(events.clientId, clients.id))
@@ -76,13 +79,53 @@ export async function getEvents(
     .limit(limit)
     .offset(offset);
 
+  // Fetch top 4 participants per event for avatar display
+  const eventIds = results.map(e => e.id);
+  let participantsMap: Record<number, { userId: string; userName: string | null; userImage: string | null }[]> = {};
+  if (eventIds.length > 0) {
+    const participantsRaw = await db
+      .select({
+        eventId: eventParticipants.eventId,
+        userId: eventParticipants.userId,
+        userName: users.name,
+        userImage: users.image,
+      })
+      .from(eventParticipants)
+      .leftJoin(users, eq(eventParticipants.userId, users.id))
+      .where(sql`${eventParticipants.eventId} IN (${sql.join(eventIds.map(id => sql`${id}`), sql`, `)})`)
+      .limit(eventIds.length * 5);
+
+    for (const p of participantsRaw) {
+      if (!p.eventId || !p.userId) continue;
+      if (!participantsMap[p.eventId]) participantsMap[p.eventId] = [];
+      if (participantsMap[p.eventId].length < 4) {
+        participantsMap[p.eventId].push({
+          userId: p.userId,
+          userName: p.userName,
+          userImage: p.userImage,
+        });
+      }
+    }
+  }
+
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(events)
     .where(whereClause);
 
+  const data = results.map(event => ({
+    ...event,
+    totalTasks: Number(event.totalTasks),
+    completedTasks: Number(event.completedTasks),
+    progress: Number(event.totalTasks) > 0
+      ? Math.round((Number(event.completedTasks) / Number(event.totalTasks)) * 100)
+      : 0,
+    participantCount: Number(event.participantCount),
+    participants: participantsMap[event.id] || [],
+  }));
+
   return {
-    data: results,
+    data,
     meta: {
       page,
       limit,

@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { AvatarGroup } from "@/components/ui/avatar-group";
 import {
   RiAddLine,
   RiCalendarLine,
   RiMapPinLine,
-  RiGroupLine,
-  RiMoneyDollarCircleLine,
+  RiUserLine,
   RiCalendarEventLine,
   RiGridLine,
   RiListUnordered,
@@ -18,8 +18,11 @@ import {
   RiMoreLine,
   RiFileCopyLine,
   RiFileList3Line,
+  RiFilter3Line,
+  RiArrowUpDownLine,
+  RiCheckLine,
 } from "@remixicon/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { CreateEventDrawer } from "@/components/events/create-event-drawer";
 import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
@@ -28,7 +31,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+interface Participant {
+  userId: string;
+  userName: string | null;
+  userImage: string | null;
+}
 
 interface Event {
   id: number;
@@ -42,15 +57,12 @@ interface Event {
   budget: string | null;
   description: string | null;
   createdAt: string | null;
+  progress: number;
+  totalTasks: number;
+  completedTasks: number;
+  participantCount: number;
+  participants: Participant[];
 }
-
-const statusMap: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "default" }> = {
-  draft: { label: "Borrador", variant: "secondary" },
-  confirmed: { label: "Confirmado", variant: "success" },
-  in_progress: { label: "En progreso", variant: "warning" },
-  completed: { label: "Completado", variant: "success" },
-  cancelled: { label: "Cancelado", variant: "default" },
-};
 
 const typeLabels: Record<string, string> = {
   wedding: "Boda",
@@ -63,14 +75,24 @@ const typeLabels: Record<string, string> = {
 };
 
 const typeColors: Record<string, string> = {
-  wedding: "bg-pink-100 text-pink-700",
-  pre_wedding: "bg-green-100 text-green-700",
-  post_wedding: "bg-orange-100 text-orange-700",
-  birthday: "bg-purple-100 text-purple-700",
-  corporate: "bg-blue-100 text-blue-700",
-  social: "bg-yellow-100 text-yellow-700",
-  other: "bg-gray-100 text-gray-700",
+  wedding: "bg-pink-50 text-pink-700",
+  pre_wedding: "bg-green-50 text-green-700",
+  post_wedding: "bg-orange-50 text-orange-700",
+  birthday: "bg-purple-50 text-purple-700",
+  corporate: "bg-blue-50 text-blue-700",
+  social: "bg-yellow-50 text-yellow-700",
+  other: "bg-gray-50 text-gray-700",
 };
+
+const statusLabels: Record<string, string> = {
+  draft: "Borrador",
+  confirmed: "Confirmado",
+  in_progress: "En progreso",
+  completed: "Completado",
+  cancelled: "Cancelado",
+};
+
+type SortOption = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "budget_desc" | "budget_asc";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -80,6 +102,9 @@ export default function EventsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [duplicateEvent, setDuplicateEvent] = useState<Event | null>(null);
   const [saveAsTemplateEvent, setSaveAsTemplateEvent] = useState<Event | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>("date_desc");
+  const [filterType, setFilterType] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -100,10 +125,42 @@ export default function EventsPage() {
     loadEvents();
   }, []);
 
-  const filteredEvents = events.filter((event) =>
-    event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (typeLabels[event.type] || event.type).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const activeFilterCount = (filterType ? 1 : 0) + (filterStatus ? 1 : 0);
+
+  const filteredAndSortedEvents = useMemo(() => {
+    let result = events.filter((event) =>
+      event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeLabels[event.type] || event.type).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (filterType) {
+      result = result.filter((e) => e.type === filterType);
+    }
+    if (filterStatus) {
+      result = result.filter((e) => e.status === filterStatus);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "date_desc":
+          return (b.date || "").localeCompare(a.date || "");
+        case "date_asc":
+          return (a.date || "").localeCompare(b.date || "");
+        case "name_asc":
+          return a.name.localeCompare(b.name);
+        case "name_desc":
+          return b.name.localeCompare(a.name);
+        case "budget_desc":
+          return (parseFloat(b.budget || "0")) - (parseFloat(a.budget || "0"));
+        case "budget_asc":
+          return (parseFloat(a.budget || "0")) - (parseFloat(b.budget || "0"));
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [events, searchTerm, filterType, filterStatus, sortBy]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "Por definir";
@@ -114,158 +171,245 @@ export default function EventsPage() {
     });
   };
 
-  const formatDateLong = (dateStr: string | null) => {
-    if (!dateStr) return "Fecha por definir";
-    return new Date(dateStr).toLocaleDateString("es-ES", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const formatBudget = (budget: string | null) => {
+    if (!budget) return null;
+    const num = parseFloat(budget);
+    if (num >= 1000) {
+      return `€${num.toLocaleString("es-ES", { maximumFractionDigits: 0 })}`;
+    }
+    return `€${num.toLocaleString("es-ES")}`;
+  };
+
+  const sortLabels: Record<SortOption, string> = {
+    date_desc: "Fecha (más reciente)",
+    date_asc: "Fecha (más antigua)",
+    name_asc: "Nombre (A-Z)",
+    name_desc: "Nombre (Z-A)",
+    budget_desc: "Presupuesto (mayor)",
+    budget_asc: "Presupuesto (menor)",
   };
 
   return (
-    <div className="space-y-[var(--gap-cards-lg)]">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Eventos</h1>
-          <p className="text-[var(--muted-foreground)]">
-            Gestiona todas tus bodas y eventos
-          </p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo Evento
-        </Button>
+        <h1 className="text-2xl font-bold">Todos tus eventos</h1>
       </div>
 
-      {/* Search and View Toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+      {/* Toolbar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar eventos..."
+            placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-12"
           />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            ⌘1
+          </kbd>
         </div>
+
+        {/* Filter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <RiFilter3Line className="h-4 w-4" />
+              Filtrar
+              {activeFilterCount > 0 && (
+                <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px]">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-56 p-3 space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Tipo</p>
+              <div className="space-y-1">
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilterType(filterType === key ? null : key)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                  >
+                    {filterType === key && <RiCheckLine className="h-3.5 w-3.5" />}
+                    <span className={filterType === key ? "" : "ml-5"}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Estado</p>
+              <div className="space-y-1">
+                {Object.entries(statusLabels).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilterStatus(filterStatus === key ? null : key)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+                  >
+                    {filterStatus === key && <RiCheckLine className="h-3.5 w-3.5" />}
+                    <span className={filterStatus === key ? "" : "ml-5"}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {activeFilterCount > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <button
+                  onClick={() => { setFilterType(null); setFilterStatus(null); }}
+                  className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
+                >
+                  Limpiar filtros
+                </button>
+              </>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        {/* Sort */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <RiArrowUpDownLine className="h-4 w-4" />
+              Ordenar por
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(Object.entries(sortLabels) as [SortOption, string][]).map(([key, label]) => (
+              <DropdownMenuItem key={key} onClick={() => setSortBy(key)}>
+                {sortBy === key && <RiCheckLine className="h-3.5 w-3.5 mr-2" />}
+                <span className={sortBy === key ? "" : "ml-5"}>{label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="flex-1" />
+
+        {/* View Toggle */}
         <div className="flex items-center gap-1 border rounded-lg p-1">
           <Button
             variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
+            size="icon"
+            className="h-7 w-7"
             onClick={() => setViewMode("grid")}
           >
             <RiGridLine className="h-4 w-4" />
           </Button>
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm"
+            size="icon"
+            className="h-7 w-7"
             onClick={() => setViewMode("list")}
           >
             <RiListUnordered className="h-4 w-4" />
           </Button>
         </div>
+
+        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+          <RiAddLine className="h-4 w-4" />
+          Nuevo evento
+        </Button>
       </div>
 
       {/* Events Display */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-[var(--muted-foreground)]">Cargando eventos...</p>
+          <p className="text-muted-foreground">Cargando eventos...</p>
         </div>
-      ) : filteredEvents.length > 0 ? (
+      ) : filteredAndSortedEvents.length > 0 ? (
         viewMode === "grid" ? (
           /* Grid View */
-          <div className="grid gap-[var(--gap-cards)] md:grid-cols-2 xl:grid-cols-3">
-            {filteredEvents.map((event) => {
-              const status = statusMap[event.status] || statusMap.draft;
-              const typeLabel = typeLabels[event.type] || event.type;
-              const typeColor = typeColors[event.type] || typeColors.other;
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredAndSortedEvents.map((event) => (
+              <Card key={event.id} className="group h-full transition-shadow hover:shadow-sm relative">
+                {/* Hover menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-3 right-3 h-7 w-7 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      <RiMoreLine className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
+                      <RiFileCopyLine className="h-4 w-4 mr-2" />
+                      Duplicar evento
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
+                      <RiFileList3Line className="h-4 w-4 mr-2" />
+                      Guardar como template
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              return (
-                <Card key={event.id} className="h-full transition-all hover:shadow-md hover:border-[var(--primary)] relative">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8 z-10"
-                        onClick={(e) => e.preventDefault()}
-                      >
-                        <RiMoreLine className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
-                        <RiFileCopyLine className="h-4 w-4 mr-2" />
-                        Duplicar evento
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
-                        <RiFileList3Line className="h-4 w-4 mr-2" />
-                        Guardar como template
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Link href={`/dashboard/events/${event.id}`}>
-                    <CardContent className="p-6">
-                      <div className="space-y-4">
-                        {/* Header */}
-                        <div className="flex items-start justify-between pr-8">
-                          <div className="space-y-1">
-                            <h3 className="font-semibold">{event.name}</h3>
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${typeColor}`}>
-                              {typeLabel}
-                            </span>
-                          </div>
-                          <Badge variant={status.variant}>{status.label}</Badge>
-                        </div>
-
-                        {/* Info */}
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                            <RiCalendarLine className="h-4 w-4" />
-                            <span>{formatDateLong(event.date)}</span>
-                          </div>
-                          {event.endDate && event.endDate !== event.date && (
-                            <div className="flex items-center gap-2 text-[var(--muted-foreground)] pl-6">
-                              <span>hasta {formatDate(event.endDate)}</span>
-                            </div>
-                          )}
-                          {event.location && (
-                            <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                              <RiMapPinLine className="h-4 w-4" />
-                              <span>{event.location}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                            <RiGroupLine className="h-4 w-4" />
-                            <span>{event.guestCount || 0} invitados</span>
-                          </div>
-                        </div>
-
-                        {/* Budget */}
-                        {event.budget && (
-                          <div className="flex items-center justify-between rounded-lg bg-[var(--muted)] p-3">
-                            <div className="flex items-center gap-2">
-                              <RiMoneyDollarCircleLine className="h-4 w-4 text-[var(--muted-foreground)]" />
-                              <span className="text-sm text-[var(--muted-foreground)]">
-                                Presupuesto
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-semibold">
-                                ${parseFloat(event.budget).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
+                <Link href={`/dashboard/events/${event.id}`}>
+                  <CardContent className="p-5 space-y-4">
+                    {/* Name + Avatars */}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Nombre del evento</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="font-semibold text-base truncate">{event.name}</h3>
+                        {(event.participants.length > 0 || event.participantCount > 0) && (
+                          <AvatarGroup
+                            items={event.participants.map((p) => ({ name: p.userName, image: p.userImage }))}
+                            max={3}
+                            total={event.participantCount}
+                            size="sm"
+                          />
                         )}
                       </div>
-                    </CardContent>
-                  </Link>
-                </Card>
-              );
-            })}
+                    </div>
+
+                    {/* Progress */}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Progreso</p>
+                      <Progress value={event.progress} className="h-2" />
+                    </div>
+
+                    {/* Data grid 2x2 */}
+                    <div className="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Presupuesto</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">€</span>
+                          <span className="font-medium">{formatBudget(event.budget) || "—"}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Lugar</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <RiMapPinLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{event.location || "—"}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Fecha del evento</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <RiCalendarLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span>{formatDate(event.date)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Invitados</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <RiUserLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span>{event.guestCount || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Link>
+              </Card>
+            ))}
           </div>
         ) : (
           /* List View */
@@ -273,47 +417,59 @@ export default function EventsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b bg-[var(--muted)]">
-                    <th className="text-left p-4 font-medium">Nombre</th>
-                    <th className="text-left p-4 font-medium">Fecha Inicio</th>
-                    <th className="text-left p-4 font-medium">Fecha Fin</th>
-                    <th className="text-left p-4 font-medium">Invitados</th>
-                    <th className="text-left p-4 font-medium">Tipo</th>
-                    <th className="text-left p-4 font-medium">Estado</th>
-                    <th className="text-left p-4 font-medium w-12"></th>
+                  <tr className="border-b">
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Nombre del evento</th>
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Fecha de inicio</th>
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Fecha de finalización</th>
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Progreso</th>
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Participantes</th>
+                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Tipo</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEvents.map((event) => {
-                    const status = statusMap[event.status] || statusMap.draft;
+                  {filteredAndSortedEvents.map((event) => {
                     const typeLabel = typeLabels[event.type] || event.type;
                     const typeColor = typeColors[event.type] || typeColors.other;
 
                     return (
-                      <tr key={event.id} className="border-b hover:bg-[var(--muted)]/50 transition-colors">
+                      <tr key={event.id} className="group border-b hover:bg-muted/50 transition-colors relative">
                         <td className="p-4">
-                          <Link href={`/dashboard/events/${event.id}`} className="font-medium hover:text-[var(--primary)]">
+                          <Link href={`/dashboard/events/${event.id}`} className="font-medium hover:text-primary">
                             {event.name}
                           </Link>
-                          {event.location && (
-                            <p className="text-sm text-[var(--muted-foreground)]">{event.location}</p>
-                          )}
                         </td>
                         <td className="p-4 text-sm">{formatDate(event.date)}</td>
                         <td className="p-4 text-sm">{formatDate(event.endDate)}</td>
-                        <td className="p-4 text-sm">{event.guestCount || 0}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium w-8">{event.progress}%</span>
+                            <Progress value={event.progress} className="h-1.5 w-20" />
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          {(event.participants.length > 0 || event.participantCount > 0) && (
+                            <AvatarGroup
+                              items={event.participants.map((p) => ({ name: p.userName, image: p.userImage }))}
+                              max={3}
+                              total={event.participantCount}
+                              size="sm"
+                            />
+                          )}
+                        </td>
                         <td className="p-4">
                           <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${typeColor}`}>
                             {typeLabel}
                           </span>
                         </td>
-                        <td className="p-4">
-                          <Badge variant={status.variant}>{status.label}</Badge>
-                        </td>
-                        <td className="p-4">
+                        {/* Hover actions */}
+                        <td className="p-4 w-10">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
                                 <RiMoreLine className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -341,17 +497,17 @@ export default function EventsPage() {
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
-              <RiCalendarEventLine className="h-16 w-16 mx-auto text-[var(--muted-foreground)] mb-4" />
+              <RiCalendarEventLine className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">
-                {searchTerm ? "No se encontraron eventos" : "No hay eventos aún"}
+                {searchTerm || filterType || filterStatus ? "No se encontraron eventos" : "No hay eventos aún"}
               </h3>
-              <p className="text-[var(--muted-foreground)] mb-4">
-                {searchTerm 
-                  ? "Intenta con otra búsqueda" 
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || filterType || filterStatus
+                  ? "Intenta con otra búsqueda o ajusta los filtros" 
                   : "Crea tu primer evento para comenzar a organizar"
                 }
               </p>
-              {!searchTerm && (
+              {!searchTerm && !filterType && !filterStatus && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Crear primer evento
