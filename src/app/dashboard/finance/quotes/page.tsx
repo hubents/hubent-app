@@ -133,6 +133,7 @@ function QuotesContent() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
@@ -162,6 +163,7 @@ function QuotesContent() {
 
   async function fetchQuotes() {
     try {
+      setFetchError(null);
       const params = new URLSearchParams({
         type: "quote",
         page: page.toString(),
@@ -178,9 +180,15 @@ function QuotesContent() {
           setQuotes(data.data || []);
           setTotalPages(data.meta?.totalPages || 1);
         }
+      } else {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error?.message || `Error del servidor (${res.status})`;
+        setFetchError(msg);
+        toast.error(msg);
       }
     } catch (error) {
       console.error("Failed to fetch quotes:", error);
+      setFetchError("No se pudo conectar con el servidor");
       toast.error("Error al cargar presupuestos");
     } finally {
       setLoading(false);
@@ -426,7 +434,16 @@ function QuotesContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {quotes.length === 0 ? (
+              {fetchError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-red-600 font-medium">{fetchError}</div>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchQuotes()}>
+                      Reintentar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : quotes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No hay presupuestos

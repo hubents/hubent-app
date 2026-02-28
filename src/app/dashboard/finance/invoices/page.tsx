@@ -143,6 +143,7 @@ function InvoicesContent() {
   const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
@@ -179,6 +180,7 @@ function InvoicesContent() {
 
   async function fetchInvoices() {
     try {
+      setFetchError(null);
       const params = new URLSearchParams({
         type: "invoice",
         page: page.toString(),
@@ -201,9 +203,15 @@ function InvoicesContent() {
           setInvoices(data.data || []);
           setTotalPages(data.meta?.totalPages || 1);
         }
+      } else {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error?.message || `Error del servidor (${res.status})`;
+        setFetchError(msg);
+        toast.error(msg);
       }
     } catch (error) {
       console.error("Failed to fetch invoices:", error);
+      setFetchError("No se pudo conectar con el servidor");
       toast.error("Error al cargar facturas");
     } finally {
       setLoading(false);
@@ -524,7 +532,16 @@ function InvoicesContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length === 0 ? (
+              {fetchError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="text-red-600 font-medium">{fetchError}</div>
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchInvoices()}>
+                      Reintentar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : invoices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No hay facturas

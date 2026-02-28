@@ -150,6 +150,18 @@ const defaultRoles = [
       "guests:read", "guests:manage",
     ],
   },
+  {
+    name: "Member",
+    slug: "member",
+    description: "Basic organization member with read access",
+    isSystem: true,
+    permissions: [
+      "events:read",
+      "tasks:read", "tasks:comment",
+      "vendors:read",
+      "clients:read",
+    ],
+  },
 ];
 
 // ============================================
