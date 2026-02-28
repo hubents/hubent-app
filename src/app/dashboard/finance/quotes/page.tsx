@@ -43,6 +43,8 @@ import {
   RiEyeLine,
   RiCheckDoubleLine,
   RiTruckLine,
+  RiFileDownloadLine,
+  RiHandCoinLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -88,19 +90,28 @@ interface Quote {
   personFirstName: string | null;
   personLastName: string | null;
   contactName: string | null;
+  vendorName: string | null;
   eventName: string | null;
   items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
+  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
-  cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
 };
+
+type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";
+const statusTabs: { key: StatusTab; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "sent", label: "Pendiente" },
+  { key: "accepted", label: "Aceptado" },
+  { key: "rejected", label: "Rechazado" },
+  { key: "payment_promise", label: "Promesa de pago" },
+];
 
 type DirectionTab = "all" | "outgoing" | "incoming";
 const directionTabs: { key: DirectionTab; label: string }[] = [
@@ -187,7 +198,8 @@ function QuotesContent() {
         toast.success("Presupuesto eliminado");
         fetchQuotes();
       } else {
-        toast.error("Error al eliminar");
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error?.message || "Error al eliminar");
       }
     } catch (error) {
       toast.error("Error al eliminar");
@@ -250,7 +262,9 @@ function QuotesContent() {
           }
         }
       } else {
-        toast.error("Error al actualizar estado");
+        const data = await res.json().catch(() => null);
+        const errorMsg = data?.error?.message || "Error al actualizar estado";
+        toast.error(errorMsg);
       }
     } catch (error) {
       toast.error("Error al actualizar estado");
@@ -299,6 +313,7 @@ function QuotesContent() {
     if (quote.personFirstName) {
       return `${quote.personFirstName} ${quote.personLastName || ""}`.trim();
     }
+    if (quote.vendorName) return quote.vendorName;
     return "Sin cliente";
   };
 
@@ -360,6 +375,24 @@ function QuotesContent() {
         ))}
       </div>
 
+      {/* Status Tabs */}
+      <div className="flex gap-1 border-b">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setStatusFilter(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              statusFilter === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -374,19 +407,6 @@ function QuotesContent() {
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="approved">Aprobado</SelectItem>
-                <SelectItem value="sent">Pendiente</SelectItem>
-                <SelectItem value="accepted">Aceptado</SelectItem>
-                <SelectItem value="rejected">Rechazado</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -446,37 +466,7 @@ function QuotesContent() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
-                              <RiEditLine className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openPreview(quote.id)}>
-                              <RiEyeLine className="mr-2 h-4 w-4" />
-                              Vista previa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "quote")}>
-                              <RiFileCopyLine className="mr-2 h-4 w-4" />
-                              Duplicar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {quote.status === "draft" && (
-                              <>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "approved")}>
-                                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
-                                  Aprobar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
-                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                  Marcar como Pendiente
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {quote.status === "approved" && (
-                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
-                                <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                Marcar como Pendiente
-                              </DropdownMenuItem>
-                            )}
+                            {/* Status actions per state */}
                             {quote.status === "sent" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
@@ -489,26 +479,87 @@ function QuotesContent() {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {(quote.status === "sent" || quote.status === "accepted") && (
-                              <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
-                                <RiExchangeLine className="mr-2 h-4 w-4" />
-                                Convertir a Factura
-                              </DropdownMenuItem>
+                            {quote.status === "accepted" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "payment_promise")}>
+                                  <RiHandCoinLine className="mr-2 h-4 w-4" />
+                                  Promesa de pago
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                  Volver a Pendiente
+                                </DropdownMenuItem>
+                              </>
                             )}
-                            {(quote.status === "sent" || quote.status === "accepted") && (
-                              <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "delivery_note")}>
-                                <RiTruckLine className="mr-2 h-4 w-4" />
-                                Convertir a Albarán
-                              </DropdownMenuItem>
+                            {quote.status === "rejected" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                  Volver a Pendiente
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" />
+                                  Aceptar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {quote.status === "payment_promise" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" />
+                                  Volver a Aceptado
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
+                                  Volver a Pendiente
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {/* Convert actions */}
+                            {(quote.status === "accepted" || quote.status === "payment_promise") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
+                                  <RiExchangeLine className="mr-2 h-4 w-4" />
+                                  Convertir a Factura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "delivery_note")}>
+                                  <RiTruckLine className="mr-2 h-4 w-4" />
+                                  Convertir a Albarán
+                                </DropdownMenuItem>
+                              </>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => deleteQuote(quote.id)}
-                            >
-                              <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                              Eliminar
+                            {/* Common actions */}
+                            <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
+                              <RiEditLine className="mr-2 h-4 w-4" />
+                              Editar
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                              <RiEyeLine className="mr-2 h-4 w-4" />
+                              Vista previa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "quote")}>
+                              <RiFileCopyLine className="mr-2 h-4 w-4" />
+                              Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => window.open(`/api/finance/documents/${quote.id}/pdf`, "_blank")}>
+                              <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                              Descargar PDF
+                            </DropdownMenuItem>
+                            {/* Delete only for sent/rejected */}
+                            {(quote.status === "sent" || quote.status === "rejected" || quote.status === "draft") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => deleteQuote(quote.id)}
+                                >
+                                  <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

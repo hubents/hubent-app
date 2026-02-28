@@ -14,18 +14,22 @@ import { toast } from "sonner";
 
 interface Quote {
   id: number;
-  documentNumber: string;
-  clientName: string | null;
+  number: string;
+  contactName: string | null;
+  companyName: string | null;
+  vendorName: string | null;
   total: string;
   status: string;
   issueDate: string;
+  currency: string;
 }
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Borrador", variant: "outline" },
-  sent: { label: "Enviado", variant: "secondary" },
+  sent: { label: "Pendiente", variant: "secondary" },
   accepted: { label: "Aceptado", variant: "default" },
   rejected: { label: "Rechazado", variant: "destructive" },
+  payment_promise: { label: "Promesa de pago", variant: "secondary" },
 };
 
 export default function VendorQuotesPage() {
@@ -92,12 +96,12 @@ export default function VendorQuotesPage() {
                     <div className="flex items-center gap-3">
                       <RiFileTextLine className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium text-sm">{q.documentNumber || `#${q.id}`}</p>
-                        <p className="text-xs text-muted-foreground">{q.clientName || "Sin cliente"}</p>
+                        <p className="font-medium text-sm">{q.number || `#${q.id}`}</p>
+                        <p className="text-xs text-muted-foreground">{q.contactName || q.companyName || q.vendorName || "Sin cliente"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <p className="font-semibold text-sm">{Number(q.total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</p>
+                      <p className="font-semibold text-sm">{new Intl.NumberFormat("es-ES", { style: "currency", currency: q.currency || "EUR" }).format(Number(q.total || 0))}</p>
                       <Badge variant={st.variant}>{st.label}</Badge>
                       <p className="text-xs text-muted-foreground w-20 text-right">
                         {q.issueDate ? new Date(q.issueDate).toLocaleDateString("es-AR") : "—"}

@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
+import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment } from "@/lib/cross-org-finance";
 
 // ============================================
 // DOCUMENT NUMBER GENERATION
@@ -211,8 +212,18 @@ export async function getDocuments(
   }
 
   if (direction) {
-    whereClause = and(whereClause, eq(financialDocuments.direction, direction))!;
+    if (direction === "outgoing") {
+      whereClause = and(whereClause, or(
+        eq(financialDocuments.direction, "outgoing"),
+        sql`${financialDocuments.direction} IS NULL`
+      ))!;
+    } else {
+      whereClause = and(whereClause, eq(financialDocuments.direction, direction))!;
+    }
   }
+
+  // Exclude mirror documents from normal listings
+  whereClause = and(whereClause, sql`${financialDocuments.sourceDocumentId} IS NULL`)!;
 
   if (search) {
     whereClause = and(
@@ -253,12 +264,14 @@ export async function getDocuments(
       personFirstName: people.firstName,
       personLastName: people.lastName,
       contactName: contacts.name,
+      vendorName: vendors.name,
       eventName: events.name,
     })
     .from(financialDocuments)
     .leftJoin(companies, eq(financialDocuments.companyId, companies.id))
     .leftJoin(people, eq(financialDocuments.personId, people.id))
     .leftJoin(contacts, eq(financialDocuments.contactId, contacts.id))
+    .leftJoin(vendors, eq(financialDocuments.vendorId, vendors.id))
     .leftJoin(events, eq(financialDocuments.eventId, events.id))
     .where(whereClause)
     .orderBy(desc(financialDocuments.createdAt))
@@ -429,7 +442,7 @@ export async function createDocument(
     organizationId: session.organizationId,
     type: data.type,
     number,
-    status: data.status || "draft",
+    status: data.status || "sent",
     contactId: data.contactId,
     vendorId: data.vendorId,
     companyId: data.companyId,
@@ -469,13 +482,70 @@ export async function createDocument(
   return getDocument(session, doc.id);
 }
 
+// Allowed status transitions per document type
+const QUOTE_TRANSITIONS: Record<string, string[]> = {
+  draft: ["sent"],
+  sent: ["accepted", "rejected"],
+  accepted: ["payment_promise", "sent"],
+  rejected: ["sent", "accepted"],
+  payment_promise: ["accepted", "sent"],
+};
+
+const INVOICE_TRANSITIONS: Record<string, string[]> = {
+  draft: ["sent"],
+  sent: ["partial", "paid"],
+  partial: ["paid", "sent"],
+  paid: ["partial", "sent"],
+};
+
 export async function updateDocumentStatus(
   session: TenantSession,
   documentId: number,
-  status: "draft" | "approved" | "sent" | "accepted" | "rejected" | "paid" | "cancelled" | "delivered"
+  newStatus: string,
+  options?: { skipValidation?: boolean }
 ) {
+  // Get current document to validate transition
+  const [doc] = await db
+    .select({ status: financialDocuments.status, type: financialDocuments.type })
+    .from(financialDocuments)
+    .where(
+      and(
+        eq(financialDocuments.id, documentId),
+        eq(financialDocuments.organizationId, session.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!doc) return null;
+
+  // Validate transition unless skipped (used by system for payment-triggered changes)
+  if (!options?.skipValidation) {
+    const currentStatus = doc.status || "draft";
+    const transitions = doc.type === "quote" ? QUOTE_TRANSITIONS : 
+                        doc.type === "invoice" ? INVOICE_TRANSITIONS : null;
+
+    if (transitions) {
+      const allowed = transitions[currentStatus] || [];
+      if (!allowed.includes(newStatus)) {
+        throw new Error(
+          `Cannot transition ${doc.type} from "${currentStatus}" to "${newStatus}". Allowed: ${allowed.join(", ") || "none"}`
+        );
+      }
+    }
+  }
+
+  const updateData: Record<string, unknown> = {
+    status: newStatus,
+    updatedAt: new Date(),
+  };
+
+  // Set paidAt timestamp when marking as paid
+  if (newStatus === "paid") {
+    updateData.paidAt = new Date();
+  }
+
   const [updated] = await db.update(financialDocuments)
-    .set({ status, updatedAt: new Date() })
+    .set(updateData)
     .where(
       and(
         eq(financialDocuments.id, documentId),
@@ -483,6 +553,13 @@ export async function updateDocumentStatus(
       )
     )
     .returning();
+
+  // Cross-org sync: propagate status to mirror/original (non-blocking)
+  if (updated) {
+    syncDocumentStatus(documentId).catch((e) =>
+      console.error("Cross-org status sync failed:", e)
+    );
+  }
 
   return updated;
 }
@@ -513,9 +590,34 @@ export async function updateDocument(
     }>;
   }
 ) {
+  // Get current document to apply rules
+  const currentDoc = await db.query.financialDocuments.findFirst({
+    where: (d, { eq: e, and: a }) => a(e(d.id, documentId), e(d.organizationId, session.organizationId)),
+    columns: { type: true, status: true },
+  });
+  if (!currentDoc) return null;
+
+  // RULE: Block editing invoices with paid/partial status
+  if (currentDoc.type === "invoice" && (currentDoc.status === "paid" || currentDoc.status === "partial")) {
+    throw new Error("Cannot edit an invoice with payments. Remove payments first.");
+  }
+
+  // RULE: If quote is accepted/rejected/payment_promise and items or discount change, auto-reset to "sent"
+  const isQuoteWithActiveStatus = currentDoc.type === "quote" && 
+    ["accepted", "rejected", "payment_promise"].includes(currentDoc.status || "");
+  const hasFinancialChanges = data.items !== undefined || data.globalDiscount !== undefined || data.globalDiscountType !== undefined;
+  let autoResetStatus = false;
+  if (isQuoteWithActiveStatus && hasFinancialChanges) {
+    autoResetStatus = true;
+  }
+
   const updateData: Record<string, unknown> = {
     updatedAt: new Date(),
   };
+
+  if (autoResetStatus) {
+    updateData.status = "sent";
+  }
 
   if (data.contactId !== undefined) updateData.contactId = data.contactId || null;
   if (data.vendorId !== undefined) updateData.vendorId = data.vendorId || null;
@@ -599,11 +701,38 @@ export async function deleteDocument(
   session: TenantSession,
   documentId: number
 ) {
-  // First delete document items
+  // Validate: cannot delete invoices with payments
+  const doc = await db.query.financialDocuments.findFirst({
+    where: (d, { eq: e, and: a }) => a(e(d.id, documentId), e(d.organizationId, session.organizationId)),
+    columns: { id: true, type: true, status: true },
+  });
+
+  if (!doc) return null;
+
+  if (doc.type === "invoice" && (doc.status === "paid" || doc.status === "partial")) {
+    throw new Error("Cannot delete an invoice with payments. Remove payments first.");
+  }
+
+  // Delete associated payment records for this document
+  await db.delete(paymentRecords)
+    .where(eq(paymentRecords.documentId, documentId));
+
+  // Delete mirror document if exists (and its items/payments)
+  const mirror = await db.query.financialDocuments.findFirst({
+    where: (d, { eq: e }) => e(d.sourceDocumentId, documentId),
+    columns: { id: true },
+  });
+  if (mirror) {
+    await db.delete(paymentRecords).where(eq(paymentRecords.documentId, mirror.id));
+    await db.delete(documentItems).where(eq(documentItems.documentId, mirror.id));
+    await db.delete(financialDocuments).where(eq(financialDocuments.id, mirror.id));
+  }
+
+  // Delete document items
   await db.delete(documentItems)
     .where(eq(documentItems.documentId, documentId));
 
-  // Then delete the document
+  // Delete the document
   const [deleted] = await db.delete(financialDocuments)
     .where(
       and(
@@ -690,6 +819,14 @@ export async function convertDocument(
     await db.update(financialDocuments)
       .set({ parentDocumentId: documentId })
       .where(eq(financialDocuments.id, newDoc.id));
+  }
+
+  // If converting quote → invoice, auto-mark quote as accepted
+  if (original.type === "quote" && toType === "invoice") {
+    const quoteStatus = original.status;
+    if (quoteStatus !== "accepted") {
+      await updateDocumentStatus(session, documentId, "accepted", { skipValidation: true });
+    }
   }
 
   return newDoc;
@@ -785,7 +922,7 @@ export async function createCreditNote(
 
 export async function getPaymentRecords(
   session: TenantSession,
-  params: { documentId?: number; taskId?: number; direction?: string; page?: number; limit?: number } = {}
+  params: { documentId?: number; taskId?: number; eventId?: number; contactId?: number; direction?: string; status?: string; page?: number; limit?: number } = {}
 ) {
   let whereClause = eq(paymentRecords.organizationId, session.organizationId);
 
@@ -797,8 +934,20 @@ export async function getPaymentRecords(
     whereClause = and(whereClause, eq(paymentRecords.taskId, params.taskId))!;
   }
 
+  if (params.eventId) {
+    whereClause = and(whereClause, eq(paymentRecords.eventId, params.eventId))!;
+  }
+
+  if (params.contactId) {
+    whereClause = and(whereClause, eq(paymentRecords.contactId, params.contactId))!;
+  }
+
   if (params.direction) {
     whereClause = and(whereClause, eq(paymentRecords.direction, params.direction))!;
+  }
+
+  if (params.status) {
+    whereClause = and(whereClause, eq(paymentRecords.status, params.status))!;
   }
 
   const page = params.page || 1;
@@ -831,6 +980,9 @@ export async function getPaymentRecords(
       reference: paymentRecords.reference,
       stripePaymentId: paymentRecords.stripePaymentId,
       notes: paymentRecords.notes,
+      status: paymentRecords.status,
+      attachmentUrl: paymentRecords.attachmentUrl,
+      attachmentName: paymentRecords.attachmentName,
       createdBy: paymentRecords.createdBy,
       createdAt: paymentRecords.createdAt,
       documentNumber: financialDocuments.number,
@@ -847,6 +999,56 @@ export async function getPaymentRecords(
     .offset(offset);
 
   return { data, meta: { total, totalPages, page, limit } };
+}
+
+/**
+ * Recalculate paidAmount and status for a document based on its payment records.
+ * Used after creating, updating, or deleting a payment.
+ */
+export async function recalculateDocumentPayments(
+  session: TenantSession,
+  documentId: number
+) {
+  const [doc] = await db
+    .select({ id: financialDocuments.id, total: financialDocuments.total, status: financialDocuments.status })
+    .from(financialDocuments)
+    .where(eq(financialDocuments.id, documentId))
+    .limit(1);
+
+  if (!doc) return;
+
+  const paymentsResult = await getPaymentRecords(session, { documentId });
+  const totalPaid = paymentsResult.data.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  const docTotal = parseFloat(doc.total || "0");
+
+  // Update paidAmount
+  await db
+    .update(financialDocuments)
+    .set({
+      paidAmount: totalPaid.toString(),
+      updatedAt: new Date(),
+    })
+    .where(eq(financialDocuments.id, documentId));
+
+  // Determine correct status
+  let targetStatus: string | null = null;
+  if (totalPaid <= 0) {
+    if (doc.status === "paid" || doc.status === "partial") {
+      targetStatus = "sent";
+    }
+  } else if (totalPaid < docTotal) {
+    if (doc.status !== "partial") {
+      targetStatus = "partial";
+    }
+  } else {
+    if (doc.status !== "paid") {
+      targetStatus = "paid";
+    }
+  }
+
+  if (targetStatus) {
+    await updateDocumentStatus(session, documentId, targetStatus, { skipValidation: true });
+  }
 }
 
 export async function createPaymentRecord(
@@ -866,6 +1068,9 @@ export async function createPaymentRecord(
     reference?: string;
     stripePaymentId?: string;
     notes?: string;
+    status?: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
   }
 ) {
   const [record] = await db.insert(paymentRecords).values({
@@ -884,39 +1089,120 @@ export async function createPaymentRecord(
     reference: data.reference,
     stripePaymentId: data.stripePaymentId,
     notes: data.notes,
+    status: data.status || "complete",
+    attachmentUrl: data.attachmentUrl,
+    attachmentName: data.attachmentName,
     createdBy: session.user.userId,
   }).returning();
 
-  // If linked to a document, update paidAmount and check if fully paid
+  // If linked to a document, recalculate paidAmount and status
   if (data.documentId) {
-    const [doc] = await db
-      .select()
-      .from(financialDocuments)
-      .where(eq(financialDocuments.id, data.documentId))
-      .limit(1);
+    await recalculateDocumentPayments(session, data.documentId);
+  }
 
-    if (doc) {
-      const paymentsResult = await getPaymentRecords(session, { documentId: data.documentId });
-      const totalPaid = paymentsResult.data.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-      const docTotal = parseFloat(doc.total || "0");
-
-      // Update paidAmount on the document
-      await db
-        .update(financialDocuments)
-        .set({ 
-          paidAmount: totalPaid.toString(),
-          updatedAt: new Date(),
-        })
-        .where(eq(financialDocuments.id, data.documentId));
-
-      // If fully paid, update status
-      if (totalPaid >= docTotal) {
-        await updateDocumentStatus(session, data.documentId, "paid");
-      }
-    }
+  // Cross-org sync: create mirror payment if document is linked cross-org (non-blocking)
+  if (data.documentId) {
+    syncPaymentCrossOrg(record.id).catch((e) =>
+      console.error("Cross-org payment sync failed:", e)
+    );
   }
 
   return record;
+}
+
+export async function updatePaymentRecord(
+  session: TenantSession,
+  paymentId: number,
+  data: {
+    amount?: number;
+    paymentMethod?: string;
+    paymentDate?: Date;
+    reference?: string;
+    notes?: string;
+    status?: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
+  }
+) {
+  // Get existing record to verify ownership and get documentId
+  const [existing] = await db
+    .select({ id: paymentRecords.id, documentId: paymentRecords.documentId })
+    .from(paymentRecords)
+    .where(
+      and(
+        eq(paymentRecords.id, paymentId),
+        eq(paymentRecords.organizationId, session.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!existing) throw new Error("Payment record not found");
+
+  const updateData: Record<string, unknown> = {};
+  if (data.amount !== undefined) updateData.amount = data.amount.toString();
+  if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+  if (data.paymentDate !== undefined) updateData.paymentDate = data.paymentDate;
+  if (data.reference !== undefined) updateData.reference = data.reference;
+  if (data.notes !== undefined) updateData.notes = data.notes;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.attachmentUrl !== undefined) updateData.attachmentUrl = data.attachmentUrl;
+  if (data.attachmentName !== undefined) updateData.attachmentName = data.attachmentName;
+
+  const [updated] = await db.update(paymentRecords)
+    .set(updateData)
+    .where(
+      and(
+        eq(paymentRecords.id, paymentId),
+        eq(paymentRecords.organizationId, session.organizationId)
+      )
+    )
+    .returning();
+
+  // Recalculate document totals if linked
+  if (existing.documentId) {
+    await recalculateDocumentPayments(session, existing.documentId);
+  }
+
+  return updated;
+}
+
+export async function deletePaymentRecord(
+  session: TenantSession,
+  paymentId: number
+) {
+  // Get existing record to verify ownership and get documentId
+  const [existing] = await db
+    .select({ id: paymentRecords.id, documentId: paymentRecords.documentId })
+    .from(paymentRecords)
+    .where(
+      and(
+        eq(paymentRecords.id, paymentId),
+        eq(paymentRecords.organizationId, session.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!existing) throw new Error("Payment record not found");
+
+  // Delete mirror payment first (non-blocking)
+  await deleteMirrorPayment(paymentId).catch((e) =>
+    console.error("Delete mirror payment failed:", e)
+  );
+
+  await db.delete(paymentRecords)
+    .where(
+      and(
+        eq(paymentRecords.id, paymentId),
+        eq(paymentRecords.organizationId, session.organizationId)
+      )
+    );
+
+  // Recalculate document totals if linked
+  if (existing.documentId) {
+    await recalculateDocumentPayments(session, existing.documentId);
+  }
+
+  return { deleted: true };
 }
 
 // ============================================

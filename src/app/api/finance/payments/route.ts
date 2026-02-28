@@ -32,10 +32,16 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get("page");
     const limit = searchParams.get("limit");
 
+    const contactId = searchParams.get("contactId");
+    const statusFilter = searchParams.get("status");
+
     const result = await getPaymentRecords(session, {
       documentId: documentId ? parseInt(documentId, 10) : undefined,
       taskId: taskId ? parseInt(taskId, 10) : undefined,
+      eventId: eventId ? parseInt(eventId, 10) : undefined,
+      contactId: contactId ? parseInt(contactId, 10) : undefined,
       direction: direction || undefined,
+      status: statusFilter || undefined,
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
@@ -103,7 +109,10 @@ export async function POST(request: NextRequest) {
       paymentMethod, 
       reference, 
       stripePaymentId,
-      notes 
+      notes,
+      status: paymentStatus,
+      attachmentUrl,
+      attachmentName,
     } = body;
 
     if (!amount) {
@@ -128,6 +137,9 @@ export async function POST(request: NextRequest) {
       reference,
       stripePaymentId,
       notes,
+      status: paymentStatus,
+      attachmentUrl,
+      attachmentName,
     });
 
     return NextResponse.json({

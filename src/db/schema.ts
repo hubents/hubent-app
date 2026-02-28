@@ -103,6 +103,8 @@ export const documentStatusEnum = pgEnum("document_status", [
   "paid",
   "cancelled",
   "delivered",
+  "payment_promise",
+  "partial",
 ]);
 
 export const messageTypeEnum = pgEnum("message_type", [
@@ -498,6 +500,7 @@ export const vendors = pgTable("vendors", {
   rating: integer("rating").default(0),
   notes: text("notes"),
   contactId: integer("contact_id"),
+  providerOrgId: integer("provider_org_id").references(() => organizations.id),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -970,6 +973,8 @@ export const financialDocuments = pgTable("financial_documents", {
   paidAt: timestamp("paid_at"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripePaymentUrl: text("stripe_payment_url"),
+  sourceDocumentId: integer("source_document_id"),
+  sourceOrgId: integer("source_org_id").references(() => organizations.id),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1006,6 +1011,11 @@ export const paymentRecords = pgTable("payment_records", {
   reference: text("reference"),
   stripePaymentId: text("stripe_payment_id"),
   notes: text("notes"),
+  status: text("status").default("complete"),
+  attachmentUrl: text("attachment_url"),
+  attachmentName: text("attachment_name"),
+  sourcePaymentId: integer("source_payment_id"),
+  sourceOrgId: integer("source_org_id").references(() => organizations.id),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

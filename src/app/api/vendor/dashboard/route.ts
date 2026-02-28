@@ -67,7 +67,7 @@ export async function GET() {
       taskCountValue = taskCount?.count ?? 0;
     }
 
-    // Revenue from paid invoices
+    // Revenue from paid invoices (exclude mirrors)
     const [revenue] = await db
       .select({ total: sum(financialDocuments.total) })
       .from(financialDocuments)
@@ -75,11 +75,12 @@ export async function GET() {
         and(
           eq(financialDocuments.organizationId, session.organizationId),
           eq(financialDocuments.type, "invoice"),
-          eq(financialDocuments.status, "paid")
+          eq(financialDocuments.status, "paid"),
+          sql`${financialDocuments.sourceDocumentId} IS NULL`
         )
       );
 
-    // Count pending invoices
+    // Count pending invoices (exclude mirrors)
     const [pendingInvoices] = await db
       .select({ count: count() })
       .from(financialDocuments)
@@ -87,7 +88,8 @@ export async function GET() {
         and(
           eq(financialDocuments.organizationId, session.organizationId),
           eq(financialDocuments.type, "invoice"),
-          sql`${financialDocuments.status} IN ('draft', 'sent')`
+          sql`${financialDocuments.status} IN ('draft', 'sent')`,
+          sql`${financialDocuments.sourceDocumentId} IS NULL`
         )
       );
 

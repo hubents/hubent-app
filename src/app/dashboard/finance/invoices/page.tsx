@@ -45,6 +45,7 @@ import {
   RiEyeLine,
   RiCheckDoubleLine,
   RiTruckLine,
+  RiFileDownloadLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -100,21 +101,26 @@ interface Invoice {
   personFirstName: string | null;
   personLastName: string | null;
   contactName: string | null;
+  vendorName: string | null;
   eventName: string | null;
   items: DocumentItem[];
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  approved: { label: "Aprobada", color: "bg-indigo-100 text-indigo-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  accepted: { label: "Aceptada", color: "bg-green-100 text-green-700" },
-  rejected: { label: "Rechazada", color: "bg-red-100 text-red-700" },
-  paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
+  paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
-  cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
 };
+
+type StatusTab = "all" | "sent" | "partial" | "paid";
+const statusTabs: { key: StatusTab; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "sent", label: "Pendiente" },
+  { key: "partial", label: "Parcial" },
+  { key: "paid", label: "Pagada" },
+];
 
 type DirectionTab = "all" | "outgoing" | "incoming";
 
@@ -215,7 +221,8 @@ function InvoicesContent() {
         toast.success("Factura eliminada");
         fetchInvoices();
       } else {
-        toast.error("Error al eliminar");
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error?.message || "Error al eliminar");
       }
     } catch (error) {
       toast.error("Error al eliminar");
@@ -288,20 +295,10 @@ function InvoicesContent() {
       if (res.ok) {
         toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
         fetchInvoices();
-        
-        if (status === "paid") {
-          const invoice = invoices.find(inv => inv.id === id);
-          if (invoice) {
-            const registerPayment = confirm(
-              `¿Deseas registrar el pago de ${formatCurrency(invoice.total, invoice.currency)}?`
-            );
-            if (registerPayment) {
-              openPaymentDialog(invoice);
-            }
-          }
-        }
       } else {
-        toast.error("Error al actualizar estado");
+        const data = await res.json().catch(() => null);
+        const errorMsg = data?.error?.message || "Error al actualizar estado";
+        toast.error(errorMsg);
       }
     } catch (error) {
       toast.error("Error al actualizar estado");
@@ -322,7 +319,8 @@ function InvoicesContent() {
 
   function openPaymentDialog(invoice: Invoice) {
     setPaymentInvoice(invoice);
-    setPaymentAmount(invoice.total);
+    const remaining = parseFloat(invoice.total || "0") - parseFloat(invoice.paidAmount || "0");
+    setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : invoice.total);
     setPaymentMethod("bank_transfer");
     setPaymentReference(`Pago ${invoice.number}`);
     setPaymentDialogOpen(true);
@@ -408,6 +406,7 @@ function InvoicesContent() {
     if (invoice.personFirstName) {
       return `${invoice.personFirstName} ${invoice.personLastName || ""}`.trim();
     }
+    if (invoice.vendorName) return invoice.vendorName;
     return "Sin cliente";
   };
 
@@ -434,7 +433,7 @@ function InvoicesContent() {
           <Skeleton className="h-8 w-32" />
           <Skeleton className="h-10 w-40" />
         </div>
-        <Skeleton className="h-[400px]" />
+        <Skeleton className="h-100" />
       </div>
     );
   }
@@ -473,6 +472,24 @@ function InvoicesContent() {
         ))}
       </div>
 
+      {/* Status Tabs */}
+      <div className="flex gap-1 border-b">
+        {statusTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setStatusFilter(tab.key); setPage(1); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+              statusFilter === tab.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -487,19 +504,6 @@ function InvoicesContent() {
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="approved">Aprobada</SelectItem>
-                <SelectItem value="sent">Pendiente</SelectItem>
-                <SelectItem value="paid">Pagada</SelectItem>
-                <SelectItem value="cancelled">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -579,10 +583,41 @@ function InvoicesContent() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
-                              <RiEditLine className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
+                            {/* Payment actions — available when not fully paid */}
+                            {(invoice.status === "sent" || invoice.status === "partial") && (
+                              <>
+                                <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
+                                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                  Registrar Pago
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
+                                  <RiLinkM className="mr-2 h-4 w-4" />
+                                  Generar Link de Pago
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {/* Credit note and delivery note */}
+                            {(invoice.status === "sent" || invoice.status === "partial" || invoice.status === "paid") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "delivery_note")}>
+                                  <RiTruckLine className="mr-2 h-4 w-4" />
+                                  Convertir a Albarán
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
+                                  <RiRefund2Line className="mr-2 h-4 w-4" />
+                                  Crear Factura Rectificativa
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                            {/* Common actions */}
+                            {invoice.status !== "paid" && invoice.status !== "partial" && (
+                              <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
+                                <RiEditLine className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openPreview(invoice.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" />
                               Vista previa
@@ -591,69 +626,23 @@ function InvoicesContent() {
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {invoice.status === "draft" && (
+                            <DropdownMenuItem onClick={() => window.open(`/api/finance/documents/${invoice.id}/pdf`, "_blank")}>
+                              <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                              Descargar PDF
+                            </DropdownMenuItem>
+                            {/* Delete only for sent (no payments) */}
+                            {(invoice.status === "sent" || invoice.status === "draft") && (
                               <>
-                                <DropdownMenuItem onClick={() => updateStatus(invoice.id, "approved")}>
-                                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
-                                  Aprobar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
-                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                  Marcar como Pendiente
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => deleteInvoice(invoice.id)}
+                                >
+                                  <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                                  Eliminar
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {invoice.status === "approved" && (
-                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "sent")}>
-                                <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                Marcar como Pendiente
-                              </DropdownMenuItem>
-                            )}
-                            {invoice.status === "sent" && (
-                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "paid")}>
-                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                                Marcar como Pagada
-                              </DropdownMenuItem>
-                            )}
-                            {(invoice.status === "sent" || invoice.status === "approved" || invoice.status === "draft") && (
-                              <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
-                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                                Añadir Pago
-                              </DropdownMenuItem>
-                            )}
-                            {invoice.status !== "paid" && invoice.status !== "cancelled" && (
-                              <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
-                                <RiLinkM className="mr-2 h-4 w-4" />
-                                Generar Link de Pago
-                              </DropdownMenuItem>
-                            )}
-                            {(invoice.status === "draft" || invoice.status === "approved" || invoice.status === "sent") && (
-                              <DropdownMenuItem onClick={() => updateStatus(invoice.id, "cancelled")}>
-                                <RiCheckLine className="mr-2 h-4 w-4" />
-                                Cancelar
-                              </DropdownMenuItem>
-                            )}
-                            {invoice.status !== "draft" && invoice.status !== "cancelled" && (
-                              <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "delivery_note")}>
-                                <RiTruckLine className="mr-2 h-4 w-4" />
-                                Convertir a Albarán
-                              </DropdownMenuItem>
-                            )}
-                            {(invoice.status === "sent" || invoice.status === "paid") && (
-                              <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
-                                <RiRefund2Line className="mr-2 h-4 w-4" />
-                                Crear Factura Rectificativa
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => deleteInvoice(invoice.id)}
-                            >
-                              <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

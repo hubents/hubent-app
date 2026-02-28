@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ const ACCESS_STATUS: Record<string, { label: string; variant: "success" | "warni
 };
 
 export default function VendorEventsPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<VendorEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -116,7 +118,11 @@ export default function VendorEventsPage() {
             const accessStatus = ACCESS_STATUS[event.status || "pending"] || ACCESS_STATUS.pending;
 
             return (
-              <Card key={event.accessId} className="hover:shadow-md transition-shadow">
+              <Card 
+                key={event.accessId} 
+                className={`hover:shadow-md transition-shadow ${event.status === "active" ? "cursor-pointer" : ""}`}
+                onClick={() => event.status === "active" && router.push(`/vendor/events/${event.accessId}`)}
+              >
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">
                     <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">

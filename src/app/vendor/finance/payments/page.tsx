@@ -15,11 +15,12 @@ import { toast } from "sonner";
 interface Payment {
   id: number;
   amount: string;
-  method: string | null;
+  currency: string;
+  paymentMethod: string | null;
   reference: string | null;
-  date: string;
+  paymentDate: string | null;
   documentNumber: string | null;
-  clientName: string | null;
+  contactName: string | null;
 }
 
 export default function VendorPaymentsPage() {
@@ -79,26 +80,39 @@ export default function VendorPaymentsPage() {
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
-              {payments.map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <RiMoneyDollarCircleLine className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{p.documentNumber || `Pago #${p.id}`}</p>
-                      <p className="text-xs text-muted-foreground">{p.clientName || "—"}</p>
+              {payments.map((p) => {
+                const formattedAmount = new Intl.NumberFormat("es-ES", {
+                  style: "currency",
+                  currency: p.currency || "EUR",
+                }).format(parseFloat(p.amount || "0"));
+                const methodLabels: Record<string, string> = {
+                  cash: "Efectivo",
+                  bank_transfer: "Transferencia",
+                  card: "Tarjeta",
+                  stripe: "Stripe",
+                  other: "Otro",
+                };
+                return (
+                  <div key={p.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <RiMoneyDollarCircleLine className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{p.documentNumber || `Pago #${p.id}`}</p>
+                        <p className="text-xs text-muted-foreground">{p.contactName || "—"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <p className="font-semibold text-sm text-green-600">
+                        +{formattedAmount}
+                      </p>
+                      {p.paymentMethod && <Badge variant="outline">{methodLabels[p.paymentMethod] || p.paymentMethod}</Badge>}
+                      <p className="text-xs text-muted-foreground w-20 text-right">
+                        {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString("es-AR") : "—"}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <p className="font-semibold text-sm text-green-600">
-                      +{Number(p.amount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                    </p>
-                    {p.method && <Badge variant="outline">{p.method}</Badge>}
-                    <p className="text-xs text-muted-foreground w-20 text-right">
-                      {p.date ? new Date(p.date).toLocaleDateString("es-AR") : "—"}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

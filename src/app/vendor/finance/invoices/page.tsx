@@ -14,19 +14,22 @@ import { toast } from "sonner";
 
 interface Invoice {
   id: number;
-  documentNumber: string;
-  clientName: string | null;
+  number: string;
+  contactName: string | null;
+  companyName: string | null;
+  vendorName: string | null;
   total: string;
   status: string;
   issueDate: string;
   dueDate: string | null;
+  currency: string;
 }
 
 const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Borrador", variant: "outline" },
-  sent: { label: "Enviada", variant: "secondary" },
+  sent: { label: "Pendiente", variant: "secondary" },
+  partial: { label: "Parcial", variant: "secondary" },
   paid: { label: "Pagada", variant: "default" },
-  cancelled: { label: "Cancelada", variant: "destructive" },
   overdue: { label: "Vencida", variant: "destructive" },
 };
 
@@ -96,12 +99,12 @@ export default function VendorInvoicesPage() {
                     <div className="flex items-center gap-3">
                       <RiFileList2Line className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium text-sm">{inv.documentNumber || `#${inv.id}`}</p>
-                        <p className="text-xs text-muted-foreground">{inv.clientName || "Sin cliente"}</p>
+                        <p className="font-medium text-sm">{inv.number || `#${inv.id}`}</p>
+                        <p className="text-xs text-muted-foreground">{inv.contactName || inv.companyName || inv.vendorName || "Sin cliente"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <p className="font-semibold text-sm">{Number(inv.total).toLocaleString("es-AR", { minimumFractionDigits: 2 })}</p>
+                      <p className="font-semibold text-sm">{new Intl.NumberFormat("es-ES", { style: "currency", currency: inv.currency || "EUR" }).format(Number(inv.total || 0))}</p>
                       <Badge variant={st.variant}>{st.label}</Badge>
                       <p className="text-xs text-muted-foreground w-20 text-right">
                         {inv.issueDate ? new Date(inv.issueDate).toLocaleDateString("es-AR") : "—"}

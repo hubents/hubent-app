@@ -452,3 +452,155 @@ export async function notifyNewEvent(
     data: { type: "new_event", eventId: eventId.toString() },
   });
 }
+
+// ============================================
+// CROSS-ORG / FINANCE DOCUMENT NOTIFICATIONS
+// ============================================
+
+/**
+ * Notify planner org when a vendor sends a new document (quote/invoice)
+ */
+export async function notifyDocumentReceived(
+  plannerOrgId: number,
+  documentType: string,
+  documentNumber: string,
+  vendorName: string,
+  eventName: string,
+  amount: string,
+  currency: string
+): Promise<void> {
+  const recipients = await getOrgPlanners(plannerOrgId);
+  if (recipients.length === 0) return;
+
+  const typeLabels: Record<string, string> = {
+    quote: "presupuesto",
+    invoice: "factura",
+    proforma: "proforma",
+  };
+  const typeLabel = typeLabels[documentType] || documentType;
+
+  const formattedAmount = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: currency || "EUR",
+  }).format(parseFloat(amount));
+
+  const title = `📄 Nuevo ${typeLabel} recibido`;
+  const body = `${vendorName} envió ${typeLabel} ${documentNumber} por ${formattedAmount} (${eventName})`;
+  const link = `${BASE_URL}/dashboard/finance/${documentType === "quote" ? "quotes" : "invoices"}`;
+
+  await sendPushToUsers(recipients, {
+    title,
+    body,
+    deep_link: link,
+    data: { type: "document_received", documentType },
+  });
+
+  await saveNotification(recipients, plannerOrgId, "document_received", title, body, link, { documentType });
+}
+
+/**
+ * Notify vendor org when planner changes document status (accept/reject quote)
+ */
+export async function notifyDocumentStatusChanged(
+  vendorOrgId: number,
+  documentType: string,
+  documentNumber: string,
+  newStatus: string,
+  plannerOrgName: string,
+  eventName: string
+): Promise<void> {
+  const recipients = await getOrgPlanners(vendorOrgId);
+  if (recipients.length === 0) return;
+
+  const statusLabels: Record<string, string> = {
+    accepted: "aceptado",
+    rejected: "rechazado",
+    sent: "pendiente",
+    paid: "pagado",
+    partial: "pago parcial",
+    payment_promise: "promesa de pago",
+  };
+  const statusLabel = statusLabels[newStatus] || newStatus;
+
+  const statusEmoji: Record<string, string> = {
+    accepted: "✅",
+    rejected: "❌",
+    paid: "💰",
+    partial: "💸",
+    payment_promise: "🤝",
+  };
+  const emoji = statusEmoji[newStatus] || "📋";
+
+  const title = `${emoji} Documento ${statusLabel}`;
+  const body = `${plannerOrgName} marcó ${documentNumber} como ${statusLabel} (${eventName})`;
+  const link = `${BASE_URL}/vendor/finance/${documentType === "quote" ? "quotes" : "invoices"}`;
+
+  await sendPushToUsers(recipients, {
+    title,
+    body,
+    deep_link: link,
+    data: { type: "document_status_changed", status: newStatus },
+  });
+
+  await saveNotification(recipients, vendorOrgId, "document_status_changed", title, body, link, { status: newStatus });
+}
+
+/**
+ * Notify vendor org when planner registers a payment on their document
+ */
+export async function notifyPaymentReceived(
+  vendorOrgId: number,
+  amount: string,
+  currency: string,
+  documentNumber: string | null,
+  plannerOrgName: string,
+  eventName: string
+): Promise<void> {
+  const recipients = await getOrgPlanners(vendorOrgId);
+  if (recipients.length === 0) return;
+
+  const formattedAmount = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: currency || "EUR",
+  }).format(parseFloat(amount));
+
+  const docRef = documentNumber ? ` (${documentNumber})` : "";
+  const title = "💰 Pago recibido";
+  const body = `${plannerOrgName} registró un pago de ${formattedAmount}${docRef} — ${eventName}`;
+  const link = `${BASE_URL}/vendor/finance/payments`;
+
+  await sendPushToUsers(recipients, {
+    title,
+    body,
+    deep_link: link,
+    data: { type: "payment_received" },
+  });
+
+  await saveNotification(recipients, vendorOrgId, "payment_received", title, body, link);
+}
+
+/**
+ * Notify provider org when invited to a new event
+ */
+export async function notifyProviderInvited(
+  providerOrgId: number,
+  eventName: string,
+  plannerOrgName: string,
+  accessId: number
+): Promise<void> {
+  const recipients = await getOrgPlanners(providerOrgId);
+  if (recipients.length === 0) return;
+
+  const title = "📩 Nueva invitación a evento";
+  const body = `${plannerOrgName} te invitó a participar en: ${eventName}`;
+  const link = `${BASE_URL}/vendor/events`;
+
+  await sendPushToUsers(recipients, {
+    title,
+    body,
+    deep_link: link,
+    data: { type: "provider_invited", accessId: accessId.toString() },
+  });
+
+  await saveNotification(recipients, providerOrgId, "provider_invited", title, body, link);
+}

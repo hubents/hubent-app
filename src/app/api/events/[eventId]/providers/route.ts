@@ -5,6 +5,8 @@ import { providerEventAccess, organizations, events, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
+import { ensureVendorForProviderOrg, ensureEventVendor } from "@/lib/cross-org";
+import { notifyProviderInvited } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -137,13 +139,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Auto-link: ensure a local vendor record exists for this provider org
+    let finalVendorId = vendorId || null;
+    try {
+      const linkedVendorId = await ensureVendorForProviderOrg(
+        session.organizationId,
+        finalProviderOrgId,
+        session.user.userId
+      );
+      finalVendorId = finalVendorId || linkedVendorId;
+
+      // Ensure eventVendors record exists
+      await ensureEventVendor(eid, finalVendorId, providerOrg.providerCategory);
+    } catch (linkError) {
+      console.error("Auto-link vendor failed (non-blocking):", linkError);
+    }
+
     const [newAccess] = await db
       .insert(providerEventAccess)
       .values({
         providerOrgId: finalProviderOrgId,
         eventId: eid,
         plannerOrgId: session.organizationId,
-        vendorId: vendorId || null,
+        vendorId: finalVendorId,
         invitedBy: session.user.userId,
         status: "pending",
       })
@@ -167,6 +185,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
       });
     }
+
+    // Push notification to provider org (non-blocking)
+    notifyProviderInvited(
+      finalProviderOrgId,
+      event.name || "Evento",
+      plannerOrg?.name || "Un organizador",
+      newAccess.id
+    ).catch((e) => console.error("Push notify provider invited failed:", e));
 
     return NextResponse.json({ success: true, data: newAccess }, { status: 201 });
   } catch (error) {
