@@ -61,7 +61,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           guests: "view",
           rsvp: "view",
           vendors: "none",
-          finances: "none",
+          finances: "view",
           settings: "none",
         },
       },

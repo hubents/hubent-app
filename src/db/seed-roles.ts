@@ -148,6 +148,7 @@ const defaultRoles = [
       "events:read",
       "tasks:read", "tasks:comment",
       "guests:read", "guests:manage",
+      "finance:read",
     ],
   },
   {

@@ -101,7 +101,7 @@ const DEFAULT_PERMISSIONS: Record<string, string> = {
   guests: "view",
   rsvp: "view",
   vendors: "none",
-  finances: "none",
+  finances: "view",
   settings: "none",
 };
 

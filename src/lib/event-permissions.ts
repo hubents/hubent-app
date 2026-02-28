@@ -116,7 +116,7 @@ function defaultFullPermissions(): EventSectionPermissions {
     guests: "view",
     rsvp: "view",
     vendors: "view",
-    finances: "none",
+    finances: "view",
     settings: "none",
   };
 }
