@@ -60,32 +60,28 @@ export function useBeams() {
 
     const registerUser = async () => {
       try {
-        // Get Beams token from our API
-        const tokenRes = await fetch("/api/pusher/beams-auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }),
-        });
-
-        if (!tokenRes.ok) {
-          console.error("Failed to get Beams token");
-          return;
-        }
-
-        const { token } = await tokenRes.json();
-
-        // Start Beams client with authenticated user
         await client.start();
         
-        // Set user ID for targeted notifications
         await client.setUserId(userId, {
-          fetchToken: async () => token,
+          fetchToken: async () => {
+            const tokenRes = await fetch("/api/pusher/beams-auth", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId }),
+            });
+
+            if (!tokenRes.ok) {
+              throw new Error(`Beams auth failed: ${tokenRes.status}`);
+            }
+
+            const data = await tokenRes.json();
+            return data;
+          },
         });
 
         setIsRegistered(true);
-        console.log("Pusher Beams registered for user:", userId);
       } catch (error) {
-        console.error("Failed to register with Pusher Beams:", error);
+        console.warn("Pusher Beams registration skipped:", error instanceof Error ? error.message : error);
       }
     };
 

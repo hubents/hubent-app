@@ -10,6 +10,7 @@ import { UserSessionProvider } from "@/contexts/user-session-context";
 import { DashboardContent } from "@/components/layout/dashboard-content";
 import { RealtimeNotifications } from "@/components/notifications/realtime-notifications";
 import { NotificationPrompt } from "@/components/notifications/notification-prompt";
+import { ErrorBoundary } from "@/components/layout/error-boundary";
 import { Suspense } from "react";
 
 export default function DashboardLayout({
@@ -41,7 +42,9 @@ export default function DashboardLayout({
           <div className="hidden md:block">
             <Header />
           </div>
-          <main className="p-[var(--padding-page)] md:p-[var(--padding-page-lg)] pb-20 md:pb-[var(--padding-page-lg)]">{children}</main>
+          <ErrorBoundary>
+            <main className="p-[var(--padding-page)] md:p-[var(--padding-page-lg)] pb-20 md:pb-[var(--padding-page-lg)]">{children}</main>
+          </ErrorBoundary>
         </DashboardContent>
         
         {/* Mobile Bottom Navigation */}
