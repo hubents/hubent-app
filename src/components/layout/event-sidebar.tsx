@@ -71,6 +71,14 @@ export function EventSidebar() {
     fetchPermissions();
   }, [eventScoped, eventId]);
 
+  const isFinancePage = activeEvent
+    ? pathname.startsWith(`/dashboard/events/${activeEvent.id}/finances`)
+    : false;
+
+  useEffect(() => {
+    if (isFinancePage) setFinanceExpanded(true);
+  }, [isFinancePage]);
+
   if (!activeEvent) return null;
 
   const basePath = `/dashboard/events/${activeEvent.id}`;
@@ -99,12 +107,6 @@ export function EventSidebar() {
     { name: "Facturas", href: `${basePath}/finances/invoices`, icon: RiFileList2Line },
     { name: "Pagos", href: `${basePath}/finances/payments`, icon: RiMoneyDollarCircleLine },
   ];
-
-  const isFinancePage = pathname.startsWith(`${basePath}/finances`);
-
-  useEffect(() => {
-    if (isFinancePage) setFinanceExpanded(true);
-  }, [isFinancePage]);
 
   const status = statusMap[activeEvent.status] || statusMap.draft;
 
