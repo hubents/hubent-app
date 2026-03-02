@@ -16,6 +16,9 @@ import {
   RiArrowLeftLine,
   RiCalendarEventLine,
   RiLockLine,
+  RiArrowDownSLine,
+  RiFileTextLine,
+  RiFileList2Line,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useUserSessionContext } from "@/contexts/user-session-context";
@@ -44,6 +47,7 @@ export function EventSidebar() {
   const { activeEvent, setActiveEvent } = useEvent();
   const { eventScoped } = useUserSessionContext();
   const [eventPermissions, setEventPermissions] = useState<Record<string, string> | null>(null);
+  const [financeExpanded, setFinanceExpanded] = useState(false);
 
   const eventId = activeEvent?.id;
 
@@ -77,7 +81,7 @@ export function EventSidebar() {
     { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
     { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
     { name: "Proveedores", href: `${basePath}/vendors`, icon: RiStore2Line },
-    { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine },
+    { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine, hasSubmenu: true },
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];
 
@@ -89,6 +93,18 @@ export function EventSidebar() {
         return eventPermissions[section] !== "none";
       })
     : allNavigation;
+
+  const financeSubNav = [
+    { name: "Presupuestos", href: `${basePath}/finances/quotes`, icon: RiFileTextLine },
+    { name: "Facturas", href: `${basePath}/finances/invoices`, icon: RiFileList2Line },
+    { name: "Pagos", href: `${basePath}/finances/payments`, icon: RiMoneyDollarCircleLine },
+  ];
+
+  const isFinancePage = pathname.startsWith(`${basePath}/finances`);
+
+  useEffect(() => {
+    if (isFinancePage) setFinanceExpanded(true);
+  }, [isFinancePage]);
 
   const status = statusMap[activeEvent.status] || statusMap.draft;
 
@@ -126,6 +142,56 @@ export function EventSidebar() {
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
           {navigation.map((item) => {
+            if (item.hasSubmenu) {
+              return (
+                <div key={item.name}>
+                  <button
+                    onClick={() => setFinanceExpanded(!financeExpanded)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors",
+                      isFinancePage
+                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-4 w-4" />
+                      {item.name}
+                    </div>
+                    <RiArrowDownSLine
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        financeExpanded && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  {financeExpanded && (
+                    <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
+                      {financeSubNav.map((subItem) => {
+                        const isSubActive = pathname === subItem.href || pathname.startsWith(subItem.href + "/");
+                        return (
+                          <Link
+                            key={subItem.name}
+                            href={subItem.href}
+                            className={cn(
+                              "flex items-center gap-2 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors",
+                              isSubActive
+                                ? "bg-[var(--primary)] text-white"
+                                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                            )}
+                          >
+                            <subItem.icon className="h-3.5 w-3.5" />
+                            {subItem.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isActive = item.exact 
               ? pathname === item.href 
               : pathname === item.href || pathname.startsWith(item.href + "/");
