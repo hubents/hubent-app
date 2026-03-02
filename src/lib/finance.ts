@@ -196,9 +196,9 @@ export async function createBankAccount(
 
 export async function getDocuments(
   session: TenantSession,
-  params: PaginationParams & FilterParams & { type?: string; direction?: string; search?: string } = {}
+  params: PaginationParams & FilterParams & { type?: string; direction?: string; search?: string; eventId?: number } = {}
 ) {
-  const { page = 1, limit = 50, type, status, direction, search } = params;
+  const { page = 1, limit = 50, type, status, direction, search, eventId } = params;
   const offset = (page - 1) * limit;
 
   let whereClause = eq(financialDocuments.organizationId, session.organizationId);
@@ -222,8 +222,12 @@ export async function getDocuments(
     }
   }
 
-  // Exclude mirror documents from normal listings
-  whereClause = and(whereClause, sql`${financialDocuments.sourceDocumentId} IS NULL`)!;
+  if (eventId) {
+    whereClause = and(whereClause, eq(financialDocuments.eventId, eventId))!;
+  } else {
+    // Exclude mirror documents from normal listings (but include them in event-scoped views)
+    whereClause = and(whereClause, sql`${financialDocuments.sourceDocumentId} IS NULL`)!;
+  }
 
   if (search) {
     whereClause = and(
