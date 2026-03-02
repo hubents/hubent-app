@@ -56,12 +56,9 @@ import {
   RiEyeLine,
   RiDeleteBinLine,
   RiFileDownloadLine,
-  RiFileCopyLine,
   RiExchangeLine,
-  RiSendPlaneLine,
   RiCloseLine,
   RiHandCoinLine,
-  RiArrowDownSLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
