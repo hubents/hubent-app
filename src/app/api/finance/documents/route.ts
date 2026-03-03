@@ -15,8 +15,10 @@ export async function GET(request: NextRequest) {
     const direction = searchParams.get("direction") || undefined;
     const search = searchParams.get("search") || undefined;
     const eventId = searchParams.get("eventId") ? parseInt(searchParams.get("eventId")!, 10) : undefined;
+    const contactId = searchParams.get("contactId") ? parseInt(searchParams.get("contactId")!, 10) : undefined;
+    const vendorId = searchParams.get("vendorId") ? parseInt(searchParams.get("vendorId")!, 10) : undefined;
 
-    const result = await getDocuments(session, { page, limit, type, status, direction, search, eventId });
+    const result = await getDocuments(session, { page, limit, type, status, direction, search, eventId, contactId, vendorId });
 
     return NextResponse.json({
       success: true,

@@ -555,7 +555,7 @@ function InvoicesContent() {
                     <TableRow 
                       key={invoice.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => openEditDrawer(invoice.id)}
+                      onClick={() => invoice.status === "paid" || invoice.status === "partial" ? openPreview(invoice.id) : openEditDrawer(invoice.id)}
                     >
                       <TableCell>
                         {invoice.issueDate
@@ -601,7 +601,7 @@ function InvoicesContent() {
                               </>
                             )}
                             {/* Credit note and delivery note */}
-                            {(invoice.status === "sent" || invoice.status === "paid") && (
+                            {(invoice.status === "sent" || invoice.status === "paid" || invoice.status === "partial") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "delivery_note")}>
@@ -751,6 +751,7 @@ function InvoicesContent() {
           setPreviewOpen(false);
           if (previewInvoice) openEditDrawer(previewInvoice.id);
         }}
+        onRefresh={fetchInvoices}
       />
     </div>
   );

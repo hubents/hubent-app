@@ -196,9 +196,9 @@ export async function createBankAccount(
 
 export async function getDocuments(
   session: TenantSession,
-  params: PaginationParams & FilterParams & { type?: string; direction?: string; search?: string; eventId?: number } = {}
+  params: PaginationParams & FilterParams & { type?: string; direction?: string; search?: string; eventId?: number; contactId?: number; vendorId?: number } = {}
 ) {
-  const { page = 1, limit = 50, type, status, direction, search, eventId } = params;
+  const { page = 1, limit = 50, type, status, direction, search, eventId, contactId, vendorId } = params;
   const offset = (page - 1) * limit;
 
   let whereClause = eq(financialDocuments.organizationId, session.organizationId);
@@ -220,6 +220,14 @@ export async function getDocuments(
     } else {
       whereClause = and(whereClause, eq(financialDocuments.direction, direction))!;
     }
+  }
+
+  if (contactId) {
+    whereClause = and(whereClause, eq(financialDocuments.contactId, contactId))!;
+  }
+
+  if (vendorId) {
+    whereClause = and(whereClause, eq(financialDocuments.vendorId, vendorId))!;
   }
 
   if (eventId) {
@@ -609,7 +617,7 @@ export async function updateDocument(
   // RULE: If quote is accepted/rejected/payment_promise and items or discount change, auto-reset to "sent"
   const isQuoteWithActiveStatus = currentDoc.type === "quote" && 
     ["accepted", "rejected", "payment_promise"].includes(currentDoc.status || "");
-  const hasFinancialChanges = data.items !== undefined || data.globalDiscount !== undefined || data.globalDiscountType !== undefined;
+  const hasFinancialChanges = data.items !== undefined || data.globalDiscount !== undefined || data.globalDiscountType !== undefined || data.termsAndConditions !== undefined;
   let autoResetStatus = false;
   if (isQuoteWithActiveStatus && hasFinancialChanges) {
     autoResetStatus = true;

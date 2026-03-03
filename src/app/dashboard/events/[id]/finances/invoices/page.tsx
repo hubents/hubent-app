@@ -289,7 +289,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                     <TableRow
                       key={doc.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => openEditDoc(doc.id)}
+                      onClick={() => doc.status === "paid" || doc.status === "partial" ? openPreview(doc.id) : openEditDoc(doc.id)}
                     >
                       <TableCell className="text-sm">
                         {doc.issueDate
@@ -319,30 +319,31 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {doc.status === "sent" && (
-                              <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "paid")}>
-                                <RiCheckLine className="mr-2 h-4 w-4" /> Marcar como Pagada
-                              </DropdownMenuItem>
-                            )}
-                            {doc.status === "partial" && (
+                            {(doc.status === "sent" || doc.status === "partial") && (
                               <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "paid")}>
                                 <RiCheckLine className="mr-2 h-4 w-4" /> Marcar como Pagada
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
-                              <RiEditLine className="mr-2 h-4 w-4" /> Editar
-                            </DropdownMenuItem>
+                            {doc.status !== "paid" && doc.status !== "partial" && (
+                              <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
+                                <RiEditLine className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `invoice-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600" onClick={() => deleteDoc(doc.id)}>
-                              <RiDeleteBinLine className="mr-2 h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
+                            {doc.status !== "paid" && doc.status !== "partial" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600" onClick={() => deleteDoc(doc.id)}>
+                                  <RiDeleteBinLine className="mr-2 h-4 w-4" /> Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

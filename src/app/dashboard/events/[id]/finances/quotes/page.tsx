@@ -338,16 +338,38 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "payment_promise")}>
                                   <RiHandCoinLine className="mr-2 h-4 w-4" /> Promesa de pago
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "sent")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Pendiente
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => fetchDocAndConvert(doc.id, "invoice")}>
                                   <RiExchangeLine className="mr-2 h-4 w-4" /> Convertir a Factura
                                 </DropdownMenuItem>
                               </>
                             )}
+                            {doc.status === "rejected" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "sent")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Pendiente
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "accepted")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" /> Aceptar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             {doc.status === "payment_promise" && (
-                              <DropdownMenuItem onClick={() => fetchDocAndConvert(doc.id, "invoice")}>
-                                <RiExchangeLine className="mr-2 h-4 w-4" /> Convertir a Factura
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "accepted")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Aceptado
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "sent")}>
+                                  <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Pendiente
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => fetchDocAndConvert(doc.id, "invoice")}>
+                                  <RiExchangeLine className="mr-2 h-4 w-4" /> Convertir a Factura
+                                </DropdownMenuItem>
+                              </>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
@@ -359,10 +381,14 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                             <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `quote-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
+                            {(doc.status === "sent" || doc.status === "rejected" || doc.status === "draft") && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600" onClick={() => deleteDoc(doc.id)}>
                               <RiDeleteBinLine className="mr-2 h-4 w-4" /> Eliminar
                             </DropdownMenuItem>
+                            </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

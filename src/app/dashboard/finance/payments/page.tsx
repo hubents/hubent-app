@@ -168,6 +168,11 @@ export default function PaymentsPage() {
     fetchSchedules();
   }, [directionFilter, page]);
 
+  useEffect(() => {
+    fetchDocuments();
+    setNewPayment((prev) => ({ ...prev, documentId: "" }));
+  }, [contactValue]);
+
   async function openDocPreview(documentId: number) {
     try {
       const res = await fetch(`/api/finance/documents/${documentId}`);
@@ -225,9 +230,13 @@ export default function PaymentsPage() {
 
   async function fetchDocuments() {
     try {
+      const contactParam = contactValue?.type === "contact" && contactValue.id ? `&contactId=${contactValue.id}` : "";
+      const vendorParam = contactValue?.type === "vendor" && contactValue.id ? `&vendorId=${contactValue.id}` : "";
+      const entityFilter = contactParam || vendorParam;
+
       const [invoicesRes, quotesRes] = await Promise.all([
-        fetch("/api/finance/documents?type=invoice&limit=100"),
-        fetch("/api/finance/documents?type=quote&limit=100"),
+        fetch(`/api/finance/documents?type=invoice&limit=100${entityFilter}`),
+        fetch(`/api/finance/documents?type=quote&limit=100${entityFilter}`),
       ]);
       
       const allDocs: FinancialDocument[] = [];

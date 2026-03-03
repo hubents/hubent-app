@@ -249,7 +249,7 @@ export function DocumentPreview({
     if (type === "quote") {
       if (current === "draft") return ["sent"];
       if (current === "sent") return ["accepted", "rejected"];
-      if (current === "accepted") return ["payment_promise"];
+      if (current === "accepted") return ["payment_promise", "sent"];
       if (current === "payment_promise") return ["accepted", "sent"];
       if (current === "rejected") return ["sent", "accepted"];
       return [];

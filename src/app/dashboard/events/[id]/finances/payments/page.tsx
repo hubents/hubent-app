@@ -35,7 +35,6 @@ import {
   RiAddLine,
   RiCheckLine,
   RiTimeLine,
-  RiAlertLine,
   RiListCheck,
   RiCalendarLine,
   RiArrowLeftSLine,
@@ -82,7 +81,6 @@ const paymentStatusConfig: Record<string, { label: string; color: string; icon: 
   paid: { label: "Pagado", color: "bg-green-100 text-green-700", icon: RiCheckLine },
   complete: { label: "Pagado", color: "bg-green-100 text-green-700", icon: RiCheckLine },
   pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700", icon: RiTimeLine },
-  overdue: { label: "Vencido", color: "bg-red-100 text-red-700", icon: RiAlertLine },
 };
 
 export default function EventPaymentsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -188,6 +186,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
 
   const handleAddPayment = async () => {
     if (!newPayment.amount) { toast.error("El monto es requerido"); return; }
+    const effectiveStatus = parseFloat(newPayment.amount) > 0 ? "complete" : newPayment.status;
     try {
       const res = await fetch(`/api/events/${eventId}/payments`, {
         method: "POST",
@@ -198,7 +197,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
           paymentDate: newPayment.paymentDate ? new Date(newPayment.paymentDate) : new Date(),
           paymentMethod: newPayment.paymentMethod,
           reference: newPayment.reference || null,
-          status: newPayment.status,
+          status: effectiveStatus,
           documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
           attachmentUrl: newPayment.attachmentUrl || null,
           attachmentName: newPayment.attachmentName || null,
