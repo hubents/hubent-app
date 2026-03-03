@@ -510,6 +510,20 @@ const INVOICE_TRANSITIONS: Record<string, string[]> = {
   paid: ["sent"],
 };
 
+const PROFORMA_TRANSITIONS: Record<string, string[]> = {
+  draft: ["approved"],
+  approved: ["sent"],
+  sent: ["partial", "paid"],
+  partial: ["paid", "sent"],
+  paid: ["sent"],
+};
+
+const DELIVERY_NOTE_TRANSITIONS: Record<string, string[]> = {
+  draft: ["approved"],
+  approved: ["sent"],
+  sent: ["delivered"],
+};
+
 export async function updateDocumentStatus(
   session: TenantSession,
   documentId: number,
@@ -534,7 +548,9 @@ export async function updateDocumentStatus(
   if (!options?.skipValidation) {
     const currentStatus = doc.status || "draft";
     const transitions = doc.type === "quote" ? QUOTE_TRANSITIONS : 
-                        doc.type === "invoice" ? INVOICE_TRANSITIONS : null;
+                        doc.type === "invoice" ? INVOICE_TRANSITIONS :
+                        doc.type === "proforma" ? PROFORMA_TRANSITIONS :
+                        doc.type === "delivery_note" ? DELIVERY_NOTE_TRANSITIONS : null;
 
     if (transitions) {
       const allowed = transitions[currentStatus] || [];

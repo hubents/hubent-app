@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   RiAddLine,
-  RiCheckLine,
   RiFileList2Line,
   RiMoreLine,
   RiEditLine,
@@ -319,12 +318,6 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {(doc.status === "sent" || doc.status === "partial") && (
-                              <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "paid")}>
-                                <RiCheckLine className="mr-2 h-4 w-4" /> Marcar como Pagada
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
                             {doc.status !== "paid" && doc.status !== "partial" && (
                               <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" /> Editar

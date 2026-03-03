@@ -458,7 +458,7 @@ export default function PaymentsPage() {
   function getDocumentLabel(doc: FinancialDocument) {
     const typeLabels: Record<string, string> = {
       invoice: "Factura",
-      quote: "Presupuesto",
+      quote: "Presupuesto (Promesa de pago)",
       proforma: "Proforma",
       delivery_note: "Albarán",
     };
@@ -546,7 +546,7 @@ export default function PaymentsPage() {
                   onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar factura o presupuesto..." />
+                    <SelectValue placeholder="Seleccionar documento a conciliar..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin documento</SelectItem>
@@ -559,7 +559,7 @@ export default function PaymentsPage() {
                 </Select>
                 {documents.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No hay facturas o presupuestos pendientes de pago
+                    No hay documentos pendientes de conciliación
                   </p>
                 )}
               </div>

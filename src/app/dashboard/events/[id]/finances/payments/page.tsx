@@ -526,7 +526,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                     <SelectItem value="none">Sin documento</SelectItem>
                     {eventDocs.map((doc) => (
                       <SelectItem key={doc.id} value={doc.id.toString()}>
-                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {formatCurrency(parseFloat(doc.total))}
+                        {doc.type === "invoice" ? "Factura" : "Presupuesto (Promesa de pago)"} {doc.number} — {formatCurrency(parseFloat(doc.total))}
                       </SelectItem>
                     ))}
                   </SelectContent>
