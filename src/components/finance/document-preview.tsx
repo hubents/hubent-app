@@ -109,13 +109,14 @@ const typeLabels: Record<string, string> = {
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-800" },
+  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
   approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-800" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-800" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-800" },
+  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-800" },
   paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-800" },
-  partial: { label: "Parcialmente pagado", color: "bg-amber-100 text-amber-800" },
+  partial: { label: "Parcial", color: "bg-amber-100 text-amber-800" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-800" },
   cancelled: { label: "Cancelado", color: "bg-gray-100 text-gray-500" },
   delivered: { label: "Entregado", color: "bg-purple-100 text-purple-800" },
@@ -246,22 +247,23 @@ export function DocumentPreview({
     const current = document.status;
 
     if (type === "quote") {
-      if (current === "draft") return ["approved", "sent"];
-      if (current === "approved") return ["sent"];
+      if (current === "draft") return ["sent"];
       if (current === "sent") return ["accepted", "rejected"];
+      if (current === "accepted") return ["payment_promise"];
+      if (current === "payment_promise") return ["accepted", "sent"];
+      if (current === "rejected") return ["sent", "accepted"];
       return [];
     }
 
     if (type === "invoice" || type === "proforma" || type === "credit_note") {
-      if (current === "draft") return ["approved", "sent"];
-      if (current === "approved") return ["sent"];
-      if (current === "sent") return ["paid", "cancelled"];
+      if (current === "draft") return ["sent"];
+      if (current === "sent") return ["paid"];
+      if (current === "partial") return ["paid"];
       return [];
     }
 
     if (type === "delivery_note") {
-      if (current === "draft") return ["approved", "sent"];
-      if (current === "approved") return ["sent"];
+      if (current === "draft") return ["sent"];
       if (current === "sent") return ["delivered"];
       return [];
     }

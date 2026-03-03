@@ -65,15 +65,17 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
+  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected";
+type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todos" },
   { key: "sent", label: "Pendiente" },
   { key: "accepted", label: "Aceptado" },
   { key: "rejected", label: "Rechazado" },
+  { key: "payment_promise", label: "Promesa de pago" },
 ];
 
 export default function VendorQuotesPage() {

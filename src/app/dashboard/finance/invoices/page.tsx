@@ -110,14 +110,16 @@ interface Invoice {
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
+  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "paid";
+type StatusTab = "all" | "sent" | "partial" | "paid";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
   { key: "sent", label: "Pendiente" },
+  { key: "partial", label: "Parcial" },
   { key: "paid", label: "Pagada" },
 ];
 
@@ -586,7 +588,7 @@ function InvoicesContent() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {/* Payment actions — available when not fully paid */}
-                            {invoice.status === "sent" && (
+                            {(invoice.status === "sent" || invoice.status === "partial") && (
                               <>
                                 <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
                                   <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
@@ -614,7 +616,7 @@ function InvoicesContent() {
                             )}
                             <DropdownMenuSeparator />
                             {/* Common actions */}
-                            {invoice.status !== "paid" && (
+                            {invoice.status !== "paid" && invoice.status !== "partial" && (
                               <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" />
                                 Editar

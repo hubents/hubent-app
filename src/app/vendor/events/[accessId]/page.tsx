@@ -117,7 +117,9 @@ const docStatusConfig: Record<string, { label: string; color: string }> = {
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
+  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-700" },
+  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 

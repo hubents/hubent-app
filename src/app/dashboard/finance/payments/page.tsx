@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,10 +41,24 @@ import {
   RiFileTextLine,
   RiAlertLine,
   RiCalendarLine,
+  RiMoreLine,
+  RiEditLine,
+  RiDeleteBinLine,
+  RiFileDownloadLine,
+  RiCloseLine,
+  RiAttachmentLine,
+  RiLoader4Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
@@ -65,6 +80,8 @@ interface Payment {
   documentNumber?: string | null;
   documentType?: string | null;
   contactName?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
 }
 
 type DirectionTab = "all" | "incoming" | "outgoing";
@@ -127,6 +144,7 @@ export default function PaymentsPage() {
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
 
   // New payment form
   const [newPayment, setNewPayment] = useState({
@@ -138,7 +156,11 @@ export default function PaymentsPage() {
     notes: "",
     paymentDate: new Date().toISOString().split("T")[0],
     documentId: "",
+    attachmentUrl: "",
+    attachmentName: "",
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
 
   useEffect(() => {
     fetchPayments();
@@ -214,7 +236,7 @@ export default function PaymentsPage() {
         const data = await invoicesRes.json();
         if (data.success && data.data) {
           const pending = data.data.filter((d: FinancialDocument) => 
-            d.status === "draft" || d.status === "sent"
+            d.status === "sent" || d.status === "partial"
           );
           allDocs.push(...pending);
         }
@@ -223,10 +245,10 @@ export default function PaymentsPage() {
       if (quotesRes.ok) {
         const data = await quotesRes.json();
         if (data.success && data.data) {
-          const accepted = data.data.filter((d: FinancialDocument) => 
-            d.status === "accepted"
+          const withPromise = data.data.filter((d: FinancialDocument) => 
+            d.status === "payment_promise"
           );
-          allDocs.push(...accepted);
+          allDocs.push(...withPromise);
         }
       }
       
@@ -280,23 +302,14 @@ export default function PaymentsPage() {
           documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
           contactId: contactValue?.type === "contact" ? contactValue.id : null,
           vendorId: contactValue?.type === "vendor" ? contactValue.id : null,
+          attachmentUrl: newPayment.attachmentUrl || null,
+          attachmentName: newPayment.attachmentName || null,
         }),
       });
 
       if (res.ok) {
         toast.success("Pago registrado");
-        setDialogOpen(false);
-        setNewPayment({
-          amount: "",
-          currency: "EUR",
-          direction: "incoming",
-          paymentMethod: "bank_transfer",
-          reference: "",
-          notes: "",
-          paymentDate: new Date().toISOString().split("T")[0],
-          documentId: "",
-        });
-        setContactValue(null);
+        resetAndClose();
         fetchPayments();
         fetchDocuments();
       } else {
@@ -305,6 +318,117 @@ export default function PaymentsPage() {
     } catch (error) {
       toast.error("Error al registrar pago");
     }
+  }
+
+  function openEditPayment(payment: Payment) {
+    setEditingPaymentId(payment.id);
+    setNewPayment({
+      amount: payment.amount,
+      currency: payment.currency || "EUR",
+      direction: payment.direction,
+      paymentMethod: payment.paymentMethod || "bank_transfer",
+      reference: payment.reference || "",
+      notes: payment.notes || "",
+      paymentDate: payment.paymentDate ? payment.paymentDate.split("T")[0] : new Date().toISOString().split("T")[0],
+      documentId: payment.documentId?.toString() || "",
+      attachmentUrl: payment.attachmentUrl || "",
+      attachmentName: payment.attachmentName || "",
+    });
+    setContactValue(
+      payment.contactId ? { type: "contact", id: payment.contactId } :
+      payment.vendorId ? { type: "vendor", id: payment.vendorId } :
+      null
+    );
+    setDialogOpen(true);
+  }
+
+  async function updatePayment() {
+    if (!editingPaymentId || !newPayment.amount) {
+      toast.error("El monto es requerido");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/finance/payments/${editingPaymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(newPayment.amount),
+          paymentMethod: newPayment.paymentMethod,
+          paymentDate: new Date(newPayment.paymentDate),
+          reference: newPayment.reference || null,
+          notes: newPayment.notes || null,
+          attachmentUrl: newPayment.attachmentUrl || null,
+          attachmentName: newPayment.attachmentName || null,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Pago actualizado");
+        resetAndClose();
+        fetchPayments();
+        fetchDocuments();
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error?.message || "Error al actualizar pago");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar pago");
+    }
+  }
+
+  async function deletePayment(id: number) {
+    if (!confirm("¿Estás seguro de eliminar este pago? Se recalculará el saldo del documento asociado.")) return;
+
+    try {
+      const res = await fetch(`/api/finance/payments/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Pago eliminado");
+        fetchPayments();
+        fetchDocuments();
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error?.message || "Error al eliminar pago");
+      }
+    } catch (error) {
+      toast.error("Error al eliminar pago");
+    }
+  }
+
+  function resetAndClose() {
+    setDialogOpen(false);
+    setEditingPaymentId(null);
+    setNewPayment({
+      amount: "",
+      currency: "EUR",
+      direction: "incoming",
+      paymentMethod: "bank_transfer",
+      reference: "",
+      notes: "",
+      paymentDate: new Date().toISOString().split("T")[0],
+      documentId: "",
+      attachmentUrl: "",
+      attachmentName: "",
+    });
+    setContactValue(null);
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result) {
+      setNewPayment((prev) => ({
+        ...prev,
+        attachmentUrl: result.url,
+        attachmentName: result.name,
+      }));
+      toast.success("Comprobante adjuntado");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleDocumentSelect(docId: string) {
@@ -379,16 +503,16 @@ export default function PaymentsPage() {
             Registro de cobros y pagos
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => { setEditingPaymentId(null); setDialogOpen(true); }}>
           <RiAddLine className="mr-2 h-4 w-4" />
           Registrar Pago
         </Button>
-        <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Sheet open={dialogOpen} onOpenChange={(open) => { if (!open) resetAndClose(); }}>
           <SheetContent className="sm:max-w-2xl overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Registrar Pago</SheetTitle>
+              <SheetTitle>{editingPaymentId ? "Editar Pago" : "Registrar Pago"}</SheetTitle>
               <SheetDescription>
-                Registra un nuevo cobro o pago
+                {editingPaymentId ? "Modifica los datos del pago" : "Registra un nuevo cobro o pago"}
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-4 px-4 py-4">
@@ -522,12 +646,70 @@ export default function PaymentsPage() {
                   placeholder="Descripción del pago"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <RiAttachmentLine className="h-4 w-4" />
+                  Comprobante (opcional)
+                </Label>
+                {newPayment.attachmentUrl ? (
+                  <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
+                    <RiFileDownloadLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <a
+                      href={newPayment.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline truncate flex-1"
+                    >
+                      {newPayment.attachmentName || "Comprobante"}
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => setNewPayment((prev) => ({ ...prev, attachmentUrl: "", attachmentName: "" }))}
+                    >
+                      <RiCloseLine className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={fileUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {fileUploading ? (
+                        <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RiAttachmentLine className="mr-2 h-4 w-4" />
+                      )}
+                      {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PDF o imagen, máx. 10MB
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             <SheetFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button variant="outline" onClick={resetAndClose}>
                 Cancelar
               </Button>
-              <Button onClick={createPayment}>Registrar</Button>
+              <Button onClick={editingPaymentId ? updatePayment : createPayment}>
+                {editingPaymentId ? "Guardar cambios" : "Registrar"}
+              </Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>
@@ -693,12 +875,13 @@ export default function PaymentsPage() {
                 <TableHead>Conciliado con</TableHead>
                 <TableHead>Referencia</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
+                <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredPayments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay pagos registrados
                   </TableCell>
                 </TableRow>
@@ -755,6 +938,26 @@ export default function PaymentsPage() {
                         {payment.direction === "incoming" ? "+" : "-"}
                         {formatCurrency(payment.amount, payment.currency)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <RiMoreLine className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditPayment(payment)}>
+                            <RiEditLine className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600" onClick={() => deletePayment(payment.id)}>
+                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

@@ -71,6 +71,7 @@ interface FinDoc {
 const invoiceStatusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
+  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagada", color: "bg-green-100 text-green-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
 };

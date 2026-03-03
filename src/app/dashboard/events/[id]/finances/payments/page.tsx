@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, use, useRef } from "react";
 import { useEvent } from "@/contexts/event-context";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   Select,
@@ -21,6 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   RiMoneyDollarCircleLine,
   RiAddLine,
@@ -31,6 +40,14 @@ import {
   RiCalendarLine,
   RiArrowLeftSLine,
   RiArrowRightSLine,
+  RiMoreLine,
+  RiEditLine,
+  RiDeleteBinLine,
+  RiAttachmentLine,
+  RiFileDownloadLine,
+  RiCloseLine,
+  RiLoader4Line,
+  RiFileTextLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -46,6 +63,19 @@ interface Payment {
   paidBy: string | null;
   vendorName: string | null;
   taskTitle: string | null;
+  source?: string;
+  paymentMethod?: string | null;
+  reference?: string | null;
+  documentNumber?: string | null;
+  attachmentUrl?: string | null;
+}
+
+interface EventDocument {
+  id: number;
+  type: string;
+  number: string;
+  total: string;
+  status: string;
 }
 
 const paymentStatusConfig: Record<string, { label: string; color: string; icon: typeof RiCheckLine }> = {
@@ -62,17 +92,27 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
 
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [eventDocs, setEventDocs] = useState<EventDocument[]>([]);
   const [currency, setCurrency] = useState("EUR");
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showAddPayment, setShowAddPayment] = useState(false);
-  const [newPayment, setNewPayment] = useState({
+  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
+
+  const defaultForm = {
     description: "",
     amount: "",
-    dueDate: "",
-    paidTo: "",
-    status: "pending",
-  });
+    paymentDate: new Date().toISOString().split("T")[0],
+    paymentMethod: "bank_transfer",
+    reference: "",
+    status: "complete",
+    documentId: "",
+    attachmentUrl: "",
+    attachmentName: "",
+  };
+  const [newPayment, setNewPayment] = useState(defaultForm);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
 
   const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(amount);
@@ -87,6 +127,31 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
       }
     } catch (error) {
       console.error("Failed to fetch payments:", error);
+    }
+  }, [eventId]);
+
+  const fetchEventDocs = useCallback(async () => {
+    try {
+      const [invRes, quoteRes] = await Promise.all([
+        fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`),
+        fetch(`/api/finance/documents?type=quote&eventId=${eventId}&limit=100`),
+      ]);
+      const docs: EventDocument[] = [];
+      if (invRes.ok) {
+        const data = await invRes.json();
+        if (data.success && data.data) {
+          docs.push(...data.data.filter((d: EventDocument) => d.status === "sent" || d.status === "partial"));
+        }
+      }
+      if (quoteRes.ok) {
+        const data = await quoteRes.json();
+        if (data.success && data.data) {
+          docs.push(...data.data.filter((d: EventDocument) => d.status === "payment_promise"));
+        }
+      }
+      setEventDocs(docs);
+    } catch (error) {
+      console.error("Failed to fetch event docs:", error);
     }
   }, [eventId]);
 
@@ -105,7 +170,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
           setActiveEvent(eventData.data);
         }
 
-        await fetchPayments();
+        await Promise.all([fetchPayments(), fetchEventDocs()]);
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {
@@ -113,28 +178,124 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
       }
     }
     fetchData();
-  }, [eventId, setActiveEvent, fetchPayments]);
+  }, [eventId, setActiveEvent, fetchPayments, fetchEventDocs]);
+
+  function resetAndClose() {
+    setShowAddPayment(false);
+    setEditingPaymentId(null);
+    setNewPayment(defaultForm);
+  }
 
   const handleAddPayment = async () => {
+    if (!newPayment.amount) { toast.error("El monto es requerido"); return; }
     try {
       const res = await fetch(`/api/events/${eventId}/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newPayment),
+        body: JSON.stringify({
+          amount: parseFloat(newPayment.amount),
+          notes: newPayment.description || null,
+          paymentDate: newPayment.paymentDate ? new Date(newPayment.paymentDate) : new Date(),
+          paymentMethod: newPayment.paymentMethod,
+          reference: newPayment.reference || null,
+          status: newPayment.status,
+          documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
+          attachmentUrl: newPayment.attachmentUrl || null,
+          attachmentName: newPayment.attachmentName || null,
+          direction: "outgoing",
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Pago añadido");
-        setShowAddPayment(false);
-        setNewPayment({ description: "", amount: "", dueDate: "", paidTo: "", status: "pending" });
+        toast.success("Pago registrado");
+        resetAndClose();
         fetchPayments();
+        fetchEventDocs();
       } else {
-        toast.error(data?.error?.message || "Error al añadir pago");
+        toast.error(data?.error?.message || "Error al registrar pago");
       }
     } catch {
-      toast.error("Error al añadir pago");
+      toast.error("Error al registrar pago");
     }
   };
+
+  function openEditPayment(payment: Payment) {
+    setEditingPaymentId(payment.id);
+    setNewPayment({
+      description: payment.description || "",
+      amount: payment.amount,
+      paymentDate: payment.paidDate ? String(payment.paidDate).split("T")[0] : (payment.dueDate ? String(payment.dueDate).split("T")[0] : new Date().toISOString().split("T")[0]),
+      paymentMethod: payment.paymentMethod || "bank_transfer",
+      reference: payment.reference || "",
+      status: payment.status || "complete",
+      documentId: "",
+      attachmentUrl: payment.attachmentUrl || "",
+      attachmentName: "",
+    });
+    setShowAddPayment(true);
+  }
+
+  async function handleUpdatePayment() {
+    if (!editingPaymentId || !newPayment.amount) { toast.error("El monto es requerido"); return; }
+    try {
+      const res = await fetch(`/api/finance/payments/${editingPaymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: parseFloat(newPayment.amount),
+          paymentMethod: newPayment.paymentMethod,
+          paymentDate: new Date(newPayment.paymentDate),
+          reference: newPayment.reference || null,
+          notes: newPayment.description || null,
+          attachmentUrl: newPayment.attachmentUrl || null,
+          attachmentName: newPayment.attachmentName || null,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Pago actualizado");
+        resetAndClose();
+        fetchPayments();
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error?.message || "Error al actualizar pago");
+      }
+    } catch { toast.error("Error al actualizar pago"); }
+  }
+
+  async function deletePayment(id: number) {
+    if (!confirm("¿Estás seguro de eliminar este pago?")) return;
+    try {
+      const res = await fetch(`/api/finance/payments/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Pago eliminado");
+        fetchPayments();
+        fetchEventDocs();
+      } else {
+        toast.error("Error al eliminar pago");
+      }
+    } catch { toast.error("Error al eliminar pago"); }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await uploadFile(file);
+    if (result) {
+      setNewPayment((prev) => ({ ...prev, attachmentUrl: result.url, attachmentName: result.name }));
+      toast.success("Comprobante adjuntado");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleDocumentSelect(docId: string) {
+    setNewPayment((prev) => ({ ...prev, documentId: docId }));
+    if (docId && docId !== "none") {
+      const doc = eventDocs.find((d) => d.id.toString() === docId);
+      if (doc) {
+        setNewPayment((prev) => ({ ...prev, documentId: docId, amount: doc.total }));
+      }
+    }
+  }
 
   // Calendar helpers
   const getDaysInMonth = (date: Date) => {
@@ -220,8 +381,9 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                       <th className="p-4 font-medium">Concepto</th>
                       <th className="p-4 font-medium">Fecha</th>
                       <th className="p-4 font-medium">Estado</th>
-                      <th className="p-4 font-medium">Pagado a</th>
+                      <th className="p-4 font-medium">Método</th>
                       <th className="p-4 font-medium text-right">Monto</th>
+                      <th className="p-4 w-12"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -245,9 +407,39 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                           <td className="p-4">
                             <Badge className={status.color}>{status.label}</Badge>
                           </td>
-                          <td className="p-4 text-sm">{payment.paidTo || payment.vendorName || "—"}</td>
+                          <td className="p-4 text-sm capitalize">{payment.paymentMethod?.replace("_", " ") || payment.paidTo || "—"}</td>
                           <td className="p-4 text-right font-semibold">
                             {formatCurrency(parseFloat(payment.amount))}
+                          </td>
+                          <td className="p-4">
+                            {payment.source === "unified" && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <RiMoreLine className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditPayment(payment)}>
+                                    <RiEditLine className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  {payment.attachmentUrl && (
+                                    <DropdownMenuItem asChild>
+                                      <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                        <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                                        Ver comprobante
+                                      </a>
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-red-600" onClick={() => deletePayment(payment.id)}>
+                                    <RiDeleteBinLine className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </td>
                         </tr>
                       );
@@ -311,15 +503,40 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
         </Card>
       )}
 
-      {/* Add Payment Drawer */}
-      <Sheet open={showAddPayment} onOpenChange={setShowAddPayment}>
+      {/* Add/Edit Payment Drawer */}
+      <Sheet open={showAddPayment} onOpenChange={(open) => { if (!open) resetAndClose(); }}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Añadir pago</SheetTitle>
+            <SheetTitle>{editingPaymentId ? "Editar pago" : "Registrar pago"}</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 py-4">
+            {!editingPaymentId && eventDocs.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <RiFileTextLine className="h-4 w-4" />
+                  Conciliar con documento (opcional)
+                </Label>
+                <Select
+                  value={newPayment.documentId || "none"}
+                  onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar documento..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin documento</SelectItem>
+                    {eventDocs.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id.toString()}>
+                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {formatCurrency(parseFloat(doc.total))}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label>Concepto *</Label>
+              <Label>Concepto</Label>
               <Input
                 value={newPayment.description}
                 onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
@@ -331,28 +548,39 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                 <Label>Monto *</Label>
                 <Input
                   type="number"
+                  step="0.01"
                   value={newPayment.amount}
                   onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
                   placeholder="0.00"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Fecha de vencimiento</Label>
+                <Label>Fecha</Label>
                 <Input
                   type="date"
-                  value={newPayment.dueDate}
-                  onChange={(e) => setNewPayment({ ...newPayment, dueDate: e.target.value })}
+                  value={newPayment.paymentDate}
+                  onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Pagado a</Label>
-                <Input
-                  value={newPayment.paidTo}
-                  onChange={(e) => setNewPayment({ ...newPayment, paidTo: e.target.value })}
-                  placeholder="Nombre del proveedor"
-                />
+                <Label>Método</Label>
+                <Select
+                  value={newPayment.paymentMethod}
+                  onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Efectivo</SelectItem>
+                    <SelectItem value="bank_transfer">Transferencia</SelectItem>
+                    <SelectItem value="card">Tarjeta</SelectItem>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="other">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>
@@ -365,21 +593,53 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="paid">Pagado</SelectItem>
-                    <SelectItem value="overdue">Vencido</SelectItem>
+                    <SelectItem value="complete">Completado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowAddPayment(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleAddPayment} disabled={!newPayment.description || !newPayment.amount}>
-                Añadir pago
-              </Button>
+            <div className="space-y-2">
+              <Label>Referencia</Label>
+              <Input
+                value={newPayment.reference}
+                onChange={(e) => setNewPayment({ ...newPayment, reference: e.target.value })}
+                placeholder="Nº transferencia, recibo, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <RiAttachmentLine className="h-4 w-4" />
+                Comprobante (opcional)
+              </Label>
+              {newPayment.attachmentUrl ? (
+                <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
+                  <RiFileDownloadLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a href={newPayment.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate flex-1">
+                    {newPayment.attachmentName || "Comprobante"}
+                  </a>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setNewPayment((p) => ({ ...p, attachmentUrl: "", attachmentName: "" }))}>
+                    <RiCloseLine className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileUpload} className="hidden" />
+                  <Button type="button" variant="outline" size="sm" disabled={fileUploading} onClick={() => fileInputRef.current?.click()}>
+                    {fileUploading ? <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" /> : <RiAttachmentLine className="mr-2 h-4 w-4" />}
+                    {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">PDF o imagen, máx. 10MB</p>
+                </div>
+              )}
             </div>
           </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={resetAndClose}>Cancelar</Button>
+            <Button onClick={editingPaymentId ? handleUpdatePayment : handleAddPayment} disabled={!newPayment.amount}>
+              {editingPaymentId ? "Guardar cambios" : "Registrar pago"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>
