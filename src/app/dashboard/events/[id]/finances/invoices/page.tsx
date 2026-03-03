@@ -335,7 +335,20 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => window.open(`/api/finance/documents/${doc.id}/pdf`, "_blank")}>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const res = await fetch(`/api/finance/documents/${doc.id}/pdf`);
+                                const blob = await res.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `invoice-${doc.number}.pdf`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              } catch {
+                                window.open(`/api/finance/documents/${doc.id}/pdf`, "_blank");
+                              }
+                            }}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />

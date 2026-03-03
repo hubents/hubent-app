@@ -25,18 +25,45 @@ import {
   RiMoneyDollarCircleLine,
   RiFileDownloadLine,
   RiAddLine,
+  RiTaskLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-type TabKey = "documents" | "payments";
+type TabKey = "documents" | "payments" | "tasks";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: "tasks", label: "Mis Tareas", icon: RiTaskLine },
   { key: "documents", label: "Documentos", icon: RiFileTextLine },
   { key: "payments", label: "Pagos", icon: RiMoneyDollarCircleLine },
 ];
+
+interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  status: string | null;
+  priority: string | null;
+  category: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}
+
+const taskStatusConfig: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+  in_progress: { label: "En progreso", color: "bg-blue-100 text-blue-700" },
+  completed: { label: "Completada", color: "bg-green-100 text-green-700" },
+  cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-700" },
+};
+
+const priorityConfig: Record<string, { label: string; color: string }> = {
+  low: { label: "Baja", color: "bg-gray-100 text-gray-600" },
+  medium: { label: "Media", color: "bg-blue-100 text-blue-600" },
+  high: { label: "Alta", color: "bg-orange-100 text-orange-600" },
+  urgent: { label: "Urgente", color: "bg-red-100 text-red-600" },
+};
 
 interface EventDetail {
   accessId: number;
@@ -114,10 +141,11 @@ const paymentMethodLabels: Record<string, string> = {
 export default function VendorEventDetailPage({ params }: { params: Promise<{ accessId: string }> }) {
   const { accessId } = use(params);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>("documents");
+  const [activeTab, setActiveTab] = useState<TabKey>("tasks");
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [eventTasks, setEventTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -127,10 +155,11 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   async function loadAll() {
     setLoading(true);
     try {
-      const [eventsRes, docsRes, paymentsRes] = await Promise.all([
+      const [eventsRes, docsRes, paymentsRes, tasksRes] = await Promise.all([
         fetch("/api/vendor/events"),
         fetch(`/api/vendor/events/${accessId}/documents`),
         fetch(`/api/vendor/events/${accessId}/payments`),
+        fetch(`/api/vendor/events/${accessId}/tasks`),
       ]);
 
       const eventsData = await eventsRes.json();
@@ -144,6 +173,9 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
 
       const paymentsData = await paymentsRes.json();
       if (paymentsData.success) setPayments(paymentsData.data || []);
+
+      const tasksData = await tasksRes.json();
+      if (tasksData.success) setEventTasks(tasksData.data || []);
     } catch (error) {
       console.error("Error loading event detail:", error);
     } finally {
@@ -353,6 +385,64 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
           </CardContent>
         </Card>
         </>
+      )}
+
+      {activeTab === "tasks" && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tarea</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Prioridad</TableHead>
+                  <TableHead>Vencimiento</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {eventTasks.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No tenés tareas asignadas en este evento
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  eventTasks.map((task) => {
+                    const st = taskStatusConfig[task.status || "pending"] || taskStatusConfig.pending;
+                    const pr = priorityConfig[task.priority || "medium"] || priorityConfig.medium;
+                    return (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{task.title}</p>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="capitalize text-sm">
+                          {task.category || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={pr.color}>{pr.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {task.dueDate
+                            ? format(new Date(task.dueDate), "dd MMM yyyy", { locale: es })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={st.color}>{st.label}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === "payments" && (

@@ -47,6 +47,7 @@ import { es } from "date-fns/locale";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
+import { DocumentPreview } from "@/components/finance/document-preview";
 
 interface Payment {
   id: number;
@@ -124,6 +125,8 @@ export default function PaymentsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<any>(null);
 
   // New payment form
   const [newPayment, setNewPayment] = useState({
@@ -142,6 +145,21 @@ export default function PaymentsPage() {
     fetchDocuments();
     fetchSchedules();
   }, [directionFilter, page]);
+
+  async function openDocPreview(documentId: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${documentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setPreviewDoc(data.data);
+          setPreviewOpen(true);
+        }
+      }
+    } catch {
+      toast.error("Error al cargar documento");
+    }
+  }
 
   async function fetchPayments() {
     try {
@@ -710,7 +728,14 @@ export default function PaymentsPage() {
                       {payment.paymentMethod?.replace("_", " ") || "-"}
                     </TableCell>
                     <TableCell>
-                      {payment.documentNumber ? (
+                      {payment.documentNumber && payment.documentId ? (
+                        <button
+                          onClick={() => openDocPreview(payment.documentId!)}
+                          className="text-sm font-medium text-primary hover:underline cursor-pointer"
+                        >
+                          {payment.documentNumber}
+                        </button>
+                      ) : payment.documentNumber ? (
                         <span className="text-sm font-medium">{payment.documentNumber}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -738,6 +763,14 @@ export default function PaymentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Document Preview */}
+      <DocumentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewDoc}
+        onRefresh={fetchPayments}
+      />
 
       {/* Pagination */}
       <div className="flex justify-center">

@@ -115,7 +115,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="${document.type}-${document.number}.pdf"`,
+          "Content-Disposition": `attachment; filename="${document.type}-${document.number}.pdf"`,
         },
       });
     }

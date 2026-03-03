@@ -181,11 +181,22 @@ export function DocumentPreview({
     window.open(`/api/finance/documents/${document.id}/pdf?format=html`, "_blank");
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     setPdfLoading(true);
-    // Open PDF in new tab (will trigger download or view depending on browser)
-    window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
-    setPdfLoading(false);
+    try {
+      const res = await fetch(`/api/finance/documents/${document.id}/pdf`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = `${document.type}-${document.number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleSendDocument = async () => {
