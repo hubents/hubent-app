@@ -490,16 +490,14 @@ export async function createDocument(
 const QUOTE_TRANSITIONS: Record<string, string[]> = {
   draft: ["sent"],
   sent: ["accepted", "rejected"],
-  accepted: ["payment_promise", "sent"],
+  accepted: ["sent"],
   rejected: ["sent", "accepted"],
-  payment_promise: ["accepted", "sent"],
 };
 
 const INVOICE_TRANSITIONS: Record<string, string[]> = {
   draft: ["sent"],
-  sent: ["partial", "paid"],
-  partial: ["paid", "sent"],
-  paid: ["partial", "sent"],
+  sent: ["paid"],
+  paid: ["sent"],
 };
 
 export async function updateDocumentStatus(

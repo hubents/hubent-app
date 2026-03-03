@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   Select,
   SelectContent,
@@ -184,16 +185,7 @@ export function DocumentPreview({
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
     try {
-      const res = await fetch(`/api/finance/documents/${document.id}/pdf`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = window.document.createElement("a");
-      a.href = url;
-      a.download = `${document.type}-${document.number}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(`/api/finance/documents/${document.id}/pdf`, "_blank");
+      await downloadDocumentPDF(document.id, `${document.type}-${document.number}.pdf`);
     } finally {
       setPdfLoading(false);
     }

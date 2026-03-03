@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   Table,
   TableBody,
@@ -68,9 +69,8 @@ interface FinDoc {
 }
 
 const invoiceStatusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
+  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagada", color: "bg-green-100 text-green-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
 };
@@ -282,7 +282,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
               </TableHeader>
               <TableBody>
                 {invoices.map((doc) => {
-                  const st = invoiceStatusConfig[doc.status] || invoiceStatusConfig.draft || { label: doc.status, color: "bg-gray-100 text-gray-700" };
+                  const st = invoiceStatusConfig[doc.status] || invoiceStatusConfig.sent || { label: doc.status, color: "bg-gray-100 text-gray-700" };
                   const isIncoming = doc.direction === "incoming";
                   return (
                     <TableRow
@@ -335,20 +335,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              try {
-                                const res = await fetch(`/api/finance/documents/${doc.id}/pdf`);
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `invoice-${doc.number}.pdf`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              } catch {
-                                window.open(`/api/finance/documents/${doc.id}/pdf`, "_blank");
-                              }
-                            }}>
+                            <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `invoice-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />

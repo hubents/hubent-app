@@ -38,6 +38,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 
 interface Invoice {
   id: number;
@@ -58,18 +59,16 @@ interface Invoice {
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
+  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "partial" | "paid";
+type StatusTab = "all" | "sent" | "paid";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
   { key: "sent", label: "Pendiente" },
-  { key: "partial", label: "Parcial" },
   { key: "paid", label: "Pagada" },
 ];
 
@@ -155,19 +154,8 @@ export default function VendorInvoicesPage() {
     }
   }
 
-  async function downloadPDF(id: number, number: string) {
-    try {
-      const res = await fetch(`/api/finance/documents/${id}/pdf`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `invoice-${number}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(`/api/finance/documents/${id}/pdf`, "_blank");
-    }
+  function downloadPDF(id: number, number: string) {
+    downloadDocumentPDF(id, `invoice-${number}.pdf`);
   }
 
   if (loading) {

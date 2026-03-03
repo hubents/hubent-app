@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   Select,
   SelectContent,
@@ -107,18 +108,16 @@ interface Invoice {
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
+  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  partial: { label: "Parcial", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
   overdue: { label: "Vencida", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "partial" | "paid";
+type StatusTab = "all" | "sent" | "paid";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
   { key: "sent", label: "Pendiente" },
-  { key: "partial", label: "Parcial" },
   { key: "paid", label: "Pagada" },
 ];
 
@@ -573,23 +572,9 @@ function InvoicesContent() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {(() => {
-                            const total = parseFloat(invoice.total || "0");
-                            const paid = parseFloat(invoice.paidAmount || "0");
-                            const isPartial = paid > 0 && paid < total;
-                            return (
-                              <>
-                                {isPartial && (
-                                  <Badge className={statusConfig.partial.color}>
-                                    {statusConfig.partial.label}
-                                  </Badge>
-                                )}
-                                <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
-                                  {statusConfig[displayStatus]?.label || invoice.status}
-                                </Badge>
-                              </>
-                            );
-                          })()}
+                          <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
+                            {statusConfig[displayStatus]?.label || invoice.status}
+                          </Badge>
                         </div>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -601,7 +586,7 @@ function InvoicesContent() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {/* Payment actions — available when not fully paid */}
-                            {(invoice.status === "sent" || invoice.status === "partial") && (
+                            {invoice.status === "sent" && (
                               <>
                                 <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
                                   <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
@@ -614,7 +599,7 @@ function InvoicesContent() {
                               </>
                             )}
                             {/* Credit note and delivery note */}
-                            {(invoice.status === "sent" || invoice.status === "partial" || invoice.status === "paid") && (
+                            {(invoice.status === "sent" || invoice.status === "paid") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "delivery_note")}>
@@ -629,7 +614,7 @@ function InvoicesContent() {
                             )}
                             <DropdownMenuSeparator />
                             {/* Common actions */}
-                            {invoice.status !== "paid" && invoice.status !== "partial" && (
+                            {invoice.status !== "paid" && (
                               <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" />
                                 Editar
@@ -643,25 +628,12 @@ function InvoicesContent() {
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              try {
-                                const res = await fetch(`/api/finance/documents/${invoice.id}/pdf`);
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `invoice-${invoice.number}.pdf`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              } catch {
-                                window.open(`/api/finance/documents/${invoice.id}/pdf`, "_blank");
-                              }
-                            }}>
+                            <DropdownMenuItem onClick={() => downloadDocumentPDF(invoice.id, `invoice-${invoice.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
                             {/* Delete only for sent (no payments) */}
-                            {(invoice.status === "sent" || invoice.status === "draft") && (
+                            {invoice.status === "sent" && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

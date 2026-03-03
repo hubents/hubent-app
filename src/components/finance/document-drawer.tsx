@@ -405,7 +405,7 @@ export function DocumentDrawer({
     };
   }
 
-  async function handleSubmit(status: "draft" | "approved" = "draft") {
+  async function handleSubmit() {
     if (items.length === 0 || !items.some((item) => item.description.trim())) {
       toast.error("Agrega al menos un ítem con descripción");
       return;
@@ -429,7 +429,7 @@ export function DocumentDrawer({
         globalDiscount: globalDiscountEnabled ? globalDiscount : 0,
         globalDiscountType: globalDiscountEnabled ? globalDiscountType : "percentage",
         direction,
-        status: documentId ? undefined : status,
+        status: documentId ? undefined : "sent",
         items: items.filter((item) => item.description.trim()).map((item) => ({
           description: item.description,
           quantity: item.quantity,
@@ -451,8 +451,7 @@ export function DocumentDrawer({
       });
 
       if (res.ok) {
-        const statusLabel = status === "approved" ? "aprobado" : "guardado";
-        toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} ${statusLabel}`);
+        toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} guardado`);
         onOpenChange(false);
         onSuccess?.();
       } else {
@@ -931,8 +930,7 @@ export function DocumentDrawer({
                 Cancelar
               </Button>
               <Button
-                variant="secondary"
-                onClick={() => handleSubmit("draft")}
+                onClick={() => handleSubmit()}
                 disabled={saving}
               >
                 {saving ? (
@@ -940,17 +938,8 @@ export function DocumentDrawer({
                 ) : (
                   <RiSaveLine className="mr-2 h-4 w-4" />
                 )}
-                {documentId ? "Guardar cambios" : "Guardar borrador"}
+                {documentId ? "Guardar cambios" : "Guardar"}
               </Button>
-              {!documentId && (
-                <Button
-                  onClick={() => handleSubmit("approved")}
-                  disabled={saving}
-                >
-                  <RiCheckDoubleLine className="mr-2 h-4 w-4" />
-                  Aprobar
-                </Button>
-              )}
             </div>
             </div>
             </div>

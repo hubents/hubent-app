@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   Select,
   SelectContent,
@@ -96,21 +97,19 @@ interface Quote {
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
+  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
-  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";
+type StatusTab = "all" | "sent" | "accepted" | "rejected";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todos" },
   { key: "sent", label: "Pendiente" },
   { key: "accepted", label: "Aceptado" },
   { key: "rejected", label: "Rechazado" },
-  { key: "payment_promise", label: "Promesa de pago" },
 ];
 
 type DirectionTab = "all" | "outgoing" | "incoming";
@@ -560,25 +559,12 @@ function QuotesContent() {
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              try {
-                                const res = await fetch(`/api/finance/documents/${quote.id}/pdf`);
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `quote-${quote.number}.pdf`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              } catch {
-                                window.open(`/api/finance/documents/${quote.id}/pdf`, "_blank");
-                              }
-                            }}>
+                            <DropdownMenuItem onClick={() => downloadDocumentPDF(quote.id, `quote-${quote.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
                             {/* Delete only for sent/rejected */}
-                            {(quote.status === "sent" || quote.status === "rejected" || quote.status === "draft") && (
+                            {(quote.status === "sent" || quote.status === "rejected") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
