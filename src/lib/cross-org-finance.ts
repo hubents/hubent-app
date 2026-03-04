@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { financialDocuments, documentItems, paymentRecords, organizations, events } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { notifyDocumentStatusChanged, notifyPaymentReceived } from "@/lib/push-notifications";
+import { linkDocumentToTask } from "@/lib/finance-task-link";
 
 /**
  * Create a mirror (copy) of a financial document in another organization.
@@ -86,6 +87,18 @@ export async function createMirrorDocument(
       total: item.total,
       sortOrder: item.sortOrder,
     });
+  }
+
+  // Auto-link mirror document to task in target org (non-blocking)
+  if (eventId && vendorId) {
+    linkDocumentToTask(
+      targetOrgId,
+      mirror.id,
+      original.type,
+      number,
+      eventId,
+      vendorId
+    ).catch(() => {});
   }
 
   return mirror;

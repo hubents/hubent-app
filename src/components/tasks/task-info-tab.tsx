@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +18,21 @@ import {
   RiTimeLine,
   RiCalendarLine,
   RiArrowDownSLine,
+  RiEditLine,
+  RiAttachmentLine,
+  RiMoreLine,
+  RiFileDownloadLine,
 } from "@remixicon/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { toast } from "sonner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,6 +40,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/ui/file-uploader";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -92,17 +113,54 @@ interface TaskScheduleItem {
   sortOrder: number;
 }
 
+interface UnifiedPayment {
+  id: number;
+  documentId: number | null;
+  taskId: number | null;
+  vendorId: number | null;
+  contactId: number | null;
+  eventId: number | null;
+  amount: string;
+  currency: string;
+  direction: string;
+  paymentDate: string;
+  paymentMethod: string | null;
+  reference: string | null;
+  notes: string | null;
+  status: string | null;
+  documentNumber?: string | null;
+  documentType?: string | null;
+  contactName?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  source: "unified";
+}
+
+interface FinancialDocument {
+  id: number;
+  type: string;
+  number: string;
+  total: string;
+  status: string;
+  companyName: string | null;
+  personFirstName: string | null;
+  personLastName: string | null;
+}
+
 interface TaskInfoTabProps {
   task: TaskDetail | null;
   attachments: TaskAttachment[];
   payments: TaskPayment[];
+  unifiedPayments: UnifiedPayment[];
   meetings: TaskScheduleItem[];
   loading: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddAttachment: (data: { name: string; url: string; type?: string }) => Promise<unknown>;
   onDeleteAttachment: (attachmentId: number) => Promise<boolean>;
-  onAddPayment: (data: { description: string; amount: number; date?: string; vendorId?: number; paymentMethod?: string; notes?: string }) => Promise<unknown>;
+  onAddPayment: (data: { amount: number; date?: string; vendorId?: number; contactId?: number; paymentMethod?: string; notes?: string; direction?: string; status?: string; documentId?: number; attachmentUrl?: string; attachmentName?: string }) => Promise<unknown>;
+  onUpdatePayment: (paymentId: number, data: { amount?: number; paymentMethod?: string; paymentDate?: Date; reference?: string; notes?: string; attachmentUrl?: string; attachmentName?: string }) => Promise<unknown>;
   onDeletePayment: (paymentId: number) => Promise<boolean>;
+  onDeleteLegacyPayment: (paymentId: number) => Promise<boolean>;
   onAddMeeting: (data: { title: string; date: string; startTime?: string; endTime?: string; description?: string }) => Promise<unknown>;
   onDeleteMeeting: (meetingId: number) => Promise<boolean>;
 }
@@ -118,13 +176,16 @@ export function TaskInfoTab({
   task,
   attachments,
   payments,
+  unifiedPayments,
   meetings,
   loading,
   onUpdateTask,
   onAddAttachment,
   onDeleteAttachment,
   onAddPayment,
+  onUpdatePayment,
   onDeletePayment,
+  onDeleteLegacyPayment,
   onAddMeeting,
   onDeleteMeeting,
 }: TaskInfoTabProps) {
@@ -134,18 +195,22 @@ export function TaskInfoTab({
   const [addingLink, setAddingLink] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newPayment, setNewPayment] = useState({ 
-    description: "", 
     amount: "", 
     date: "",
     vendorId: null as number | null,
     paymentMethod: "",
     notes: "",
+    direction: "outgoing",
+    documentId: null as number | null,
+    attachmentUrl: "",
+    attachmentName: "",
   });
   const [addingPayment, setAddingPayment] = useState(false);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loadingVendors, setLoadingVendors] = useState(false);
   const [vendorSearch, setVendorSearch] = useState("");
   const [vendorFilter, setVendorFilter] = useState<number | null>(null);
+  const [concilDocs, setConcilDocs] = useState<FinancialDocument[]>([]);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
@@ -153,8 +218,9 @@ export function TaskInfoTab({
   const [newMeeting, setNewMeeting] = useState({ title: "", date: "", startTime: "", endTime: "", description: "" });
   const [addingMeeting, setAddingMeeting] = useState(false);
   const [expandedMeetings, setExpandedMeetings] = useState<Set<number>>(new Set());
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { upload: uploadReceipt, uploading: receiptUploading } = useFileUpload({ folder: "payments" });
 
-  // Fetch vendors when dialog opens
   const fetchVendors = async (search?: string) => {
     setLoadingVendors(true);
     try {
@@ -171,32 +237,84 @@ export function TaskInfoTab({
     }
   };
 
+  const fetchConcilDocs = async () => {
+    try {
+      const [invRes, quoteRes] = await Promise.all([
+        fetch("/api/finance/documents?type=invoice&limit=100"),
+        fetch("/api/finance/documents?type=quote&limit=100"),
+      ]);
+      const docs: FinancialDocument[] = [];
+      if (invRes.ok) {
+        const data = await invRes.json();
+        if (data.success && data.data) {
+          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "sent" || d.status === "partial"));
+        }
+      }
+      if (quoteRes.ok) {
+        const data = await quoteRes.json();
+        if (data.success && data.data) {
+          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "payment_promise"));
+        }
+      }
+      setConcilDocs(docs);
+    } catch {
+      console.error("Failed to fetch conciliation docs");
+    }
+  };
+
   const handleOpenPaymentDialog = () => {
     setShowPaymentDialog(true);
     fetchVendors();
+    fetchConcilDocs();
+  };
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await uploadReceipt(file);
+      if (result) {
+        setNewPayment((prev) => ({ ...prev, attachmentUrl: result.url, attachmentName: file.name }));
+        toast.success("Comprobante adjuntado");
+      }
+    } catch {
+      toast.error("Error al subir comprobante");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleAddPayment = async () => {
-    if (!newPayment.description || !newPayment.amount) return;
+    if (!newPayment.amount) return;
     setAddingPayment(true);
     try {
       await onAddPayment({
-        description: newPayment.description,
         amount: parseFloat(newPayment.amount),
         date: newPayment.date || new Date().toISOString().split("T")[0],
         vendorId: newPayment.vendorId || undefined,
         paymentMethod: newPayment.paymentMethod || undefined,
         notes: newPayment.notes || undefined,
+        direction: newPayment.direction,
+        documentId: newPayment.documentId || undefined,
+        attachmentUrl: newPayment.attachmentUrl || undefined,
+        attachmentName: newPayment.attachmentName || undefined,
       });
-      setNewPayment({ description: "", amount: "", date: "", vendorId: null, paymentMethod: "", notes: "" });
+      setNewPayment({ amount: "", date: "", vendorId: null, paymentMethod: "", notes: "", direction: "outgoing", documentId: null, attachmentUrl: "", attachmentName: "" });
       setShowPaymentDialog(false);
+      toast.success("Pago registrado");
     } finally {
       setAddingPayment(false);
     }
   };
 
   const handleDeletePayment = async (paymentId: number) => {
+    if (!confirm("¿Eliminar este pago?")) return;
     await onDeletePayment(paymentId);
+    toast.success("Pago eliminado");
+  };
+
+  const handleDeleteLegacyPayment = async (paymentId: number) => {
+    if (!confirm("¿Eliminar este pago histórico?")) return;
+    await onDeleteLegacyPayment(paymentId);
   };
 
   const handleAddFile = async () => {
@@ -301,27 +419,32 @@ export function TaskInfoTab({
           <Sheet open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
             <SheetContent className="sm:max-w-3xl overflow-y-auto">
               <SheetHeader>
-                <SheetTitle>Agregar Pago</SheetTitle>
+                <SheetTitle>Registrar Pago</SheetTitle>
               </SheetHeader>
               <div className="space-y-4 px-4 py-4">
-                <div className="space-y-2">
-                  <Label>Descripción *</Label>
-                  <Input
-                    placeholder="Ej: Anticipo proveedor"
-                    value={newPayment.description}
-                    onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
-                  />
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Importe *</Label>
                     <Input
                       type="number"
+                      step="0.01"
                       placeholder="0.00"
                       value={newPayment.amount}
                       onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Dirección</Label>
+                    <Select value={newPayment.direction} onValueChange={(v) => setNewPayment({ ...newPayment, direction: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="outgoing">Pago (salida)</SelectItem>
+                        <SelectItem value="incoming">Cobro (entrada)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Fecha</Label>
                     <Input
@@ -330,9 +453,20 @@ export function TaskInfoTab({
                       onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Método de Pago</Label>
+                    <Select value={newPayment.paymentMethod} onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bank_transfer">Transferencia</SelectItem>
+                        <SelectItem value="cash">Efectivo</SelectItem>
+                        <SelectItem value="card">Tarjeta</SelectItem>
+                        <SelectItem value="other">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                
-                {/* Vendor Selection */}
+
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
                   <select
@@ -350,58 +484,23 @@ export function TaskInfoTab({
                   {loadingVendors && <p className="text-xs text-muted-foreground">Cargando proveedores...</p>}
                 </div>
 
-                {/* Vendor Info (readonly) */}
-                {newPayment.vendorId && (
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Datos del Proveedor</p>
-                    {(() => {
-                      const selectedVendor = vendors.find(v => v.id === newPayment.vendorId);
-                      if (!selectedVendor) return null;
-                      return (
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {selectedVendor.email && (
-                            <div>
-                              <span className="text-muted-foreground">Email:</span>{" "}
-                              <span>{selectedVendor.email}</span>
-                            </div>
-                          )}
-                          {selectedVendor.phone && (
-                            <div>
-                              <span className="text-muted-foreground">Tel:</span>{" "}
-                              <span>{selectedVendor.phone}</span>
-                            </div>
-                          )}
-                          {selectedVendor.address && (
-                            <div className="col-span-2">
-                              <span className="text-muted-foreground">Dirección:</span>{" "}
-                              <span>{selectedVendor.address}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* Payment Method */}
                 <div className="space-y-2">
-                  <Label>Método de Pago</Label>
+                  <Label>Conciliar con documento</Label>
                   <select
                     className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    value={newPayment.paymentMethod}
-                    onChange={(e) => setNewPayment({ ...newPayment, paymentMethod: e.target.value })}
+                    value={newPayment.documentId || ""}
+                    onChange={(e) => setNewPayment({ ...newPayment, documentId: e.target.value ? parseInt(e.target.value) : null })}
                   >
-                    <option value="">Seleccionar método...</option>
-                    <option value="efectivo">Efectivo</option>
-                    <option value="transferencia">Transferencia Bancaria</option>
-                    <option value="tarjeta">Tarjeta de Crédito/Débito</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="mercadopago">MercadoPago</option>
-                    <option value="otro">Otro</option>
+                    <option value="">Sin conciliar</option>
+                    {concilDocs.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {parseFloat(doc.total).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        {doc.status === "payment_promise" ? " (Promesa de pago)" : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Notes */}
                 <div className="space-y-2">
                   <Label>Notas</Label>
                   <Textarea
@@ -412,81 +511,117 @@ export function TaskInfoTab({
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Adjuntar comprobante</Label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleReceiptUpload}
+                    className="hidden"
+                    accept="image/*,.pdf"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={receiptUploading}
+                    >
+                      <RiAttachmentLine className="h-4 w-4 mr-1" />
+                      {receiptUploading ? "Subiendo..." : "Seleccionar archivo"}
+                    </Button>
+                    {newPayment.attachmentName && (
+                      <span className="text-xs text-muted-foreground truncate">{newPayment.attachmentName}</span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleAddPayment} disabled={addingPayment || !newPayment.description || !newPayment.amount}>
-                    {addingPayment ? "Guardando..." : "Guardar"}
+                  <Button onClick={handleAddPayment} disabled={addingPayment || !newPayment.amount}>
+                    {addingPayment ? "Guardando..." : "Registrar Pago"}
                   </Button>
                 </div>
               </div>
             </SheetContent>
           </Sheet>
         </div>
-        {/* Vendor Filter */}
-        {safePayments.length > 0 && (
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-muted-foreground">Filtrar por proveedor:</span>
-            <select
-              value={vendorFilter ?? ""}
-              onChange={(e) => setVendorFilter(e.target.value ? parseInt(e.target.value, 10) : null)}
-              className="text-xs border rounded px-2 py-1 bg-background"
-            >
-              <option value="">Todos</option>
-              {Array.from(new Set(safePayments.filter(p => p.vendorId).map(p => p.vendorId))).map((vId) => {
-                const payment = safePayments.find(p => p.vendorId === vId);
-                return (
-                  <option key={vId} value={vId ?? ""}>
-                    {payment?.vendorName || `Proveedor ${vId}`}
-                  </option>
-                );
-              })}
-            </select>
-            {vendorFilter && (
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setVendorFilter(null)}>
-                Limpiar
-              </Button>
-            )}
-          </div>
-        )}
+        {/* Unified Payments */}
         <div className="rounded-lg border border-border">
           <div className="grid grid-cols-5 gap-4 p-3 border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground">
-            <span>Descripción</span>
-            <span>Proveedor</span>
+            <span>Documento</span>
+            <span>Dirección</span>
             <span>Fecha</span>
             <span>Importe</span>
             <span></span>
           </div>
-          {safePayments.filter(p => !vendorFilter || p.vendorId === vendorFilter).length === 0 ? (
+          {(unifiedPayments || []).length === 0 && safePayments.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              {vendorFilter ? "No hay pagos para este proveedor" : "No hay pagos registrados"}
+              No hay pagos registrados
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {safePayments.filter(p => !vendorFilter || p.vendorId === vendorFilter).map((payment) => (
-                <div key={payment.id} className="grid grid-cols-5 gap-4 p-3 items-center">
+              {(unifiedPayments || []).map((payment) => (
+                <div key={`u-${payment.id}`} className="grid grid-cols-5 gap-4 p-3 items-center">
                   <div>
-                    <span className="text-sm">{payment.description}</span>
+                    {payment.documentNumber ? (
+                      <div>
+                        <span className="text-sm font-medium">
+                          {payment.documentType === "invoice" ? "Factura" : "Presupuesto"} {payment.documentNumber}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sin documento</span>
+                    )}
                     {payment.paymentMethod && (
-                      <span className="text-xs text-muted-foreground block">
-                        {payment.paymentMethod === "efectivo" ? "Efectivo" :
-                         payment.paymentMethod === "transferencia" ? "Transferencia" :
-                         payment.paymentMethod === "tarjeta" ? "Tarjeta" :
-                         payment.paymentMethod === "cheque" ? "Cheque" :
-                         payment.paymentMethod === "mercadopago" ? "MercadoPago" :
-                         payment.paymentMethod}
+                      <span className="text-xs text-muted-foreground block capitalize">
+                        {payment.paymentMethod.replace("_", " ")}
                       </span>
                     )}
                   </div>
                   <div>
+                    <Badge variant="outline" className={payment.direction === "incoming" ? "text-emerald-600 border-emerald-200" : "text-red-600 border-red-200"}>
+                      {payment.direction === "incoming" ? "Cobro" : "Pago"}
+                    </Badge>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(payment.paymentDate).toLocaleDateString("es-ES")}
+                  </span>
+                  <span className="text-sm font-medium">
+                    {parseFloat(payment.amount).toLocaleString("es-ES", { style: "currency", currency: payment.currency || "EUR" })}
+                  </span>
+                  <div className="flex items-center gap-1 justify-end">
+                    {payment.attachmentUrl && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                        <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                          <RiFileDownloadLine className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => handleDeletePayment(payment.id)}
+                    >
+                      <RiDeleteBinLine className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {/* Legacy payments */}
+              {safePayments.map((payment) => (
+                <div key={`l-${payment.id}`} className="grid grid-cols-5 gap-4 p-3 items-center opacity-70">
+                  <div>
+                    <span className="text-sm">{payment.description}</span>
+                    <span className="text-[10px] text-muted-foreground block">Pago histórico</span>
+                  </div>
+                  <div>
                     {payment.vendorName ? (
-                      <div>
-                        <span className="text-sm">{payment.vendorName}</span>
-                        {payment.vendorCategory && (
-                          <span className="text-xs text-muted-foreground block">{payment.vendorCategory}</span>
-                        )}
-                      </div>
+                      <span className="text-sm">{payment.vendorName}</span>
                     ) : (
                       <span className="text-sm text-muted-foreground">-</span>
                     )}
@@ -498,10 +633,10 @@ export function TaskInfoTab({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive justify-self-end"
-                    onClick={() => handleDeletePayment(payment.id)}
+                    className="h-7 w-7 text-destructive justify-self-end"
+                    onClick={() => handleDeleteLegacyPayment(payment.id)}
                   >
-                    <RiDeleteBinLine className="h-4 w-4" />
+                    <RiDeleteBinLine className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               ))}

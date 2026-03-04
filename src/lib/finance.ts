@@ -16,6 +16,7 @@ import {
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment } from "@/lib/cross-org-finance";
+import { linkDocumentToTask } from "@/lib/finance-task-link";
 
 // ============================================
 // DOCUMENT NUMBER GENERATION
@@ -489,6 +490,18 @@ export async function createDocument(
       total: item.total.toString(),
       sortOrder: item.sortOrder,
     });
+  }
+
+  // Auto-link document to task (non-blocking)
+  if (data.eventId && data.vendorId) {
+    linkDocumentToTask(
+      session.organizationId,
+      doc.id,
+      data.type,
+      number,
+      data.eventId,
+      data.vendorId
+    ).catch(() => {});
   }
 
   return getDocument(session, doc.id);

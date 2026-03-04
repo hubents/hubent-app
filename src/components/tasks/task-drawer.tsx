@@ -106,6 +106,7 @@ export function TaskDrawer({
     scheduleItems,
     htmlContent,
     payments,
+    unifiedPayments,
     meetings,
     checklistItems,
     loading,
@@ -122,7 +123,9 @@ export function TaskDrawer({
     addParticipant,
     removeParticipant,
     addPayment,
+    updatePayment,
     deletePayment,
+    deleteLegacyPayment,
     addMeeting,
     deleteMeeting,
     addChecklistItem,
@@ -473,13 +476,16 @@ export function TaskDrawer({
                       task={task}
                       attachments={attachments}
                       payments={payments}
+                      unifiedPayments={unifiedPayments}
                       meetings={meetings}
                       loading={loading}
                       onUpdateTask={handleTaskUpdate}
                       onAddAttachment={addAttachment}
                       onDeleteAttachment={deleteAttachment}
                       onAddPayment={addPayment}
+                      onUpdatePayment={updatePayment}
                       onDeletePayment={deletePayment}
+                      onDeleteLegacyPayment={deleteLegacyPayment}
                       onAddMeeting={addMeeting}
                       onDeleteMeeting={deleteMeeting}
                     />

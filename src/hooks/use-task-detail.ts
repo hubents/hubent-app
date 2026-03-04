@@ -100,6 +100,29 @@ interface TaskPayment {
   vendorAddress: string | null;
 }
 
+interface UnifiedPayment {
+  id: number;
+  documentId: number | null;
+  taskId: number | null;
+  vendorId: number | null;
+  contactId: number | null;
+  eventId: number | null;
+  amount: string;
+  currency: string;
+  direction: string;
+  paymentDate: string;
+  paymentMethod: string | null;
+  reference: string | null;
+  notes: string | null;
+  status: string | null;
+  documentNumber?: string | null;
+  documentType?: string | null;
+  contactName?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  source: "unified";
+}
+
 interface TaskMeeting {
   id: number;
   taskId: number;
@@ -149,6 +172,7 @@ export function useTaskDetail(taskId: number | null) {
   const [scheduleItems, setScheduleItems] = useState<TaskScheduleItem[]>([]);
   const [htmlContent, setHtmlContent] = useState<TaskHtmlContent | null>(null);
   const [payments, setPayments] = useState<TaskPayment[]>([]);
+  const [unifiedPayments, setUnifiedPayments] = useState<UnifiedPayment[]>([]);
   const [meetings, setMeetings] = useState<TaskMeeting[]>([]);
   const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -254,16 +278,26 @@ export function useTaskDetail(taskId: number | null) {
     if (!taskId) return;
     
     try {
-      const res = await fetch(`/api/tasks/${taskId}/payments`);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setPayments(data.data);
+      const [legacyRes, unifiedRes] = await Promise.all([
+        fetch(`/api/tasks/${taskId}/payments`),
+        fetch(`/api/finance/payments?taskId=${taskId}&limit=100`),
+      ]);
+      const legacyData = await legacyRes.json();
+      if (legacyData.success && Array.isArray(legacyData.data)) {
+        setPayments(legacyData.data);
       } else {
         setPayments([]);
+      }
+      const unifiedData = await unifiedRes.json();
+      if (unifiedData.success && Array.isArray(unifiedData.data)) {
+        setUnifiedPayments(unifiedData.data.map((p: UnifiedPayment) => ({ ...p, source: "unified" as const })));
+      } else {
+        setUnifiedPayments([]);
       }
     } catch (err) {
       console.error("Failed to fetch payments:", err);
       setPayments([]);
+      setUnifiedPayments([]);
     }
   }, [taskId]);
 
@@ -565,22 +599,33 @@ export function useTaskDetail(taskId: number | null) {
     }
   }, [taskId, fetchParticipants]);
 
-  // Add payment
+  // Add payment (unified system)
   const addPayment = useCallback(async (paymentData: { 
-    description: string; 
+    description?: string; 
     amount: number; 
     date?: string;
     vendorId?: number;
+    contactId?: number;
     paymentMethod?: string;
     notes?: string;
+    direction?: string;
+    status?: string;
+    documentId?: number;
+    attachmentUrl?: string;
+    attachmentName?: string;
   }) => {
     if (!taskId) return null;
     
     try {
-      const res = await fetch(`/api/tasks/${taskId}/payments`, {
+      const res = await fetch("/api/finance/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(paymentData),
+        body: JSON.stringify({
+          ...paymentData,
+          taskId,
+          eventId: task?.eventId || undefined,
+          paymentDate: paymentData.date ? new Date(paymentData.date) : new Date(),
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -592,12 +637,57 @@ export function useTaskDetail(taskId: number | null) {
       console.error("Failed to add payment:", err);
       return null;
     }
-  }, [taskId, fetchPayments]);
+  }, [taskId, task?.eventId, fetchPayments]);
 
-  // Delete payment
+  // Update payment (unified system)
+  const updatePayment = useCallback(async (paymentId: number, paymentData: {
+    amount?: number;
+    paymentMethod?: string;
+    paymentDate?: Date;
+    reference?: string;
+    notes?: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
+  }) => {
+    try {
+      const res = await fetch(`/api/finance/payments/${paymentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentData),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPayments();
+        return data.data;
+      }
+      return null;
+    } catch (err) {
+      console.error("Failed to update payment:", err);
+      return null;
+    }
+  }, [fetchPayments]);
+
+  // Delete payment (unified system)
   const deletePayment = useCallback(async (paymentId: number) => {
+    try {
+      const res = await fetch(`/api/finance/payments/${paymentId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchPayments();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to delete payment:", err);
+      return false;
+    }
+  }, [fetchPayments]);
+
+  // Delete legacy payment
+  const deleteLegacyPayment = useCallback(async (paymentId: number) => {
     if (!taskId) return false;
-    
     try {
       const res = await fetch(`/api/tasks/${taskId}/payments?paymentId=${paymentId}`, {
         method: "DELETE",
@@ -609,7 +699,7 @@ export function useTaskDetail(taskId: number | null) {
       }
       return false;
     } catch (err) {
-      console.error("Failed to delete payment:", err);
+      console.error("Failed to delete legacy payment:", err);
       return false;
     }
   }, [taskId, fetchPayments]);
@@ -797,6 +887,7 @@ export function useTaskDetail(taskId: number | null) {
     scheduleItems,
     htmlContent,
     payments,
+    unifiedPayments,
     meetings,
     loading,
     error,
@@ -813,7 +904,9 @@ export function useTaskDetail(taskId: number | null) {
     addParticipant,
     removeParticipant,
     addPayment,
+    updatePayment,
     deletePayment,
+    deleteLegacyPayment,
     addMeeting,
     updateMeeting,
     deleteMeeting,
