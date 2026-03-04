@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -30,8 +31,12 @@ import {
   RiDeleteBinLine,
   RiFileDownloadLine,
   RiExchangeLine,
+  RiMoneyDollarCircleLine,
+  RiSearchLine,
+  RiFileCopyLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -75,12 +80,16 @@ const statusTabs: { key: StatusTab; label: string }[] = [
 ];
 
 export default function VendorInvoicesPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusTab>("all");
+  const [search, setSearch] = useState("");
+  const [directionFilter, setDirectionFilter] = useState<"all" | "incoming" | "outgoing">("all");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingDocId, setEditingDocId] = useState<number | undefined>(undefined);
+  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
 
@@ -88,6 +97,8 @@ export default function VendorInvoicesPage() {
     try {
       const params = new URLSearchParams({ type: "invoice", limit: "100" });
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (search) params.set("search", search);
+      if (directionFilter !== "all") params.set("direction", directionFilter);
       const res = await fetch(`/api/finance/documents?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -98,7 +109,7 @@ export default function VendorInvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, search, directionFilter]);
 
   useEffect(() => {
     fetchInvoices();
@@ -117,12 +128,47 @@ export default function VendorInvoicesPage() {
 
   function openNewInvoice() {
     setEditingDocId(undefined);
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
   }
 
   function openEditInvoice(id: number) {
     setEditingDocId(id);
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
+  }
+
+  async function duplicateInvoice(docId: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${docId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const doc = data.data;
+          setDrawerInitialData({
+            contactId: doc.contactId,
+            vendorId: doc.vendorId,
+            eventId: doc.eventId,
+            notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: doc.globalDiscountType,
+            items: doc.items?.map((item: any) => ({
+              description: item.description,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
+            })),
+          });
+          setEditingDocId(undefined);
+          setDrawerOpen(true);
+        }
+      }
+    } catch {
+      toast.error("Error al duplicar");
+    }
   }
 
   async function openPreview(id: number) {
@@ -191,6 +237,34 @@ export default function VendorInvoicesPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por número, cliente..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1">
+          {(["all", "incoming", "outgoing"] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDirectionFilter(d)}
+              className={cn(
+                "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                directionFilter === d
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {d === "all" ? "Todos" : d === "incoming" ? "Cobros" : "Pagos"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-1 border-b">
         {statusTabs.map((tab) => (
           <button
@@ -241,7 +315,7 @@ export default function VendorInvoicesPage() {
                   const isPartial = paid > 0 && paid < total;
                   const st = statusConfig[isPartial ? "partial" : inv.status] || statusConfig.draft;
                   return (
-                    <TableRow key={inv.id}>
+                    <TableRow key={inv.id} className="cursor-pointer" onClick={() => openPreview(inv.id)}>
                       <TableCell className="text-sm">
                         {inv.issueDate
                           ? format(new Date(inv.issueDate), "dd MMM yyyy", { locale: es })
@@ -263,7 +337,7 @@ export default function VendorInvoicesPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -277,6 +351,12 @@ export default function VendorInvoicesPage() {
                                 Editar
                               </DropdownMenuItem>
                             )}
+                            {(inv.status === "sent" || inv.status === "partial") && (
+                              <DropdownMenuItem onClick={() => router.push("/vendor/finance/payments")}>
+                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                Registrar Pago
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openPreview(inv.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" />
                               Vista previa
@@ -284,6 +364,10 @@ export default function VendorInvoicesPage() {
                             <DropdownMenuItem onClick={() => downloadPDF(inv.id, inv.number)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicateInvoice(inv.id)}>
+                              <RiFileCopyLine className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
                             {(inv.status === "sent" || inv.status === "draft") && (
                               <>
@@ -308,9 +392,13 @@ export default function VendorInvoicesPage() {
 
       <DocumentDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) { setDrawerInitialData(undefined); setEditingDocId(undefined); }
+        }}
         type="invoice"
         documentId={editingDocId}
+        initialData={drawerInitialData}
         onSuccess={() => {
           setDrawerOpen(false);
           fetchInvoices();

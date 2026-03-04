@@ -237,7 +237,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   async function handleUpdatePayment() {
     if (!editingPaymentId || !newPayment.amount) { toast.error("El monto es requerido"); return; }
     try {
-      const res = await fetch(`/api/finance/payments/${editingPaymentId}`, {
+      const res = await fetch(`/api/events/${eventId}/payments/${editingPaymentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -264,7 +264,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   async function deletePayment(id: number) {
     if (!confirm("¿Estás seguro de eliminar este pago?")) return;
     try {
-      const res = await fetch(`/api/finance/payments/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/events/${eventId}/payments/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Pago eliminado");
         fetchPayments();
@@ -411,7 +411,6 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                             {formatCurrency(parseFloat(payment.amount))}
                           </td>
                           <td className="p-4">
-                            {payment.source === "unified" && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -438,7 +437,6 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            )}
                           </td>
                         </tr>
                       );

@@ -30,7 +30,9 @@ import {
   RiEyeLine,
   RiDeleteBinLine,
   RiFileDownloadLine,
+  RiMoneyDollarCircleLine,
 } from "@remixicon/react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -79,6 +81,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<FinDoc[]>([]);
@@ -321,6 +324,11 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             {doc.status !== "paid" && doc.status !== "partial" && (
                               <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                            )}
+                            {(doc.status === "sent" || doc.status === "partial") && (
+                              <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${eventId}/finances/payments`)}>
+                                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" /> Registrar Pago
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>

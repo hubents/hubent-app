@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -34,6 +35,8 @@ import {
   RiHandCoinLine,
   RiSendPlaneLine,
   RiExchangeLine,
+  RiSearchLine,
+  RiFileCopyLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -82,9 +85,13 @@ export default function VendorQuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusTab>("all");
+  const [search, setSearch] = useState("");
+  const [directionFilter, setDirectionFilter] = useState<"all" | "incoming" | "outgoing">("all");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingDocId, setEditingDocId] = useState<number | undefined>(undefined);
+  const [drawerType, setDrawerType] = useState<"quote" | "invoice">("quote");
+  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
 
@@ -92,6 +99,8 @@ export default function VendorQuotesPage() {
     try {
       const params = new URLSearchParams({ type: "quote", limit: "100" });
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (search) params.set("search", search);
+      if (directionFilter !== "all") params.set("direction", directionFilter);
       const res = await fetch(`/api/finance/documents?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -102,7 +111,7 @@ export default function VendorQuotesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, search, directionFilter]);
 
   useEffect(() => {
     fetchQuotes();
@@ -121,12 +130,86 @@ export default function VendorQuotesPage() {
 
   function openNewQuote() {
     setEditingDocId(undefined);
+    setDrawerType("quote");
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
   }
 
   function openEditQuote(id: number) {
     setEditingDocId(id);
+    setDrawerType("quote");
+    setDrawerInitialData(undefined);
     setDrawerOpen(true);
+  }
+
+  async function duplicateQuote(docId: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${docId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const doc = data.data;
+          setDrawerInitialData({
+            contactId: doc.contactId,
+            vendorId: doc.vendorId,
+            eventId: doc.eventId,
+            notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: doc.globalDiscountType,
+            items: doc.items?.map((item: any) => ({
+              description: item.description,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
+            })),
+          });
+          setDrawerType("quote");
+          setEditingDocId(undefined);
+          setDrawerOpen(true);
+        }
+      }
+    } catch {
+      toast.error("Error al duplicar");
+    }
+  }
+
+  async function fetchDocAndConvert(docId: number) {
+    try {
+      const res = await fetch(`/api/finance/documents/${docId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const doc = data.data;
+          setDrawerInitialData({
+            contactId: doc.contactId,
+            vendorId: doc.vendorId,
+            eventId: doc.eventId,
+            notes: doc.notes,
+            termsAndConditions: doc.termsAndConditions,
+            globalDiscount: parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: doc.globalDiscountType,
+            paymentMethod: doc.paymentMethod,
+            bankAccountId: doc.bankAccountId,
+            items: doc.items?.map((item: any) => ({
+              description: item.description,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unitPrice),
+              discount: parseFloat(item.discount || "0"),
+              taxRate: parseFloat(item.taxRate || "21"),
+              total: parseFloat(item.total),
+            })),
+          });
+          setDrawerType("invoice");
+          setEditingDocId(undefined);
+          setDrawerOpen(true);
+        }
+      }
+    } catch {
+      toast.error("Error al cargar documento");
+    }
   }
 
   async function openPreview(id: number) {
@@ -214,6 +297,34 @@ export default function VendorQuotesPage() {
         </Button>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por número, cliente..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1">
+          {(["all", "incoming", "outgoing"] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDirectionFilter(d)}
+              className={cn(
+                "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                directionFilter === d
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {d === "all" ? "Todos" : d === "incoming" ? "Cobros" : "Pagos"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-1 border-b">
         {statusTabs.map((tab) => (
           <button
@@ -260,7 +371,7 @@ export default function VendorQuotesPage() {
                 {quotes.map((q) => {
                   const st = statusConfig[q.status] || statusConfig.draft;
                   return (
-                    <TableRow key={q.id}>
+                    <TableRow key={q.id} className="cursor-pointer" onClick={() => openPreview(q.id)}>
                       <TableCell className="text-sm">
                         {q.issueDate
                           ? format(new Date(q.issueDate), "dd MMM yyyy", { locale: es })
@@ -279,7 +390,7 @@ export default function VendorQuotesPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -339,6 +450,12 @@ export default function VendorQuotesPage() {
                                 <DropdownMenuSeparator />
                               </>
                             )}
+                            {(q.status === "accepted" || q.status === "payment_promise") && (
+                              <DropdownMenuItem onClick={() => fetchDocAndConvert(q.id)}>
+                                <RiExchangeLine className="mr-2 h-4 w-4" />
+                                Convertir a Factura
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openEditQuote(q.id)}>
                               <RiEditLine className="mr-2 h-4 w-4" />
                               Editar
@@ -350,6 +467,10 @@ export default function VendorQuotesPage() {
                             <DropdownMenuItem onClick={() => downloadPDF(q.id, q.number)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicateQuote(q.id)}>
+                              <RiFileCopyLine className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
                             {(q.status === "sent" || q.status === "rejected" || q.status === "draft") && (
                               <>
@@ -374,9 +495,13 @@ export default function VendorQuotesPage() {
 
       <DocumentDrawer
         open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        type="quote"
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) { setDrawerInitialData(undefined); setEditingDocId(undefined); }
+        }}
+        type={drawerType}
         documentId={editingDocId}
+        initialData={drawerInitialData}
         onSuccess={() => {
           setDrawerOpen(false);
           fetchQuotes();
