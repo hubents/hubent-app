@@ -46,6 +46,7 @@ export interface PreviewData {
   globalDiscount?: number;
   globalDiscountType?: "percentage" | "fixed";
   globalDiscountEnabled?: boolean;
+  paymentMethod?: string;
 }
 
 interface LiveDocumentPreviewProps {
@@ -300,6 +301,25 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
               </div>
             </div>
           </div>
+
+          {/* Payment Method */}
+          {data.paymentMethod && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-2">
+                Método de pago
+              </div>
+              <div className="text-gray-600 text-sm">
+                {{
+                  bank_transfer: "Transferencia bancaria",
+                  cash: "Efectivo",
+                  card: "Tarjeta",
+                  stripe: "Stripe",
+                  check: "Cheque",
+                  other: "Otro",
+                }[data.paymentMethod] || data.paymentMethod}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           {data.notes && (

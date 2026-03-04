@@ -122,12 +122,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       organizationEmail: org?.fiscalEmail || undefined,
       organizationTaxId: org?.taxId || undefined,
       organizationLogo: org?.invoiceLogo || org?.logo || undefined,
-      contactName: recipientName || contactInfo?.name || document.company?.legalName || 
+      contactName: recipientName || contactInfo?.name || document.vendor?.name || document.company?.legalName || 
         (document.person ? `${document.person.firstName} ${document.person.lastName || ""}`.trim() : null),
-      contactEmail: contactInfo?.email || document.company?.email || document.person?.email || null,
-      contactPhone: contactInfo?.phone || document.company?.phone || document.person?.phone || null,
-      contactAddress: contactInfo?.address || document.company?.address || null,
+      contactEmail: contactInfo?.email || document.vendor?.email || document.company?.email || document.person?.email || null,
+      contactPhone: contactInfo?.phone || document.vendor?.phone || document.company?.phone || document.person?.phone || null,
+      contactAddress: contactInfo?.address || document.vendor?.address || document.company?.address || null,
       contactTaxId: contactInfo?.taxId || document.company?.taxId || null,
+      vendorName: document.vendor?.name || null,
+      vendorEmail: document.vendor?.email || null,
+      vendorPhone: document.vendor?.phone || null,
+      vendorAddress: document.vendor?.address || null,
       eventName: document.event?.name || null,
     };
 

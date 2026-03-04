@@ -42,12 +42,14 @@ import {
   RiEyeLine,
   RiCheckDoubleLine,
   RiExchangeLine,
+  RiFileDownloadLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 
 interface DocumentItem {
@@ -389,6 +391,10 @@ function DeliveryNotesContent() {
                           <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(note.id, "delivery_note")}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadDocumentPDF(note.id, `delivery-note-${note.number}.pdf`)}>
+                            <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                            Descargar PDF
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {note.status === "draft" && (

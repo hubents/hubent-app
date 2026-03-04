@@ -45,6 +45,10 @@ interface FinanceDocument {
   contactPhone?: string | null;
   contactAddress?: string | null;
   contactTaxId?: string | null;
+  vendorName?: string | null;
+  vendorEmail?: string | null;
+  vendorPhone?: string | null;
+  vendorAddress?: string | null;
   companyName?: string | null;
   personFirstName?: string | null;
   personLastName?: string | null;
@@ -103,11 +107,28 @@ function formatDate(date: string | Date | null): string {
 
 function getClientName(doc: FinanceDocument): string {
   if (doc.contactName) return doc.contactName;
+  if (doc.vendorName) return doc.vendorName;
   if (doc.companyName) return doc.companyName;
   if (doc.personFirstName) {
     return `${doc.personFirstName} ${doc.personLastName || ""}`.trim();
   }
   return "Sin cliente";
+}
+
+function getClientDetails(doc: FinanceDocument) {
+  return {
+    email: doc.contactEmail || doc.vendorEmail || null,
+    phone: doc.contactPhone || doc.vendorPhone || null,
+    address: doc.contactAddress || doc.vendorAddress || null,
+    taxId: doc.contactTaxId || null,
+  };
+}
+
+function formatQuantity(qty: string | number | null): string {
+  if (qty === null || qty === undefined) return "0";
+  const num = typeof qty === "string" ? parseFloat(qty) : qty;
+  if (isNaN(num)) return "0";
+  return Number.isInteger(num) ? num.toString() : num.toFixed(2);
 }
 
 // ============================================
@@ -123,7 +144,7 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
       (item) => `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.description}</td>
-        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${formatQuantity(item.quantity)}</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatCurrency(item.unitPrice, doc.currency)}</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.discount || "0"}%</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.taxRate || "21"}%</td>
@@ -368,10 +389,12 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
         <div class="party-label">Cliente</div>
         <div class="party-name">${clientName}</div>
         <div class="party-details">
-          ${doc.contactEmail ? `<div>${doc.contactEmail}</div>` : ""}
-          ${doc.contactPhone ? `<div>${doc.contactPhone}</div>` : ""}
-          ${doc.contactAddress ? `<div>${doc.contactAddress}</div>` : ""}
-          ${doc.contactTaxId ? `<div>CIF/NIF: ${doc.contactTaxId}</div>` : ""}
+          ${(() => { const d = getClientDetails(doc); return [
+            d.email ? `<div>${d.email}</div>` : "",
+            d.phone ? `<div>${d.phone}</div>` : "",
+            d.address ? `<div>${d.address}</div>` : "",
+            d.taxId ? `<div>CIF/NIF: ${d.taxId}</div>` : "",
+          ].join(""); })()}
         </div>
       </div>
       ${
@@ -531,7 +554,10 @@ export function generateDocumentEmailHTML(
           <!-- Header -->
           <tr>
             <td style="padding: 32px 40px 24px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-              <div style="font-size: 24px; font-weight: 700;">hubents</div>
+              ${doc.organizationLogo
+                ? `<img src="${doc.organizationLogo}" alt="${doc.organizationName || 'Logo'}" style="height: 48px; max-width: 200px; object-fit: contain;">`
+                : `<div style="font-size: 24px; font-weight: 700;">${doc.organizationName || 'hubents'}</div>`
+              }
             </td>
           </tr>
           
@@ -577,6 +603,16 @@ export function generateDocumentEmailHTML(
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Vencimiento:</td>
                     <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #111827;">${formatDate(doc.dueDate)}</td>
+                  </tr>
+                  `
+                      : ""
+                  }
+                  ${
+                    doc.validUntil
+                      ? `
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Válido hasta:</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #111827;">${formatDate(doc.validUntil)}</td>
                   </tr>
                   `
                       : ""

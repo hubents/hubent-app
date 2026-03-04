@@ -501,8 +501,9 @@ export function DocumentDrawer({
       globalDiscount,
       globalDiscountType,
       globalDiscountEnabled,
+      paymentMethod: paymentMethod || undefined,
     };
-  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled]);
+  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

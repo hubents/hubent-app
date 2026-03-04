@@ -42,12 +42,14 @@ import {
   RiExchangeLine,
   RiMoneyDollarCircleLine,
   RiTruckLine,
+  RiFileDownloadLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 
@@ -414,6 +416,10 @@ export default function ProformasPage() {
                           <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "proforma")}>
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `proforma-${doc.number}.pdf`)}>
+                            <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                            Descargar PDF
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {doc.status === "draft" && (
