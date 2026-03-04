@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { LiveDocumentPreview, type OrganizationPreviewData, type PreviewData } from "./live-document-preview";
 import {
   Select,
   SelectContent,
@@ -141,6 +140,76 @@ export function DocumentPreview({
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [orgData, setOrgData] = useState<OrganizationPreviewData | undefined>();
+
+  useEffect(() => {
+    if (open) {
+      fetch("/api/user/profile")
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+          const org = data?.data?.organization;
+          if (org) {
+            setOrgData({
+              name: org.fiscalName || org.name,
+              taxId: org.taxId || undefined,
+              fiscalAddress: org.fiscalAddress || undefined,
+              fiscalCity: org.fiscalCity || undefined,
+              fiscalPostalCode: org.fiscalPostalCode || undefined,
+              fiscalCountry: org.fiscalCountry || undefined,
+              fiscalEmail: org.fiscalEmail || undefined,
+              fiscalPhone: org.fiscalPhone || undefined,
+              invoiceLogo: org.invoiceLogo || org.logo || undefined,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open]);
+
+  const previewData = useMemo((): PreviewData | null => {
+    if (!document) return null;
+    const getClientName = () => {
+      if (document.contactName) return document.contactName;
+      if (document.vendorName) return document.vendorName;
+      if (document.companyName) return document.companyName;
+      if (document.personFirstName) {
+        return `${document.personFirstName} ${document.personLastName || ""}`.trim();
+      }
+      return "Sin cliente";
+    };
+    return {
+      type: document.type as PreviewData["type"],
+      contactName: getClientName() || undefined,
+      vendorName: document.vendorName || undefined,
+      contactEmail: document.contactEmail || document.vendorEmail || undefined,
+      contactPhone: document.contactPhone || document.vendorPhone || undefined,
+      contactAddress: document.contactAddress || document.vendorAddress || undefined,
+      contactTaxId: document.contactTaxId || undefined,
+      eventName: document.eventName || undefined,
+      documentNumber: document.number,
+      documentId: document.id,
+      status: document.status,
+      items: document.items.map((item) => ({
+        description: item.description,
+        quantity: parseFloat(item.quantity || "0"),
+        unitPrice: parseFloat(item.unitPrice || "0"),
+        discount: parseFloat(item.discount || "0"),
+        taxRate: parseFloat(item.taxRate || "21"),
+        total: parseFloat(item.total || "0"),
+      })),
+      notes: document.notes || undefined,
+      termsAndConditions: document.termsAndConditions || undefined,
+      issueDate: document.issueDate || undefined,
+      dueDate: document.dueDate || undefined,
+      validUntil: document.validUntil || undefined,
+      currency: document.currency || "EUR",
+      organization: orgData,
+      globalDiscount: parseFloat(document.globalDiscount || "0"),
+      globalDiscountType: (document.globalDiscountType as "percentage" | "fixed") || "percentage",
+      globalDiscountEnabled: parseFloat(document.globalDiscount || "0") > 0,
+      paymentMethod: document.paymentMethod || undefined,
+    };
+  }, [document, orgData]);
 
   if (!document) return null;
 
@@ -149,7 +218,6 @@ export function DocumentPreview({
   const paidAmount = parseFloat(document.paidAmount || "0");
   const pendingAmount = totalAmount - paidAmount;
   const isPartiallyPaid = paidAmount > 0 && paidAmount < totalAmount;
-  const isFullyPaid = paidAmount >= totalAmount && totalAmount > 0;
   const paymentPercentage = totalAmount > 0 ? Math.min((paidAmount / totalAmount) * 100, 100) : 0;
 
   const formatCurrency = (amount: string, currency = "EUR") => {
@@ -168,16 +236,6 @@ export function DocumentPreview({
     }
     return "Sin cliente";
   };
-
-  const getClientDetails = () => {
-    const email = document.contactEmail || document.vendorEmail || null;
-    const phone = document.contactPhone || document.vendorPhone || null;
-    const address = document.contactAddress || document.vendorAddress || null;
-    const taxId = document.contactTaxId || null;
-    return { email, phone, address, taxId };
-  };
-
-  const clientDetails = getClientDetails();
 
   const handleViewHTML = () => {
     window.open(`/api/finance/documents/${document.id}/pdf?format=html`, "_blank");
@@ -621,214 +679,63 @@ export function DocumentPreview({
           </div>
         )}
 
-        <Separator className="my-4" />
+        {/* Document Preview - same layout as PDF and edit mode */}
+        {previewData && (
+          <div className="mt-4 -mx-6">
+            <LiveDocumentPreview data={previewData} />
+          </div>
+        )}
 
-        {/* Document Info */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Cliente</p>
-              <p className="font-medium">{getClientName()}</p>
-              {(clientDetails.email || clientDetails.phone || clientDetails.address || clientDetails.taxId) && (
-                <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                  {clientDetails.email && <p>{clientDetails.email}</p>}
-                  {clientDetails.phone && <p>{clientDetails.phone}</p>}
-                  {clientDetails.address && <p>{clientDetails.address}</p>}
-                  {clientDetails.taxId && <p>CIF/NIF: {clientDetails.taxId}</p>}
-                </div>
-              )}
+        {/* Payment Section (invoices/proformas only) */}
+        {(document.type === "invoice" || document.type === "proforma") && paidAmount > 0 && (
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total documento</span>
+              <span className="font-medium">{formatCurrency(document.total, document.currency)}</span>
             </div>
-            {document.eventName && (
-              <div>
-                <p className="text-muted-foreground">Evento</p>
-                <p className="font-medium">{document.eventName}</p>
+            <div className="flex justify-between text-sm text-emerald-600">
+              <span>Pagado</span>
+              <span>-{formatCurrency(paidAmount.toString(), document.currency)}</span>
+            </div>
+            <div className="flex justify-between text-sm font-bold">
+              <span>Pendiente</span>
+              <span className={pendingAmount > 0 ? "text-amber-600" : "text-emerald-600"}>
+                {formatCurrency(pendingAmount.toString(), document.currency)}
+              </span>
+            </div>
+            <div className="mt-2">
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${paymentPercentage}%` }}
+                />
               </div>
-            )}
-            <div>
-              <p className="text-muted-foreground">Fecha emisión</p>
-              <p className="font-medium">
-                {document.issueDate
-                  ? format(new Date(document.issueDate), "dd MMM yyyy", { locale: es })
-                  : "-"}
+              <p className="text-xs text-muted-foreground mt-1 text-right">
+                {paymentPercentage.toFixed(0)}% pagado
               </p>
             </div>
-            {document.dueDate && (
-              <div>
-                <p className="text-muted-foreground">Fecha vencimiento</p>
-                <p className="font-medium">
-                  {format(new Date(document.dueDate), "dd MMM yyyy", { locale: es })}
-                </p>
-              </div>
-            )}
-            {document.validUntil && (
-              <div>
-                <p className="text-muted-foreground">Válido hasta</p>
-                <p className="font-medium">
-                  {format(new Date(document.validUntil), "dd MMM yyyy", { locale: es })}
-                </p>
-              </div>
-            )}
           </div>
+        )}
 
-          <Separator />
-
-          {/* Items Table */}
-          <div>
-            <h4 className="font-medium mb-2">Líneas</h4>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-2">Descripción</th>
-                    <th className="text-right p-2 w-16">Cant.</th>
-                    <th className="text-right p-2 w-20">Precio</th>
-                    <th className="text-right p-2 w-16">Dto.</th>
-                    <th className="text-right p-2 w-16">IVA</th>
-                    <th className="text-right p-2 w-20">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {document.items.map((item, idx) => (
-                    <tr key={item.id || idx} className="border-t">
-                      <td className="p-2">{item.description}</td>
-                      <td className="text-right p-2">{item.quantity}</td>
-                      <td className="text-right p-2">
-                        {formatCurrency(item.unitPrice, document.currency)}
-                      </td>
-                      <td className="text-right p-2">{item.discount || "0"}%</td>
-                      <td className="text-right p-2">{item.taxRate || "21"}%</td>
-                      <td className="text-right p-2">
-                        {formatCurrency(item.total, document.currency)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Register Payment Button */}
+        {(document.type === "invoice" || document.type === "proforma") && 
+         document.status !== "paid" && 
+         document.status !== "cancelled" && 
+         pendingAmount > 0 && (
+          <div className="flex justify-end mt-4">
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={() => {
+                setPaymentAmount(pendingAmount.toFixed(2));
+                setPaymentDialogOpen(true);
+              }}
+            >
+              <RiMoneyDollarCircleLine className="h-4 w-4 mr-1" />
+              Registrar pago
+            </Button>
           </div>
-
-          {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-56 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>{formatCurrency(document.subtotal, document.currency)}</span>
-              </div>
-              {parseFloat(document.globalDiscount || "0") > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>
-                    Descuento global
-                    {document.globalDiscountType === "percentage" && ` (${document.globalDiscount}%)`}
-                  </span>
-                  <span>-</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">IVA</span>
-                <span>{formatCurrency(document.taxAmount, document.currency)}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between font-bold text-base">
-                <span>Total</span>
-                <span>{formatCurrency(document.total, document.currency)}</span>
-              </div>
-              {(document.type === "invoice" || document.type === "proforma") && paidAmount > 0 && (
-                <>
-                  <div className="flex justify-between text-emerald-600">
-                    <span>Pagado</span>
-                    <span>-{formatCurrency(paidAmount.toString(), document.currency)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-base">
-                    <span>Pendiente</span>
-                    <span className={pendingAmount > 0 ? "text-amber-600" : "text-emerald-600"}>
-                      {formatCurrency(pendingAmount.toString(), document.currency)}
-                    </span>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="mt-2">
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-emerald-500 transition-all duration-300"
-                        style={{ width: `${paymentPercentage}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 text-right">
-                      {paymentPercentage.toFixed(0)}% pagado
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Register Payment Button */}
-          {(document.type === "invoice" || document.type === "proforma") && 
-           document.status !== "paid" && 
-           document.status !== "cancelled" && 
-           pendingAmount > 0 && (
-            <div className="flex justify-end mt-4">
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => {
-                  setPaymentAmount(pendingAmount.toFixed(2));
-                  setPaymentDialogOpen(true);
-                }}
-              >
-                <RiMoneyDollarCircleLine className="h-4 w-4 mr-1" />
-                Registrar pago
-              </Button>
-            </div>
-          )}
-
-          {/* Payment Method */}
-          {document.paymentMethod && (
-            <>
-              <Separator />
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Método de pago</p>
-                  <p className="font-medium">
-                    {{
-                      bank_transfer: "Transferencia bancaria",
-                      cash: "Efectivo",
-                      card: "Tarjeta",
-                      stripe: "Stripe",
-                      check: "Cheque",
-                      other: "Otro",
-                    }[document.paymentMethod] || document.paymentMethod}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Notes */}
-          {document.notes && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="font-medium mb-1">Notas</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {document.notes}
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Terms */}
-          {document.termsAndConditions && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="font-medium mb-1">Términos y Condiciones</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {document.termsAndConditions}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+        )}
       </SheetContent>
     </Sheet>
     </>

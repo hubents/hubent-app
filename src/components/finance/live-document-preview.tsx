@@ -40,8 +40,10 @@ export interface PreviewData {
   items: DocumentItem[];
   notes?: string;
   termsAndConditions?: string;
+  issueDate?: string;
   dueDate?: string;
   validUntil?: string;
+  currency?: string;
   organization?: OrganizationPreviewData;
   globalDiscount?: number;
   globalDiscountType?: "percentage" | "fixed";
@@ -62,10 +64,24 @@ const TYPE_LABELS: Record<string, string> = {
   credit_note: "FACTURA RECTIFICATIVA",
 };
 
-function formatCurrency(amount: number): string {
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Borrador",
+  approved: "Aprobado",
+  sent: "Pendiente",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
+  payment_promise: "Promesa de pago",
+  paid: "Pagado",
+  partial: "Parcial",
+  overdue: "Vencido",
+  cancelled: "Cancelado",
+  delivered: "Entregado",
+};
+
+function formatCurrency(amount: number, currency = "EUR"): string {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
-    currency: "EUR",
+    currency: currency || "EUR",
   }).format(amount);
 }
 
@@ -165,7 +181,7 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
                 <div className="text-gray-400 text-xs">#{data.documentId}</div>
               )}
               <span className="inline-block mt-2 px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                {data.status === "approved" ? "Aprobado" : data.status === "sent" ? "Enviado" : "Borrador"}
+                {STATUS_LABELS[data.status || "draft"] || data.status}
               </span>
             </div>
           </div>
@@ -205,7 +221,7 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
                 Fecha de emisión
               </div>
               <div className="font-medium">
-                {format(new Date(), "dd/MM/yyyy", { locale: es })}
+                {data.issueDate ? formatDate(data.issueDate) : format(new Date(), "dd/MM/yyyy", { locale: es })}
               </div>
             </div>
             {data.type === "quote" && data.validUntil && (
