@@ -31,17 +31,10 @@ import {
   RiDownloadLine,
   RiLoader4Line,
   RiEyeLine,
-  RiFileTextLine,
   RiMoneyDollarCircleLine,
   RiLinkM,
   RiFileCopyLine,
 } from "@remixicon/react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 interface DocumentItem {
@@ -608,28 +601,14 @@ export function DocumentPreview({
             <RiPrinterLine className="h-4 w-4 mr-1" />
             Imprimir
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={pdfLoading}>
-                {pdfLoading ? (
-                  <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <RiFileTextLine className="h-4 w-4 mr-1" />
-                )}
-                PDF
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={handleViewHTML}>
-                <RiEyeLine className="h-4 w-4 mr-2" />
-                Ver documento
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownloadPDF}>
-                <RiDownloadLine className="h-4 w-4 mr-2" />
-                Descargar PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={pdfLoading}>
+            {pdfLoading ? (
+              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <RiDownloadLine className="h-4 w-4 mr-1" />
+            )}
+            PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setSendDialogOpen(true)}>
             <RiMailLine className="h-4 w-4 mr-1" />
             Enviar

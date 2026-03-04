@@ -111,6 +111,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       org?.fiscalCountry,
     ].filter(Boolean).join(", ");
 
+    // Convert logo to base64 data URI for PDF rendering
+    let logoDataUri: string | undefined = org?.invoiceLogo || org?.logo || undefined;
+    if (logoDataUri && logoDataUri.startsWith("http")) {
+      try {
+        const logoRes = await fetch(logoDataUri);
+        const logoBuffer = await logoRes.arrayBuffer();
+        const contentType = logoRes.headers.get("content-type") || "image/png";
+        logoDataUri = `data:${contentType};base64,${Buffer.from(logoBuffer).toString("base64")}`;
+      } catch {
+        // Keep original URL as fallback
+      }
+    }
+
     // Build document for templates
     const pdfDocument = {
       ...document,
@@ -121,7 +134,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       organizationPhone: org?.fiscalPhone || org?.phone || undefined,
       organizationEmail: org?.fiscalEmail || undefined,
       organizationTaxId: org?.taxId || undefined,
-      organizationLogo: org?.invoiceLogo || org?.logo || undefined,
+      organizationLogo: logoDataUri,
       contactName: recipientName || contactInfo?.name || document.vendor?.name || document.company?.legalName || 
         (document.person ? `${document.person.firstName} ${document.person.lastName || ""}`.trim() : null),
       contactEmail: contactInfo?.email || document.vendor?.email || document.company?.email || document.person?.email || null,

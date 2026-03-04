@@ -71,6 +71,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       org?.fiscalCountry,
     ].filter(Boolean).join(", ");
 
+    // Convert logo to base64 data URI so html2canvas can render it (avoids CORS)
+    let logoDataUri: string | undefined = org?.invoiceLogo || org?.logo || undefined;
+    if (logoDataUri && logoDataUri.startsWith("http")) {
+      try {
+        const logoRes = await fetch(logoDataUri);
+        const logoBuffer = await logoRes.arrayBuffer();
+        const contentType = logoRes.headers.get("content-type") || "image/png";
+        logoDataUri = `data:${contentType};base64,${Buffer.from(logoBuffer).toString("base64")}`;
+      } catch {
+        // Keep original URL as fallback
+      }
+    }
+
     // Build the full document object for PDF generation
     const pdfDocument = {
       ...document,
@@ -81,7 +94,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       organizationPhone: org?.fiscalPhone || org?.phone || undefined,
       organizationEmail: org?.fiscalEmail || undefined,
       organizationTaxId: org?.taxId || undefined,
-      organizationLogo: org?.invoiceLogo || org?.logo || undefined,
+      organizationLogo: logoDataUri,
       contactName: contactInfo?.name || document.vendor?.name || document.company?.legalName || 
         (document.person ? `${document.person.firstName} ${document.person.lastName || ""}`.trim() : null),
       contactEmail: contactInfo?.email || document.vendor?.email || document.company?.email || document.person?.email || null,
