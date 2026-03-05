@@ -138,6 +138,7 @@ function SortableColumn({
   tasks, 
   onTaskClick,
   onAddTask,
+  canAdd = true,
 }: { 
   id: string; 
   title: string; 
@@ -145,6 +146,7 @@ function SortableColumn({
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onAddTask: (status: string) => void;
+  canAdd?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   
@@ -161,15 +163,17 @@ function SortableColumn({
             {tasks.length}
           </Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 hover:bg-white/50"
-          onClick={() => onAddTask(id)}
-          title={`Agregar tarea en ${title}`}
-        >
-          <RiAddLine className="h-4 w-4" />
-        </Button>
+        {canAdd && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-white/50"
+            onClick={() => onAddTask(id)}
+            title={`Agregar tarea en ${title}`}
+          >
+            <RiAddLine className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       <div 
         ref={setNodeRef}
@@ -521,6 +525,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
                 tasks={filteredTasks.filter((t) => t.status === column.id)}
                 onTaskClick={handleTaskClick}
                 onAddTask={openCreateDrawer}
+                canAdd={canEditTasks}
               />
             ))}
           </div>

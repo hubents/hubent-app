@@ -32,6 +32,8 @@ import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
 import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
 import { useEvent } from "@/contexts/event-context";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,6 +95,8 @@ interface EventDetailClientProps {
 export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const router = useRouter();
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
   const [event, setEvent] = useState<Event | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -387,10 +391,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           )}
         </div>
         <div className="flex gap-2">
-          <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
-            <RiEditLine className="h-4 w-4" />
-            Editar Evento
-          </Button>
+          {canEdit("general") && (
+            <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
+              <RiEditLine className="h-4 w-4" />
+              Editar Evento
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -505,10 +511,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Equipo ({collaborators.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setCollabDrawerOpen(true)}>
-                <RiAddLine className="h-4 w-4" />
-                Agregar
-              </Button>
+              {canEdit("settings") && (
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setCollabDrawerOpen(true)}>
+                  <RiAddLine className="h-4 w-4" />
+                  Agregar
+                </Button>
+              )}
               <Link href={`/dashboard/events/${eventId}/settings`}>
                 <Button variant="ghost" size="sm">
                   Ver todos
@@ -567,15 +575,17 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Tareas ({tasks.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1"
-                onClick={openCreateDrawer}
-              >
-                <RiAddLine className="h-4 w-4" />
-                Nueva
-              </Button>
+              {canEdit("tasks") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={openCreateDrawer}
+                >
+                  <RiAddLine className="h-4 w-4" />
+                  Nueva
+                </Button>
+              )}
               <Link href={`/dashboard/tasks?eventId=${eventId}`}>
                 <Button variant="outline" size="sm">
                   Ver todas
@@ -628,15 +638,17 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">No hay tareas asignadas</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  onClick={openCreateDrawer}
-                >
-                  <RiAddLine className="h-4 w-4" />
-                  Crear primera tarea
-                </Button>
+                {canEdit("tasks") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={openCreateDrawer}
+                  >
+                    <RiAddLine className="h-4 w-4" />
+                    Crear primera tarea
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
@@ -650,10 +662,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               Proveedores ({vendors.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddVendorDialog(true)}>
-                <RiAddLine className="h-4 w-4" />
-                Asignar
-              </Button>
+              {canEdit("vendors") && (
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddVendorDialog(true)}>
+                  <RiAddLine className="h-4 w-4" />
+                  Asignar
+                </Button>
+              )}
               <Sheet open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
                 <SheetContent className="sm:max-w-2xl overflow-y-auto">
                   <SheetHeader>
@@ -706,11 +720,13 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   </div>
                 </SheetContent>
               </Sheet>
-              <Link href="/dashboard/contacts?segment=vendors">
-                <Button variant="ghost" size="sm">
-                  + Nuevo
-                </Button>
-              </Link>
+              {canEdit("vendors") && (
+                <Link href="/dashboard/contacts?segment=vendors">
+                  <Button variant="ghost" size="sm">
+                    + Nuevo
+                  </Button>
+                </Link>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -724,14 +740,16 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                         <span className="text-sm text-muted-foreground ml-2">- {vendor.service}</span>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
-                      onClick={() => handleRemoveVendor(vendor.id)}
-                    >
-                      <RiDeleteBinLine className="h-4 w-4" />
-                    </Button>
+                    {canEdit("vendors") && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                        onClick={() => handleRemoveVendor(vendor.id)}
+                      >
+                        <RiDeleteBinLine className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -750,10 +768,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiGroupLine className="h-5 w-5" />
               Lista de Invitados ({guests.length})
             </CardTitle>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddGuestDialog(true)}>
-              <RiUserAddLine className="h-4 w-4" />
-              Añadir
-            </Button>
+            {canEdit("guests") && (
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddGuestDialog(true)}>
+                <RiUserAddLine className="h-4 w-4" />
+                Añadir
+              </Button>
+            )}
             <Sheet open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
               <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader>
@@ -841,10 +861,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiFileTextLine className="h-5 w-5" />
               Documentos ({documents.length})
             </CardTitle>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddDocDialog(true)}>
-              <RiUploadLine className="h-4 w-4" />
-              Subir
-            </Button>
+            {canEdit("general") && (
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddDocDialog(true)}>
+                <RiUploadLine className="h-4 w-4" />
+                Subir
+              </Button>
+            )}
             <Sheet open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
               <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader>
