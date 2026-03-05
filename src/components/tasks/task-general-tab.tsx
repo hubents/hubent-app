@@ -104,12 +104,6 @@ interface TeamMember {
   image?: string;
 }
 
-interface Vendor {
-  id: number;
-  name: string;
-  category: string | null;
-}
-
 interface TaskGeneralTabProps {
   task: TaskDetail | null;
   participants: TaskParticipant[];
@@ -169,23 +163,15 @@ export function TaskGeneralTab({
   const [addingVideo, setAddingVideo] = useState(false);
   const [addingParticipant, setAddingParticipant] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [contacts, setContacts] = useState<{ id: number; name: string; email: string | null; type: string }[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  // Fetch team members and vendors for assignment
+  // Fetch team members for assignment
   useEffect(() => {
     async function fetchData() {
       setLoadingMembers(true);
       try {
-        const [teamRes, vendorsRes, contactsRes] = await Promise.all([
-          fetch("/api/team"),
-          fetch("/api/vendors"),
-          fetch("/api/contacts"),
-        ]);
+        const teamRes = await fetch("/api/team");
         const teamData = await teamRes.json();
-        const vendorsData = await vendorsRes.json();
-        const contactsData = await contactsRes.json();
         
         if (teamData.success && teamData.data?.members) {
           setTeamMembers(teamData.data.members);
@@ -196,23 +182,9 @@ export function TaskGeneralTab({
         } else {
           setTeamMembers([]);
         }
-        
-        if (vendorsData.success && Array.isArray(vendorsData.data)) {
-          setVendors(vendorsData.data);
-        } else {
-          setVendors([]);
-        }
-        
-        if (contactsData.success && Array.isArray(contactsData.data)) {
-          setContacts(contactsData.data);
-        } else {
-          setContacts([]);
-        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
         setTeamMembers([]);
-        setVendors([]);
-        setContacts([]);
       } finally {
         setLoadingMembers(false);
       }
@@ -268,20 +240,7 @@ export function TaskGeneralTab({
     }
   };
 
-  // Filter out already added participants (with defensive checks)
-  const safeTeamMembers = teamMembers || [];
-  const safeVendors = vendors || [];
   const safeParticipants = participants || [];
-  const availableMembers = safeTeamMembers.filter(
-    (m) => !safeParticipants.some((p) => p.userId === m.id)
-  );
-  const availableVendors = safeVendors.filter(
-    (v) => !safeParticipants.some((p) => p.vendorId === v.id)
-  );
-  const safeContacts = contacts || [];
-  const availableContacts = safeContacts.filter(
-    (c) => !safeParticipants.some((p) => (p as any).contactId === c.id)
-  );
 
   if (loading) {
     return (
@@ -420,8 +379,6 @@ export function TaskGeneralTab({
           </label>
           <ParticipantSelector
             teamMembers={teamMembers}
-            vendors={vendors}
-            contacts={contacts}
             excludedMemberIds={safeParticipants.filter(p => p.userId).map(p => p.userId!)}
             excludedVendorIds={safeParticipants.filter(p => p.vendorId).map(p => p.vendorId!)}
             excludedContactIds={safeParticipants.filter(p => (p as any).contactId).map(p => (p as any).contactId)}

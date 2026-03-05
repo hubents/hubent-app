@@ -202,6 +202,12 @@ export async function getGuests(
       totalCompanions,
       totalAttending: Number(stats.confirmed) + totalCompanions,
     },
+    meta: {
+      page,
+      limit,
+      total: Number(stats.total),
+      totalPages: Math.ceil(Number(stats.total) / limit),
+    },
   };
 }
 

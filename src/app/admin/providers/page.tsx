@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 import {
   Sheet,
   SheetContent,
@@ -81,6 +82,8 @@ export default function AdminProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "unverified" | "verified" | "rejected">("all");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
 
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -91,10 +94,12 @@ export default function AdminProvidersPage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/providers");
+      const params = new URLSearchParams({ page: page.toString() });
+      const res = await fetch(`/api/admin/providers?${params}`);
       const data = await res.json();
       if (data.success) {
         setProviders(data.data);
+        if (data.meta) setMeta(data.meta);
       } else {
         console.error("Providers API error:", data);
         toast.error(data.error?.message || "Error al cargar proveedores");
@@ -105,7 +110,7 @@ export default function AdminProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     fetchProviders();
@@ -525,6 +530,19 @@ export default function AdminProvidersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,24 +68,23 @@ export function ContactSelector({
   const [contacts, setContacts] = useState<ContactOption[]>(externalContacts || []);
   const [vendorsList, setVendorsList] = useState<ContactOption[]>(externalVendors || []);
   const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (externalContacts) setContacts(externalContacts);
     if (externalVendors) setVendorsList(externalVendors);
   }, [externalContacts, externalVendors]);
 
-  useEffect(() => {
-    if (!externalContacts && !externalVendors) {
-      fetchData();
-    }
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async (searchTerm: string) => {
+    if (externalContacts && externalVendors) return;
     setLoading(true);
     try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (searchTerm) params.set("search", searchTerm);
+
       const [contactsRes, vendorsRes] = await Promise.all([
-        fetch("/api/contacts?limit=200"),
-        fetch("/api/vendors?limit=200"),
+        fetch(`/api/contacts?${params}`),
+        fetch(`/api/vendors?${params}`),
       ]);
 
       if (contactsRes.ok) {
@@ -123,7 +122,29 @@ export function ContactSelector({
     } finally {
       setLoading(false);
     }
-  }
+  }, [externalContacts, externalVendors]);
+
+  // Load initial data when popover opens
+  useEffect(() => {
+    if (open && !externalContacts && !externalVendors) {
+      fetchData("");
+    }
+  }, [open, fetchData, externalContacts, externalVendors]);
+
+  // Debounced server-side search (only on search text changes)
+  const prevSearchRef = useRef("");
+  useEffect(() => {
+    if (!open || externalContacts || externalVendors) return;
+    if (search === prevSearchRef.current) return;
+    prevSearchRef.current = search;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchData(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, open, fetchData, externalContacts, externalVendors]);
 
   const allOptions = useMemo(() => {
     const contactOptions = contacts.map((c) => ({ ...c, type: "contact" as EntityType }));

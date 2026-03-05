@@ -19,6 +19,7 @@ import {
   Trash2
 } from "lucide-react";
 import Link from "next/link";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 
 interface Tenant {
   id: number;
@@ -50,6 +51,8 @@ export default function TenantsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [planFilter, setPlanFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
 
   const [formData, setFormData] = useState({
     name: "",
@@ -64,14 +67,16 @@ export default function TenantsPage() {
 
   useEffect(() => {
     fetchTenants();
-  }, []);
+  }, [page]);
 
   const fetchTenants = async () => {
     try {
-      const res = await fetch("/api/admin/tenants");
+      const params = new URLSearchParams({ page: page.toString() });
+      const res = await fetch(`/api/admin/tenants?${params}`);
       const data = await res.json();
       setTenants(data.tenants || []);
       setPlans(data.plans || []);
+      if (data.meta) setMeta(data.meta);
     } catch (e) {
       console.error("Error fetching tenants:", e);
     } finally {
@@ -578,6 +583,19 @@ export default function TenantsPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

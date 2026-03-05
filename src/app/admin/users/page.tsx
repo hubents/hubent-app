@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { 
   Users, 
   Search, 
@@ -70,6 +71,8 @@ export default function UsersPage() {
   const [pendingInvitations, setPendingInvitations] = useState<PendingAdminInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", level: "support" });
@@ -80,15 +83,17 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [page]);
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/admin/users");
+      const params = new URLSearchParams({ page: page.toString() });
+      const res = await fetch(`/api/admin/users?${params}`);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
         setPendingInvitations(data.pendingInvitations || []);
+        if (data.meta) setMeta(data.meta);
       }
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -442,6 +447,19 @@ export default function UsersPage() {
         onOpenChange={(open) => !open && setEditUser(null)}
         onSuccess={fetchData}
       />
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
 
       <Toaster position="top-right" />
     </div>

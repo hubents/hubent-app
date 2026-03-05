@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
   RiUserLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 
 interface Contact {
   id: number;
@@ -29,33 +30,40 @@ export default function VendorContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    async function fetchContacts() {
-      try {
-        const res = await fetch("/api/contacts?limit=100");
-        const data = await res.json();
-        if (data.success) {
-          setContacts(data.data || []);
-        }
-      } catch {
-        toast.error("Error al cargar contactos");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchContacts();
-  }, []);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [search]);
 
-  const filtered = contacts.filter((c) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      c.name?.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.company?.toLowerCase().includes(q)
-    );
-  });
+  const fetchContacts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: page.toString(), limit: "50" });
+      if (debouncedSearch) params.set("search", debouncedSearch);
+      const res = await fetch(`/api/contacts?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setContacts(data.data || []);
+        if (data.meta) setMeta(data.meta);
+      }
+    } catch {
+      toast.error("Error al cargar contactos");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, debouncedSearch]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   if (loading) {
     return (
@@ -82,11 +90,11 @@ export default function VendorContactsPage() {
           className="pl-9"
           placeholder="Buscar por nombre, email o empresa..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {contacts.length === 0 && !loading ? (
         <Card>
           <CardContent className="py-12 text-center">
             <RiContactsBookLine className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
@@ -98,11 +106,11 @@ export default function VendorContactsPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{filtered.length} contactos</CardTitle>
+            <CardTitle className="text-base">{meta.total} contactos</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {filtered.map((contact) => (
+              {contacts.map((contact) => (
                 <div key={contact.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
@@ -141,6 +149,19 @@ export default function VendorContactsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
       )}
     </div>
   );

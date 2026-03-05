@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins, adminInvitations, organizationMembers, organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     
@@ -20,10 +20,21 @@ export async function GET() {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const offset = (page - 1) * limit;
+
     const allUsers = await db
       .select()
       .from(users)
-      .orderBy(users.createdAt);
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users);
 
     const admins = await db.select().from(platformAdmins);
     const adminMap = new Map(admins.map((a) => [a.userId, a.level]));
@@ -74,6 +85,7 @@ export async function GET() {
     return NextResponse.json({
       users: usersWithAdminInfo,
       pendingInvitations,
+      meta: { page, limit, total: Number(count), totalPages: Math.ceil(Number(count) / limit) },
     });
   } catch (error) {
     console.error("Get admin users error:", error);

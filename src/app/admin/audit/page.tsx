@@ -9,29 +9,43 @@ import {
 } from "lucide-react";
 import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
-async function getAuditLogs() {
-  return await db
-    .select({
-      id: auditLogs.id,
-      action: auditLogs.action,
-      resource: auditLogs.resource,
-      resourceId: auditLogs.resourceId,
-      actorEmail: auditLogs.actorEmail,
-      ipAddress: auditLogs.ipAddress,
-      createdAt: auditLogs.createdAt,
-      details: auditLogs.details,
-    })
-    .from(auditLogs)
-    .orderBy(desc(auditLogs.createdAt))
-    .limit(50);
+const LIMIT = 50;
+
+async function getAuditLogs(page: number) {
+  const offset = (page - 1) * LIMIT;
+
+  const [data, [{ count }]] = await Promise.all([
+    db
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        resource: auditLogs.resource,
+        resourceId: auditLogs.resourceId,
+        actorEmail: auditLogs.actorEmail,
+        ipAddress: auditLogs.ipAddress,
+        createdAt: auditLogs.createdAt,
+        details: auditLogs.details,
+      })
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(LIMIT)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(auditLogs),
+  ]);
+
+  const total = Number(count);
+  return { data, meta: { page, limit: LIMIT, total, totalPages: Math.ceil(total / LIMIT) } };
 }
 
-export default async function AuditPage() {
-  const logs = await getAuditLogs();
+export default async function AuditPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10));
+  const { data: logs, meta } = await getAuditLogs(page);
 
   const getActionColor = (action: string) => {
     if (action.includes("create")) return "bg-green-500/10 text-green-500";
@@ -161,6 +175,35 @@ export default async function AuditPage() {
           )}
         </CardContent>
       </Card>
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={`/admin/audit?page=${page - 1}`}
+                className="px-3 py-1.5 text-sm border rounded-md hover:bg-muted"
+              >
+                Anterior
+              </Link>
+            )}
+            <span className="px-3 py-1.5 text-sm">
+              {page} / {meta.totalPages}
+            </span>
+            {page < meta.totalPages && (
+              <Link
+                href={`/admin/audit?page=${page + 1}`}
+                className="px-3 py-1.5 text-sm border rounded-md hover:bg-muted"
+              >
+                Siguiente
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

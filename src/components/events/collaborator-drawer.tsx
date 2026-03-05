@@ -149,13 +149,18 @@ export function CollaboratorDrawer({
 
   const hasSelection = selectedUserId || selectedContactId || selectedVendorId;
 
-  const fetchData = useCallback(async () => {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchData = useCallback(async (searchTerm: string = "") => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (searchTerm) params.set("search", searchTerm);
+
       const [teamRes, contactsRes, vendorsRes] = await Promise.all([
         fetch("/api/team"),
-        fetch("/api/contacts?limit=200"),
-        fetch("/api/vendors"),
+        fetch(`/api/contacts?${params}`),
+        fetch(`/api/vendors?${params}`),
       ]);
       const [teamData, contactsData, vendorsData] = await Promise.all([
         teamRes.json(),
@@ -174,9 +179,24 @@ export function CollaboratorDrawer({
 
   useEffect(() => {
     if (open && !isEditing) {
-      fetchData();
+      fetchData("");
     }
   }, [open, isEditing, fetchData]);
+
+  // Debounced server-side search (only on search text changes)
+  const prevSearchRef = useRef("");
+  useEffect(() => {
+    if (!open || isEditing) return;
+    if (search === prevSearchRef.current) return;
+    prevSearchRef.current = search;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchData(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, open, isEditing, fetchData]);
 
   useEffect(() => {
     if (editingParticipant) {

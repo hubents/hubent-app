@@ -42,6 +42,7 @@ import {
   RiPencilLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 import dynamic from "next/dynamic";
 import { RiListUnordered, RiLayout2Line } from "@remixicon/react";
 import { CSVImportDrawer } from "@/components/guests/csv-import-drawer";
@@ -117,6 +118,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 100, total: 0, totalPages: 0 });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("grupos");
   const [viewMode, setViewMode] = useState<"list" | "floor">("list");
@@ -149,10 +152,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     fetchEvent();
   }, [eventId, setActiveEvent]);
 
-  const fetchGuests = async () => {
+  const fetchGuests = async (p = page) => {
     try {
+      const params = new URLSearchParams({ page: p.toString() });
       const [guestsRes, tablesRes] = await Promise.all([
-        fetch(`/api/events/${eventId}/guests`),
+        fetch(`/api/events/${eventId}/guests?${params}`),
         fetch(`/api/events/${eventId}/tables`),
       ]);
       const guestsData = await guestsRes.json();
@@ -162,6 +166,9 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
         setGuests(guestsData.data || []);
         if (guestsData.stats) {
           setStats(guestsData.stats);
+        }
+        if (guestsData.meta) {
+          setMeta(guestsData.meta);
         }
       }
       if (tablesData.success) {
@@ -175,8 +182,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   };
 
   useEffect(() => {
-    fetchGuests();
-  }, [eventId]);
+    fetchGuests(page);
+  }, [eventId, page]);
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
@@ -714,6 +721,19 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
           </Card>
         </TabsContent>
       </Tabs>
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
       </>
       )}
 

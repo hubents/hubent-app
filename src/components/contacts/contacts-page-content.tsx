@@ -59,6 +59,7 @@ import { ImportContactsDrawer } from "./import-contacts-drawer";
 import { LinkContactDrawer } from "./link-contact-drawer";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
 import { ContactPreviewDrawer } from "./contact-preview-drawer";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 
 interface Contact {
   id: number;
@@ -91,6 +92,7 @@ export function ContactsPageContent() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
+  const [page, setPage] = useState(1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewContactId, setPreviewContactId] = useState<number | null>(null);
 
@@ -135,7 +137,8 @@ export function ContactsPageContent() {
     }
   };
 
-  const { contacts, stats, loading, refetch, deleteContact } = useContacts({
+  const { contacts, stats, loading, meta, refetch, deleteContact } = useContacts({
+    page,
     search: search || undefined,
     ...getFilterParams(),
   });
@@ -492,7 +495,7 @@ export function ContactsPageContent() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-4">
-            <Tabs value={segment} onValueChange={(v) => setSegment(v as Segment)} className="w-auto">
+            <Tabs value={segment} onValueChange={(v) => { setSegment(v as Segment); setPage(1); }} className="w-auto">
               <TabsList>
                 <TabsTrigger value="all">Todos</TabsTrigger>
                 <TabsTrigger value="vendors">Proveedores</TabsTrigger>
@@ -507,7 +510,7 @@ export function ContactsPageContent() {
                   placeholder="Buscar..."
                   className="pl-9 h-9"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 />
               </div>
               <Popover>
@@ -838,6 +841,20 @@ export function ContactsPageContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
 
       {/* Import Contacts Drawer */}
       <ImportContactsDrawer

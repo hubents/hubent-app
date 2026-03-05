@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,6 +23,7 @@ import {
   RiAddLine,
   RiSearchLine,
   RiCloseLine,
+  RiLoader4Line,
 } from "@remixicon/react";
 
 interface TeamMember {
@@ -48,8 +49,6 @@ interface Contact {
 
 interface ParticipantSelectorProps {
   teamMembers: TeamMember[];
-  vendors: Vendor[];
-  contacts: Contact[];
   excludedMemberIds: string[];
   excludedVendorIds: number[];
   excludedContactIds: number[];
@@ -60,12 +59,9 @@ interface ParticipantSelectorProps {
 }
 
 type FilterType = "all" | "members" | "vendors" | "contacts";
-type ContactFilter = "all" | "client" | "lead" | "other";
 
 export function ParticipantSelector({
   teamMembers,
-  vendors,
-  contacts,
   excludedMemberIds,
   excludedVendorIds,
   excludedContactIds,
@@ -77,18 +73,65 @@ export function ParticipantSelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
-  const [vendorCategoryFilter, setVendorCategoryFilter] = useState<string>("all");
-  const [contactTypeFilter, setContactTypeFilter] = useState<ContactFilter>("all");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset filters when popover closes
+  const fetchServerData = useCallback(async (searchTerm: string) => {
+    setSearching(true);
+    try {
+      const params = new URLSearchParams({ limit: "20" });
+      if (searchTerm) params.set("search", searchTerm);
+
+      const [vendorsRes, contactsRes] = await Promise.all([
+        fetch(`/api/vendors?${params}`),
+        fetch(`/api/contacts?${params}`),
+      ]);
+      const [vendorsData, contactsData] = await Promise.all([
+        vendorsRes.json(),
+        contactsRes.json(),
+      ]);
+
+      if (vendorsData.success && Array.isArray(vendorsData.data)) {
+        setVendors(vendorsData.data);
+      }
+      if (contactsData.success && Array.isArray(contactsData.data)) {
+        setContacts(contactsData.data);
+      }
+    } catch (err) {
+      console.error("Failed to search participants:", err);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // Load initial data when popover opens, reset when it closes
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      fetchServerData("");
+    } else {
       setSearch("");
       setTypeFilter("all");
-      setVendorCategoryFilter("all");
-      setContactTypeFilter("all");
+      setVendors([]);
+      setContacts([]);
     }
-  }, [open]);
+  }, [open, fetchServerData]);
+
+  // Debounced server-side search (only on search text changes)
+  const prevSearchRef = useRef("");
+  useEffect(() => {
+    if (!open) return;
+    if (search === prevSearchRef.current) return;
+    prevSearchRef.current = search;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchServerData(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, open, fetchServerData]);
 
   // Get unique vendor categories
   const vendorCategories = useMemo(() => {
@@ -100,72 +143,27 @@ export function ParticipantSelector({
   }, [vendors]);
 
   // Filter available items (exclude already added)
-  const availableMembers = useMemo(() => {
-    return teamMembers.filter((m) => !excludedMemberIds.includes(m.id));
-  }, [teamMembers, excludedMemberIds]);
-
-  const availableVendors = useMemo(() => {
-    return vendors.filter((v) => !excludedVendorIds.includes(v.id));
-  }, [vendors, excludedVendorIds]);
-
-  const availableContacts = useMemo(() => {
-    return contacts.filter((c) => !excludedContactIds.includes(c.id));
-  }, [contacts, excludedContactIds]);
-
-  // Apply search and filters
   const filteredMembers = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "members") return [];
+    const available = teamMembers.filter((m) => !excludedMemberIds.includes(m.id));
+    if (!search) return available;
     const searchLower = search.toLowerCase();
-    return availableMembers.filter(
+    return available.filter(
       (m) =>
         m.name?.toLowerCase().includes(searchLower) ||
         m.email?.toLowerCase().includes(searchLower)
     );
-  }, [availableMembers, search, typeFilter]);
+  }, [teamMembers, excludedMemberIds, search, typeFilter]);
 
   const filteredVendors = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "vendors") return [];
-    let result = availableVendors;
-    
-    // Apply category filter
-    if (vendorCategoryFilter !== "all") {
-      result = result.filter((v) => v.category === vendorCategoryFilter);
-    }
-    
-    // Apply search
-    const searchLower = search.toLowerCase();
-    if (search) {
-      result = result.filter((v) => v.name.toLowerCase().includes(searchLower));
-    }
-    
-    return result;
-  }, [availableVendors, search, typeFilter, vendorCategoryFilter]);
+    return vendors.filter((v) => !excludedVendorIds.includes(v.id));
+  }, [vendors, excludedVendorIds, typeFilter]);
 
   const filteredContacts = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "contacts") return [];
-    let result = availableContacts;
-    
-    // Apply contact type filter
-    if (contactTypeFilter === "client") {
-      result = result.filter((c) => !c.isLead && c.type === "person");
-    } else if (contactTypeFilter === "lead") {
-      result = result.filter((c) => c.isLead);
-    } else if (contactTypeFilter === "other") {
-      result = result.filter((c) => c.type === "company");
-    }
-    
-    // Apply search
-    const searchLower = search.toLowerCase();
-    if (search) {
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(searchLower) ||
-          c.email?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    return result;
-  }, [availableContacts, search, typeFilter, contactTypeFilter]);
+    return contacts.filter((c) => !excludedContactIds.includes(c.id));
+  }, [contacts, excludedContactIds, typeFilter]);
 
   const handleSelectMember = (memberId: string) => {
     onAddMember(memberId);
@@ -234,7 +232,7 @@ export function ParticipantSelector({
             value={typeFilter}
             onValueChange={(v) => setTypeFilter(v as FilterType)}
           >
-            <SelectTrigger className="h-7 text-xs w-auto min-w-[100px]">
+            <SelectTrigger className="h-7 text-xs w-auto min-w-25">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
@@ -244,51 +242,17 @@ export function ParticipantSelector({
               <SelectItem value="contacts">Contactos</SelectItem>
             </SelectContent>
           </Select>
-
-          {(typeFilter === "all" || typeFilter === "vendors") &&
-            vendorCategories.length > 0 && (
-              <Select
-                value={vendorCategoryFilter}
-                onValueChange={setVendorCategoryFilter}
-              >
-                <SelectTrigger className="h-7 text-xs w-auto min-w-[100px]">
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas categorías</SelectItem>
-                  {vendorCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-          {(typeFilter === "all" || typeFilter === "contacts") && (
-            <Select
-              value={contactTypeFilter}
-              onValueChange={(v) => setContactTypeFilter(v as ContactFilter)}
-            >
-              <SelectTrigger className="h-7 text-xs w-auto min-w-[90px]">
-                <SelectValue placeholder="Filtro" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="client">Clientes</SelectItem>
-                <SelectItem value="lead">Leads</SelectItem>
-                <SelectItem value="other">Empresas</SelectItem>
-              </SelectContent>
-            </Select>
+          {searching && (
+            <RiLoader4Line className="h-4 w-4 animate-spin text-muted-foreground self-center" />
           )}
         </div>
 
         {/* Results - scrollable container */}
         <div 
-          className="h-[250px] overflow-y-auto"
+          className="h-62.5 overflow-y-auto"
           onWheel={(e) => e.stopPropagation()}
         >
-          {totalAvailable === 0 ? (
+          {totalAvailable === 0 && !searching ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {search
                 ? "No se encontraron resultados"

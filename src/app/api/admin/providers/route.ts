@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +10,14 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/providers
  * List all provider organizations for super admin
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await requirePlatformAdmin();
+
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const offset = (page - 1) * limit;
 
     const providerOrgs = await db
       .select({
@@ -34,7 +39,14 @@ export async function GET() {
       })
       .from(organizations)
       .where(eq(organizations.orgType, "provider"))
-      .orderBy(desc(organizations.createdAt));
+      .orderBy(desc(organizations.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(organizations)
+      .where(eq(organizations.orgType, "provider"));
 
     const providerIds = providerOrgs.map((p) => p.id);
 
@@ -114,6 +126,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data,
+      meta: { page, limit, total: Number(count), totalPages: Math.ceil(Number(count) / limit) },
     });
   } catch (error) {
     console.error("GET /api/admin/providers error:", error);

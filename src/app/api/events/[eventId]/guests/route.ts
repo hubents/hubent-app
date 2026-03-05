@@ -15,6 +15,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const type = searchParams.get("type"); // "guests" or "groups"
     const groupId = searchParams.get("groupId");
     const rsvpStatus = searchParams.get("rsvpStatus");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "100", 10);
 
     if (type === "groups") {
       const groups = await getGuestGroups(id);
@@ -25,6 +27,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const result = await getGuests(id, {
+      page,
+      limit,
       groupId: groupId ? parseInt(groupId, 10) : undefined,
       rsvpStatus: rsvpStatus || undefined,
     });
@@ -33,6 +37,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       success: true,
       data: result.data,
       stats: result.stats,
+      meta: result.meta,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch guests";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizations, subscriptionPlans, users, organizationMembers, subscriptions, roles } from "@/db/schema";
-import { eq, ne, desc } from "drizzle-orm";
+import { eq, ne, desc, sql } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
 import { sendTenantWelcomeEmail } from "@/lib/email";
 import { requirePlatformAdmin } from "@/lib/session";
@@ -15,10 +15,15 @@ function generateTempPassword(): string {
   return password;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Verify platform admin access
     await requirePlatformAdmin();
+
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const offset = (page - 1) * limit;
 
     // Get all organizations with their subscription info
     const tenantsRaw = await db
@@ -41,7 +46,14 @@ export async function GET() {
       .where(ne(organizations.orgType, "provider"))
       .leftJoin(subscriptions, eq(subscriptions.organizationId, organizations.id))
       .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-      .orderBy(desc(organizations.createdAt));
+      .orderBy(desc(organizations.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(organizations)
+      .where(ne(organizations.orgType, "provider"));
 
     // Transform to include plan info from subscription
     const tenants = tenantsRaw.map(t => ({
@@ -60,7 +72,11 @@ export async function GET() {
 
     const plans = await db.select().from(subscriptionPlans);
 
-    return NextResponse.json({ tenants, plans });
+    return NextResponse.json({
+      tenants,
+      plans,
+      meta: { page, limit, total: Number(count), totalPages: Math.ceil(Number(count) / limit) },
+    });
   } catch (error) {
     console.error("Error fetching tenants:", error);
     return NextResponse.json(

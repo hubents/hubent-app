@@ -22,7 +22,8 @@ import {
   RiArrowUpDownLine,
   RiCheckLine,
 } from "@remixicon/react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { CreateEventDrawer } from "@/components/events/create-event-drawer";
 import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
@@ -105,25 +106,29 @@ export default function EventsPage() {
   const [sortBy, setSortBy] = useState<SortOption>("date_desc");
   const [filterType, setFilterType] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/events");
+      const params = new URLSearchParams({ page: page.toString() });
+      const res = await fetch(`/api/events?${params}`);
       if (res.ok) {
         const data = await res.json();
         setEvents(data.data || []);
+        if (data.meta) setMeta(data.meta);
       }
     } catch (error) {
       console.error("Error loading events:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [loadEvents]);
 
   const activeFilterCount = (filterType ? 1 : 0) + (filterStatus ? 1 : 0);
 
@@ -516,6 +521,19 @@ export default function EventsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {meta.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+          </p>
+          <NumericPagination
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPageChange={setPage}
+          />
+        </div>
       )}
 
       <CreateEventDrawer
