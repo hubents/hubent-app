@@ -7,6 +7,7 @@ import { getMonthRange, groupItemsByDate } from "@/lib/calendar";
 interface UseCalendarOptions {
   initialMonth?: number;
   initialYear?: number;
+  eventId?: number;
 }
 
 interface UseCalendarReturn {
@@ -69,12 +70,16 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
   const [filters, setFiltersState] = useState<Record<CalendarItemType, boolean>>(getDefaultFilters);
   const [allowedTypes, setAllowedTypes] = useState<CalendarItemType[]>(ALL_TYPES);
 
+  const eventId = options?.eventId;
+
   const fetchItems = useCallback(async (m: number, y: number) => {
     setLoading(true);
     setError(null);
     try {
       const { from, to } = getMonthRange(y, m);
-      const res = await fetch(`/api/calendar?from=${from}&to=${to}`);
+      let url = `/api/calendar?from=${from}&to=${to}`;
+      if (eventId) url += `&eventId=${eventId}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setItems(data.data);
@@ -89,7 +94,7 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [eventId]);
 
   useEffect(() => {
     fetchItems(month, year);

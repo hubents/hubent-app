@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const eventIdParam = searchParams.get("eventId");
+    const filterEventId = eventIdParam ? parseInt(eventIdParam, 10) : null;
 
     if (!from || !to) {
       return NextResponse.json(
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
       leadRows,
       scheduleRows,
     ] = await Promise.all([
-      // 1. Events — filter by allowedEventIds for eventScoped
+      // 1. Events — filter by allowedEventIds for eventScoped, and by filterEventId
       (allowedEventIds !== null && allowedEventIds.length === 0)
         ? Promise.resolve([])
         : db
@@ -96,11 +98,12 @@ export async function GET(request: NextRequest) {
               isNotNull(events.date),
               gte(events.date, fromDate),
               lte(events.date, toDate),
-              ...(allowedEventIds !== null ? [inArray(events.id, allowedEventIds)] : [])
+              ...(allowedEventIds !== null ? [inArray(events.id, allowedEventIds)] : []),
+              ...(filterEventId !== null ? [eq(events.id, filterEventId)] : [])
             )
           ),
 
-      // 2. Tasks — filter by taskEventIds for eventScoped
+      // 2. Tasks — filter by taskEventIds for eventScoped, and by filterEventId
       (taskEventIds !== null && taskEventIds.length === 0)
         ? Promise.resolve([])
         : db
@@ -119,11 +122,12 @@ export async function GET(request: NextRequest) {
               isNotNull(tasks.dueDate),
               gte(tasks.dueDate, fromDate),
               lte(tasks.dueDate, toDate),
-              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : [])
+              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : []),
+              ...(filterEventId !== null ? [eq(tasks.eventId, filterEventId)] : [])
             )
           ),
 
-      // 3. Meetings — filter via task's eventId for eventScoped
+      // 3. Meetings — filter via task's eventId for eventScoped, and by filterEventId
       (taskEventIds !== null && taskEventIds.length === 0)
         ? Promise.resolve([])
         : db
@@ -143,11 +147,12 @@ export async function GET(request: NextRequest) {
               eq(tasks.organizationId, orgId),
               gte(taskMeetings.date, fromDate),
               lte(taskMeetings.date, toDate),
-              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : [])
+              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : []),
+              ...(filterEventId !== null ? [eq(tasks.eventId, filterEventId)] : [])
             )
           ),
 
-      // 4. Payment schedules — filter by financeEventIds for eventScoped
+      // 4. Payment schedules — filter by financeEventIds for eventScoped, and by filterEventId
       (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
         ? Promise.resolve([])
         : db
@@ -165,11 +170,12 @@ export async function GET(request: NextRequest) {
               eq(paymentSchedules.organizationId, orgId),
               gte(paymentSchedules.dueDate, fromDate),
               lte(paymentSchedules.dueDate, toDate),
-              ...(financeEventIds !== null ? [inArray(paymentSchedules.eventId, financeEventIds)] : [])
+              ...(financeEventIds !== null ? [inArray(paymentSchedules.eventId, financeEventIds)] : []),
+              ...(filterEventId !== null ? [eq(paymentSchedules.eventId, filterEventId)] : [])
             )
           ),
 
-      // 5. Task payments — filter via task's eventId with finance access
+      // 5. Task payments — filter via task's eventId with finance access, and by filterEventId
       (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
         ? Promise.resolve([])
         : db
@@ -188,11 +194,12 @@ export async function GET(request: NextRequest) {
               eq(tasks.organizationId, orgId),
               gte(taskPayments.date, fromDate),
               lte(taskPayments.date, toDate),
-              ...(financeEventIds !== null ? [inArray(tasks.eventId, financeEventIds)] : [])
+              ...(financeEventIds !== null ? [inArray(tasks.eventId, financeEventIds)] : []),
+              ...(filterEventId !== null ? [eq(tasks.eventId, filterEventId)] : [])
             )
           ),
 
-      // 6. Financial documents — exclude entirely if no finance access
+      // 6. Financial documents — exclude entirely if no finance access, filter by filterEventId
       !hasFinanceAccess
         ? Promise.resolve([])
         : db
@@ -212,12 +219,13 @@ export async function GET(request: NextRequest) {
               eq(financialDocuments.organizationId, orgId),
               isNotNull(financialDocuments.dueDate),
               gte(financialDocuments.dueDate, fromDate),
-              lte(financialDocuments.dueDate, toDate)
+              lte(financialDocuments.dueDate, toDate),
+              ...(filterEventId !== null ? [eq(financialDocuments.eventId, filterEventId)] : [])
             )
           ),
 
-      // 7. Leads — exclude entirely for eventScoped
-      session.eventScoped
+      // 7. Leads — exclude entirely for eventScoped or when filtering by event
+      (session.eventScoped || filterEventId !== null)
         ? Promise.resolve([])
         : db
           .select({
@@ -238,7 +246,7 @@ export async function GET(request: NextRequest) {
             )
           ),
 
-      // 8. Event schedule items — filter by allowedEventIds for eventScoped
+      // 8. Event schedule items — filter by allowedEventIds for eventScoped, and by filterEventId
       (allowedEventIds !== null && allowedEventIds.length === 0)
         ? Promise.resolve([])
         : db
@@ -256,7 +264,8 @@ export async function GET(request: NextRequest) {
               eq(eventScheduleItems.organizationId, orgId),
               gte(eventScheduleItems.date, fromDate),
               lte(eventScheduleItems.date, toDate),
-              ...(allowedEventIds !== null ? [inArray(eventScheduleItems.eventId, allowedEventIds)] : [])
+              ...(allowedEventIds !== null ? [inArray(eventScheduleItems.eventId, allowedEventIds)] : []),
+              ...(filterEventId !== null ? [eq(eventScheduleItems.eventId, filterEventId)] : [])
             )
           ),
     ]);
