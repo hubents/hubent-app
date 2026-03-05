@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { tasks, taskPayments, eventPayments, paymentRecords, financialDocuments } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { createPaymentRecord } from "@/lib/finance";
 
 export async function GET(
@@ -10,9 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const session = await requirePermission("finance:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
 
     const payments: Array<{
       id: number;
@@ -154,9 +154,9 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const session = await requirePermission("finance:create");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
     const body = await request.json();
 
     // Create in unified paymentRecords

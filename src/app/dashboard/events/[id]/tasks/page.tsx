@@ -16,6 +16,8 @@ import {
 } from "@remixicon/react";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { cn } from "@/lib/utils";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 import {
   DndContext,
   DragEndEvent,
@@ -199,6 +201,9 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditTasks = canEdit("tasks");
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -461,10 +466,12 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
             {tasks.length} tareas en total
           </p>
         </div>
-        <Button className="gap-2" onClick={() => openCreateDrawer()}>
-          <RiAddLine className="h-4 w-4" />
-          Nueva Tarea
-        </Button>
+        {canEditTasks && (
+          <Button className="gap-2" onClick={() => openCreateDrawer()}>
+            <RiAddLine className="h-4 w-4" />
+            Nueva Tarea
+          </Button>
+        )}
       </div>
 
       {/* Filters */}

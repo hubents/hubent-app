@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { getEventTables, createEventTable } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -7,10 +7,11 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/tables - List tables with guests
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:read");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
+    await requireEventSectionAccess(id, "guests", "view");
     
-    const tables = await getEventTables(parseInt(eventId, 10));
+    const tables = await getEventTables(id);
 
     return NextResponse.json({
       success: true,
@@ -28,8 +29,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/tables - Create table
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:update");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
+    await requireEventSectionAccess(id, "guests", "edit");
     const body = await request.json();
 
     const { name, shape, capacity, positionX, positionY, width, height, color } = body;
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const table = await createEventTable(parseInt(eventId, 10), {
+    const table = await createEventTable(id, {
       name,
       shape,
       capacity,

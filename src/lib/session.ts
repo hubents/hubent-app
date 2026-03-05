@@ -247,6 +247,61 @@ export async function requireEventAccess(
   return session;
 }
 
+// Mapping from event section to org-level permission slugs (for non-eventScoped roles)
+const SECTION_ORG_PERMISSION: Record<keyof EventSectionPermissions, { view: string; edit: string }> = {
+  general:  { view: "events:read",  edit: "events:update" },
+  tasks:    { view: "tasks:read",   edit: "tasks:update" },
+  guests:   { view: "events:read",  edit: "events:update" },
+  rsvp:     { view: "events:read",  edit: "events:update" },
+  vendors:  { view: "vendors:read", edit: "vendors:read" },
+  finances: { view: "finance:read", edit: "finance:read" },
+  settings: { view: "events:read",  edit: "events:update" },
+};
+
+/**
+ * Require access to a specific event section at a given level.
+ * Combines org-level RBAC (for non-eventScoped) with event_participants.permissions (for eventScoped).
+ *
+ * For non-eventScoped roles: maps section+level to an org permission and uses requirePermission.
+ * For eventScoped roles: checks event_participants.permissions directly (bypasses org permission check).
+ */
+export async function requireEventSectionAccess(
+  eventId: number,
+  section: keyof EventSectionPermissions,
+  level: "view" | "edit" = "view"
+): Promise<TenantSession> {
+  const session = await requireAuth();
+
+  // Bypass: super_admin, impersonation, owner, admin
+  if (session.user.platformLevel === "super_admin") return session;
+  if (session.isImpersonating) return session;
+  if (session.role === "owner" || session.role === "admin" || session.role === "provider_owner") {
+    return session;
+  }
+
+  if (session.eventScoped) {
+    // For eventScoped roles: check event_participants.permissions directly
+    const access = await checkEventSectionAccess(session, eventId, section, level);
+    if (!access.allowed) {
+      throw new Error(`Forbidden: ${access.reason}`);
+    }
+    return session;
+  }
+
+  // For non-eventScoped roles: use standard org-level permission check
+  const orgPerm = SECTION_ORG_PERMISSION[section]?.[level] || SECTION_ORG_PERMISSION[section]?.view;
+  if (orgPerm) {
+    if (!session.permissions.includes(orgPerm)) {
+      const [resource] = orgPerm.split(":");
+      if (!session.permissions.includes(`${resource}:*`)) {
+        throw new Error(`Forbidden: Missing permission ${orgPerm}`);
+      }
+    }
+  }
+
+  return session;
+}
+
 /**
  * Require platform admin access
  */

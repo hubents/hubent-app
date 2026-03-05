@@ -45,6 +45,8 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { RiListUnordered, RiLayout2Line } from "@remixicon/react";
 import { CSVImportDrawer } from "@/components/guests/csv-import-drawer";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 
 const TableCanvas = dynamic(
   () => import("@/components/guests/table-canvas").then((mod) => mod.TableCanvas),
@@ -106,6 +108,9 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditGuests = canEdit("guests");
 
   const [guests, setGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<EventTable[]>([]);
@@ -355,7 +360,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         <div className="flex gap-2">
-          <CSVImportDrawer eventId={eventId} onSuccess={fetchGuests} />
+          {canEditGuests && <CSVImportDrawer eventId={eventId} onSuccess={fetchGuests} />}
           <Button 
             variant="outline" 
             className="gap-2"
@@ -364,18 +369,22 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             <RiDownloadLine className="h-4 w-4" />
             Exportar CSV
           </Button>
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => setShowGroupDialog(true)}
-          >
-            <RiGroupLine className="h-4 w-4" />
-            + Grupo
-          </Button>
-          <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
-            <RiAddLine className="h-4 w-4" />
-            Añadir Invitado
-          </Button>
+          {canEditGuests && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => setShowGroupDialog(true)}
+            >
+              <RiGroupLine className="h-4 w-4" />
+              + Grupo
+            </Button>
+          )}
+          {canEditGuests && (
+            <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
+              <RiAddLine className="h-4 w-4" />
+              Añadir Invitado
+            </Button>
+          )}
           <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
           <SheetContent className="sm:max-w-2xl overflow-y-auto">
             <SheetHeader>

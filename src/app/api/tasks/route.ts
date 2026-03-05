@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, events, users, eventParticipants } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
@@ -83,6 +83,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;
+
+    // For eventScoped roles, verify section-level permissions on the target event
+    if (eventId && session.eventScoped) {
+      await requireEventSectionAccess(eventId, "tasks", "edit");
+    }
 
     if (!title) {
       return NextResponse.json(

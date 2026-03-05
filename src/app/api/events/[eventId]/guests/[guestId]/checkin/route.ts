@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { checkInGuest } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
@@ -7,8 +7,8 @@ type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 // POST /api/events/[eventId]/guests/[guestId]/checkin - Check in a guest
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
-    const { guestId } = await params;
+    const { eventId, guestId } = await params;
+    const session = await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
     const body = await request.json().catch(() => ({}));
 
     const checkin = await checkInGuest(

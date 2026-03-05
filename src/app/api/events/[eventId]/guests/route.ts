@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { getGuests, createGuest, bulkCreateGuests, getGuestGroups, createGuestGroup } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -7,8 +7,9 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/guests - List guests
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:read");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
+    await requireEventSectionAccess(id, "guests", "view");
     const { searchParams } = new URL(request.url);
     
     const type = searchParams.get("type"); // "guests" or "groups"
@@ -16,14 +17,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const rsvpStatus = searchParams.get("rsvpStatus");
 
     if (type === "groups") {
-      const groups = await getGuestGroups(parseInt(eventId, 10));
+      const groups = await getGuestGroups(id);
       return NextResponse.json({
         success: true,
         data: groups,
       });
     }
 
-    const result = await getGuests(parseInt(eventId, 10), {
+    const result = await getGuests(id, {
       groupId: groupId ? parseInt(groupId, 10) : undefined,
       rsvpStatus: rsvpStatus || undefined,
     });
@@ -35,9 +36,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch guests";
+    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(
       { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -45,8 +47,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/guests - Create guest or group
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:update");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
+    await requireEventSectionAccess(id, "guests", "edit");
     const body = await request.json();
 
     const { type } = body;
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      const group = await createGuestGroup(parseInt(eventId, 10), {
+      const group = await createGuestGroup(id, {
         name,
         tableNumber,
         notes,
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Bulk create guests
     if (type === "bulk" && Array.isArray(body.guests)) {
-      const created = await bulkCreateGuests(parseInt(eventId, 10), body.guests);
+      const created = await bulkCreateGuests(id, body.guests);
       return NextResponse.json({
         success: true,
         data: created,
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const guest = await createGuest(parseInt(eventId, 10), body);
+    const guest = await createGuest(id, body);
 
     return NextResponse.json({
       success: true,

@@ -14,20 +14,16 @@ import {
   rsvpTransportOptions
 } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requireEventSectionAccess } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // GET /api/events/[eventId]/rsvp - Get all RSVP data for an event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "view");
 
     // Get event with cover image
     const eventData = await db
@@ -154,13 +150,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/events/[eventId]/rsvp - Update RSVP settings
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const body = await request.json();
 
     const { settings: newSettings, coverImage } = body;

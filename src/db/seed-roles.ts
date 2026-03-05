@@ -100,10 +100,11 @@ const defaultRoles = [
     isSystem: true,
     permissions: [
       "events:read", "events:update",
-      "tasks:read", "tasks:update", "tasks:comment",
+      "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
       "vendors:read",
       "clients:read",
-      "guests:read",
+      "guests:read", "guests:manage",
+      "finance:read",
     ],
   },
   {
@@ -112,6 +113,7 @@ const defaultRoles = [
     description: "Finance-only access",
     isSystem: true,
     permissions: [
+      "events:read",
       "finance:read", "finance:create", "finance:manage",
       "clients:read",
       "vendors:read",
@@ -127,6 +129,8 @@ const defaultRoles = [
       "tasks:read",
       "vendors:read",
       "clients:read",
+      "guests:read",
+      "finance:read",
     ],
   },
   {
@@ -145,8 +149,9 @@ const defaultRoles = [
     description: "Client (novios) with portal access",
     isSystem: true,
     permissions: [
-      "events:read",
-      "tasks:read", "tasks:comment",
+      "events:read", "events:update",
+      "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
+      "vendors:read",
       "guests:read", "guests:manage",
       "finance:read",
     ],

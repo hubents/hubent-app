@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { events, eventDocuments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,9 +9,9 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/documents - List documents for an event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "general", "view");
 
     // Verify event belongs to organization
     const [event] = await db
@@ -51,9 +51,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/documents - Add a document to an event
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "general", "edit");
     const body = await request.json();
 
     const { name, url, type = "document" } = body;
@@ -109,9 +109,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/documents - Remove a document
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "general", "edit");
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("id");
 

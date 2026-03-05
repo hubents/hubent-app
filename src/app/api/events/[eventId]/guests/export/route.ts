@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { guests, rsvpResponses, guestGroups, guestCompanions, rsvpTransportBookings, rsvpTransportOptions } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -9,9 +9,9 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/guests/export - Export guests to CSV
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "guests", "view");
 
     // Get all guests with their data
     const guestList = await db
@@ -131,10 +131,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("Error exporting guests:", error);
+    const message = error instanceof Error ? error.message : "Failed to export guests";
+    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(
-      { success: false, error: "Failed to export guests" },
-      { status: 500 }
+      { success: false, error: message },
+      { status }
     );
   }
 }

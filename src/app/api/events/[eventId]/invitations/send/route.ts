@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { events, guests } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { Resend } from "resend";
+import { requireEventSectionAccess } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -26,13 +26,9 @@ function getAppUrl() {
 // POST /api/events/[eventId]/invitations/send - Send invitations to guests
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const body = await request.json();
 
     const { guestIds, customMessage } = body;

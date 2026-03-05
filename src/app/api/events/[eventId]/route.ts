@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { getEvent, updateEvent, deleteEvent, cancelEvent } from "@/lib/events";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -7,10 +7,11 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId] - Get single event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:read");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(id, "general", "view");
 
-    const event = await getEvent(session, parseInt(eventId, 10));
+    const event = await getEvent(session, id);
 
     if (!event) {
       return NextResponse.json(
@@ -35,14 +36,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/events/[eventId] - Update event
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId } = await params;
+    const id = parseInt(eventId, 10);
     const body = await request.json();
 
     // Handle cancel action (soft delete)
     if (body.action === "cancel") {
       const adminSession = await requirePermission("events:delete");
-      const result = await cancelEvent(adminSession, parseInt(eventId, 10));
+      const result = await cancelEvent(adminSession, id);
       
       if (!result.event) {
         return NextResponse.json(
@@ -58,7 +59,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const updated = await updateEvent(session, parseInt(eventId, 10), body);
+    const session = await requireEventSectionAccess(id, "general", "edit");
+    const updated = await updateEvent(session, id, body);
 
     if (!updated) {
       return NextResponse.json(

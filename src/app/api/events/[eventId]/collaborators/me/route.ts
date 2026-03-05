@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { getEventParticipant } from "@/lib/event-permissions";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ eventId: string }> };
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:read");
+    const session = await requireAuth();
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
 

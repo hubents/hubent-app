@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { providerEventAccess, organizations, events, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -21,9 +21,9 @@ const inviteSchema = z.object({
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:read");
     const { eventId } = await params;
     const eid = parseInt(eventId);
+    const session = await requireEventSectionAccess(eid, "vendors", "view");
 
     // Verify event belongs to caller's org
     const event = await db.query.events.findFirst({
@@ -76,9 +76,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId } = await params;
     const eid = parseInt(eventId);
+    const session = await requireEventSectionAccess(eid, "vendors", "view");
 
     // Verify event belongs to caller's org
     const event = await db.query.events.findFirst({

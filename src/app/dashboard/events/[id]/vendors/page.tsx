@@ -32,6 +32,8 @@ import {
   RiSendPlaneLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 
 interface EventVendor {
   id: number;
@@ -74,6 +76,9 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditVendors = canEdit("vendors");
 
   const [vendors, setVendors] = useState<EventVendor[]>([]);
   const [allVendors, setAllVendors] = useState<Vendor[]>([]);
@@ -252,10 +257,12 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
           </p>
         </div>
         <div className="flex gap-2">
-          <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
-            <RiAddLine className="h-4 w-4" />
-            Asignar Proveedor
-          </Button>
+          {canEditVendors && (
+            <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
+              <RiAddLine className="h-4 w-4" />
+              Asignar Proveedor
+            </Button>
+          )}
           <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>

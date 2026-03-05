@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { events, eventVendors, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -9,9 +9,9 @@ type RouteParams = { params: Promise<{ eventId: string }> };
 // GET /api/events/[eventId]/vendors - List vendors for an event
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("vendors:read");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
 
     // Verify event belongs to organization
     const [event] = await db
@@ -64,9 +64,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // POST /api/events/[eventId]/vendors - Add a vendor to an event
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("vendors:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
     const body = await request.json();
 
     const { vendorId, service, cost, notes } = body;
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/vendors - Remove a vendor from an event
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("vendors:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
     const { searchParams } = new URL(request.url);
     const eventVendorId = searchParams.get("id");
 

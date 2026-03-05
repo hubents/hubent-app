@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { invitations, organizations, users, organizationMembers, contacts, eventParticipants } from "@/db/schema";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 
@@ -105,17 +105,16 @@ export async function POST(
           .set({ userId: user.id })
           .where(eq(contacts.id, metadata.contactId));
 
-        // Update event_participants to link userId + set acceptedAt
-        if (metadata.eventId) {
-          await db.update(eventParticipants)
-            .set({ userId: user.id, acceptedAt: new Date() })
-            .where(
-              and(
-                eq(eventParticipants.eventId, metadata.eventId),
-                eq(eventParticipants.contactId, metadata.contactId)
-              )
-            );
-        }
+        // Update ALL event_participants for this contact (not just one event)
+        // This fixes the case where a contact is a collaborator on multiple events
+        await db.update(eventParticipants)
+          .set({ userId: user.id, acceptedAt: new Date() })
+          .where(
+            and(
+              eq(eventParticipants.contactId, metadata.contactId),
+              isNull(eventParticipants.userId)
+            )
+          );
       } catch (linkErr) {
         console.error("Failed to link contact to user (non-blocking):", linkErr);
       }

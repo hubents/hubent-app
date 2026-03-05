@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { guests, guestGroups } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -54,9 +54,9 @@ function parseCSV(csvText: string): CSVGuest[] {
 // POST /api/events/[eventId]/guests/import - Import guests from CSV
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:update");
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "guests", "edit");
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -146,9 +146,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to import guests";
+    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(
       { success: false, error: { code: "IMPORT_ERROR", message } },
-      { status: 500 }
+      { status }
     );
   }
 }

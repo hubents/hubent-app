@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { eventPayments, taskPayments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { updatePaymentRecord, deletePaymentRecord } from "@/lib/finance";
 
 const LEGACY_EVENT_OFFSET = 200000;
@@ -19,10 +19,10 @@ export async function PATCH(
   { params }: { params: Promise<{ eventId: string; paymentId: string }> }
 ) {
   try {
-    const session = await requirePermission("finance:edit");
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
     const body = await request.json();
 
     const { source, realId } = resolvePaymentSource(paymentIdNum);
@@ -86,10 +86,10 @@ export async function DELETE(
   { params }: { params: Promise<{ eventId: string; paymentId: string }> }
 ) {
   try {
-    const session = await requirePermission("finance:delete");
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
 
     const { source, realId } = resolvePaymentSource(paymentIdNum);
 

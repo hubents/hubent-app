@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { updateGuest, updateGuestRsvpStatus, deleteGuest } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
@@ -7,8 +7,8 @@ type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 // PATCH /api/events/[eventId]/guests/[guestId] - Update guest
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:update");
-    const { guestId } = await params;
+    const { eventId, guestId } = await params;
+    await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
     const body = await request.json();
 
     const guestIdNum = parseInt(guestId, 10);
@@ -62,8 +62,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/guests/[guestId] - Delete guest
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    await requirePermission("events:update");
-    const { guestId } = await params;
+    const { eventId, guestId } = await params;
+    await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
 
     await deleteGuest(parseInt(guestId, 10));
 

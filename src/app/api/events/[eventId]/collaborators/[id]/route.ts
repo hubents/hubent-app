@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { updateEventParticipant, removeEventParticipant } from "@/lib/events";
 import { db } from "@/db";
 import { events, eventParticipants } from "@/db/schema";
@@ -19,10 +19,10 @@ type RouteParams = { params: Promise<{ eventId: string; id: string }> };
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId, id } = await params;
     const eId = parseInt(eventId, 10);
     const pId = parseInt(id, 10);
+    const session = await requireEventSectionAccess(eId, "settings", "edit");
     const body = await request.json();
 
     const parsed = updateCollaboratorSchema.safeParse(body);
@@ -83,10 +83,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId, id } = await params;
     const eId = parseInt(eventId, 10);
     const pId = parseInt(id, 10);
+    const session = await requireEventSectionAccess(eId, "settings", "edit");
 
     // Verify event belongs to org
     const event = await db.query.events.findFirst({

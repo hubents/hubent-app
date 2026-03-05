@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { getEventParticipants, addEventParticipant } from "@/lib/events";
 import { inviteCollaboratorContact } from "@/lib/invitations";
 import { db } from "@/db";
@@ -26,9 +26,9 @@ type RouteParams = { params: Promise<{ eventId: string }> };
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:read");
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(id, "general", "view");
 
     // Verify event belongs to org
     const event = await db.query.events.findFirst({
@@ -90,9 +90,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("events:update");
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(id, "settings", "edit");
     const body = await request.json();
 
     const parsed = addCollaboratorSchema.safeParse(body);
@@ -181,17 +181,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       permissions,
     });
 
-    // Auto-invite contact to the platform
-    let invitationStatus = null;
+    // Auto-invite contact to the platform (truly non-blocking — don't delay response)
     if (contactId && (type === "contact" || type === "client")) {
-      try {
-        invitationStatus = await inviteCollaboratorContact(session, contactId, id, role);
-      } catch (inviteErr) {
-        console.error("Auto-invite failed (non-blocking):", inviteErr);
-      }
+      inviteCollaboratorContact(session, contactId, id, role)
+        .then(result => console.log(`Auto-invite contact ${contactId} result:`, result.status))
+        .catch(err => console.error("Auto-invite failed:", err));
     }
 
-    return NextResponse.json({ success: true, data: { ...participant, invitationStatus } }, { status: 201 });
+    return NextResponse.json({ success: true, data: participant }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al agregar colaborador";
     const status = message.includes("Forbidden") ? 403

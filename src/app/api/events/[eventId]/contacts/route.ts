@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { eventParticipants, contacts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,10 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    await requirePermission("events:read");
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "general", "view");
 
     const linkedContacts = await db
       .select({
@@ -32,8 +31,9 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: linkedContacts });
   } catch (error) {
-    console.error("Error fetching event contacts:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch contacts" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to fetch contacts";
+    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
@@ -43,10 +43,9 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const session = await requirePermission("events:update");
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    const session = await requireEventSectionAccess(eventIdNum, "general", "edit");
     const body = await request.json();
     const { contactId, role } = body;
 
@@ -87,10 +86,9 @@ export async function DELETE(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    await requirePermission("events:update");
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "general", "edit");
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get("contactId");
 

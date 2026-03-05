@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, users, eventParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -81,8 +81,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         eq(t.id, parseInt(taskId, 10)),
         eq(t.organizationId, session.organizationId)
       ),
-      columns: { assignedTo: true, status: true, title: true },
+      columns: { assignedTo: true, status: true, title: true, eventId: true },
     });
+
+    // For eventScoped roles, verify section-level permissions
+    if (session.eventScoped && currentTask?.eventId) {
+      await requireEventSectionAccess(currentTask.eventId, "tasks", "edit");
+    }
 
     const [updated] = await db.update(tasks)
       .set({ ...cleanBody, updatedAt: new Date() })
@@ -146,6 +151,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+
+    // For eventScoped roles, verify section-level permissions
+    if (session.eventScoped) {
+      const task = await db.query.tasks.findFirst({
+        where: (t, { eq, and: a }) => a(eq(t.id, parseInt(taskId, 10)), eq(t.organizationId, session.organizationId)),
+        columns: { eventId: true },
+      });
+      if (task?.eventId) {
+        await requireEventSectionAccess(task.eventId, "tasks", "edit");
+      }
+    }
 
     await db.delete(tasks)
       .where(

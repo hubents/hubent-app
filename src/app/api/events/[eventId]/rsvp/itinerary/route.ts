@@ -2,20 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { rsvpItinerary } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requireEventSectionAccess } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // POST /api/events/[eventId]/rsvp/itinerary - Add itinerary item
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const body = await request.json();
 
     const { title, description, startTime, endTime, location, orderIndex } = body;
@@ -47,13 +43,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // PUT /api/events/[eventId]/rsvp/itinerary - Update itinerary item
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const body = await request.json();
 
     const { id, title, description, startTime, endTime, location, orderIndex } = body;
@@ -84,13 +76,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/events/[eventId]/rsvp/itinerary - Delete itinerary item
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
