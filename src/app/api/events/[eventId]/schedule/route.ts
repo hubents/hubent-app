@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const limit = searchParams.get("limit");
 
     // Fetch event-level schedule items
-    let eventItems = await db
+    const eventItems = await db
       .select()
       .from(eventScheduleItems)
       .where(
