@@ -11,7 +11,7 @@ import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
 import type { CalendarItemType } from "@/lib/calendar";
 import { useRouter } from "next/navigation";
 
-const LEGEND_TYPES: CalendarItemType[] = [
+const ALL_LEGEND_TYPES: CalendarItemType[] = [
   "event",
   "task",
   "meeting",
@@ -19,6 +19,7 @@ const LEGEND_TYPES: CalendarItemType[] = [
   "task_payment",
   "document",
   "lead",
+  "schedule",
 ];
 
 export default function CalendarPage() {
@@ -30,6 +31,7 @@ export default function CalendarPage() {
     filteredItemsByDate,
     loading,
     filters,
+    allowedTypes,
     toggleFilter,
     goToPrevMonth,
     goToNextMonth,
@@ -53,7 +55,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Filters */}
-      <CalendarFilters filters={filters} onToggle={toggleFilter} />
+      <CalendarFilters filters={filters} onToggle={toggleFilter} allowedTypes={allowedTypes} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Calendar */}
@@ -71,7 +73,7 @@ export default function CalendarPage() {
 
             {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-4">
-              {LEGEND_TYPES.map((type) => (
+              {(allowedTypes.length < ALL_LEGEND_TYPES.length ? allowedTypes : ALL_LEGEND_TYPES).map((type) => (
                 <div key={type} className="flex items-center gap-2">
                   <div className={`h-3 w-3 rounded ${CALENDAR_COLORS[type]}`} />
                   <span className="text-xs text-[var(--muted-foreground)]">

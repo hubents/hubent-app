@@ -11,6 +11,7 @@ import {
 interface CalendarFiltersProps {
   filters: Record<CalendarItemType, boolean>;
   onToggle: (type: CalendarItemType) => void;
+  allowedTypes?: CalendarItemType[];
 }
 
 const ALL_TYPES: CalendarItemType[] = [
@@ -21,12 +22,14 @@ const ALL_TYPES: CalendarItemType[] = [
   "task_payment",
   "document",
   "lead",
+  "schedule",
 ];
 
-export function CalendarFilters({ filters, onToggle }: CalendarFiltersProps) {
+export function CalendarFilters({ filters, onToggle, allowedTypes }: CalendarFiltersProps) {
+  const visibleTypes = allowedTypes ?? ALL_TYPES;
   return (
     <div className="flex flex-wrap gap-2">
-      {ALL_TYPES.map((type) => {
+      {visibleTypes.map((type) => {
         const Icon = CALENDAR_ICONS[type];
         const active = filters[type];
 

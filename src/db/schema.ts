@@ -1104,6 +1104,23 @@ export const taskVideos = pgTable("task_videos", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const eventScheduleItems = pgTable("event_schedule_items", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  location: text("location"),
+  notes: text("notes"),
+  color: text("color"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const taskScheduleItems = pgTable("task_schedule_items", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
@@ -1806,6 +1823,7 @@ export type TaskMessage = typeof taskMessages.$inferSelect;
 export type NewTaskMessage = typeof taskMessages.$inferInsert;
 export type TaskAttachment = typeof taskAttachments.$inferSelect;
 export type TaskVideo = typeof taskVideos.$inferSelect;
+export type EventScheduleItem = typeof eventScheduleItems.$inferSelect;
 export type TaskScheduleItem = typeof taskScheduleItems.$inferSelect;
 export type TaskHtmlContent = typeof taskHtmlContent.$inferSelect;
 export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;

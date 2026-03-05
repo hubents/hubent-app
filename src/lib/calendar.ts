@@ -6,6 +6,7 @@ import {
   CreditCard,
   FileText,
   UserPlus,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,7 +21,8 @@ export type CalendarItemType =
   | "payment"
   | "task_payment"
   | "document"
-  | "lead";
+  | "lead"
+  | "schedule";
 
 export interface CalendarItem {
   id: string;
@@ -53,6 +55,7 @@ export const CALENDAR_COLORS: Record<CalendarItemType, string> = {
   task_payment: "bg-orange-500",
   document: "bg-amber-500",
   lead: "bg-cyan-500",
+  schedule: "bg-indigo-500",
 };
 
 export const CALENDAR_TEXT_COLORS: Record<CalendarItemType, string> = {
@@ -63,6 +66,7 @@ export const CALENDAR_TEXT_COLORS: Record<CalendarItemType, string> = {
   task_payment: "text-orange-700 dark:text-orange-300",
   document: "text-amber-700 dark:text-amber-300",
   lead: "text-cyan-700 dark:text-cyan-300",
+  schedule: "text-indigo-700 dark:text-indigo-300",
 };
 
 export const CALENDAR_BG_LIGHT: Record<CalendarItemType, string> = {
@@ -73,6 +77,7 @@ export const CALENDAR_BG_LIGHT: Record<CalendarItemType, string> = {
   task_payment: "bg-orange-100 dark:bg-orange-500/20",
   document: "bg-amber-100 dark:bg-amber-500/20",
   lead: "bg-cyan-100 dark:bg-cyan-500/20",
+  schedule: "bg-indigo-100 dark:bg-indigo-500/20",
 };
 
 export const CALENDAR_LABELS: Record<CalendarItemType, string> = {
@@ -83,6 +88,7 @@ export const CALENDAR_LABELS: Record<CalendarItemType, string> = {
   task_payment: "Pagos de tarea",
   document: "Documentos",
   lead: "Leads",
+  schedule: "Cronograma",
 };
 
 export const CALENDAR_ICONS: Record<CalendarItemType, LucideIcon> = {
@@ -93,6 +99,7 @@ export const CALENDAR_ICONS: Record<CalendarItemType, LucideIcon> = {
   task_payment: CreditCard,
   document: FileText,
   lead: UserPlus,
+  schedule: CalendarClock,
 };
 
 // ============================================

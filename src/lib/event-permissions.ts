@@ -85,6 +85,27 @@ export async function checkEventSectionAccess(
 }
 
 /**
+ * Get all events a user participates in, with their section permissions.
+ * Used by calendar API to filter data for eventScoped users.
+ */
+export async function getUserEventAccess(userId: string): Promise<
+  Array<{ eventId: number; permissions: EventSectionPermissions }>
+> {
+  const rows = await db
+    .select({
+      eventId: eventParticipants.eventId,
+      permissions: eventParticipants.permissions,
+    })
+    .from(eventParticipants)
+    .where(eq(eventParticipants.userId, userId));
+
+  return rows.map((r) => ({
+    eventId: r.eventId,
+    permissions: (r.permissions as EventSectionPermissions) || defaultFullPermissions(),
+  }));
+}
+
+/**
  * Check if a user is a participant of a specific task
  */
 export async function getTaskParticipantAccess(userId: string, taskId: number) {

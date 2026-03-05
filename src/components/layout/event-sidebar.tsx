@@ -15,6 +15,7 @@ import {
   RiSettings4Line,
   RiArrowLeftLine,
   RiCalendarEventLine,
+  RiCalendarLine,
   RiLockLine,
   RiArrowDownSLine,
   RiFileTextLine,
@@ -34,6 +35,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
 // Map sidebar items to event permission section keys
 const SECTION_MAP: Record<string, string> = {
   "General": "general",
+  "Cronograma": "general",
   "Tareas": "tasks",
   "Lista de Invitados": "guests",
   "RSVP": "rsvp",
@@ -85,6 +87,7 @@ export function EventSidebar() {
 
   const allNavigation = [
     { name: "General", href: basePath, icon: RiDashboardLine, exact: true },
+    { name: "Cronograma", href: `${basePath}/schedule`, icon: RiCalendarLine },
     { name: "Tareas", href: `${basePath}/tasks`, icon: RiFileListLine },
     { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
     { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },

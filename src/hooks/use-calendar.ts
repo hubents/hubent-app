@@ -17,6 +17,7 @@ interface UseCalendarReturn {
   month: number;
   year: number;
   filters: Record<CalendarItemType, boolean>;
+  allowedTypes: CalendarItemType[];
   setMonth: (m: number) => void;
   setYear: (y: number) => void;
   goToMonth: (m: number, y: number) => void;
@@ -38,6 +39,7 @@ const ALL_TYPES: CalendarItemType[] = [
   "task_payment",
   "document",
   "lead",
+  "schedule",
 ];
 
 function getDefaultFilters(): Record<CalendarItemType, boolean> {
@@ -65,6 +67,7 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFiltersState] = useState<Record<CalendarItemType, boolean>>(getDefaultFilters);
+  const [allowedTypes, setAllowedTypes] = useState<CalendarItemType[]>(ALL_TYPES);
 
   const fetchItems = useCallback(async (m: number, y: number) => {
     setLoading(true);
@@ -75,6 +78,9 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
       const data = await res.json();
       if (data.success) {
         setItems(data.data);
+        if (Array.isArray(data.allowedTypes)) {
+          setAllowedTypes(data.allowedTypes);
+        }
       } else {
         setError(data.error || "Error al cargar calendario");
       }
@@ -161,6 +167,7 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
     month,
     year,
     filters,
+    allowedTypes,
     setMonth,
     setYear,
     goToMonth,

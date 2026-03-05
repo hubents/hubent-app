@@ -941,22 +941,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         </Card>
 
         {/* Timeline Preview */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiCalendarLine className="h-5 w-5" />
-              Cronograma
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              Ver completo
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              No hay items en el cronograma
-            </div>
-          </CardContent>
-        </Card>
+        <SchedulePreview eventId={eventId} canEditGeneral={canEdit("general")} />
       </div>
 
       {/* Task Drawer - for both view and create */}
@@ -1005,5 +990,72 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         existingParticipants={collaborators}
       />
     </div>
+  );
+}
+
+function SchedulePreview({ eventId, canEditGeneral }: { eventId: number; canEditGeneral: boolean }) {
+  const [items, setItems] = useState<Array<{ id: number; title: string; date: string; startTime: string | null; endTime: string | null; source: string; taskTitle: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/schedule?limit=5`);
+        const data = await res.json();
+        if (data.success) setItems(data.data);
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
+    }
+    load();
+  }, [eventId]);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <RiCalendarLine className="h-5 w-5" />
+          Cronograma
+        </CardTitle>
+        <Link href={`/dashboard/events/${eventId}/schedule`}>
+          <Button variant="outline" size="sm">
+            Ver completo
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No hay items en el cronograma
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => (
+              <div key={`${item.source}-${item.id}`} className="flex items-center gap-3 p-2 rounded-lg border text-sm">
+                <div className="w-14 text-center shrink-0">
+                  <span className="text-xs font-medium">{item.startTime || "--:--"}</span>
+                </div>
+                <div
+                  className="w-1 h-6 rounded-full shrink-0"
+                  style={{ backgroundColor: item.source === "task" ? "#f59e0b" : "#3b82f6" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(item.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                    {item.source === "task" && item.taskTitle && ` · ${item.taskTitle}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

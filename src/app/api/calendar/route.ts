@@ -9,10 +9,12 @@ import {
   taskPayments,
   financialDocuments,
   leads,
+  eventScheduleItems,
 } from "@/db/schema";
-import { eq, and, gte, lte, isNotNull } from "drizzle-orm";
-import type { CalendarItem } from "@/lib/calendar";
+import { eq, and, gte, lte, isNotNull, inArray } from "drizzle-orm";
+import type { CalendarItem, CalendarItemType } from "@/lib/calendar";
 import { CALENDAR_COLORS } from "@/lib/calendar";
+import { getUserEventAccess } from "@/lib/event-permissions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,6 +35,37 @@ export async function GET(request: NextRequest) {
     const fromDate = new Date(from + "T00:00:00");
     const toDate = new Date(to + "T23:59:59");
 
+    // For eventScoped users, compute allowed event IDs per section
+    let allowedEventIds: number[] | null = null; // null = no filter (full access)
+    let taskEventIds: number[] | null = null;
+    let financeEventIds: number[] | null = null;
+    let hasFinanceAccess = true;
+    const allowedTypes: CalendarItemType[] = ["event", "task", "meeting", "payment", "task_payment", "document", "lead", "schedule"];
+
+    if (session.eventScoped) {
+      const access = await getUserEventAccess(session.user.userId);
+      allowedEventIds = access.map((a) => a.eventId);
+      taskEventIds = access
+        .filter((a) => a.permissions.tasks && a.permissions.tasks !== "none")
+        .map((a) => a.eventId);
+      financeEventIds = access
+        .filter((a) => a.permissions.finances && a.permissions.finances !== "none")
+        .map((a) => a.eventId);
+      hasFinanceAccess = financeEventIds.length > 0;
+
+      // Remove types that eventScoped can't access
+      if (!hasFinanceAccess) {
+        const remove: CalendarItemType[] = ["payment", "task_payment", "document"];
+        remove.forEach((t) => {
+          const idx = allowedTypes.indexOf(t);
+          if (idx >= 0) allowedTypes.splice(idx, 1);
+        });
+      }
+      // eventScoped never sees leads
+      const leadIdx = allowedTypes.indexOf("lead");
+      if (leadIdx >= 0) allowedTypes.splice(leadIdx, 1);
+    }
+
     const [
       eventRows,
       taskRows,
@@ -41,149 +74,191 @@ export async function GET(request: NextRequest) {
       taskPaymentRows,
       documentRows,
       leadRows,
+      scheduleRows,
     ] = await Promise.all([
-      // 1. Events
-      db
-        .select({
-          id: events.id,
-          name: events.name,
-          date: events.date,
-          endDate: events.endDate,
-          location: events.location,
-          status: events.status,
-          type: events.type,
-        })
-        .from(events)
-        .where(
-          and(
-            eq(events.organizationId, orgId),
-            isNotNull(events.date),
-            gte(events.date, fromDate),
-            lte(events.date, toDate)
-          )
-        ),
+      // 1. Events — filter by allowedEventIds for eventScoped
+      (allowedEventIds !== null && allowedEventIds.length === 0)
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: events.id,
+            name: events.name,
+            date: events.date,
+            endDate: events.endDate,
+            location: events.location,
+            status: events.status,
+            type: events.type,
+          })
+          .from(events)
+          .where(
+            and(
+              eq(events.organizationId, orgId),
+              isNotNull(events.date),
+              gte(events.date, fromDate),
+              lte(events.date, toDate),
+              ...(allowedEventIds !== null ? [inArray(events.id, allowedEventIds)] : [])
+            )
+          ),
 
-      // 2. Tasks with dueDate
-      db
-        .select({
-          id: tasks.id,
-          title: tasks.title,
-          dueDate: tasks.dueDate,
-          status: tasks.status,
-          priority: tasks.priority,
-          eventId: tasks.eventId,
-        })
-        .from(tasks)
-        .where(
-          and(
-            eq(tasks.organizationId, orgId),
-            isNotNull(tasks.dueDate),
-            gte(tasks.dueDate, fromDate),
-            lte(tasks.dueDate, toDate)
-          )
-        ),
+      // 2. Tasks — filter by taskEventIds for eventScoped
+      (taskEventIds !== null && taskEventIds.length === 0)
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: tasks.id,
+            title: tasks.title,
+            dueDate: tasks.dueDate,
+            status: tasks.status,
+            priority: tasks.priority,
+            eventId: tasks.eventId,
+          })
+          .from(tasks)
+          .where(
+            and(
+              eq(tasks.organizationId, orgId),
+              isNotNull(tasks.dueDate),
+              gte(tasks.dueDate, fromDate),
+              lte(tasks.dueDate, toDate),
+              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : [])
+            )
+          ),
 
-      // 3. Meetings (join with tasks to filter by org)
-      db
-        .select({
-          id: taskMeetings.id,
-          title: taskMeetings.title,
-          date: taskMeetings.date,
-          startTime: taskMeetings.startTime,
-          endTime: taskMeetings.endTime,
-          location: taskMeetings.location,
-          taskId: taskMeetings.taskId,
-        })
-        .from(taskMeetings)
-        .innerJoin(tasks, eq(taskMeetings.taskId, tasks.id))
-        .where(
-          and(
-            eq(tasks.organizationId, orgId),
-            gte(taskMeetings.date, fromDate),
-            lte(taskMeetings.date, toDate)
-          )
-        ),
+      // 3. Meetings — filter via task's eventId for eventScoped
+      (taskEventIds !== null && taskEventIds.length === 0)
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: taskMeetings.id,
+            title: taskMeetings.title,
+            date: taskMeetings.date,
+            startTime: taskMeetings.startTime,
+            endTime: taskMeetings.endTime,
+            location: taskMeetings.location,
+            taskId: taskMeetings.taskId,
+          })
+          .from(taskMeetings)
+          .innerJoin(tasks, eq(taskMeetings.taskId, tasks.id))
+          .where(
+            and(
+              eq(tasks.organizationId, orgId),
+              gte(taskMeetings.date, fromDate),
+              lte(taskMeetings.date, toDate),
+              ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : [])
+            )
+          ),
 
-      // 4. Payment schedules
-      db
-        .select({
-          id: paymentSchedules.id,
-          name: paymentSchedules.name,
-          dueDate: paymentSchedules.dueDate,
-          amount: paymentSchedules.amount,
-          isPaid: paymentSchedules.isPaid,
-          eventId: paymentSchedules.eventId,
-        })
-        .from(paymentSchedules)
-        .where(
-          and(
-            eq(paymentSchedules.organizationId, orgId),
-            gte(paymentSchedules.dueDate, fromDate),
-            lte(paymentSchedules.dueDate, toDate)
-          )
-        ),
+      // 4. Payment schedules — filter by financeEventIds for eventScoped
+      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: paymentSchedules.id,
+            name: paymentSchedules.name,
+            dueDate: paymentSchedules.dueDate,
+            amount: paymentSchedules.amount,
+            isPaid: paymentSchedules.isPaid,
+            eventId: paymentSchedules.eventId,
+          })
+          .from(paymentSchedules)
+          .where(
+            and(
+              eq(paymentSchedules.organizationId, orgId),
+              gte(paymentSchedules.dueDate, fromDate),
+              lte(paymentSchedules.dueDate, toDate),
+              ...(financeEventIds !== null ? [inArray(paymentSchedules.eventId, financeEventIds)] : [])
+            )
+          ),
 
-      // 5. Task payments (join with tasks to filter by org)
-      db
-        .select({
-          id: taskPayments.id,
-          description: taskPayments.description,
-          date: taskPayments.date,
-          amount: taskPayments.amount,
-          status: taskPayments.status,
-          taskId: taskPayments.taskId,
-        })
-        .from(taskPayments)
-        .innerJoin(tasks, eq(taskPayments.taskId, tasks.id))
-        .where(
-          and(
-            eq(tasks.organizationId, orgId),
-            gte(taskPayments.date, fromDate),
-            lte(taskPayments.date, toDate)
-          )
-        ),
+      // 5. Task payments — filter via task's eventId with finance access
+      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: taskPayments.id,
+            description: taskPayments.description,
+            date: taskPayments.date,
+            amount: taskPayments.amount,
+            status: taskPayments.status,
+            taskId: taskPayments.taskId,
+          })
+          .from(taskPayments)
+          .innerJoin(tasks, eq(taskPayments.taskId, tasks.id))
+          .where(
+            and(
+              eq(tasks.organizationId, orgId),
+              gte(taskPayments.date, fromDate),
+              lte(taskPayments.date, toDate),
+              ...(financeEventIds !== null ? [inArray(tasks.eventId, financeEventIds)] : [])
+            )
+          ),
 
-      // 6. Financial documents (due date)
-      db
-        .select({
-          id: financialDocuments.id,
-          number: financialDocuments.number,
-          type: financialDocuments.type,
-          status: financialDocuments.status,
-          dueDate: financialDocuments.dueDate,
-          total: financialDocuments.total,
-          currency: financialDocuments.currency,
-          direction: financialDocuments.direction,
-        })
-        .from(financialDocuments)
-        .where(
-          and(
-            eq(financialDocuments.organizationId, orgId),
-            isNotNull(financialDocuments.dueDate),
-            gte(financialDocuments.dueDate, fromDate),
-            lte(financialDocuments.dueDate, toDate)
-          )
-        ),
+      // 6. Financial documents — exclude entirely if no finance access
+      !hasFinanceAccess
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: financialDocuments.id,
+            number: financialDocuments.number,
+            type: financialDocuments.type,
+            status: financialDocuments.status,
+            dueDate: financialDocuments.dueDate,
+            total: financialDocuments.total,
+            currency: financialDocuments.currency,
+            direction: financialDocuments.direction,
+          })
+          .from(financialDocuments)
+          .where(
+            and(
+              eq(financialDocuments.organizationId, orgId),
+              isNotNull(financialDocuments.dueDate),
+              gte(financialDocuments.dueDate, fromDate),
+              lte(financialDocuments.dueDate, toDate)
+            )
+          ),
 
-      // 7. Leads (expected close date)
-      db
-        .select({
-          id: leads.id,
-          title: leads.title,
-          expectedCloseDate: leads.expectedCloseDate,
-          status: leads.status,
-          value: leads.value,
-          currency: leads.currency,
-        })
-        .from(leads)
-        .where(
-          and(
-            eq(leads.organizationId, orgId),
-            isNotNull(leads.expectedCloseDate),
-            gte(leads.expectedCloseDate, fromDate),
-            lte(leads.expectedCloseDate, toDate)
-          )
-        ),
+      // 7. Leads — exclude entirely for eventScoped
+      session.eventScoped
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: leads.id,
+            title: leads.title,
+            expectedCloseDate: leads.expectedCloseDate,
+            status: leads.status,
+            value: leads.value,
+            currency: leads.currency,
+          })
+          .from(leads)
+          .where(
+            and(
+              eq(leads.organizationId, orgId),
+              isNotNull(leads.expectedCloseDate),
+              gte(leads.expectedCloseDate, fromDate),
+              lte(leads.expectedCloseDate, toDate)
+            )
+          ),
+
+      // 8. Event schedule items — filter by allowedEventIds for eventScoped
+      (allowedEventIds !== null && allowedEventIds.length === 0)
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: eventScheduleItems.id,
+            title: eventScheduleItems.title,
+            date: eventScheduleItems.date,
+            startTime: eventScheduleItems.startTime,
+            endTime: eventScheduleItems.endTime,
+            eventId: eventScheduleItems.eventId,
+          })
+          .from(eventScheduleItems)
+          .where(
+            and(
+              eq(eventScheduleItems.organizationId, orgId),
+              gte(eventScheduleItems.date, fromDate),
+              lte(eventScheduleItems.date, toDate),
+              ...(allowedEventIds !== null ? [inArray(eventScheduleItems.eventId, allowedEventIds)] : [])
+            )
+          ),
     ]);
 
     const items: CalendarItem[] = [];
@@ -322,10 +397,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Map schedule items
+    for (const row of scheduleRows) {
+      items.push({
+        id: `schedule-${row.id}`,
+        type: "schedule",
+        title: row.title,
+        date: row.date.toISOString(),
+        time: row.startTime ?? undefined,
+        color: CALENDAR_COLORS.schedule,
+        href: `/dashboard/events/${row.eventId}/schedule`,
+        meta: {},
+      });
+    }
+
     // Sort by date
     items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    return NextResponse.json({ success: true, data: items });
+    return NextResponse.json({ success: true, data: items, allowedTypes });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error loading calendar";
     if (message.includes("Unauthorized") || message.includes("Please log in")) {
