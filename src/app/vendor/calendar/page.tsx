@@ -1,0 +1,89 @@
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CalendarView } from "@/components/calendar/calendar-view";
+import { CalendarFilters } from "@/components/calendar/calendar-filters";
+import { CalendarUpcoming } from "@/components/calendar/calendar-upcoming";
+import { useCalendar } from "@/hooks/use-calendar";
+import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
+import type { CalendarItemType } from "@/lib/calendar";
+
+const ALL_LEGEND_TYPES: CalendarItemType[] = [
+  "event",
+  "task",
+  "meeting",
+  "payment",
+  "task_payment",
+  "document",
+  "schedule",
+];
+
+export default function VendorCalendarPage() {
+  const {
+    month,
+    year,
+    filteredItems,
+    filteredItemsByDate,
+    loading,
+    filters,
+    allowedTypes,
+    toggleFilter,
+    goToPrevMonth,
+    goToNextMonth,
+    goToToday,
+  } = useCalendar();
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold">Calendario</h1>
+        <p className="text-muted-foreground">
+          Eventos, tareas y pagos de tus eventos asignados
+        </p>
+      </div>
+
+      {/* Filters */}
+      <CalendarFilters filters={filters} onToggle={toggleFilter} allowedTypes={allowedTypes} />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Calendar */}
+        <Card className="lg:col-span-2">
+          <CardContent className="pt-6">
+            <CalendarView
+              month={month}
+              year={year}
+              itemsByDate={filteredItemsByDate}
+              loading={loading}
+              onPrevMonth={goToPrevMonth}
+              onNextMonth={goToNextMonth}
+              onToday={goToToday}
+            />
+
+            {/* Legend */}
+            <div className="mt-4 flex flex-wrap gap-4">
+              {(allowedTypes.length < ALL_LEGEND_TYPES.length ? allowedTypes : ALL_LEGEND_TYPES).map((type) => (
+                <div key={type} className="flex items-center gap-2">
+                  <div className={`h-3 w-3 rounded ${CALENDAR_COLORS[type]}`} />
+                  <span className="text-xs text-muted-foreground">
+                    {CALENDAR_LABELS[type]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Events */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CalendarUpcoming items={filteredItems} maxDays={30} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

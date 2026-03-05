@@ -25,6 +25,7 @@ export async function GET() {
         organizationId: session.organizationId,
         isImpersonating: session.isImpersonating || false,
         eventScoped: session.eventScoped,
+        orgType: session.orgType,
       },
     });
   } catch (error) {

@@ -14,6 +14,7 @@ import { CalendarDays, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUserSessionContext } from "@/contexts/user-session-context";
 
 interface CalendarDrawerProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface CalendarDrawerProps {
 
 export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
   const router = useRouter();
+  const { orgType } = useUserSessionContext();
   const {
     month,
     year,
@@ -42,7 +44,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
 
   const handleOpenFullPage = () => {
     onOpenChange(false);
-    router.push("/dashboard/calendar");
+    router.push(orgType === "provider" ? "/vendor/calendar" : "/dashboard/calendar");
   };
 
   return (

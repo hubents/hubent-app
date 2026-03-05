@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   RiDashboardLine,
   RiCalendarEventLine,
+  RiCalendar2Line,
   RiFileListLine,
   RiSettings4Line,
   RiMoreLine,
@@ -22,6 +23,7 @@ import {
 
 const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, exact: true },
+  { name: "Calendario", href: "/vendor/calendar", icon: RiCalendar2Line },
   { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine },
   { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine },
 ];

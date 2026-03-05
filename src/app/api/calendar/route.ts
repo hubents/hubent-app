@@ -10,6 +10,7 @@ import {
   financialDocuments,
   leads,
   eventScheduleItems,
+  providerEventAccess,
 } from "@/db/schema";
 import { eq, and, gte, lte, isNotNull, inArray } from "drizzle-orm";
 import type { CalendarItem, CalendarItemType } from "@/lib/calendar";
@@ -98,6 +99,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Vendor support: providers access events via providerEventAccess
+    const isVendor = session.orgType === "provider";
+    let accessIdMap: Record<number, number> = {};
+
+    if (isVendor) {
+      const vendorAccess = await db
+        .select({ eventId: providerEventAccess.eventId, accessId: providerEventAccess.id })
+        .from(providerEventAccess)
+        .where(and(
+          eq(providerEventAccess.providerOrgId, orgId),
+          eq(providerEventAccess.status, "active")
+        ));
+
+      allowedEventIds = vendorAccess.map((a) => a.eventId);
+      taskEventIds = [...allowedEventIds];
+      financeEventIds = [...allowedEventIds];
+
+      vendorAccess.forEach((a) => { accessIdMap[a.eventId] = a.accessId; });
+
+      // Vendors never see leads
+      const leadIdx = allowedTypes.indexOf("lead");
+      if (leadIdx >= 0) allowedTypes.splice(leadIdx, 1);
+    }
+
     const [
       eventRows,
       taskRows,
@@ -124,7 +149,7 @@ export async function GET(request: NextRequest) {
           .from(events)
           .where(
             and(
-              eq(events.organizationId, orgId),
+              ...(isVendor ? [] : [eq(events.organizationId, orgId)]),
               isNotNull(events.date),
               gte(events.date, fromDate),
               lte(events.date, toDate),
@@ -148,7 +173,7 @@ export async function GET(request: NextRequest) {
           .from(tasks)
           .where(
             and(
-              eq(tasks.organizationId, orgId),
+              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
               isNotNull(tasks.dueDate),
               gte(tasks.dueDate, fromDate),
               lte(tasks.dueDate, toDate),
@@ -174,7 +199,7 @@ export async function GET(request: NextRequest) {
           .innerJoin(tasks, eq(taskMeetings.taskId, tasks.id))
           .where(
             and(
-              eq(tasks.organizationId, orgId),
+              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
               gte(taskMeetings.date, fromDate),
               lte(taskMeetings.date, toDate),
               ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : []),
@@ -197,7 +222,7 @@ export async function GET(request: NextRequest) {
           .from(paymentSchedules)
           .where(
             and(
-              eq(paymentSchedules.organizationId, orgId),
+              ...(isVendor ? [] : [eq(paymentSchedules.organizationId, orgId)]),
               gte(paymentSchedules.dueDate, fromDate),
               lte(paymentSchedules.dueDate, toDate),
               ...(financeEventIds !== null ? [inArray(paymentSchedules.eventId, financeEventIds)] : []),
@@ -221,7 +246,7 @@ export async function GET(request: NextRequest) {
           .innerJoin(tasks, eq(taskPayments.taskId, tasks.id))
           .where(
             and(
-              eq(tasks.organizationId, orgId),
+              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
               gte(taskPayments.date, fromDate),
               lte(taskPayments.date, toDate),
               ...(financeEventIds !== null ? [inArray(tasks.eventId, financeEventIds)] : []),
@@ -246,16 +271,17 @@ export async function GET(request: NextRequest) {
           .from(financialDocuments)
           .where(
             and(
-              eq(financialDocuments.organizationId, orgId),
+              ...(isVendor ? [] : [eq(financialDocuments.organizationId, orgId)]),
               isNotNull(financialDocuments.dueDate),
               gte(financialDocuments.dueDate, fromDate),
               lte(financialDocuments.dueDate, toDate),
+              ...(isVendor && allowedEventIds !== null ? [inArray(financialDocuments.eventId, allowedEventIds)] : []),
               ...(filterEventId !== null ? [eq(financialDocuments.eventId, filterEventId)] : [])
             )
           ),
 
-      // 7. Leads — exclude for eventScoped, when filtering by event, or without crm:read
-      (session.eventScoped || filterEventId !== null || !canOrg("crm:read"))
+      // 7. Leads — exclude for eventScoped, vendors, when filtering by event, or without crm:read
+      (isVendor || session.eventScoped || filterEventId !== null || !canOrg("crm:read"))
         ? Promise.resolve([])
         : db
           .select({
@@ -291,7 +317,7 @@ export async function GET(request: NextRequest) {
           .from(eventScheduleItems)
           .where(
             and(
-              eq(eventScheduleItems.organizationId, orgId),
+              ...(isVendor ? [] : [eq(eventScheduleItems.organizationId, orgId)]),
               gte(eventScheduleItems.date, fromDate),
               lte(eventScheduleItems.date, toDate),
               ...(allowedEventIds !== null ? [inArray(eventScheduleItems.eventId, allowedEventIds)] : []),
@@ -301,6 +327,8 @@ export async function GET(request: NextRequest) {
     ]);
 
     const items: CalendarItem[] = [];
+    const vendorHref = (eventId: number | null) =>
+      eventId && accessIdMap[eventId] ? `/vendor/events/${accessIdMap[eventId]}` : "/vendor/events";
 
     // Map events
     for (const row of eventRows) {
@@ -312,7 +340,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString(),
         endDate: row.endDate?.toISOString(),
         color: CALENDAR_COLORS.event,
-        href: `/dashboard/events/${row.id}`,
+        href: isVendor ? vendorHref(row.id) : `/dashboard/events/${row.id}`,
         meta: {
           status: row.status ?? undefined,
           location: row.location ?? undefined,
@@ -329,7 +357,7 @@ export async function GET(request: NextRequest) {
         title: row.title,
         date: row.dueDate.toISOString(),
         color: CALENDAR_COLORS.task,
-        href: `/dashboard/tasks?taskId=${row.id}`,
+        href: isVendor ? vendorHref(row.eventId) : `/dashboard/tasks?taskId=${row.id}`,
         meta: {
           status: row.status ?? undefined,
           priority: row.priority ?? undefined,
@@ -346,7 +374,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString(),
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.meeting,
-        href: `/dashboard/tasks?taskId=${row.taskId}`,
+        href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
         meta: {
           location: row.location ?? undefined,
         },
@@ -361,7 +389,7 @@ export async function GET(request: NextRequest) {
         title: row.name,
         date: row.dueDate.toISOString(),
         color: CALENDAR_COLORS.payment,
-        href: `/dashboard/finance/payments`,
+        href: isVendor ? vendorHref(row.eventId) : `/dashboard/finance/payments`,
         meta: {
           status: row.isPaid ? "paid" : "pending",
           amount: row.amount ? parseFloat(row.amount) : undefined,
@@ -377,7 +405,7 @@ export async function GET(request: NextRequest) {
         title: row.description,
         date: row.date.toISOString(),
         color: CALENDAR_COLORS.task_payment,
-        href: `/dashboard/tasks?taskId=${row.taskId}`,
+        href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
         meta: {
           status: row.status ?? undefined,
           amount: row.amount ? parseFloat(row.amount) : undefined,
@@ -409,7 +437,7 @@ export async function GET(request: NextRequest) {
         title: `${label} ${row.number}`,
         date: row.dueDate.toISOString(),
         color: CALENDAR_COLORS.document,
-        href: docTypeRoutes[row.type] || "/dashboard/finance",
+        href: isVendor ? `/vendor/finance/${row.type === "invoice" ? "invoices" : "quotes"}` : (docTypeRoutes[row.type] || "/dashboard/finance"),
         meta: {
           status: row.status ?? undefined,
           amount: row.total ? parseFloat(row.total) : undefined,
@@ -445,7 +473,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString(),
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.schedule,
-        href: `/dashboard/events/${row.eventId}/schedule`,
+        href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/schedule`,
         meta: {},
       });
     }

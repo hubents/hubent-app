@@ -12,6 +12,7 @@ import {
   RiSettings4Line,
   RiMoneyDollarCircleLine,
   RiContactsBookLine,
+  RiCalendar2Line,
   RiUserLine,
   RiSparklingLine,
   RiArrowDownSLine,
@@ -27,6 +28,7 @@ import { useState, useEffect, useMemo } from "react";
 
 const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, permission: null },
+  { name: "Calendario", href: "/vendor/calendar", icon: RiCalendar2Line, permission: null },
   { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine, permission: null },
   { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine, permission: null },
   { name: "Contactos", href: "/vendor/contacts", icon: RiContactsBookLine, permission: "crm:read" },
