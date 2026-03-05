@@ -67,10 +67,13 @@ export function TaskScheduleTab({
     try {
       const res = await fetch(`/api/tasks/${taskId}/schedule/pdf`);
       if (!res.ok) throw new Error("Failed to generate PDF");
+      const contentType = res.headers.get("content-type") || "";
+      const isPdf = contentType.includes("application/pdf");
+      const ext = isPdf ? ".pdf" : ".html";
       const blob = await res.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `orden-del-dia-tarea-${taskId}.pdf`;
+      link.download = `orden-del-dia-tarea-${taskId}${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

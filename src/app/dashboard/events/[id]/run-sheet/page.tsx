@@ -61,12 +61,15 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
         : `/api/events/${eventId}/run-sheet/pdf`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to generate PDF");
+      const contentType = res.headers.get("content-type") || "";
+      const isPdf = contentType.includes("application/pdf");
+      const ext = isPdf ? ".pdf" : ".html";
       const blob = await res.blob();
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       const eventName = activeEvent?.name || "evento";
       const suffix = taskId ? `-tarea-${taskId}` : "";
-      link.download = `orden-del-dia-${eventName.replace(/\s+/g, "-").toLowerCase()}${suffix}.pdf`;
+      link.download = `orden-del-dia-${eventName.replace(/\s+/g, "-").toLowerCase()}${suffix}${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
