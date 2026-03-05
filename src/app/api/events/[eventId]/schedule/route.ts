@@ -3,14 +3,46 @@ import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { eventScheduleItems, tasks, taskScheduleItems } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { z } from "zod";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
+
+const createSchema = z.object({
+  title: z.string().min(1, "title is required").max(500),
+  date: z.string().min(1, "date is required"),
+  description: z.string().max(2000).nullish(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato HH:mm").nullish(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato HH:mm").nullish(),
+  location: z.string().max(500).nullish(),
+  notes: z.string().max(2000).nullish(),
+  color: z.string().max(20).nullish(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+const updateSchema = z.object({
+  scheduleItemId: z.number().int().positive(),
+  title: z.string().min(1).max(500).optional(),
+  date: z.string().min(1).optional(),
+  description: z.string().max(2000).nullish(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/).nullish(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/).nullish(),
+  location: z.string().max(500).nullish(),
+  notes: z.string().max(2000).nullish(),
+  color: z.string().max(20).nullish(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+function parseEventId(str: string): number | null {
+  const n = parseInt(str, 10);
+  return isNaN(n) ? null : n;
+}
 
 // GET /api/events/[eventId]/schedule - List event schedule items + task schedule items
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId: eventIdStr } = await params;
-    const eventId = parseInt(eventIdStr, 10);
+    const eventId = parseEventId(eventIdStr);
+    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     const session = await requireEventSectionAccess(eventId, "general", "view");
 
     const { searchParams } = new URL(request.url);
@@ -90,31 +122,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId: eventIdStr } = await params;
-    const eventId = parseInt(eventIdStr, 10);
+    const eventId = parseEventId(eventIdStr);
+    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     const session = await requireEventSectionAccess(eventId, "general", "edit");
 
     const body = await request.json();
-    const { title, description, date, startTime, endTime, location, notes, color, sortOrder } = body;
-
-    if (!title || !date) {
+    const parsed = createSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "title and date are required" },
+        { success: false, error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
+    const { title, description, date, startTime, endTime, location, notes, color, sortOrder } = parsed.data;
 
     const [item] = await db.insert(eventScheduleItems).values({
       eventId,
       organizationId: session.organizationId,
       title,
-      description,
+      description: description ?? null,
       date: new Date(date),
-      startTime,
-      endTime,
-      location,
-      notes,
-      color,
-      sortOrder: sortOrder || 0,
+      startTime: startTime ?? null,
+      endTime: endTime ?? null,
+      location: location ?? null,
+      notes: notes ?? null,
+      color: color ?? null,
+      sortOrder: sortOrder ?? 0,
     }).returning();
 
     return NextResponse.json({ success: true, data: item });
@@ -133,25 +166,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId: eventIdStr } = await params;
-    const eventId = parseInt(eventIdStr, 10);
+    const eventId = parseEventId(eventIdStr);
+    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     await requireEventSectionAccess(eventId, "general", "edit");
 
     const body = await request.json();
-    const { scheduleItemId, ...updateData } = body;
-
-    if (!scheduleItemId) {
+    const parsed = updateSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "scheduleItemId is required" },
+        { success: false, error: parsed.error.issues[0]?.message || "Invalid input" },
         { status: 400 }
       );
     }
+    const { scheduleItemId, ...fields } = parsed.data;
 
-    if (updateData.date) {
-      updateData.date = new Date(updateData.date);
-    }
+    const setData: Record<string, unknown> = { updatedAt: new Date() };
+    if (fields.title !== undefined) setData.title = fields.title;
+    if (fields.date !== undefined) setData.date = new Date(fields.date);
+    if (fields.description !== undefined) setData.description = fields.description;
+    if (fields.startTime !== undefined) setData.startTime = fields.startTime;
+    if (fields.endTime !== undefined) setData.endTime = fields.endTime;
+    if (fields.location !== undefined) setData.location = fields.location;
+    if (fields.notes !== undefined) setData.notes = fields.notes;
+    if (fields.color !== undefined) setData.color = fields.color;
+    if (fields.sortOrder !== undefined) setData.sortOrder = fields.sortOrder;
 
     const [updated] = await db.update(eventScheduleItems)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set(setData)
       .where(
         and(
           eq(eventScheduleItems.id, scheduleItemId),
@@ -182,26 +223,36 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId: eventIdStr } = await params;
-    const eventId = parseInt(eventIdStr, 10);
+    const eventId = parseEventId(eventIdStr);
+    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     await requireEventSectionAccess(eventId, "general", "edit");
 
     const { searchParams } = new URL(request.url);
-    const scheduleItemId = searchParams.get("scheduleItemId");
+    const scheduleItemIdStr = searchParams.get("scheduleItemId");
+    const scheduleItemId = scheduleItemIdStr ? parseInt(scheduleItemIdStr, 10) : NaN;
 
-    if (!scheduleItemId) {
+    if (!scheduleItemIdStr || isNaN(scheduleItemId)) {
       return NextResponse.json(
         { success: false, error: "scheduleItemId is required" },
         { status: 400 }
       );
     }
 
-    await db.delete(eventScheduleItems)
+    const deleted = await db.delete(eventScheduleItems)
       .where(
         and(
-          eq(eventScheduleItems.id, parseInt(scheduleItemId, 10)),
+          eq(eventScheduleItems.id, scheduleItemId),
           eq(eventScheduleItems.eventId, eventId)
         )
+      )
+      .returning();
+
+    if (deleted.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Schedule item not found" },
+        { status: 404 }
       );
+    }
 
     return NextResponse.json({ success: true, data: { message: "Schedule item deleted" } });
   } catch (error) {

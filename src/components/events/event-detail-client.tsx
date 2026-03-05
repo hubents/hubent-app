@@ -941,7 +941,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         </Card>
 
         {/* Timeline Preview */}
-        <SchedulePreview eventId={eventId} canEditGeneral={canEdit("general")} />
+        <SchedulePreview eventId={eventId} />
       </div>
 
       {/* Task Drawer - for both view and create */}
@@ -993,7 +993,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   );
 }
 
-function SchedulePreview({ eventId, canEditGeneral }: { eventId: number; canEditGeneral: boolean }) {
+function SchedulePreview({ eventId }: { eventId: number }) {
   const [items, setItems] = useState<Array<{ id: number; title: string; date: string; startTime: string | null; endTime: string | null; source: string; taskTitle: string | null }>>([]);
   const [loading, setLoading] = useState(true);
 

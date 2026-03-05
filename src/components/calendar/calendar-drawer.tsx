@@ -29,6 +29,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
     filteredItemsByDate,
     loading,
     filters,
+    allowedTypes,
     toggleFilter,
     goToPrevMonth,
     goToNextMonth,
@@ -92,7 +93,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
               <h4 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-2">
                 Filtros
               </h4>
-              <CalendarFilters filters={filters} onToggle={toggleFilter} />
+              <CalendarFilters filters={filters} onToggle={toggleFilter} allowedTypes={allowedTypes} />
             </div>
 
             {/* Upcoming */}
