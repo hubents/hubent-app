@@ -7,6 +7,7 @@ import { CalendarUpcoming } from "@/components/calendar/calendar-upcoming";
 import { useCalendar } from "@/hooks/use-calendar";
 import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
 import type { CalendarItemType } from "@/lib/calendar";
+import { RiCalendar2Line } from "@remixicon/react";
 
 const ALL_LEGEND_TYPES: CalendarItemType[] = [
   "event",
@@ -42,6 +43,18 @@ export default function VendorCalendarPage() {
           Eventos, tareas y pagos de tus eventos asignados
         </p>
       </div>
+
+      {!loading && filteredItems.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <RiCalendar2Line className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-lg font-medium">Sin eventos en el calendario</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Cuando un planificador te asigne a un evento, sus actividades aparecerán aquí.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <CalendarFilters filters={filters} onToggle={toggleFilter} allowedTypes={allowedTypes} />

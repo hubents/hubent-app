@@ -254,8 +254,8 @@ export async function GET(request: NextRequest) {
             )
           ),
 
-      // 6. Financial documents — exclude entirely if no finance access, filter by filterEventId
-      !hasFinanceAccess
+      // 6. Financial documents — exclude entirely if no finance access or vendor with no events
+      (!hasFinanceAccess || (isVendor && allowedEventIds !== null && allowedEventIds.length === 0))
         ? Promise.resolve([])
         : db
           .select({
