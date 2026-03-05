@@ -20,6 +20,7 @@ import {
   RiArrowDownSLine,
   RiFileTextLine,
   RiFileList2Line,
+  RiListOrdered2,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useUserSessionContext } from "@/contexts/user-session-context";
@@ -41,6 +42,7 @@ const SECTION_MAP: Record<string, string> = {
   "RSVP": "rsvp",
   "Proveedores": "vendors",
   "Finanzas": "finances",
+  "Orden del día": "general",
   "Configuración": "settings",
 };
 
@@ -93,6 +95,7 @@ export function EventSidebar() {
     { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
     { name: "Proveedores", href: `${basePath}/vendors`, icon: RiStore2Line },
     { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine, hasSubmenu: true },
+    { name: "Orden del día", href: `${basePath}/run-sheet`, icon: RiListOrdered2 },
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];
 

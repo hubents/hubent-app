@@ -493,6 +493,7 @@ export function TaskDrawer({
 
                   <TabsContent value="schedule" className="h-full m-0">
                     <TaskScheduleTab
+                      taskId={effectiveTaskId!}
                       scheduleItems={scheduleItems}
                       loading={loading}
                       onAddScheduleItem={addScheduleItem}

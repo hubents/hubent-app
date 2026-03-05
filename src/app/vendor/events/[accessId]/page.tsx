@@ -26,19 +26,36 @@ import {
   RiFileDownloadLine,
   RiAddLine,
   RiTaskLine,
+  RiListOrdered2,
+  RiInformationLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-type TabKey = "documents" | "payments" | "tasks";
+type TabKey = "documents" | "payments" | "tasks" | "runsheet";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "tasks", label: "Mis Tareas", icon: RiTaskLine },
+  { key: "runsheet", label: "Orden del d\u00eda", icon: RiListOrdered2 },
   { key: "documents", label: "Documentos", icon: RiFileTextLine },
   { key: "payments", label: "Pagos", icon: RiMoneyDollarCircleLine },
 ];
+
+interface RunSheetItem {
+  id: number;
+  taskId: number;
+  title: string;
+  description: string | null;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  notes: string | null;
+  taskTitle: string;
+  source: string;
+}
 
 interface Task {
   id: number;
@@ -147,6 +164,8 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   const [documents, setDocuments] = useState<Document[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [eventTasks, setEventTasks] = useState<Task[]>([]);
+  const [runSheetItems, setRunSheetItems] = useState<RunSheetItem[]>([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -156,11 +175,12 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   async function loadAll() {
     setLoading(true);
     try {
-      const [eventsRes, docsRes, paymentsRes, tasksRes] = await Promise.all([
+      const [eventsRes, docsRes, paymentsRes, tasksRes, runSheetRes] = await Promise.all([
         fetch("/api/vendor/events"),
         fetch(`/api/vendor/events/${accessId}/documents`),
         fetch(`/api/vendor/events/${accessId}/payments`),
         fetch(`/api/vendor/events/${accessId}/tasks`),
+        fetch(`/api/vendor/events/${accessId}/run-sheet`),
       ]);
 
       const eventsData = await eventsRes.json();
@@ -177,6 +197,9 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
 
       const tasksData = await tasksRes.json();
       if (tasksData.success) setEventTasks(tasksData.data || []);
+
+      const runSheetData = await runSheetRes.json();
+      if (runSheetData.success) setRunSheetItems(runSheetData.data || []);
     } catch (error) {
       console.error("Error loading event detail:", error);
     } finally {
@@ -446,6 +469,33 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
         </Card>
       )}
 
+      {activeTab === "runsheet" && (
+        <VendorRunSheetTab
+          items={runSheetItems}
+          downloading={downloadingPdf}
+          onDownload={async () => {
+            setDownloadingPdf(true);
+            try {
+              const res = await fetch(`/api/vendor/events/${accessId}/run-sheet/pdf`);
+              if (!res.ok) throw new Error("Failed to generate PDF");
+              const blob = await res.blob();
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(blob);
+              link.download = `orden-del-dia-${eventDetail?.eventName?.replace(/\s+/g, "-").toLowerCase() || "evento"}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(link.href);
+            } catch (error) {
+              console.error("PDF download error:", error);
+              toast.error("Error al generar PDF");
+            } finally {
+              setDownloadingPdf(false);
+            }
+          }}
+        />
+      )}
+
       {activeTab === "payments" && (
         <Card>
           <CardContent className="p-0">
@@ -508,6 +558,138 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
             </Table>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// VendorRunSheetTab - Timeline view for provider
+// ============================================
+
+function VendorRunSheetTab({
+  items,
+  downloading,
+  onDownload,
+}: {
+  items: RunSheetItem[];
+  downloading: boolean;
+  onDownload: () => void;
+}) {
+  // Group by date
+  const itemsByDate = items.reduce<Record<string, RunSheetItem[]>>((acc, item) => {
+    const dateKey = new Date(item.date).toISOString().split("T")[0];
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(item);
+    return acc;
+  }, {});
+
+  Object.values(itemsByDate).forEach((dateItems) => {
+    dateItems.sort((a, b) => (a.startTime || "99:99").localeCompare(b.startTime || "99:99"));
+  });
+
+  const sortedDates = Object.keys(itemsByDate).sort();
+
+  return (
+    <div className="space-y-4">
+      {/* Download button */}
+      {items.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={onDownload}
+            disabled={downloading}
+          >
+            <RiFileDownloadLine className="h-4 w-4 mr-1" />
+            {downloading ? "Generando..." : "Descargar PDF"}
+          </Button>
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <RiListOrdered2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground">No hay items en la orden del día</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              El organizador aún no ha cargado la orden del día para tus tareas
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        sortedDates.map((dateKey) => {
+          const dateItems = itemsByDate[dateKey];
+          const dateObj = new Date(dateKey + "T12:00:00");
+
+          return (
+            <div key={dateKey}>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {format(dateObj, "EEEE d 'de' MMMM, yyyy", { locale: es })}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {dateItems.length} {dateItems.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+
+              <Card>
+                <CardContent className="p-0">
+                  <div className="divide-y">
+                    {dateItems.map((item) => (
+                      <div key={item.id} className="flex items-start gap-3 p-3">
+                        {/* Time */}
+                        <div className="w-20 shrink-0 text-right">
+                          {item.startTime ? (
+                            <div>
+                              <span className="text-sm font-semibold">{item.startTime}</span>
+                              {item.endTime && (
+                                <span className="text-xs text-muted-foreground block">
+                                  → {item.endTime}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sin hora</span>
+                          )}
+                        </div>
+
+                        {/* Divider */}
+                        <div className="w-0.5 h-10 rounded-full bg-amber-400 shrink-0 mt-0.5" />
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{item.title}</span>
+                            <Badge variant="outline" className="text-[10px]" style={{ borderColor: "#f59e0b", color: "#d97706" }}>
+                              {item.taskTitle}
+                            </Badge>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {item.location && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <RiMapPinLine className="h-3 w-3" />
+                                {item.location}
+                              </span>
+                            )}
+                            {item.notes && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <RiInformationLine className="h-3 w-3" />
+                                {item.notes}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })
       )}
     </div>
   );

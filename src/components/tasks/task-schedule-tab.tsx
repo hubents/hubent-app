@@ -16,6 +16,7 @@ import {
   RiArrowDownSLine,
   RiTimeLine,
   RiCalendarLine,
+  RiFileDownloadLine,
 } from "@remixicon/react";
 
 interface TaskScheduleItem {
@@ -32,6 +33,7 @@ interface TaskScheduleItem {
 }
 
 interface TaskScheduleTabProps {
+  taskId: number;
   scheduleItems: TaskScheduleItem[];
   loading: boolean;
   onAddScheduleItem: (data: {
@@ -50,6 +52,7 @@ interface TaskScheduleTabProps {
 }
 
 export function TaskScheduleTab({
+  taskId,
   scheduleItems,
   loading,
   onAddScheduleItem,
@@ -57,6 +60,27 @@ export function TaskScheduleTab({
   onDeleteScheduleItem,
 }: TaskScheduleTabProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/schedule/pdf`);
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `orden-del-dia-tarea-${taskId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error("PDF download error:", error);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
   const [showAddForm, setShowAddForm] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newItem, setNewItem] = useState({
@@ -124,15 +148,29 @@ export function TaskScheduleTab({
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-medium">Orden del día</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          <RiAddLine className="h-4 w-4" />
-          Add Order
-        </Button>
+        <div className="flex items-center gap-2">
+          {scheduleItems.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+            >
+              <RiFileDownloadLine className="h-4 w-4" />
+              {downloadingPdf ? "Generando..." : "PDF"}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            <RiAddLine className="h-4 w-4" />
+            Add Order
+          </Button>
+        </div>
       </div>
 
       {/* Add Form */}
