@@ -44,6 +44,16 @@ export async function GET(request: NextRequest) {
     let hasFinanceAccess = true;
     const allowedTypes: CalendarItemType[] = ["event", "task", "meeting", "payment", "task_payment", "document", "lead", "schedule"];
 
+    // Helper: check org-level permission
+    const canOrg = (perm: string): boolean => {
+      if (session.role === "owner" || session.role === "admin" || session.role === "provider_owner") return true;
+      if (session.isImpersonating) return true;
+      if (session.user.platformLevel === "super_admin") return true;
+      if (session.permissions.includes(perm)) return true;
+      const [resource] = perm.split(":");
+      return session.permissions.includes(`${resource}:*`);
+    };
+
     if (session.eventScoped) {
       const access = await getUserEventAccess(session.user.userId);
       allowedEventIds = access.map((a) => a.eventId);
@@ -66,6 +76,26 @@ export async function GET(request: NextRequest) {
       // eventScoped never sees leads
       const leadIdx = allowedTypes.indexOf("lead");
       if (leadIdx >= 0) allowedTypes.splice(leadIdx, 1);
+    } else {
+      // Non-eventScoped: filter by org-level permissions
+      if (!canOrg("finance:read")) {
+        hasFinanceAccess = false;
+        ["payment", "task_payment", "document"].forEach((t) => {
+          const idx = allowedTypes.indexOf(t as CalendarItemType);
+          if (idx >= 0) allowedTypes.splice(idx, 1);
+        });
+      }
+      if (!canOrg("crm:read")) {
+        const idx = allowedTypes.indexOf("lead");
+        if (idx >= 0) allowedTypes.splice(idx, 1);
+      }
+      if (!canOrg("tasks:read")) {
+        ["task", "meeting", "task_payment"].forEach((t) => {
+          const idx = allowedTypes.indexOf(t as CalendarItemType);
+          if (idx >= 0) allowedTypes.splice(idx, 1);
+        });
+        taskEventIds = [];
+      }
     }
 
     const [
@@ -175,8 +205,8 @@ export async function GET(request: NextRequest) {
             )
           ),
 
-      // 5. Task payments — filter via task's eventId with finance access, and by filterEventId
-      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
+      // 5. Task payments — needs both finance AND task access
+      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0) || (taskEventIds !== null && taskEventIds.length === 0))
         ? Promise.resolve([])
         : db
           .select({
@@ -224,8 +254,8 @@ export async function GET(request: NextRequest) {
             )
           ),
 
-      // 7. Leads — exclude entirely for eventScoped or when filtering by event
-      (session.eventScoped || filterEventId !== null)
+      // 7. Leads — exclude for eventScoped, when filtering by event, or without crm:read
+      (session.eventScoped || filterEventId !== null || !canOrg("crm:read"))
         ? Promise.resolve([])
         : db
           .select({
