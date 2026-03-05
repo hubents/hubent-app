@@ -11,7 +11,6 @@ import {
   organizations,
 } from "@/db/schema";
 import { eq, and, inArray, asc } from "drizzle-orm";
-import { createPDF } from "@/lib/pdf-generator";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -153,29 +152,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       providerName,
     });
 
-    // Generate PDF
-    const { buffer, isPDF } = await createPDF(html);
-
-    const eventSlug = (event?.name || "evento")
-      .replace(/\s+/g, "-")
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "");
-    const filename = `orden-del-dia-${eventSlug}-${providerName.replace(/\s+/g, "-").toLowerCase()}.pdf`;
-
-    if (isPDF) {
-      return new NextResponse(new Uint8Array(buffer), {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      });
-    }
-
-    // Fallback to HTML
+    // Return HTML for client-side PDF generation (html2canvas + jsPDF)
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename.replace(".pdf", ".html")}"`,
       },
     });
   } catch (error) {

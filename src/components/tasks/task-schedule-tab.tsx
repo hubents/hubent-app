@@ -18,6 +18,7 @@ import {
   RiCalendarLine,
   RiFileDownloadLine,
 } from "@remixicon/react";
+import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
 interface TaskScheduleItem {
   id: number;
@@ -65,21 +66,10 @@ export function TaskScheduleTab({
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/schedule/pdf`);
-      if (!res.ok) throw new Error("Failed to generate PDF");
-      const contentType = res.headers.get("content-type") || "";
-      const isPdf = contentType.includes("application/pdf");
-      const ext = isPdf ? ".pdf" : ".html";
-      const blob = await res.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `orden-del-dia-tarea-${taskId}${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-    } catch (error) {
-      console.error("PDF download error:", error);
+      await downloadPDFFromHTML(
+        `/api/tasks/${taskId}/schedule/pdf`,
+        `orden-del-dia-tarea-${taskId}`
+      );
     } finally {
       setDownloadingPdf(false);
     }

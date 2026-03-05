@@ -14,6 +14,7 @@ import {
   RiInformationLine,
 } from "@remixicon/react";
 import { useEvent } from "@/contexts/event-context";
+import { downloadPDFFromHTML } from "@/lib/pdf-download";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -59,23 +60,10 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
       const url = taskId
         ? `/api/events/${eventId}/run-sheet/pdf?taskId=${taskId}`
         : `/api/events/${eventId}/run-sheet/pdf`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to generate PDF");
-      const contentType = res.headers.get("content-type") || "";
-      const isPdf = contentType.includes("application/pdf");
-      const ext = isPdf ? ".pdf" : ".html";
-      const blob = await res.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
       const eventName = activeEvent?.name || "evento";
       const suffix = taskId ? `-tarea-${taskId}` : "";
-      link.download = `orden-del-dia-${eventName.replace(/\s+/g, "-").toLowerCase()}${suffix}${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-    } catch (error) {
-      console.error("PDF download error:", error);
+      const filename = `orden-del-dia-${eventName.replace(/\s+/g, "-").toLowerCase()}${suffix}`;
+      await downloadPDFFromHTML(url, filename);
     } finally {
       setDownloading(false);
     }

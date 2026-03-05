@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
 type TabKey = "documents" | "payments" | "tasks" | "runsheet";
 
@@ -165,7 +166,6 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   const [payments, setPayments] = useState<Payment[]>([]);
   const [eventTasks, setEventTasks] = useState<Task[]>([]);
   const [runSheetItems, setRunSheetItems] = useState<RunSheetItem[]>([]);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -472,29 +472,12 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
       {activeTab === "runsheet" && (
         <VendorRunSheetTab
           items={runSheetItems}
-          downloading={downloadingPdf}
           onDownload={async () => {
-            setDownloadingPdf(true);
-            try {
-              const res = await fetch(`/api/vendor/events/${accessId}/run-sheet/pdf`);
-              if (!res.ok) throw new Error("Failed to generate PDF");
-              const contentType = res.headers.get("content-type") || "";
-              const isPdf = contentType.includes("application/pdf");
-              const ext = isPdf ? ".pdf" : ".html";
-              const blob = await res.blob();
-              const link = document.createElement("a");
-              link.href = URL.createObjectURL(blob);
-              link.download = `orden-del-dia-${eventDetail?.eventName?.replace(/\s+/g, "-").toLowerCase() || "evento"}${ext}`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(link.href);
-            } catch (error) {
-              console.error("PDF download error:", error);
-              toast.error("Error al generar PDF");
-            } finally {
-              setDownloadingPdf(false);
-            }
+            const eventName = eventDetail?.eventName?.replace(/\s+/g, "-").toLowerCase() || "evento";
+            await downloadPDFFromHTML(
+              `/api/vendor/events/${accessId}/run-sheet/pdf`,
+              `orden-del-dia-${eventName}`
+            );
           }}
         />
       )}
@@ -572,13 +555,12 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
 
 function VendorRunSheetTab({
   items,
-  downloading,
   onDownload,
 }: {
   items: RunSheetItem[];
-  downloading: boolean;
   onDownload: () => void;
 }) {
+  const [downloading, setDownloading] = useState(false);
   // Group by date
   const itemsByDate = items.reduce<Record<string, RunSheetItem[]>>((acc, item) => {
     const dateKey = new Date(item.date).toISOString().split("T")[0];
@@ -600,7 +582,10 @@ function VendorRunSheetTab({
         <div className="flex justify-end">
           <Button
             size="sm"
-            onClick={onDownload}
+            onClick={async () => {
+              setDownloading(true);
+              try { await onDownload(); } finally { setDownloading(false); }
+            }}
             disabled={downloading}
           >
             <RiFileDownloadLine className="h-4 w-4 mr-1" />

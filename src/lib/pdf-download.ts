@@ -3,21 +3,24 @@
 import { toast } from "sonner";
 
 /**
- * Downloads a financial document as a real PDF using client-side rendering.
- * 1. Fetches HTML from the server
- * 2. Renders it in a hidden iframe
- * 3. Uses html2canvas + jsPDF to generate a real PDF
- * 4. Triggers auto-download
+ * Generic PDF download from any HTML endpoint.
+ * Pattern: fetch HTML → iframe render → html2canvas → jsPDF → auto-download.
+ *
+ * USE THIS for ALL PDF downloads in the app. Never use server-side Puppeteer
+ * for client-triggered downloads — it fails in dev and is unreliable.
+ *
+ * @param htmlUrl - URL that returns HTML content (text/html)
+ * @param filename - Download filename (will append .pdf if missing)
  */
-export async function downloadDocumentPDF(
-  documentId: number,
+export async function downloadPDFFromHTML(
+  htmlUrl: string,
   filename: string
 ): Promise<void> {
   const toastId = toast.loading("Generando PDF...");
 
   try {
     // 1. Fetch HTML from the server
-    const res = await fetch(`/api/finance/documents/${documentId}/pdf?format=html`);
+    const res = await fetch(htmlUrl);
     if (!res.ok) throw new Error("Error al obtener el documento");
     const html = await res.text();
 
@@ -101,4 +104,18 @@ export async function downloadDocumentPDF(
     console.error("PDF download error:", error);
     toast.error("Error al generar PDF", { id: toastId });
   }
+}
+
+/**
+ * Downloads a financial document PDF.
+ * Convenience wrapper around downloadPDFFromHTML.
+ */
+export async function downloadDocumentPDF(
+  documentId: number,
+  filename: string
+): Promise<void> {
+  return downloadPDFFromHTML(
+    `/api/finance/documents/${documentId}/pdf?format=html`,
+    filename
+  );
 }
