@@ -119,7 +119,8 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
                 <RiFileDownloadLine className="h-4 w-4 mr-1" />
                 PDF por tarea
               </Button>
-              <div className="absolute right-0 top-full mt-1 bg-popover border rounded-md shadow-md p-1 hidden group-hover:block z-10 min-w-[200px]">
+              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-10 min-w-[200px]">
+              <div className="bg-popover border rounded-md shadow-md p-1">
                 {uniqueTasks.map((task) => (
                   <button
                     key={task.id}
@@ -129,6 +130,7 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
                     {task.title}
                   </button>
                 ))}
+              </div>
               </div>
             </div>
           )}
