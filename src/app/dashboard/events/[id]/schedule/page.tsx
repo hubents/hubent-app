@@ -236,7 +236,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
             <CardTitle>Próximos</CardTitle>
           </CardHeader>
           <CardContent>
-            <CalendarUpcoming items={filteredItems} maxDays={30} />
+            <CalendarUpcoming items={filteredItems} month={month} year={year} />
           </CardContent>
         </Card>
       </div>

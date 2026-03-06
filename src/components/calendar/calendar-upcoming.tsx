@@ -13,29 +13,29 @@ import { useRouter } from "next/navigation";
 
 interface CalendarUpcomingProps {
   items: CalendarItem[];
-  maxDays?: number;
+  month: number;
+  year: number;
   onNavigate?: () => void;
 }
 
 export function CalendarUpcoming({
   items,
-  maxDays = 14,
+  month,
+  year,
   onNavigate,
 }: CalendarUpcomingProps) {
   const router = useRouter();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
 
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + maxDays);
+  const startFrom = isCurrentMonth
+    ? getDateKey(now)
+    : getDateKey(new Date(year, month - 1, 1));
 
   const upcoming = items
-    .filter((item) => {
-      const d = new Date(item.date + "T00:00:00");
-      d.setHours(0, 0, 0, 0);
-      return d >= today && d <= endDate;
-    })
+    .filter((item) => item.date >= startFrom)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Group by date key
