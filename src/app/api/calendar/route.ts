@@ -337,8 +337,8 @@ export async function GET(request: NextRequest) {
         id: `event-${row.id}`,
         type: "event",
         title: row.name,
-        date: row.date.toISOString(),
-        endDate: row.endDate?.toISOString(),
+        date: row.date.toISOString().split("T")[0],
+        endDate: row.endDate?.toISOString().split("T")[0],
         color: CALENDAR_COLORS.event,
         href: isVendor ? vendorHref(row.id) : `/dashboard/events/${row.id}`,
         meta: {
@@ -355,7 +355,7 @@ export async function GET(request: NextRequest) {
         id: `task-${row.id}`,
         type: "task",
         title: row.title,
-        date: row.dueDate.toISOString(),
+        date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.task,
         href: isVendor ? vendorHref(row.eventId) : `/dashboard/tasks?taskId=${row.id}`,
         meta: {
@@ -371,7 +371,7 @@ export async function GET(request: NextRequest) {
         id: `meeting-${row.id}`,
         type: "meeting",
         title: row.title,
-        date: row.date.toISOString(),
+        date: row.date.toISOString().split("T")[0],
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.meeting,
         href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
@@ -387,7 +387,7 @@ export async function GET(request: NextRequest) {
         id: `payment-${row.id}`,
         type: "payment",
         title: row.name,
-        date: row.dueDate.toISOString(),
+        date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.payment,
         href: isVendor ? vendorHref(row.eventId) : `/dashboard/finance/payments`,
         meta: {
@@ -403,7 +403,7 @@ export async function GET(request: NextRequest) {
         id: `task_payment-${row.id}`,
         type: "task_payment",
         title: row.description,
-        date: row.date.toISOString(),
+        date: row.date.toISOString().split("T")[0],
         color: CALENDAR_COLORS.task_payment,
         href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
         meta: {
@@ -435,7 +435,7 @@ export async function GET(request: NextRequest) {
         id: `document-${row.id}`,
         type: "document",
         title: `${label} ${row.number}`,
-        date: row.dueDate.toISOString(),
+        date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.document,
         href: isVendor ? `/vendor/finance/${row.type === "invoice" ? "invoices" : "quotes"}` : (docTypeRoutes[row.type] || "/dashboard/finance"),
         meta: {
@@ -453,7 +453,7 @@ export async function GET(request: NextRequest) {
         id: `lead-${row.id}`,
         type: "lead",
         title: row.title,
-        date: row.expectedCloseDate.toISOString(),
+        date: row.expectedCloseDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.lead,
         href: `/dashboard/crm?leadId=${row.id}`,
         meta: {
@@ -470,7 +470,7 @@ export async function GET(request: NextRequest) {
         id: `schedule-${row.id}`,
         type: "schedule",
         title: row.title,
-        date: row.date.toISOString(),
+        date: row.date.toISOString().split("T")[0],
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.schedule,
         href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/schedule`,
@@ -479,7 +479,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Sort by date
-    items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    items.sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json({ success: true, data: items, allowedTypes });
   } catch (error: unknown) {

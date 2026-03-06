@@ -8,6 +8,8 @@ interface UseCalendarOptions {
   initialMonth?: number;
   initialYear?: number;
   eventId?: number;
+  visibleTypes?: CalendarItemType[];
+  filterKey?: string;
 }
 
 interface UseCalendarReturn {
@@ -43,7 +45,7 @@ const ALL_TYPES: CalendarItemType[] = [
   "schedule",
 ];
 
-function getDefaultFilters(): Record<CalendarItemType, boolean> {
+function getDefaultFilters(storageKey: string): Record<CalendarItemType, boolean> {
   if (typeof window === "undefined") {
     return Object.fromEntries(ALL_TYPES.map((t) => [t, true])) as Record<
       CalendarItemType,
@@ -51,7 +53,7 @@ function getDefaultFilters(): Record<CalendarItemType, boolean> {
     >;
   }
   try {
-    const saved = localStorage.getItem("hubents-calendar-filters");
+    const saved = localStorage.getItem(storageKey);
     if (saved) return JSON.parse(saved);
   } catch {}
   return Object.fromEntries(ALL_TYPES.map((t) => [t, true])) as Record<
@@ -67,8 +69,10 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFiltersState] = useState<Record<CalendarItemType, boolean>>(getDefaultFilters);
-  const [allowedTypes, setAllowedTypes] = useState<CalendarItemType[]>(ALL_TYPES);
+  const visibleTypes = options?.visibleTypes;
+  const storageKey = options?.filterKey ?? "hubents-calendar-filters";
+  const [filters, setFiltersState] = useState<Record<CalendarItemType, boolean>>(() => getDefaultFilters(storageKey));
+  const [allowedTypes, setAllowedTypes] = useState<CalendarItemType[]>(visibleTypes ?? ALL_TYPES);
 
   const eventId = options?.eventId;
 
@@ -82,10 +86,15 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
-        setItems(data.data);
-        if (Array.isArray(data.allowedTypes)) {
-          setAllowedTypes(data.allowedTypes);
-        }
+        const apiTypes: CalendarItemType[] = Array.isArray(data.allowedTypes) ? data.allowedTypes : ALL_TYPES;
+        const effectiveTypes = visibleTypes
+          ? apiTypes.filter((t) => visibleTypes.includes(t))
+          : apiTypes;
+        setAllowedTypes(effectiveTypes);
+        setItems(visibleTypes
+          ? data.data.filter((item: CalendarItem) => visibleTypes.includes(item.type))
+          : data.data
+        );
       } else {
         setError(data.error || "Error al cargar calendario");
       }
@@ -116,18 +125,18 @@ export function useCalendar(options?: UseCalendarOptions): UseCalendarReturn {
     setFiltersState((prev) => {
       const next = { ...prev, [type]: !prev[type] };
       try {
-        localStorage.setItem("hubents-calendar-filters", JSON.stringify(next));
+        localStorage.setItem(storageKey, JSON.stringify(next));
       } catch {}
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const setFilters = useCallback((f: Record<CalendarItemType, boolean>) => {
     setFiltersState(f);
     try {
-      localStorage.setItem("hubents-calendar-filters", JSON.stringify(f));
+      localStorage.setItem(storageKey, JSON.stringify(f));
     } catch {}
-  }, []);
+  }, [storageKey]);
 
   const goToMonth = useCallback((m: number, y: number) => {
     setMonth(m);

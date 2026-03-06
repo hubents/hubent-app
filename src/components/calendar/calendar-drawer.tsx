@@ -36,7 +36,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
     goToPrevMonth,
     goToNextMonth,
     goToToday,
-  } = useCalendar();
+  } = useCalendar({ visibleTypes: ["event", "task"], filterKey: "hubents-calendar-filters-general" });
 
   const handleNavigate = () => {
     onOpenChange(false);

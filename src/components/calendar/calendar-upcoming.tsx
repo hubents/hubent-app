@@ -32,11 +32,11 @@ export function CalendarUpcoming({
 
   const upcoming = items
     .filter((item) => {
-      const d = new Date(item.date);
+      const d = new Date(item.date + "T00:00:00");
       d.setHours(0, 0, 0, 0);
       return d >= today && d <= endDate;
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // Group by date key
   const grouped = new Map<string, CalendarItem[]>();

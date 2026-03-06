@@ -21,7 +21,6 @@ import { CalendarFilters } from "@/components/calendar/calendar-filters";
 import { CalendarUpcoming } from "@/components/calendar/calendar-upcoming";
 import { useCalendar } from "@/hooks/use-calendar";
 import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
-import type { CalendarItemType } from "@/lib/calendar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,16 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const ALL_LEGEND_TYPES: CalendarItemType[] = [
-  "event",
-  "task",
-  "meeting",
-  "payment",
-  "task_payment",
-  "document",
-  "schedule",
-];
 
 export default function EventSchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -62,7 +51,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
     goToNextMonth,
     goToToday,
     refetch,
-  } = useCalendar({ eventId });
+  } = useCalendar({ eventId, visibleTypes: ["event", "task", "meeting"], filterKey: "hubents-calendar-filters-event" });
 
   // Schedule items CRUD state
   interface ScheduleItem {
@@ -229,7 +218,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
 
             {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-4">
-              {(allowedTypes.length < ALL_LEGEND_TYPES.length ? allowedTypes : ALL_LEGEND_TYPES).map((type) => (
+              {allowedTypes.map((type) => (
                 <div key={type} className="flex items-center gap-2">
                   <div className={`h-3 w-3 rounded ${CALENDAR_COLORS[type]}`} />
                   <span className="text-xs text-muted-foreground">

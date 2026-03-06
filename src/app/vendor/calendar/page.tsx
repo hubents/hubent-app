@@ -6,18 +6,7 @@ import { CalendarFilters } from "@/components/calendar/calendar-filters";
 import { CalendarUpcoming } from "@/components/calendar/calendar-upcoming";
 import { useCalendar } from "@/hooks/use-calendar";
 import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
-import type { CalendarItemType } from "@/lib/calendar";
 import { RiCalendar2Line } from "@remixicon/react";
-
-const ALL_LEGEND_TYPES: CalendarItemType[] = [
-  "event",
-  "task",
-  "meeting",
-  "payment",
-  "task_payment",
-  "document",
-  "schedule",
-];
 
 export default function VendorCalendarPage() {
   const {
@@ -32,7 +21,7 @@ export default function VendorCalendarPage() {
     goToPrevMonth,
     goToNextMonth,
     goToToday,
-  } = useCalendar();
+  } = useCalendar({ visibleTypes: ["event", "task"], filterKey: "hubents-calendar-filters-vendor" });
 
   return (
     <div className="space-y-6">
@@ -75,7 +64,7 @@ export default function VendorCalendarPage() {
 
             {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-4">
-              {(allowedTypes.length < ALL_LEGEND_TYPES.length ? allowedTypes : ALL_LEGEND_TYPES).map((type) => (
+              {allowedTypes.map((type) => (
                 <div key={type} className="flex items-center gap-2">
                   <div className={`h-3 w-3 rounded ${CALENDAR_COLORS[type]}`} />
                   <span className="text-xs text-muted-foreground">

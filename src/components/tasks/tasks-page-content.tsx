@@ -309,7 +309,15 @@ export function TasksPageContent() {
   }, [apiTasks]);
   
   useEffect(() => {
-    if (searchParams.get("new") === "true") {
+    const taskIdParam = searchParams.get("taskId");
+    if (taskIdParam) {
+      const id = parseInt(taskIdParam, 10);
+      if (!isNaN(id)) {
+        setSelectedTaskId(id);
+        setDrawerMode("view");
+        setIsDrawerOpen(true);
+      }
+    } else if (searchParams.get("new") === "true") {
       openCreateDrawer();
     }
   }, [searchParams]);

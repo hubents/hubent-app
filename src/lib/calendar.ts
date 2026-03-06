@@ -107,8 +107,13 @@ export const CALENDAR_ICONS: Record<CalendarItemType, LucideIcon> = {
 // ============================================
 
 export function getDateKey(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toISOString().split("T")[0];
+  if (typeof date === "string") {
+    return date.substring(0, 10);
+  }
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function groupItemsByDate(
