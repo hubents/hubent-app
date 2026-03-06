@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Sheet,
   SheetContent,
@@ -21,13 +21,64 @@ import {
   RiBankLine,
   RiHistoryLine,
   RiCameraLine,
+  RiSaveLine,
 } from "@remixicon/react";
 import { FileUploader } from "@/components/ui/file-uploader";
+import { toast } from "sonner";
 import { useContactDetail } from "@/hooks/use-contact-detail";
-import { ContactGeneralTab } from "./contact-general-tab";
+import { ContactGeneralTab, type GeneralFormData } from "./contact-general-tab";
 import { ContactFilesTab } from "./contact-files-tab";
-import { ContactBankTab } from "./contact-bank-tab";
+import { ContactBankTab, type BankFormData } from "./contact-bank-tab";
 import { ContactActivityTab } from "./contact-activity-tab";
+import { VENDOR_CATEGORIES } from "@/lib/constants/contact-categories";
+
+interface ContactDraft extends GeneralFormData, BankFormData {}
+
+function getEmptyDraft(): ContactDraft {
+  return {
+    email: "", phone: "", phoneCountryCode: "+34",
+    firstName: "", lastName: "", nieOrCif: "", tradeName: "",
+    taxId: "", website: "", contactPersonName: "", contactPersonEmail: "",
+    notes: "", category: "", isVendor: false, vendorCategory: "",
+    customCategory: "", address: "", city: "", state: "",
+    postalCode: "", country: "ES",
+    bankName: "", bankAccountNumber: "", bankIban: "",
+    bankSwift: "", paymentMethods: [],
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapContactToDraft(contact: any): ContactDraft {
+  const isCustomCategory = contact.vendorCategory && !(VENDOR_CATEGORIES as readonly string[]).includes(contact.vendorCategory);
+  return {
+    email: contact.email || "",
+    phone: contact.phone || "",
+    phoneCountryCode: contact.phoneCountryCode || "+34",
+    firstName: contact.firstName || "",
+    lastName: contact.lastName || "",
+    nieOrCif: contact.nieOrCif || "",
+    tradeName: contact.tradeName || "",
+    taxId: contact.taxId || "",
+    website: contact.website || "",
+    contactPersonName: contact.contactPersonName || "",
+    contactPersonEmail: contact.contactPersonEmail || "",
+    notes: contact.notes || "",
+    category: contact.category || "",
+    isVendor: contact.isVendor || false,
+    vendorCategory: isCustomCategory ? "Otro" : (contact.vendorCategory || ""),
+    customCategory: isCustomCategory ? contact.vendorCategory || "" : "",
+    address: contact.address || "",
+    city: contact.city || "",
+    state: contact.state || "",
+    postalCode: contact.postalCode || "",
+    country: contact.country || "ES",
+    bankName: contact.bankName || "",
+    bankAccountNumber: contact.bankAccountNumber || "",
+    bankIban: contact.bankIban || "",
+    bankSwift: contact.bankSwift || "",
+    paymentMethods: contact.paymentMethods || [],
+  };
+}
 
 interface ContactDrawerProps {
   contactId: number | null;
@@ -53,6 +104,12 @@ export function ContactDrawer({
   const [activeTab, setActiveTab] = useState("general");
   const [deleting, setDeleting] = useState(false);
   const [showAvatarUploader, setShowAvatarUploader] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Unified draft state for General + Bank tabs
+  const [draftData, setDraftData] = useState<ContactDraft>(getEmptyDraft());
+  const [originalData, setOriginalData] = useState<ContactDraft>(getEmptyDraft());
+  const [draftInitialized, setDraftInitialized] = useState(false);
 
   // Create mode state
   const [isCreateMode, setIsCreateMode] = useState(mode === "create");
@@ -109,7 +166,35 @@ export function ContactDrawer({
     if (open && effectiveContactId && !isCreateMode) {
       refetch();
     }
+    if (!open) {
+      setDraftInitialized(false);
+    }
   }, [open, effectiveContactId, refetch, isCreateMode]);
+
+  // Initialize draft from contact (once per open/load)
+  useEffect(() => {
+    if (contact && !draftInitialized) {
+      const mapped = mapContactToDraft(contact);
+      setDraftData(mapped);
+      setOriginalData(mapped);
+      setDraftInitialized(true);
+    }
+  }, [contact, draftInitialized]);
+
+  const hasChanges = JSON.stringify(draftData) !== JSON.stringify(originalData);
+
+  const handleFieldChange = useCallback((field: string, value: string | boolean | string[]) => {
+    setDraftData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const generalFormData: GeneralFormData = draftData;
+  const bankFormData: BankFormData = {
+    bankName: draftData.bankName,
+    bankAccountNumber: draftData.bankAccountNumber,
+    bankIban: draftData.bankIban,
+    bankSwift: draftData.bankSwift,
+    paymentMethods: draftData.paymentMethods,
+  };
 
   // Create contact function
   const handleCreateContact = async () => {
@@ -210,6 +295,64 @@ export function ContactDrawer({
     return result;
   };
 
+  const handleSaveAll = async () => {
+    setSaving(true);
+    try {
+      const updates: Record<string, unknown> = {
+        email: draftData.email || null,
+        phone: draftData.phone || null,
+        phoneCountryCode: draftData.phoneCountryCode,
+        website: draftData.website || null,
+        tradeName: draftData.tradeName || null,
+        notes: draftData.notes || null,
+        address: draftData.address || null,
+        city: draftData.city || null,
+        state: draftData.state || null,
+        postalCode: draftData.postalCode || null,
+        country: draftData.country || null,
+        bankName: draftData.bankName || null,
+        bankAccountNumber: draftData.bankAccountNumber || null,
+        bankIban: draftData.bankIban || null,
+        bankSwift: draftData.bankSwift || null,
+        paymentMethods: draftData.paymentMethods.length > 0 ? draftData.paymentMethods : null,
+      };
+
+      updates.isVendor = draftData.isVendor;
+      updates.vendorCategory = draftData.isVendor
+        ? (draftData.vendorCategory === "Otro" ? draftData.customCategory || null : draftData.vendorCategory || null)
+        : null;
+      updates.category = draftData.isVendor ? null : draftData.category || null;
+
+      if (contact?.type === "person") {
+        updates.firstName = draftData.firstName || null;
+        updates.lastName = draftData.lastName || null;
+        updates.nieOrCif = draftData.nieOrCif || null;
+        if (draftData.firstName || draftData.lastName) {
+          updates.name = `${draftData.firstName} ${draftData.lastName}`.trim();
+        }
+      } else {
+        updates.taxId = draftData.taxId || null;
+        updates.contactPersonName = draftData.contactPersonName || null;
+        updates.contactPersonEmail = draftData.contactPersonEmail || null;
+      }
+
+      const result = await handleContactUpdate(updates);
+      if (result) {
+        setOriginalData({ ...draftData });
+        toast.success("Cambios guardados");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && hasChanges) {
+      if (!confirm("Tienes cambios sin guardar. ¿Descartar?")) return;
+    }
+    onOpenChange(newOpen);
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -220,7 +363,7 @@ export function ContactDrawer({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
         className="w-full sm:max-w-6xl md:max-w-7xl p-0 flex flex-col"
@@ -446,7 +589,8 @@ export function ContactDrawer({
                   <ContactGeneralTab
                     contact={contact}
                     loading={loading}
-                    onUpdateContact={handleContactUpdate}
+                    formData={generalFormData}
+                    onFieldChange={handleFieldChange}
                     linkedEvents={linkedEvents}
                     linkedTasks={linkedTasks}
                     relationships={relationships}
@@ -470,9 +614,9 @@ export function ContactDrawer({
 
                 <TabsContent value="bank" className="h-full m-0">
                   <ContactBankTab
-                    contact={contact}
                     loading={loading}
-                    onUpdateContact={handleContactUpdate}
+                    formData={bankFormData}
+                    onFieldChange={handleFieldChange}
                   />
                 </TabsContent>
 
@@ -488,6 +632,35 @@ export function ContactDrawer({
             )}
           </div>
         </div>
+
+        {/* Sticky Save Footer */}
+        {hasChanges && !isCreateMode && (
+          <div className="px-6 py-3 border-t bg-background flex items-center justify-end gap-3 shrink-0">
+            <span className="text-sm text-muted-foreground mr-auto">Hay cambios sin guardar</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (contact) {
+                  const mapped = mapContactToDraft(contact);
+                  setDraftData(mapped);
+                }
+              }}
+              disabled={saving}
+            >
+              Descartar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveAll}
+              disabled={saving}
+              className="gap-2"
+            >
+              <RiSaveLine className="h-4 w-4" />
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

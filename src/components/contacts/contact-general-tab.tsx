@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,7 +16,6 @@ import {
   RiMailLine,
   RiPhoneLine,
   RiLinksLine,
-  RiSaveLine,
   RiStore2Line,
   RiMapPinLine,
   RiGlobalLine,
@@ -106,10 +103,35 @@ const countries = [
   { code: "CL", name: "Chile" },
 ];
 
+export interface GeneralFormData {
+  email: string;
+  phone: string;
+  phoneCountryCode: string;
+  firstName: string;
+  lastName: string;
+  nieOrCif: string;
+  tradeName: string;
+  taxId: string;
+  website: string;
+  contactPersonName: string;
+  contactPersonEmail: string;
+  notes: string;
+  category: string;
+  isVendor: boolean;
+  vendorCategory: string;
+  customCategory: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
 interface ContactGeneralTabProps {
   contact: ContactDetail | null;
   loading: boolean;
-  onUpdateContact: (updates: Record<string, unknown>) => Promise<unknown>;
+  formData: GeneralFormData;
+  onFieldChange: (field: string, value: string | boolean) => void;
   linkedEvents: LinkedEvent[];
   linkedTasks: LinkedTask[];
   relationships?: ContactRelationship[];
@@ -121,7 +143,8 @@ interface ContactGeneralTabProps {
 export function ContactGeneralTab({
   contact,
   loading,
-  onUpdateContact,
+  formData,
+  onFieldChange,
   linkedEvents,
   linkedTasks,
   relationships = [],
@@ -129,109 +152,8 @@ export function ContactGeneralTab({
   onRemoveRelationship,
   onOpenRelatedContact,
 }: ContactGeneralTabProps) {
-  const [formData, setFormData] = useState({
-    email: "",
-    phone: "",
-    phoneCountryCode: "+34",
-    firstName: "",
-    lastName: "",
-    nieOrCif: "",
-    tradeName: "",
-    taxId: "",
-    website: "",
-    contactPersonName: "",
-    contactPersonEmail: "",
-    notes: "",
-    category: "",
-    isVendor: false,
-    vendorCategory: "",
-    customCategory: "",
-    address: "",
-    city: "",
-    state: "",
-    postalCode: "",
-    country: "ES",
-  });
-  const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  useEffect(() => {
-    if (contact) {
-      const isCustomCategory = contact.vendorCategory && !(VENDOR_CATEGORIES as readonly string[]).includes(contact.vendorCategory);
-      setFormData({
-        email: contact.email || "",
-        phone: contact.phone || "",
-        phoneCountryCode: contact.phoneCountryCode || "+34",
-        firstName: contact.firstName || "",
-        lastName: contact.lastName || "",
-        nieOrCif: contact.nieOrCif || "",
-        tradeName: contact.tradeName || "",
-        taxId: contact.taxId || "",
-        website: contact.website || "",
-        contactPersonName: contact.contactPersonName || "",
-        contactPersonEmail: contact.contactPersonEmail || "",
-        notes: contact.notes || "",
-        category: contact.category || "",
-        isVendor: contact.isVendor || false,
-        vendorCategory: isCustomCategory ? "Otro" : (contact.vendorCategory || ""),
-        customCategory: isCustomCategory ? contact.vendorCategory || "" : "",
-        address: contact.address || "",
-        city: contact.city || "",
-        state: contact.state || "",
-        postalCode: contact.postalCode || "",
-        country: contact.country || "ES",
-      });
-      setHasChanges(false);
-    }
-  }, [contact]);
-
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setHasChanges(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const updates: Record<string, unknown> = {
-        email: formData.email || null,
-        phone: formData.phone || null,
-        phoneCountryCode: formData.phoneCountryCode,
-        website: formData.website || null,
-        tradeName: formData.tradeName || null,
-        notes: formData.notes || null,
-        address: formData.address || null,
-        city: formData.city || null,
-        state: formData.state || null,
-        postalCode: formData.postalCode || null,
-        country: formData.country || null,
-      };
-
-      // Vendor & category fields (both types)
-      updates.isVendor = formData.isVendor;
-      updates.vendorCategory = formData.isVendor
-        ? (formData.vendorCategory === "Otro" ? formData.customCategory || null : formData.vendorCategory || null)
-        : null;
-      updates.category = formData.isVendor ? null : formData.category || null;
-
-      if (contact?.type === "person") {
-        updates.firstName = formData.firstName || null;
-        updates.lastName = formData.lastName || null;
-        updates.nieOrCif = formData.nieOrCif || null;
-        if (formData.firstName || formData.lastName) {
-          updates.name = `${formData.firstName} ${formData.lastName}`.trim();
-        }
-      } else {
-        updates.taxId = formData.taxId || null;
-        updates.contactPersonName = formData.contactPersonName || null;
-        updates.contactPersonEmail = formData.contactPersonEmail || null;
-      }
-
-      await onUpdateContact(updates);
-      setHasChanges(false);
-    } finally {
-      setSaving(false);
-    }
+  const handleChange = (field: string, value: string | boolean) => {
+    onFieldChange(field, value);
   };
 
   if (loading) {
@@ -441,10 +363,7 @@ export function ContactGeneralTab({
               <label className="text-sm font-medium">Categoría</label>
               <Select
                 value={formData.category}
-                onValueChange={(v) => {
-                  setFormData((prev) => ({ ...prev, category: v }));
-                  setHasChanges(true);
-                }}
+                onValueChange={(v) => handleChange("category", v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin especificar" />
@@ -474,10 +393,7 @@ export function ContactGeneralTab({
             <Checkbox
               id="isVendor"
               checked={formData.isVendor}
-              onCheckedChange={(checked) => {
-                setFormData((prev) => ({ ...prev, isVendor: checked === true }));
-                setHasChanges(true);
-              }}
+              onCheckedChange={(checked) => handleChange("isVendor", checked === true)}
               disabled={!!contact.vendorId}
             />
             <label
@@ -497,10 +413,7 @@ export function ContactGeneralTab({
                 <label className="text-sm font-medium">Categoría</label>
                 <Select
                   value={formData.vendorCategory}
-                  onValueChange={(v) => {
-                    setFormData((prev) => ({ ...prev, vendorCategory: v }));
-                    setHasChanges(true);
-                  }}
+                  onValueChange={(v) => handleChange("vendorCategory", v)}
                   disabled={!!contact.vendorId}
                 >
                   <SelectTrigger>
@@ -520,10 +433,7 @@ export function ContactGeneralTab({
                   <label className="text-sm font-medium">Categoría personalizada</label>
                   <Input
                     value={formData.customCategory}
-                    onChange={(e) => {
-                      setFormData((prev) => ({ ...prev, customCategory: e.target.value }));
-                      setHasChanges(true);
-                    }}
+                    onChange={(e) => handleChange("customCategory", e.target.value)}
                     disabled={!!contact.vendorId}
                   />
                 </div>
@@ -595,15 +505,6 @@ export function ContactGeneralTab({
         />
       )}
 
-      {/* Save Button */}
-      {hasChanges && (
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            <RiSaveLine className="h-4 w-4" />
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

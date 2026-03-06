@@ -1,26 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RiBankLine, RiSaveLine } from "@remixicon/react";
+import { RiBankLine } from "@remixicon/react";
 
-interface ContactDetail {
-  id: number;
-  bankName: string | null;
-  bankAccountNumber: string | null;
-  bankIban: string | null;
-  bankSwift: string | null;
-  paymentMethods: string[] | null;
+export interface BankFormData {
+  bankName: string;
+  bankAccountNumber: string;
+  bankIban: string;
+  bankSwift: string;
+  paymentMethods: string[];
 }
 
 interface ContactBankTabProps {
-  contact: ContactDetail | null;
   loading: boolean;
-  onUpdateContact: (updates: Record<string, unknown>) => Promise<unknown>;
+  formData: BankFormData;
+  onFieldChange: (field: string, value: string | string[]) => void;
 }
 
 const paymentMethodOptions = [
@@ -33,36 +30,12 @@ const paymentMethodOptions = [
 ];
 
 export function ContactBankTab({
-  contact,
   loading,
-  onUpdateContact,
+  formData,
+  onFieldChange,
 }: ContactBankTabProps) {
-  const [formData, setFormData] = useState({
-    bankName: "",
-    bankAccountNumber: "",
-    bankIban: "",
-    bankSwift: "",
-    paymentMethods: [] as string[],
-  });
-  const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  useEffect(() => {
-    if (contact) {
-      setFormData({
-        bankName: contact.bankName || "",
-        bankAccountNumber: contact.bankAccountNumber || "",
-        bankIban: contact.bankIban || "",
-        bankSwift: contact.bankSwift || "",
-        paymentMethods: contact.paymentMethods || [],
-      });
-      setHasChanges(false);
-    }
-  }, [contact]);
-
   const handleChange = (field: string, value: string | string[]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setHasChanges(true);
+    onFieldChange(field, value);
   };
 
   const togglePaymentMethod = (methodId: string) => {
@@ -71,22 +44,6 @@ export function ContactBankTab({
       ? current.filter((m) => m !== methodId)
       : [...current, methodId];
     handleChange("paymentMethods", updated);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onUpdateContact({
-        bankName: formData.bankName || null,
-        bankAccountNumber: formData.bankAccountNumber || null,
-        bankIban: formData.bankIban || null,
-        bankSwift: formData.bankSwift || null,
-        paymentMethods: formData.paymentMethods.length > 0 ? formData.paymentMethods : null,
-      });
-      setHasChanges(false);
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (loading) {
@@ -179,14 +136,6 @@ export function ContactBankTab({
         )}
       </div>
 
-      {hasChanges && (
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            <RiSaveLine className="h-4 w-4" />
-            {saving ? "Guardando..." : "Guardar cambios"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
