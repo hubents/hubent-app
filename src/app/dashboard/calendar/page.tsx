@@ -79,7 +79,7 @@ export default function CalendarPage() {
             <CardTitle>Próximos Eventos</CardTitle>
           </CardHeader>
           <CardContent>
-            <CalendarUpcoming items={filteredItems} month={month} year={year} />
+            <CalendarUpcoming items={filteredItems} />
           </CardContent>
         </Card>
       </div>

@@ -82,7 +82,7 @@ export default function VendorCalendarPage() {
             <CardTitle>Próximos</CardTitle>
           </CardHeader>
           <CardContent>
-            <CalendarUpcoming items={filteredItems} month={month} year={year} />
+            <CalendarUpcoming items={filteredItems} />
           </CardContent>
         </Card>
       </div>

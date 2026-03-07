@@ -105,8 +105,6 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
               </h4>
               <CalendarUpcoming
                 items={filteredItems}
-                month={month}
-                year={year}
                 onNavigate={handleNavigate}
               />
             </div>
