@@ -40,6 +40,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 
 interface FinDoc {
   id: number;
@@ -84,6 +86,9 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditFinances = canEdit("finances");
 
   const [loading, setLoading] = useState(true);
   const [quotes, setQuotes] = useState<FinDoc[]>([]);
@@ -257,9 +262,11 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
             {quotes.length} presupuesto{quotes.length !== 1 ? "s" : ""} del evento
           </p>
         </div>
+        {canEditFinances && (
         <Button onClick={openNewDoc}>
           <RiAddLine className="mr-2 h-4 w-4" /> Nuevo Presupuesto
         </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -323,7 +330,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {doc.status === "sent" && (
+                            {canEditFinances && doc.status === "sent" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" /> Aceptar
@@ -333,7 +340,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {doc.status === "accepted" && (
+                            {canEditFinances && doc.status === "accepted" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "payment_promise")}>
                                   <RiHandCoinLine className="mr-2 h-4 w-4" /> Promesa de pago
@@ -347,7 +354,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {doc.status === "rejected" && (
+                            {canEditFinances && doc.status === "rejected" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "sent")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Pendiente
@@ -357,7 +364,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                                 </DropdownMenuItem>
                               </>
                             )}
-                            {doc.status === "payment_promise" && (
+                            {canEditFinances && doc.status === "payment_promise" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Aceptado
@@ -371,17 +378,19 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                                 </DropdownMenuItem>
                               </>
                             )}
-                            <DropdownMenuSeparator />
+                            {canEditFinances && <DropdownMenuSeparator />}
+                            {canEditFinances && (
                             <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
                               <RiEditLine className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `quote-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
-                            {(doc.status === "sent" || doc.status === "rejected" || doc.status === "draft") && (
+                            {canEditFinances && (doc.status === "sent" || doc.status === "rejected" || doc.status === "draft") && (
                             <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600" onClick={() => deleteDoc(doc.id)}>

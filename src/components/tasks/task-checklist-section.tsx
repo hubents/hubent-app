@@ -71,6 +71,7 @@ interface TaskChecklistSectionProps {
   checklistItems: TaskChecklistItem[];
   participants: TaskParticipant[];
   loading: boolean;
+  readOnly?: boolean;
   onAddItem: (data: { title: string; dueDate?: string; assigneeIds?: number[] }) => Promise<unknown>;
   onUpdateItem: (itemId: number, updates: { title?: string; isCompleted?: boolean; dueDate?: string | null }) => Promise<unknown>;
   onToggleItem: (itemId: number, isCompleted: boolean) => Promise<unknown>;
@@ -89,6 +90,7 @@ export function TaskChecklistSection({
   onDeleteItem,
   onAddAssignee,
   onRemoveAssignee,
+  readOnly = false,
 }: TaskChecklistSectionProps) {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [adding, setAdding] = useState(false);
@@ -215,6 +217,7 @@ export function TaskChecklistSection({
               checked={item.isCompleted}
               onCheckedChange={() => handleToggle(item)}
               className="mt-0.5"
+              disabled={readOnly}
             />
 
             {/* Content */}
@@ -238,10 +241,11 @@ export function TaskChecklistSection({
               ) : (
                 <div
                   className={cn(
-                    "font-medium cursor-pointer hover:text-primary transition-colors",
+                    "font-medium transition-colors",
+                    !readOnly && "cursor-pointer hover:text-primary",
                     item.isCompleted && "line-through text-muted-foreground"
                   )}
-                  onClick={() => startEditing(item)}
+                  onClick={readOnly ? undefined : () => startEditing(item)}
                 >
                   {item.title}
                 </div>
@@ -257,16 +261,19 @@ export function TaskChecklistSection({
                   >
                     {getAssigneeIcon(assignee)}
                     <span className="max-w-[100px] truncate">{assignee.name}</span>
+                    {!readOnly && (
                     <button
                       onClick={() => onRemoveAssignee(item.id, assignee.participantId)}
                       className="ml-1 hover:text-destructive"
                     >
                       ×
                     </button>
+                    )}
                   </Badge>
                 ))}
 
                 {/* Add assignee button */}
+                {!readOnly && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -307,6 +314,7 @@ export function TaskChecklistSection({
                     )}
                   </PopoverContent>
                 </Popover>
+                )}
 
                 {/* Due date indicator */}
                 {item.dueDate && (
@@ -321,7 +329,7 @@ export function TaskChecklistSection({
               </div>
             </div>
 
-            {/* Delete button */}
+            {!readOnly && (
             <Button
               variant="ghost"
               size="icon"
@@ -330,11 +338,13 @@ export function TaskChecklistSection({
             >
               <RiDeleteBinLine className="h-4 w-4" />
             </Button>
+            )}
           </div>
         ))}
       </div>
 
       {/* Add new item */}
+      {!readOnly && (
       <div className="flex items-center gap-2">
         <Input
           ref={inputRef}
@@ -356,6 +366,7 @@ export function TaskChecklistSection({
           Agregar
         </Button>
       </div>
+      )}
 
       {/* Empty state */}
       {checklistItems.length === 0 && (

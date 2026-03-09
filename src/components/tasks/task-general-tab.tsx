@@ -111,6 +111,7 @@ interface TaskGeneralTabProps {
   htmlContent: TaskHtmlContent | null;
   checklistItems: TaskChecklistItem[];
   loading: boolean;
+  readOnly?: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddVideo: (data: { youtubeUrl: string; title?: string }) => Promise<unknown>;
   onDeleteVideo: (videoId: number) => Promise<boolean>;
@@ -158,6 +159,7 @@ export function TaskGeneralTab({
   onDeleteChecklistItem,
   onAddChecklistAssignee,
   onRemoveChecklistAssignee,
+  readOnly = false,
 }: TaskGeneralTabProps) {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [addingVideo, setAddingVideo] = useState(false);
@@ -272,7 +274,7 @@ export function TaskGeneralTab({
           <Select
             value={task?.assignedTo || "__unassigned__"}
             onValueChange={(value) => onUpdateTask({ assignedTo: value === "__unassigned__" ? null : value })}
-            disabled={loadingMembers}
+            disabled={readOnly || loadingMembers}
           >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar..." />
@@ -310,6 +312,7 @@ export function TaskGeneralTab({
           <Select
             value={task?.category || "general"}
             onValueChange={(value) => onUpdateTask({ category: value })}
+            disabled={readOnly}
           >
             <SelectTrigger>
               <SelectValue />
@@ -343,6 +346,7 @@ export function TaskGeneralTab({
             onChange={(e) =>
               onUpdateTask({ dueDate: e.target.value ? new Date(e.target.value) : null })
             }
+            disabled={readOnly}
           />
         </div>
 
@@ -355,6 +359,7 @@ export function TaskGeneralTab({
           <Select
             value={task?.priority || "medium"}
             onValueChange={(value) => onUpdateTask({ priority: value })}
+            disabled={readOnly}
           >
             <SelectTrigger>
               <SelectValue />
@@ -377,6 +382,7 @@ export function TaskGeneralTab({
             <RiGroupLine className="h-4 w-4 text-muted-foreground" />
             Participantes {participants.length > 0 && `(${participants.length})`}
           </label>
+          {!readOnly && (
           <ParticipantSelector
             teamMembers={teamMembers}
             excludedMemberIds={safeParticipants.filter(p => p.userId).map(p => p.userId!)}
@@ -387,6 +393,7 @@ export function TaskGeneralTab({
             onAddContact={(id) => handleAddContactParticipant(id.toString())}
             disabled={addingParticipant || loadingMembers}
           />
+          )}
         </div>
         
         {/* Participant List - Vertical Layout */}
@@ -431,7 +438,7 @@ export function TaskGeneralTab({
                     <p className="text-xs text-muted-foreground">{typeLabel}</p>
                   </div>
                   
-                  {/* Remove Button */}
+                  {!readOnly && (
                   <button
                     onClick={() => onRemoveParticipant(p.id)}
                     className="p-1 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
@@ -439,6 +446,7 @@ export function TaskGeneralTab({
                   >
                     <RiDeleteBinLine className="h-4 w-4" />
                   </button>
+                  )}
                 </div>
               );
             })}
@@ -452,6 +460,7 @@ export function TaskGeneralTab({
           <RiYoutubeLine className="h-4 w-4 text-red-500" />
           Link de Youtube
         </label>
+        {!readOnly && (
         <div className="flex gap-2">
           <Input
             placeholder="https://www.youtube.com/watch?v=..."
@@ -466,11 +475,13 @@ export function TaskGeneralTab({
             {addingVideo ? "..." : "Añadir"}
           </Button>
         </div>
+        )}
         {videos.length > 0 && (
           <div className="space-y-3">
             {videos.map((video) => (
               <div key={video.id} className="relative group">
                 <TaskYoutubeEmbed url={video.youtubeUrl} />
+                {!readOnly && (
                 <Button
                   variant="destructive"
                   size="icon"
@@ -479,6 +490,7 @@ export function TaskGeneralTab({
                 >
                   <RiDeleteBinLine className="h-4 w-4" />
                 </Button>
+                )}
               </div>
             ))}
           </div>
@@ -500,6 +512,7 @@ export function TaskGeneralTab({
           checklistItems={checklistItems}
           participants={participants}
           loading={loading}
+          readOnly={readOnly}
           onAddItem={onAddChecklistItem}
           onUpdateItem={onUpdateChecklistItem}
           onToggleItem={onToggleChecklistItem}

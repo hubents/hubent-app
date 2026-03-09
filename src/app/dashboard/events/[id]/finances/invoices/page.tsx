@@ -38,6 +38,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 
 interface FinDoc {
   id: number;
@@ -82,6 +84,9 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
   const router = useRouter();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditFinances = canEdit("finances");
 
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<FinDoc[]>([]);
@@ -255,9 +260,11 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
             {invoices.length} factura{invoices.length !== 1 ? "s" : ""} del evento
           </p>
         </div>
+        {canEditFinances && (
         <Button onClick={openNewDoc}>
           <RiAddLine className="mr-2 h-4 w-4" /> Nueva Factura
         </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -321,12 +328,12 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {doc.status !== "paid" && doc.status !== "partial" && (
+                            {canEditFinances && doc.status !== "paid" && doc.status !== "partial" && (
                               <DropdownMenuItem onClick={() => openEditDoc(doc.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" /> Editar
                               </DropdownMenuItem>
                             )}
-                            {(doc.status === "sent" || doc.status === "partial") && (
+                            {canEditFinances && (doc.status === "sent" || doc.status === "partial") && (
                               <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${eventId}/finances/payments`)}>
                                 <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" /> Registrar Pago
                               </DropdownMenuItem>
@@ -337,7 +344,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `invoice-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
-                            {doc.status !== "paid" && doc.status !== "partial" && (
+                            {canEditFinances && doc.status !== "paid" && doc.status !== "partial" && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-600" onClick={() => deleteDoc(doc.id)}>

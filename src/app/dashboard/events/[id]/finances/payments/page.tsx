@@ -50,6 +50,8 @@ import {
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 
 interface Payment {
   id: number;
@@ -87,6 +89,9 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditFinances = canEdit("finances");
 
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -362,9 +367,11 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
               <RiCalendarLine className="h-5 w-5" />
             </button>
           </div>
+          {canEditFinances && (
           <Button onClick={() => setShowAddPayment(true)}>
             <RiAddLine className="mr-2 h-4 w-4" /> Añadir pago
           </Button>
+          )}
         </div>
       </div>
 
@@ -418,10 +425,12 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  {canEditFinances && (
                                   <DropdownMenuItem onClick={() => openEditPayment(payment)}>
                                     <RiEditLine className="mr-2 h-4 w-4" />
                                     Editar
                                   </DropdownMenuItem>
+                                  )}
                                   {payment.attachmentUrl && (
                                     <DropdownMenuItem asChild>
                                       <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
@@ -430,11 +439,15 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                                       </a>
                                     </DropdownMenuItem>
                                   )}
+                                  {canEditFinances && (
+                                  <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-red-600" onClick={() => deletePayment(payment.id)}>
                                     <RiDeleteBinLine className="mr-2 h-4 w-4" />
                                     Eliminar
                                   </DropdownMenuItem>
+                                  </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                           </td>

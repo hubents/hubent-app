@@ -37,6 +37,7 @@ interface TaskScheduleTabProps {
   taskId: number;
   scheduleItems: TaskScheduleItem[];
   loading: boolean;
+  readOnly?: boolean;
   onAddScheduleItem: (data: {
     title: string;
     date: string;
@@ -59,6 +60,7 @@ export function TaskScheduleTab({
   onAddScheduleItem,
   onUpdateScheduleItem,
   onDeleteScheduleItem,
+  readOnly = false,
 }: TaskScheduleTabProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -154,6 +156,7 @@ export function TaskScheduleTab({
               {downloadingPdf ? "Generando..." : "PDF"}
             </Button>
           )}
+          {!readOnly && (
           <Button
             variant="outline"
             size="sm"
@@ -163,6 +166,7 @@ export function TaskScheduleTab({
             <RiAddLine className="h-4 w-4" />
             Add Order
           </Button>
+          )}
         </div>
       </div>
 
@@ -272,6 +276,7 @@ export function TaskScheduleTab({
                         />
                       </Button>
                     </CollapsibleTrigger>
+                    {!readOnly && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -280,6 +285,7 @@ export function TaskScheduleTab({
                     >
                       <RiDeleteBinLine className="h-4 w-4" />
                     </Button>
+                    )}
                   </div>
                 </div>
 
@@ -312,7 +318,7 @@ export function TaskScheduleTab({
       )}
 
       {/* Footer Actions */}
-      {scheduleItems.length > 0 && (
+      {!readOnly && scheduleItems.length > 0 && (
         <div className="flex justify-between pt-4 border-t border-border">
           <Button
             variant="ghost"

@@ -39,6 +39,7 @@ interface TaskDrawerProps {
   onTaskUpdated?: () => void;
   onTaskCreated?: (taskId: number) => void;
   mode?: "view" | "create";
+  readOnly?: boolean;
   initialData?: {
     eventId?: number;
     eventName?: string;
@@ -64,6 +65,7 @@ export function TaskDrawer({
   onTaskUpdated,
   onTaskCreated,
   mode = "view",
+  readOnly = false,
   initialData,
 }: TaskDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
@@ -317,11 +319,11 @@ export function TaskDrawer({
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 group cursor-pointer" onClick={startEditingTitle}>
+                  <div className={`flex items-center gap-2 ${readOnly ? '' : 'group cursor-pointer'}`} onClick={readOnly ? undefined : startEditingTitle}>
                     <SheetTitle className="text-xl font-semibold">
                       {task?.title || initialTitle || "Cargando..."}
                     </SheetTitle>
-                    <RiPencilLine className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {!readOnly && <RiPencilLine className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
                   </div>
                   {task?.category && (
                     <Badge
@@ -357,6 +359,7 @@ export function TaskDrawer({
               ) : (
                 /* View Mode Actions */
                 <>
+                  {!readOnly && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -367,6 +370,8 @@ export function TaskDrawer({
                     <Sparkles className="h-4 w-4" />
                     Enti
                   </Button>
+                  )}
+                  {!readOnly && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -378,6 +383,8 @@ export function TaskDrawer({
                     <RiFileCopyLine className="h-4 w-4" />
                     Duplicar
                   </Button>
+                  )}
+                  {!readOnly && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -388,6 +395,7 @@ export function TaskDrawer({
                     <RiDeleteBinLine className="h-4 w-4" />
                     {deleting ? "Eliminando..." : "Eliminar"}
                   </Button>
+                  )}
                 </>
               )}
             </div>
@@ -456,6 +464,7 @@ export function TaskDrawer({
                       htmlContent={htmlContent}
                       checklistItems={checklistItems}
                       loading={loading}
+                      readOnly={readOnly}
                       onUpdateTask={handleTaskUpdate}
                       onAddVideo={addVideo}
                       onDeleteVideo={deleteVideo}
@@ -479,6 +488,7 @@ export function TaskDrawer({
                       unifiedPayments={unifiedPayments}
                       meetings={meetings}
                       loading={loading}
+                      readOnly={readOnly}
                       onUpdateTask={handleTaskUpdate}
                       onAddAttachment={addAttachment}
                       onDeleteAttachment={deleteAttachment}
@@ -496,6 +506,7 @@ export function TaskDrawer({
                       taskId={effectiveTaskId!}
                       scheduleItems={scheduleItems}
                       loading={loading}
+                      readOnly={readOnly}
                       onAddScheduleItem={addScheduleItem}
                       onUpdateScheduleItem={updateScheduleItem}
                       onDeleteScheduleItem={deleteScheduleItem}

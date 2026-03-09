@@ -154,6 +154,7 @@ interface TaskInfoTabProps {
   unifiedPayments: UnifiedPayment[];
   meetings: TaskScheduleItem[];
   loading: boolean;
+  readOnly?: boolean;
   onUpdateTask: (updates: Record<string, unknown>) => Promise<unknown>;
   onAddAttachment: (data: { name: string; url: string; type?: string }) => Promise<unknown>;
   onDeleteAttachment: (attachmentId: number) => Promise<boolean>;
@@ -188,6 +189,7 @@ export function TaskInfoTab({
   onDeleteLegacyPayment,
   onAddMeeting,
   onDeleteMeeting,
+  readOnly = false,
 }: TaskInfoTabProps) {
   const [attachmentTab, setAttachmentTab] = useState("files");
   const [newLinkUrl, setNewLinkUrl] = useState("");
@@ -412,10 +414,12 @@ export function TaskInfoTab({
             <RiMoneyDollarCircleLine className="h-4 w-4 text-muted-foreground" />
             Pagos
           </h3>
+          {!readOnly && (
           <Button variant="outline" size="sm" className="gap-1" onClick={handleOpenPaymentDialog}>
             <RiAddLine className="h-4 w-4" />
             Agregar Pago
           </Button>
+          )}
           <Sheet open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
             <SheetContent className="sm:max-w-3xl overflow-y-auto">
               <SheetHeader>
@@ -601,6 +605,7 @@ export function TaskInfoTab({
                         </a>
                       </Button>
                     )}
+                    {!readOnly && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -609,6 +614,7 @@ export function TaskInfoTab({
                     >
                       <RiDeleteBinLine className="h-3.5 w-3.5" />
                     </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -630,6 +636,7 @@ export function TaskInfoTab({
                     {new Date(payment.date).toLocaleDateString("es-ES")}
                   </span>
                   <span className="text-sm font-medium">${parseFloat(payment.amount).toLocaleString()}</span>
+                  {!readOnly && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -638,6 +645,7 @@ export function TaskInfoTab({
                   >
                     <RiDeleteBinLine className="h-3.5 w-3.5" />
                   </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -652,6 +660,7 @@ export function TaskInfoTab({
             <RiCalendarEventLine className="h-4 w-4 text-muted-foreground" />
             Meetings
           </h3>
+          {!readOnly && (
           <Button
             variant="outline"
             size="sm"
@@ -661,6 +670,7 @@ export function TaskInfoTab({
             <RiAddLine className="h-4 w-4" />
             Add Meeting
           </Button>
+          )}
         </div>
 
         {/* Add Meeting Form */}
@@ -768,6 +778,7 @@ export function TaskInfoTab({
                           />
                         </Button>
                       </CollapsibleTrigger>
+                      {!readOnly && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -776,6 +787,7 @@ export function TaskInfoTab({
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
+                      )}
                     </div>
                   </div>
                   <CollapsibleContent>
@@ -796,7 +808,7 @@ export function TaskInfoTab({
         )}
 
         {/* Footer Actions */}
-        {safeMeetings.length > 0 && (
+        {!readOnly && safeMeetings.length > 0 && (
           <div className="flex justify-between pt-2">
             <Button
               variant="ghost"
@@ -825,10 +837,12 @@ export function TaskInfoTab({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Archivos</h3>
+          {!readOnly && (
           <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowFileDialog(true)}>
             <RiAddLine className="h-4 w-4" />
             Subir Archivo
           </Button>
+          )}
           <Sheet open={showFileDialog} onOpenChange={setShowFileDialog}>
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
               <SheetHeader>
@@ -925,6 +939,7 @@ export function TaskInfoTab({
                           <RiDownloadLine className="h-4 w-4" />
                         </a>
                       </Button>
+                      {!readOnly && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -933,6 +948,7 @@ export function TaskInfoTab({
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -963,6 +979,7 @@ export function TaskInfoTab({
                           <RiDownloadLine className="h-4 w-4" />
                         </a>
                       </Button>
+                      {!readOnly && (
                       <Button
                         variant="destructive"
                         size="icon"
@@ -971,6 +988,7 @@ export function TaskInfoTab({
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -980,6 +998,7 @@ export function TaskInfoTab({
 
           <TabsContent value="links" className="mt-4 space-y-4">
             {/* Add link form */}
+            {!readOnly && (
             <div className="flex gap-2">
               <Input
                 placeholder="Nombre del enlace"
@@ -1001,6 +1020,7 @@ export function TaskInfoTab({
                 {addingLink ? "..." : "Añadir"}
               </Button>
             </div>
+            )}
 
             {links.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
@@ -1027,6 +1047,7 @@ export function TaskInfoTab({
                         {link.url}
                       </a>
                     </div>
+                    {!readOnly && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1035,6 +1056,7 @@ export function TaskInfoTab({
                     >
                       <RiDeleteBinLine className="h-4 w-4" />
                     </Button>
+                    )}
                   </div>
                 ))}
               </div>

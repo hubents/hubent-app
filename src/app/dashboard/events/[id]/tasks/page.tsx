@@ -510,7 +510,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
       {/* Kanban View with Drag & Drop */}
       {viewMode === "kanban" ? (
         <DndContext
-          sensors={sensors}
+          sensors={canEditTasks ? sensors : []}
           collisionDetection={kanbanCollisionDetection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -594,6 +594,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         onTaskUpdated={fetchTasks}
         onTaskCreated={handleTaskCreated}
         mode={drawerMode}
+        readOnly={!canEditTasks}
         initialData={drawerInitialData}
       />
     </div>
