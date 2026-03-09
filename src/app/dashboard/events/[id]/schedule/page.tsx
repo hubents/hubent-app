@@ -51,7 +51,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
     goToNextMonth,
     goToToday,
     refetch,
-  } = useCalendar({ eventId, visibleTypes: ["event", "task", "meeting"], filterKey: "hubents-calendar-filters-event" });
+  } = useCalendar({ eventId, visibleTypes: ["event", "task", "meeting", "task_payment", "document"], filterKey: "hubents-calendar-filters-event" });
 
   // Schedule items CRUD state
   interface ScheduleItem {

@@ -134,9 +134,9 @@ describe("visibleTypes filtering logic", () => {
     expect(result).toEqual(["event", "task"]);
   });
 
-  it("event cronograma: event + task + meeting", () => {
-    const result = filterByVisibleTypes(ALL_TYPES, ["event", "task", "meeting"]);
-    expect(result).toEqual(["event", "task", "meeting"]);
+  it("event cronograma: event + task + meeting + task_payment + document", () => {
+    const result = filterByVisibleTypes(ALL_TYPES, ["event", "task", "meeting", "task_payment", "document"]);
+    expect(result).toEqual(["event", "task", "meeting", "task_payment", "document"]);
   });
 
   it("no visibleTypes = all API types pass through", () => {
