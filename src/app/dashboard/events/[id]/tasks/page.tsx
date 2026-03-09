@@ -18,6 +18,7 @@ import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { cn } from "@/lib/utils";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import {
   DndContext,
   DragEndEvent,
@@ -461,6 +462,7 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="tasks">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -598,5 +600,6 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
         initialData={drawerInitialData}
       />
     </div>
+    </EventSectionGuard>
   );
 }

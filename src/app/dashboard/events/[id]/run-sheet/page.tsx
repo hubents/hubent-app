@@ -14,6 +14,7 @@ import {
   RiInformationLine,
 } from "@remixicon/react";
 import { useEvent } from "@/contexts/event-context";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -100,6 +101,7 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
     }, []);
 
   return (
+    <EventSectionGuard eventId={eventId} section="general">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -294,5 +296,6 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
         </div>
       )}
     </div>
+    </EventSectionGuard>
   );
 }

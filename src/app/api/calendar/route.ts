@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     let taskEventIds: number[] | null = null;
     let financeEventIds: number[] | null = null;
     let hasFinanceAccess = true;
+    let scheduleEventFilter: number[] | null = null; // null = no filter (full access)
     const allowedTypes: CalendarItemType[] = ["event", "task", "meeting", "payment", "task_payment", "document", "lead", "schedule"];
 
     // Helper: check org-level permission
@@ -65,6 +66,10 @@ export async function GET(request: NextRequest) {
         .filter((a) => a.permissions.finances && a.permissions.finances !== "none")
         .map((a) => a.eventId);
       hasFinanceAccess = financeEventIds.length > 0;
+      const generalEventIds = access
+        .filter((a) => a.permissions.general && a.permissions.general !== "none")
+        .map((a) => a.eventId);
+      scheduleEventFilter = generalEventIds;
 
       // Remove types that eventScoped can't access
       if (!hasFinanceAccess) {
@@ -302,8 +307,8 @@ export async function GET(request: NextRequest) {
             )
           ),
 
-      // 8. Event schedule items — filter by allowedEventIds for eventScoped, and by filterEventId
-      (allowedEventIds !== null && allowedEventIds.length === 0)
+      // 8. Event schedule items — filter by generalEventIds (general section permission) for eventScoped, and by filterEventId
+      (scheduleEventFilter !== null && scheduleEventFilter.length === 0)
         ? Promise.resolve([])
         : db
           .select({
@@ -320,7 +325,7 @@ export async function GET(request: NextRequest) {
               ...(isVendor ? [] : [eq(eventScheduleItems.organizationId, orgId)]),
               gte(eventScheduleItems.date, fromDate),
               lte(eventScheduleItems.date, toDate),
-              ...(allowedEventIds !== null ? [inArray(eventScheduleItems.eventId, allowedEventIds)] : []),
+              ...(scheduleEventFilter !== null ? [inArray(eventScheduleItems.eventId, scheduleEventFilter)] : []),
               ...(filterEventId !== null ? [eq(eventScheduleItems.eventId, filterEventId)] : [])
             )
           ),

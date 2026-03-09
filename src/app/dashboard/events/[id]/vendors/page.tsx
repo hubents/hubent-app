@@ -34,6 +34,7 @@ import {
 import Link from "next/link";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 
 interface EventVendor {
   id: number;
@@ -247,6 +248,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="vendors">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -502,5 +504,6 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
     </div>
+    </EventSectionGuard>
   );
 }

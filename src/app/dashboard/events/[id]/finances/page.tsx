@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { useEvent } from "@/contexts/event-context";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -145,6 +146,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="finances">
     <div className="space-y-6">
       {/* Header */}
       <h1 className="text-2xl font-bold">Finanzas</h1>
@@ -303,5 +305,6 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
         </Link>
       </div>
     </div>
+    </EventSectionGuard>
   );
 }

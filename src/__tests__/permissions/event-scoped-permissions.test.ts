@@ -301,3 +301,202 @@ describe("Edge cases", () => {
     expect(effectiveSensors).toEqual([{ id: "pointer" }]);
   });
 });
+
+// ========== N1: Calendar schedule filtering by general permission ==========
+
+describe("N1: Calendar — schedule items filtered by general permission", () => {
+  interface EventAccess {
+    eventId: number;
+    permissions: EventSectionPermissions;
+  }
+
+  function computeScheduleEventFilter(access: EventAccess[]): number[] {
+    return access
+      .filter((a) => a.permissions.general && a.permissions.general !== "none")
+      .map((a) => a.eventId);
+  }
+
+  function computeTaskEventFilter(access: EventAccess[]): number[] {
+    return access
+      .filter((a) => a.permissions.tasks && a.permissions.tasks !== "none")
+      .map((a) => a.eventId);
+  }
+
+  function computeFinanceEventFilter(access: EventAccess[]): number[] {
+    return access
+      .filter((a) => a.permissions.finances && a.permissions.finances !== "none")
+      .map((a) => a.eventId);
+  }
+
+  const access: EventAccess[] = [
+    { eventId: 1, permissions: { general: "edit", tasks: "edit", finances: "view" } },
+    { eventId: 2, permissions: { general: "view", tasks: "none", finances: "none" } },
+    { eventId: 3, permissions: { general: "none", tasks: "view", finances: "none" } },
+  ];
+
+  it("schedule filter includes events with general:edit and general:view", () => {
+    const filter = computeScheduleEventFilter(access);
+    expect(filter).toEqual([1, 2]);
+  });
+
+  it("schedule filter excludes events with general:none", () => {
+    const filter = computeScheduleEventFilter(access);
+    expect(filter).not.toContain(3);
+  });
+
+  it("task filter includes events with tasks:edit and tasks:view", () => {
+    const filter = computeTaskEventFilter(access);
+    expect(filter).toEqual([1, 3]);
+  });
+
+  it("finance filter includes events with finances:view", () => {
+    const filter = computeFinanceEventFilter(access);
+    expect(filter).toEqual([1]);
+  });
+
+  it("empty access → empty schedule filter", () => {
+    expect(computeScheduleEventFilter([])).toEqual([]);
+  });
+
+  it("all general:none → empty schedule filter", () => {
+    const noGeneral: EventAccess[] = [
+      { eventId: 1, permissions: { general: "none" } },
+      { eventId: 2, permissions: { general: "none" } },
+    ];
+    expect(computeScheduleEventFilter(noGeneral)).toEqual([]);
+  });
+});
+
+// ========== N4: EventSectionGuard logic ==========
+
+describe("N4: EventSectionGuard — section access logic", () => {
+  const SECTION_MAP: Record<string, string> = {
+    "General": "general",
+    "Cronograma": "general",
+    "Tareas": "tasks",
+    "Lista de Invitados": "guests",
+    "RSVP": "rsvp",
+    "Proveedores": "vendors",
+    "Finanzas": "finances",
+    "Orden del día": "general",
+    "Configuración": "settings",
+  };
+
+  function filterNavigation(
+    allItems: string[],
+    permissions: EventSectionPermissions,
+    eventScoped: boolean
+  ): string[] {
+    if (!eventScoped) return allItems;
+    return allItems.filter((name) => {
+      const section = SECTION_MAP[name];
+      if (!section) return true;
+      return permissions[section as keyof EventSectionPermissions] !== "none";
+    });
+  }
+
+  const allNavItems = [
+    "General", "Cronograma", "Tareas", "Lista de Invitados",
+    "RSVP", "Proveedores", "Finanzas", "Orden del día", "Configuración",
+  ];
+
+  it("non-eventScoped user sees all items", () => {
+    const result = filterNavigation(allNavItems, { finances: "none" }, false);
+    expect(result).toEqual(allNavItems);
+  });
+
+  it("eventScoped with all edit → sees all items", () => {
+    const perms: EventSectionPermissions = {
+      general: "edit", tasks: "edit", guests: "edit",
+      rsvp: "edit", vendors: "edit", finances: "edit", settings: "edit",
+    };
+    const result = filterNavigation(allNavItems, perms, true);
+    expect(result).toEqual(allNavItems);
+  });
+
+  it("eventScoped with finances:none → hides Finanzas", () => {
+    const perms: EventSectionPermissions = {
+      general: "edit", tasks: "edit", guests: "edit",
+      rsvp: "edit", vendors: "edit", finances: "none", settings: "none",
+    };
+    const result = filterNavigation(allNavItems, perms, true);
+    expect(result).not.toContain("Finanzas");
+    expect(result).not.toContain("Configuración");
+    expect(result).toContain("General");
+    expect(result).toContain("Tareas");
+  });
+
+  it("eventScoped with tasks:none → hides Tareas only", () => {
+    const perms: EventSectionPermissions = {
+      general: "edit", tasks: "none", guests: "view",
+      rsvp: "view", vendors: "view", finances: "none", settings: "none",
+    };
+    const result = filterNavigation(allNavItems, perms, true);
+    expect(result).not.toContain("Tareas");
+    expect(result).toContain("General");
+    expect(result).toContain("Cronograma");
+  });
+
+  it("Cronograma and Orden del día map to general section", () => {
+    expect(SECTION_MAP["Cronograma"]).toBe("general");
+    expect(SECTION_MAP["Orden del día"]).toBe("general");
+  });
+
+  it("eventScoped with general:none → hides General, Cronograma, Orden del día", () => {
+    const perms: EventSectionPermissions = {
+      general: "none", tasks: "edit", guests: "edit",
+      rsvp: "edit", vendors: "edit", finances: "edit", settings: "none",
+    };
+    const result = filterNavigation(allNavItems, perms, true);
+    expect(result).not.toContain("General");
+    expect(result).not.toContain("Cronograma");
+    expect(result).not.toContain("Orden del día");
+    expect(result).toContain("Tareas");
+    expect(result).toContain("Finanzas");
+  });
+
+  it("guard: canView returns false for none → shows access denied", () => {
+    const showAccessDenied = !canView({ finances: "none" }, "finances", true);
+    expect(showAccessDenied).toBe(true);
+  });
+
+  it("guard: canView returns true for view → shows content", () => {
+    const showContent = canView({ finances: "view" }, "finances", true);
+    expect(showContent).toBe(true);
+  });
+
+  it("guard: non-eventScoped always shows content", () => {
+    const showContent = canView({ finances: "none" }, "finances", false);
+    expect(showContent).toBe(true);
+  });
+});
+
+// ========== N3: Task schedule PDF permission ==========
+
+describe("N3: Task schedule PDF — eventScoped permission check", () => {
+  function shouldCheckEventPermission(eventScoped: boolean, eventId: number | null): boolean {
+    return eventScoped && eventId !== null;
+  }
+
+  it("eventScoped user with task.eventId → requires event permission check", () => {
+    expect(shouldCheckEventPermission(true, 42)).toBe(true);
+  });
+
+  it("non-eventScoped user → skips event permission check", () => {
+    expect(shouldCheckEventPermission(false, 42)).toBe(false);
+  });
+
+  it("eventScoped user with no eventId → skips event permission check", () => {
+    expect(shouldCheckEventPermission(true, null)).toBe(false);
+  });
+
+  it("task PDF requires tasks:view (not edit) for reading", () => {
+    const hasAccess = canView({ tasks: "view" }, "tasks", true);
+    expect(hasAccess).toBe(true);
+  });
+
+  it("task PDF denied when tasks:none", () => {
+    const hasAccess = canView({ tasks: "none" }, "tasks", true);
+    expect(hasAccess).toBe(false);
+  });
+});

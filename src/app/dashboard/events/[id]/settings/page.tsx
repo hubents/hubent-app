@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from "react";
 import { useEvent } from "@/contexts/event-context";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -313,6 +314,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="settings">
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -633,5 +635,6 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
         </Button>
       </div>
     </div>
+    </EventSectionGuard>
   );
 }

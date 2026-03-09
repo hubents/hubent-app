@@ -19,6 +19,7 @@ import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { CalendarFilters } from "@/components/calendar/calendar-filters";
 import { CalendarUpcoming } from "@/components/calendar/calendar-upcoming";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { useCalendar } from "@/hooks/use-calendar";
 import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
 import {
@@ -124,6 +125,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
   };
 
   return (
+    <EventSectionGuard eventId={eventId} section="general">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -461,5 +463,6 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </EventSectionGuard>
   );
 }

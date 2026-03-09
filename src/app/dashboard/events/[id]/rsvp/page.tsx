@@ -3,6 +3,7 @@
 import { useState, useEffect, use, useRef } from "react";
 import { toast } from "sonner";
 import { useEvent } from "@/contexts/event-context";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -621,6 +622,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="rsvp">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1925,5 +1927,6 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </div>
       )}
     </div>
+    </EventSectionGuard>
   );
 }

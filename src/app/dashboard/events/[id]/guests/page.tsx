@@ -48,6 +48,7 @@ import { RiListUnordered, RiLayout2Line } from "@remixicon/react";
 import { CSVImportDrawer } from "@/components/guests/csv-import-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 
 const TableCanvas = dynamic(
   () => import("@/components/guests/table-canvas").then((mod) => mod.TableCanvas),
@@ -357,6 +358,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="guests">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -772,6 +774,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
         </SheetContent>
       </Sheet>
     </div>
+    </EventSectionGuard>
   );
 }
 

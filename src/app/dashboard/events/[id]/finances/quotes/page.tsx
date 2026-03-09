@@ -42,6 +42,7 @@ import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 
 interface FinDoc {
   id: number;
@@ -253,6 +254,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="finances">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -443,5 +445,6 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
         onRefresh={() => fetchDocuments()}
       />
     </div>
+    </EventSectionGuard>
   );
 }

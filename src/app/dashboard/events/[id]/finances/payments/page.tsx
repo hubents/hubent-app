@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { EventSectionGuard } from "@/components/events/event-section-guard";
 
 interface Payment {
   id: number;
@@ -343,6 +344,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   }
 
   return (
+    <EventSectionGuard eventId={eventId} section="finances">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -653,5 +655,6 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
         </SheetContent>
       </Sheet>
     </div>
+    </EventSectionGuard>
   );
 }
