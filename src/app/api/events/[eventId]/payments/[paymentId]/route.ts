@@ -34,6 +34,7 @@ export async function PATCH(
         paymentDate: body.paymentDate ? new Date(body.paymentDate) : undefined,
         reference: body.reference,
         notes: body.notes ?? body.description,
+        status: body.status,
         attachmentUrl: body.attachmentUrl,
         attachmentName: body.attachmentName,
       });

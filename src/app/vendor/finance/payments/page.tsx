@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -16,20 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,16 +30,13 @@ import {
   RiMoreLine,
   RiEditLine,
   RiDeleteBinLine,
-  RiAttachmentLine,
-  RiCloseLine,
-  RiLoader4Line,
 } from "@remixicon/react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { PaymentDrawer, type EditPaymentData, type ConciliableDocument } from "@/components/finance/payment-drawer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
 
 interface Payment {
   id: number;
@@ -108,25 +88,8 @@ export default function VendorPaymentsPage() {
   const [currency, setCurrency] = useState("EUR");
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editPaymentData, setEditPaymentData] = useState<EditPaymentData | null>(null);
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);
-
-  const defaultForm = {
-    amount: "",
-    direction: "incoming" as "incoming" | "outgoing",
-    paymentDate: new Date().toISOString().split("T")[0],
-    paymentMethod: "bank_transfer",
-    reference: "",
-    notes: "",
-    documentId: "",
-    contactId: null as number | null,
-    vendorId: null as number | null,
-    attachmentUrl: "",
-    attachmentName: "",
-  };
-  const [form, setForm] = useState(defaultForm);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
 
   const formatCurrency = useCallback((amount: string | number, cur = "EUR") =>
     new Intl.NumberFormat("es-ES", { style: "currency", currency: cur }).format(
@@ -163,7 +126,7 @@ export default function VendorPaymentsPage() {
       if (quoteRes.ok) {
         const data = await quoteRes.json();
         if (data.success && data.data) {
-          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "payment_promise"));
+          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "payment_promise" || d.status === "partial"));
         }
       }
       setDocuments(docs);
@@ -187,66 +150,32 @@ export default function VendorPaymentsPage() {
   }, [fetchPayments, fetchDocuments]);
 
   function openNew() {
-    setEditingId(null);
-    setForm(defaultForm);
+    setEditPaymentData(null);
     setSheetOpen(true);
   }
 
   function openEdit(p: Payment) {
-    setEditingId(p.id);
-    setForm({
+    setEditPaymentData({
+      id: p.id,
       amount: p.amount,
-      direction: (p.direction as "incoming" | "outgoing") || "incoming",
-      paymentDate: p.paymentDate ? String(p.paymentDate).split("T")[0] : new Date().toISOString().split("T")[0],
-      paymentMethod: p.paymentMethod || "bank_transfer",
-      reference: p.reference || "",
-      notes: p.notes || "",
-      documentId: "",
-      contactId: null,
-      vendorId: null,
-      attachmentUrl: p.attachmentUrl || "",
-      attachmentName: p.attachmentName || "",
+      currency: p.currency || currency,
+      direction: p.direction || "incoming",
+      paymentMethod: p.paymentMethod,
+      reference: p.reference,
+      notes: p.notes,
+      status: p.status || "complete",
+      paymentDate: p.paymentDate || undefined,
+      attachmentUrl: p.attachmentUrl,
+      attachmentName: p.attachmentName,
     });
     setSheetOpen(true);
   }
 
-  async function handleSave() {
-    if (!form.amount) { toast.error("El monto es requerido"); return; }
-    try {
-      const body = {
-        amount: parseFloat(form.amount),
-        direction: form.direction,
-        paymentDate: new Date(form.paymentDate),
-        paymentMethod: form.paymentMethod,
-        reference: form.reference || null,
-        notes: form.notes || null,
-        status: "complete",
-        documentId: form.documentId ? parseInt(form.documentId) : null,
-        contactId: form.contactId,
-        vendorId: form.vendorId,
-        attachmentUrl: form.attachmentUrl || null,
-        attachmentName: form.attachmentName || null,
-      };
-
-      const url = editingId ? `/api/finance/payments/${editingId}` : "/api/finance/payments";
-      const method = editingId ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        toast.success(editingId ? "Pago actualizado" : "Pago registrado");
-        setSheetOpen(false);
-        setEditingId(null);
-        setForm(defaultForm);
-        fetchPayments();
-        fetchDocuments();
-      } else {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error?.message || "Error al guardar pago");
-      }
-    } catch { toast.error("Error al guardar pago"); }
+  function handlePaymentSuccess() {
+    setSheetOpen(false);
+    setEditPaymentData(null);
+    fetchPayments();
+    fetchDocuments();
   }
 
   async function handleDelete(id: number) {
@@ -261,27 +190,6 @@ export default function VendorPaymentsPage() {
         toast.error("Error al eliminar pago");
       }
     } catch { toast.error("Error al eliminar pago"); }
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const result = await uploadFile(file);
-    if (result) {
-      setForm((prev) => ({ ...prev, attachmentUrl: result.url, attachmentName: result.name }));
-      toast.success("Comprobante adjuntado");
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function getDocumentLabel(doc: FinancialDocument) {
-    const typeLabels: Record<string, string> = {
-      invoice: "Factura",
-      quote: "Presupuesto (Promesa de pago)",
-    };
-    const clientName = doc.companyName ||
-      (doc.personFirstName ? `${doc.personFirstName} ${doc.personLastName || ""}` : "");
-    return `${typeLabels[doc.type] || doc.type} ${doc.number}${clientName ? ` - ${clientName}` : ""}`;
   }
 
   const totalIncoming = payments
@@ -395,6 +303,7 @@ export default function VendorPaymentsPage() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Método</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                   <TableHead>Comprobante</TableHead>
                   <TableHead className="w-10"></TableHead>
@@ -424,6 +333,11 @@ export default function VendorPaymentsPage() {
                     </TableCell>
                     <TableCell className="capitalize">
                       {methodLabels[p.paymentMethod || ""] || p.paymentMethod || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={p.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}>
+                        {p.status === "pending" ? "Pendiente" : "Completado"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       <span className={p.direction === "incoming" ? "text-emerald-600" : "text-red-600"}>
@@ -477,151 +391,14 @@ export default function VendorPaymentsPage() {
         </Card>
       )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editingId ? "Editar Pago" : "Registrar Pago"}</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 py-4 px-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Monto *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.amount}
-                  onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Dirección</Label>
-                <Select value={form.direction} onValueChange={(v) => setForm((prev) => ({ ...prev, direction: v as "incoming" | "outgoing" }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="incoming">Cobro (entrada)</SelectItem>
-                    <SelectItem value="outgoing">Pago (salida)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={form.paymentDate}
-                  onChange={(e) => setForm((prev) => ({ ...prev, paymentDate: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Método de pago</Label>
-                <Select value={form.paymentMethod} onValueChange={(v) => setForm((prev) => ({ ...prev, paymentMethod: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bank_transfer">Transferencia</SelectItem>
-                    <SelectItem value="cash">Efectivo</SelectItem>
-                    <SelectItem value="card">Tarjeta</SelectItem>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="other">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Contacto / Proveedor</Label>
-              <ContactSelector
-                value={form.contactId ? { type: "contact", id: form.contactId } : form.vendorId ? { type: "vendor", id: form.vendorId } : null}
-                onChange={(val: ContactSelectorValue | null) => {
-                  if (val) {
-                    setForm((prev) => ({
-                      ...prev,
-                      contactId: val.type === "contact" ? val.id : null,
-                      vendorId: val.type === "vendor" ? val.id : null,
-                    }));
-                  } else {
-                    setForm((prev) => ({ ...prev, contactId: null, vendorId: null }));
-                  }
-                }}
-              />
-            </div>
-
-            {!editingId && (
-              <div>
-                <Label>Conciliar con documento</Label>
-                <Select value={form.documentId || "none"} onValueChange={(v) => {
-                  const docId = v === "none" ? "" : v;
-                  setForm((prev) => ({ ...prev, documentId: docId }));
-                  if (docId) {
-                    const doc = documents.find((d) => d.id.toString() === docId);
-                    if (doc) setForm((prev) => ({ ...prev, documentId: docId, amount: doc.total }));
-                  }
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Seleccionar documento a conciliar..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin documento</SelectItem>
-                    {documents.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id.toString()}>
-                        {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {documents.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    No hay documentos pendientes de conciliación
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <Label>Referencia</Label>
-              <Input
-                placeholder="Nº transferencia, cheque, etc."
-                value={form.reference}
-                onChange={(e) => setForm((prev) => ({ ...prev, reference: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>Notas</Label>
-              <Input
-                placeholder="Notas adicionales"
-                value={form.notes}
-                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label>Comprobante</Label>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileUpload} />
-              {form.attachmentUrl ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <RiAttachmentLine className="h-3 w-3" />
-                    {form.attachmentName || "Archivo adjunto"}
-                  </Badge>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setForm((prev) => ({ ...prev, attachmentUrl: "", attachmentName: "" }))}>
-                    <RiCloseLine className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" className="mt-1" onClick={() => fileInputRef.current?.click()} disabled={fileUploading}>
-                  {fileUploading ? <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" /> : <RiAttachmentLine className="h-4 w-4 mr-2" />}
-                  {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
-                </Button>
-              )}
-            </div>
-          </div>
-          <SheetFooter className="px-4">
-            <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editingId ? "Guardar cambios" : "Registrar pago"}</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <PaymentDrawer
+        open={sheetOpen}
+        onOpenChange={(open) => { if (!open) { setSheetOpen(false); setEditPaymentData(null); } else setSheetOpen(true); }}
+        onSuccess={handlePaymentSuccess}
+        editPayment={editPaymentData}
+        conciliableDocuments={documents as ConciliableDocument[]}
+        showContactSelector={true}
+      />
     </div>
   );
 }

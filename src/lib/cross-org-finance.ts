@@ -298,9 +298,21 @@ export async function deleteMirrorPayment(paymentRecordId: number) {
 
   await db.delete(paymentRecords).where(eq(paymentRecords.id, mirror.id));
 
-  // Recalculate linked document
+  // Recalculate linked document paidAmount and sync status
   if (mirror.documentId) {
-    // Get the doc to find the original and sync
+    // Recalculate paidAmount from remaining payments on the mirror doc
+    const remainingPayments = await db
+      .select({ amount: paymentRecords.amount })
+      .from(paymentRecords)
+      .where(eq(paymentRecords.documentId, mirror.documentId));
+
+    const newPaidTotal = remainingPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+    await db.update(financialDocuments)
+      .set({ paidAmount: newPaidTotal.toString(), updatedAt: new Date() })
+      .where(eq(financialDocuments.id, mirror.documentId));
+
+    // Sync status from original
     const doc = await db.query.financialDocuments.findFirst({
       where: eq(financialDocuments.id, mirror.documentId),
       columns: { id: true, sourceDocumentId: true },

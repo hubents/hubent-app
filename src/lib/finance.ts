@@ -513,7 +513,9 @@ const QUOTE_TRANSITIONS: Record<string, string[]> = {
   sent: ["accepted", "rejected"],
   accepted: ["payment_promise", "sent"],
   rejected: ["sent", "accepted"],
-  payment_promise: ["accepted", "sent"],
+  payment_promise: ["accepted", "sent", "partial", "paid"],
+  partial: ["paid", "payment_promise"],
+  paid: ["payment_promise"],
 };
 
 const INVOICE_TRANSITIONS: Record<string, string[]> = {
@@ -638,14 +640,14 @@ export async function updateDocument(
   });
   if (!currentDoc) return null;
 
-  // RULE: Block editing invoices with paid/partial status
-  if (currentDoc.type === "invoice" && (currentDoc.status === "paid" || currentDoc.status === "partial")) {
-    throw new Error("Cannot edit an invoice with payments. Remove payments first.");
+  // RULE: Block editing invoices/quotes with paid/partial status
+  if ((currentDoc.type === "invoice" || currentDoc.type === "quote") && (currentDoc.status === "paid" || currentDoc.status === "partial")) {
+    throw new Error(`Cannot edit a ${currentDoc.type} with payments. Remove payments first.`);
   }
 
   // RULE: If quote is accepted/rejected/payment_promise and items or discount change, auto-reset to "sent"
   const isQuoteWithActiveStatus = currentDoc.type === "quote" && 
-    ["accepted", "rejected", "payment_promise"].includes(currentDoc.status || "");
+    ["accepted", "rejected", "payment_promise", "partial", "paid"].includes(currentDoc.status || "");
   const hasFinancialChanges = data.items !== undefined || data.globalDiscount !== undefined || data.globalDiscountType !== undefined || data.termsAndConditions !== undefined;
   let autoResetStatus = false;
   if (isQuoteWithActiveStatus && hasFinancialChanges) {
@@ -1051,7 +1053,7 @@ export async function recalculateDocumentPayments(
   documentId: number
 ) {
   const [doc] = await db
-    .select({ id: financialDocuments.id, total: financialDocuments.total, status: financialDocuments.status })
+    .select({ id: financialDocuments.id, total: financialDocuments.total, status: financialDocuments.status, type: financialDocuments.type })
     .from(financialDocuments)
     .where(eq(financialDocuments.id, documentId))
     .limit(1);
@@ -1075,7 +1077,7 @@ export async function recalculateDocumentPayments(
   let targetStatus: string | null = null;
   if (totalPaid <= 0) {
     if (doc.status === "paid" || doc.status === "partial") {
-      targetStatus = "sent";
+      targetStatus = doc.type === "quote" ? "payment_promise" : "sent";
     }
   } else if (totalPaid < docTotal) {
     if (doc.status !== "partial") {

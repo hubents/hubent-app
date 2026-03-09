@@ -10,14 +10,16 @@ const QUOTE_TRANSITIONS: Record<string, string[]> = {
   sent: ["accepted", "rejected"],
   accepted: ["payment_promise", "sent"],
   rejected: ["sent", "accepted"],
-  payment_promise: ["accepted", "sent"],
+  payment_promise: ["accepted", "sent", "partial", "paid"],
+  partial: ["paid", "payment_promise"],
+  paid: ["payment_promise"],
 };
 
 const INVOICE_TRANSITIONS: Record<string, string[]> = {
   draft: ["sent"],
   sent: ["partial", "paid"],
   partial: ["paid", "sent"],
-  paid: ["partial", "sent"],
+  paid: ["sent"],
 };
 
 function isValidTransition(
@@ -47,7 +49,7 @@ describe("Quote State Machine", () => {
     expect(isValidTransition("quote", "sent", "rejected")).toBe(true);
   });
 
-  it("blocks sent → paid (quotes don't have paid status)", () => {
+  it("blocks sent → paid (must go through payment_promise)", () => {
     expect(isValidTransition("quote", "sent", "paid")).toBe(false);
   });
 
@@ -79,8 +81,39 @@ describe("Quote State Machine", () => {
     expect(isValidTransition("quote", "payment_promise", "rejected")).toBe(false);
   });
 
-  it("has no transitions from undefined statuses", () => {
+  it("allows payment_promise → partial (partial payment registered)", () => {
+    expect(isValidTransition("quote", "payment_promise", "partial")).toBe(true);
+  });
+
+  it("allows payment_promise → paid (full payment registered)", () => {
+    expect(isValidTransition("quote", "payment_promise", "paid")).toBe(true);
+  });
+
+  it("allows partial → paid (remaining payment registered)", () => {
+    expect(isValidTransition("quote", "partial", "paid")).toBe(true);
+  });
+
+  it("allows partial → payment_promise (all payments removed)", () => {
+    expect(isValidTransition("quote", "partial", "payment_promise")).toBe(true);
+  });
+
+  it("blocks partial → sent (must revert to payment_promise)", () => {
+    expect(isValidTransition("quote", "partial", "sent")).toBe(false);
+  });
+
+  it("allows paid → payment_promise (payment removed)", () => {
+    expect(isValidTransition("quote", "paid", "payment_promise")).toBe(true);
+  });
+
+  it("blocks paid → sent (must revert to payment_promise)", () => {
     expect(isValidTransition("quote", "paid", "sent")).toBe(false);
+  });
+
+  it("blocks paid → accepted", () => {
+    expect(isValidTransition("quote", "paid", "accepted")).toBe(false);
+  });
+
+  it("has no transitions from undefined statuses", () => {
     expect(isValidTransition("quote", "cancelled", "draft")).toBe(false);
   });
 });
@@ -114,8 +147,8 @@ describe("Invoice State Machine", () => {
     expect(isValidTransition("invoice", "partial", "sent")).toBe(true);
   });
 
-  it("allows paid → partial (payment removed)", () => {
-    expect(isValidTransition("invoice", "paid", "partial")).toBe(true);
+  it("blocks paid → partial (must go through sent)", () => {
+    expect(isValidTransition("invoice", "paid", "partial")).toBe(false);
   });
 
   it("allows paid → sent (all payments removed)", () => {
@@ -156,10 +189,13 @@ describe("Payment Recalculation Logic", () => {
   function determineStatus(
     totalPaid: number,
     docTotal: number,
-    currentStatus: string
+    currentStatus: string,
+    docType: "invoice" | "quote" = "invoice"
   ): string | null {
     if (totalPaid <= 0) {
-      if (currentStatus === "paid" || currentStatus === "partial") return "sent";
+      if (currentStatus === "paid" || currentStatus === "partial") {
+        return docType === "quote" ? "payment_promise" : "sent";
+      }
       return null;
     } else if (totalPaid < docTotal) {
       if (currentStatus !== "partial") return "partial";
@@ -168,7 +204,6 @@ describe("Payment Recalculation Logic", () => {
       if (currentStatus !== "paid") return "paid";
       return null;
     }
-    return null;
   }
 
   it("sets status to 'paid' when totalPaid >= docTotal", () => {
@@ -185,13 +220,22 @@ describe("Payment Recalculation Logic", () => {
     expect(determineStatus(1000, 1000, "paid")).toBeNull();
   });
 
-  it("resets to 'sent' when all payments removed", () => {
-    expect(determineStatus(0, 1000, "paid")).toBe("sent");
-    expect(determineStatus(0, 1000, "partial")).toBe("sent");
+  it("resets invoice to 'sent' when all payments removed", () => {
+    expect(determineStatus(0, 1000, "paid", "invoice")).toBe("sent");
+    expect(determineStatus(0, 1000, "partial", "invoice")).toBe("sent");
+  });
+
+  it("resets quote to 'payment_promise' when all payments removed", () => {
+    expect(determineStatus(0, 1000, "paid", "quote")).toBe("payment_promise");
+    expect(determineStatus(0, 1000, "partial", "quote")).toBe("payment_promise");
   });
 
   it("does nothing if already sent and no payments", () => {
     expect(determineStatus(0, 1000, "sent")).toBeNull();
+  });
+
+  it("does nothing if already payment_promise and no payments (quote)", () => {
+    expect(determineStatus(0, 1000, "payment_promise", "quote")).toBeNull();
   });
 });
 

@@ -80,6 +80,8 @@ const quoteStatusConfig: Record<string, { label: string; color: string }> = {
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
   payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
+  partial: { label: "Parcial", color: "bg-purple-100 text-purple-700" },
+  paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-700" },
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 

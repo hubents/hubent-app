@@ -1,28 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -37,19 +20,14 @@ import {
   RiArrowUpLine,
   RiArrowDownLine,
   RiMoneyDollarCircleLine,
-  RiCheckLine,
-  RiFileTextLine,
   RiAlertLine,
   RiCalendarLine,
   RiMoreLine,
   RiEditLine,
   RiDeleteBinLine,
-  RiFileDownloadLine,
-  RiCloseLine,
-  RiAttachmentLine,
-  RiLoader4Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { PaymentDrawer, type EditPaymentData, type ConciliableDocument } from "@/components/finance/payment-drawer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -61,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
-import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
+import { type ContactSelectorValue } from "@/components/finance/contact-selector";
 import { DocumentPreview } from "@/components/finance/document-preview";
 
 interface Payment {
@@ -80,6 +58,7 @@ interface Payment {
   documentNumber?: string | null;
   documentType?: string | null;
   contactName?: string | null;
+  status?: string | null;
   attachmentUrl?: string | null;
   attachmentName?: string | null;
 }
@@ -144,23 +123,7 @@ export default function PaymentsPage() {
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<any>(null);
-  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
-
-  // New payment form
-  const [newPayment, setNewPayment] = useState({
-    amount: "",
-    currency: "EUR",
-    direction: "incoming",
-    paymentMethod: "bank_transfer",
-    reference: "",
-    notes: "",
-    paymentDate: new Date().toISOString().split("T")[0],
-    documentId: "",
-    attachmentUrl: "",
-    attachmentName: "",
-  });
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
+  const [editPaymentData, setEditPaymentData] = useState<EditPaymentData | null>(null);
 
   useEffect(() => {
     fetchPayments();
@@ -170,7 +133,6 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     fetchDocuments();
-    setNewPayment((prev) => ({ ...prev, documentId: "" }));
   }, [contactValue]);
 
   async function openDocPreview(documentId: number) {
@@ -255,7 +217,7 @@ export default function PaymentsPage() {
         const data = await quotesRes.json();
         if (data.success && data.data) {
           const withPromise = data.data.filter((d: FinancialDocument) => 
-            d.status === "payment_promise"
+            d.status === "payment_promise" || d.status === "partial"
           );
           allDocs.push(...withPromise);
         }
@@ -268,11 +230,19 @@ export default function PaymentsPage() {
   }
 
   function calculateStats(paymentList: Payment[]) {
-    const incoming = paymentList
+    const completed = paymentList.filter((p) => p.status !== "pending");
+    const incoming = completed
       .filter((p) => p.direction === "incoming")
       .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
-    const outgoing = paymentList
+    const outgoing = completed
       .filter((p) => p.direction === "outgoing")
+      .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+
+    const pendingIn = paymentList
+      .filter((p) => p.status === "pending" && p.direction === "incoming")
+      .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+    const pendingOut = paymentList
+      .filter((p) => p.status === "pending" && p.direction === "outgoing")
       .reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
 
     // Calculate overdue from schedules
@@ -283,107 +253,42 @@ export default function PaymentsPage() {
     setStats({
       totalIncoming: incoming,
       totalOutgoing: outgoing,
-      pendingIncoming: 0,
-      pendingOutgoing: 0,
+      pendingIncoming: pendingIn,
+      pendingOutgoing: pendingOut,
       overdueAmount,
       overdueCount: overdueSchedules.length,
     });
   }
 
-  async function createPayment() {
-    if (!newPayment.amount) {
-      toast.error("El monto es requerido");
-      return;
-    }
+  function resetAndClose() {
+    setDialogOpen(false);
+    setEditPaymentData(null);
+    setContactValue(null);
+  }
 
-    try {
-      const res = await fetch("/api/finance/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: parseFloat(newPayment.amount),
-          currency: newPayment.currency,
-          direction: newPayment.direction,
-          paymentMethod: newPayment.paymentMethod,
-          reference: newPayment.reference || null,
-          notes: newPayment.notes || null,
-          paymentDate: new Date(newPayment.paymentDate),
-          documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
-          contactId: contactValue?.type === "contact" ? contactValue.id : null,
-          vendorId: contactValue?.type === "vendor" ? contactValue.id : null,
-          attachmentUrl: newPayment.attachmentUrl || null,
-          attachmentName: newPayment.attachmentName || null,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success("Pago registrado");
-        resetAndClose();
-        fetchPayments();
-        fetchDocuments();
-      } else {
-        toast.error("Error al registrar pago");
-      }
-    } catch (error) {
-      toast.error("Error al registrar pago");
-    }
+  function handlePaymentSuccess() {
+    resetAndClose();
+    fetchPayments();
+    fetchDocuments();
   }
 
   function openEditPayment(payment: Payment) {
-    setEditingPaymentId(payment.id);
-    setNewPayment({
+    setEditPaymentData({
+      id: payment.id,
       amount: payment.amount,
       currency: payment.currency || "EUR",
       direction: payment.direction,
-      paymentMethod: payment.paymentMethod || "bank_transfer",
-      reference: payment.reference || "",
-      notes: payment.notes || "",
-      paymentDate: payment.paymentDate ? payment.paymentDate.split("T")[0] : new Date().toISOString().split("T")[0],
-      documentId: payment.documentId?.toString() || "",
-      attachmentUrl: payment.attachmentUrl || "",
-      attachmentName: payment.attachmentName || "",
+      paymentMethod: payment.paymentMethod,
+      reference: payment.reference,
+      notes: payment.notes,
+      paymentDate: payment.paymentDate,
+      attachmentUrl: payment.attachmentUrl,
+      attachmentName: payment.attachmentName,
+      contactId: payment.contactId,
+      vendorId: payment.vendorId,
+      documentId: payment.documentId,
     });
-    setContactValue(
-      payment.contactId ? { type: "contact", id: payment.contactId } :
-      payment.vendorId ? { type: "vendor", id: payment.vendorId } :
-      null
-    );
     setDialogOpen(true);
-  }
-
-  async function updatePayment() {
-    if (!editingPaymentId || !newPayment.amount) {
-      toast.error("El monto es requerido");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/finance/payments/${editingPaymentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: parseFloat(newPayment.amount),
-          paymentMethod: newPayment.paymentMethod,
-          paymentDate: new Date(newPayment.paymentDate),
-          reference: newPayment.reference || null,
-          notes: newPayment.notes || null,
-          attachmentUrl: newPayment.attachmentUrl || null,
-          attachmentName: newPayment.attachmentName || null,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success("Pago actualizado");
-        resetAndClose();
-        fetchPayments();
-        fetchDocuments();
-      } else {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error?.message || "Error al actualizar pago");
-      }
-    } catch (error) {
-      toast.error("Error al actualizar pago");
-    }
   }
 
   async function deletePayment(id: number) {
@@ -407,97 +312,29 @@ export default function PaymentsPage() {
     }
   }
 
-  function resetAndClose() {
-    setDialogOpen(false);
-    setEditingPaymentId(null);
-    setNewPayment({
-      amount: "",
-      currency: "EUR",
-      direction: "incoming",
-      paymentMethod: "bank_transfer",
-      reference: "",
-      notes: "",
-      paymentDate: new Date().toISOString().split("T")[0],
-      documentId: "",
-      attachmentUrl: "",
-      attachmentName: "",
-    });
-    setContactValue(null);
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const result = await uploadFile(file);
-    if (result) {
-      setNewPayment((prev) => ({
-        ...prev,
-        attachmentUrl: result.url,
-        attachmentName: result.name,
-      }));
-      toast.success("Comprobante adjuntado");
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function handleDocumentSelect(docId: string) {
-    setNewPayment({ ...newPayment, documentId: docId });
-    // Auto-fill amount from document
-    if (docId) {
-      const doc = documents.find((d) => d.id.toString() === docId);
-      if (doc) {
-        setNewPayment((prev) => ({
-          ...prev,
-          documentId: docId,
-          amount: doc.total,
-        }));
-      }
-    }
-  }
-
-  function getDocumentLabel(doc: FinancialDocument) {
-    const typeLabels: Record<string, string> = {
-      invoice: "Factura",
-      quote: "Presupuesto (Promesa de pago)",
-      proforma: "Proforma",
-      delivery_note: "Albarán",
-    };
-    const clientName = doc.companyName || 
-      (doc.personFirstName ? `${doc.personFirstName} ${doc.personLastName || ""}` : "");
-    return `${typeLabels[doc.type] || doc.type} ${doc.number}${clientName ? ` - ${clientName}` : ""}`;
-  }
-
-  const formatCurrency = (amount: string | number, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-    }).format(typeof amount === "string" ? parseFloat(amount || "0") : amount);
+  const formatCurrency = (amount: number | string, cur = "EUR") => {
+    return new Intl.NumberFormat("es-ES", { style: "currency", currency: cur }).format(typeof amount === "string" ? parseFloat(amount || "0") : amount);
   };
 
   const filteredPayments = payments.filter((p) => {
     if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase();
     return (
-      p.reference?.toLowerCase().includes(search) ||
-      p.notes?.toLowerCase().includes(search) ||
-      p.documentNumber?.toLowerCase().includes(search) ||
-      p.contactName?.toLowerCase().includes(search)
+      (p.reference && p.reference.toLowerCase().includes(term)) ||
+      (p.contactName && p.contactName.toLowerCase().includes(term)) ||
+      (p.documentNumber && p.documentNumber.toLowerCase().includes(term)) ||
+      (p.notes && p.notes.toLowerCase().includes(term))
     );
   });
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-10 w-40" />
-        </div>
+        <Skeleton className="h-8 w-48" />
         <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
         </div>
-        <Skeleton className="h-96" />
+        <Skeleton className="h-64" />
       </div>
     );
   }
@@ -512,216 +349,18 @@ export default function PaymentsPage() {
             Registro de cobros y pagos
           </p>
         </div>
-        <Button onClick={() => { setEditingPaymentId(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditPaymentData(null); setDialogOpen(true); }}>
           <RiAddLine className="mr-2 h-4 w-4" />
           Registrar Pago
         </Button>
-        <Sheet open={dialogOpen} onOpenChange={(open) => { if (!open) resetAndClose(); }}>
-          <SheetContent className="sm:max-w-2xl overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>{editingPaymentId ? "Editar Pago" : "Registrar Pago"}</SheetTitle>
-              <SheetDescription>
-                {editingPaymentId ? "Modifica los datos del pago" : "Registra un nuevo cobro o pago"}
-              </SheetDescription>
-            </SheetHeader>
-            <div className="space-y-4 px-4 py-4">
-              {/* Contact selector */}
-              <div className="space-y-2">
-                <Label>Contacto</Label>
-                <ContactSelector
-                  value={contactValue}
-                  onChange={setContactValue}
-                  placeholder="Seleccionar contacto"
-                />
-              </div>
-
-              {/* Document selector */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <RiFileTextLine className="h-4 w-4" />
-                  Conciliar a (opcional)
-                </Label>
-                <Select
-                  value={newPayment.documentId || "none"}
-                  onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar documento a conciliar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin documento</SelectItem>
-                    {documents.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id.toString()}>
-                        {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {documents.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No hay documentos pendientes de conciliación
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={newPayment.direction}
-                    onValueChange={(v) => setNewPayment({ ...newPayment, direction: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="incoming">Cobro (Ingreso)</SelectItem>
-                      <SelectItem value="outgoing">Pago (Gasto)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Método</Label>
-                  <Select
-                    value={newPayment.paymentMethod}
-                    onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Efectivo</SelectItem>
-                      <SelectItem value="bank_transfer">Transferencia</SelectItem>
-                      <SelectItem value="card">Tarjeta</SelectItem>
-                      <SelectItem value="stripe">Stripe</SelectItem>
-                      <SelectItem value="other">Otro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Monto *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={newPayment.amount}
-                    onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Moneda</Label>
-                  <Select
-                    value={newPayment.currency}
-                    onValueChange={(v) => setNewPayment({ ...newPayment, currency: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={newPayment.paymentDate}
-                  onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Referencia</Label>
-                <Input
-                  value={newPayment.reference}
-                  onChange={(e) => setNewPayment({ ...newPayment, reference: e.target.value })}
-                  placeholder="Número de transferencia, etc."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Input
-                  value={newPayment.notes}
-                  onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
-                  placeholder="Descripción del pago"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <RiAttachmentLine className="h-4 w-4" />
-                  Comprobante (opcional)
-                </Label>
-                {newPayment.attachmentUrl ? (
-                  <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
-                    <RiFileDownloadLine className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <a
-                      href={newPayment.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline truncate flex-1"
-                    >
-                      {newPayment.attachmentName || "Comprobante"}
-                    </a>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0"
-                      onClick={() => setNewPayment((prev) => ({ ...prev, attachmentUrl: "", attachmentName: "" }))}
-                    >
-                      <RiCloseLine className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={fileUploading}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {fileUploading ? (
-                        <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <RiAttachmentLine className="mr-2 h-4 w-4" />
-                      )}
-                      {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PDF o imagen, máx. 10MB
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <SheetFooter>
-              <Button variant="outline" onClick={resetAndClose}>
-                Cancelar
-              </Button>
-              <Button onClick={editingPaymentId ? updatePayment : createPayment}>
-                {editingPaymentId ? "Guardar cambios" : "Registrar"}
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
+        <PaymentDrawer
+          open={dialogOpen}
+          onOpenChange={(open) => { if (!open) resetAndClose(); else setDialogOpen(true); }}
+          onSuccess={handlePaymentSuccess}
+          editPayment={editPaymentData}
+          conciliableDocuments={documents as ConciliableDocument[]}
+          showContactSelector={true}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -883,6 +522,7 @@ export default function PaymentsPage() {
                 <TableHead>Método</TableHead>
                 <TableHead>Conciliado con</TableHead>
                 <TableHead>Referencia</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
@@ -890,7 +530,7 @@ export default function PaymentsPage() {
             <TableBody>
               {filteredPayments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No hay pagos registrados
                   </TableCell>
                 </TableRow>
@@ -935,6 +575,11 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>
                       {payment.reference || payment.notes || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={payment.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}>
+                        {payment.status === "pending" ? "Pendiente" : "Completado"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       <span

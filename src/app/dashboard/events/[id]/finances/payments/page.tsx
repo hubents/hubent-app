@@ -1,28 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, use, useRef } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { useEvent } from "@/contexts/event-context";
-import { useFileUpload } from "@/hooks/use-file-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,14 +25,11 @@ import {
   RiMoreLine,
   RiEditLine,
   RiDeleteBinLine,
-  RiAttachmentLine,
   RiFileDownloadLine,
-  RiCloseLine,
-  RiLoader4Line,
-  RiFileTextLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PaymentDrawer, type EditPaymentData, type ConciliableDocument } from "@/components/finance/payment-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
@@ -101,22 +81,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showAddPayment, setShowAddPayment] = useState(false);
-  const [editingPaymentId, setEditingPaymentId] = useState<number | null>(null);
-
-  const defaultForm = {
-    description: "",
-    amount: "",
-    paymentDate: new Date().toISOString().split("T")[0],
-    paymentMethod: "bank_transfer",
-    reference: "",
-    status: "complete",
-    documentId: "",
-    attachmentUrl: "",
-    attachmentName: "",
-  };
-  const [newPayment, setNewPayment] = useState(defaultForm);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
+  const [editPaymentData, setEditPaymentData] = useState<EditPaymentData | null>(null);
 
   const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(amount);
@@ -150,7 +115,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
       if (quoteRes.ok) {
         const data = await quoteRes.json();
         if (data.success && data.data) {
-          docs.push(...data.data.filter((d: EventDocument) => d.status === "payment_promise"));
+          docs.push(...data.data.filter((d: EventDocument) => d.status === "payment_promise" || d.status === "partial"));
         }
       }
       setEventDocs(docs);
@@ -186,85 +151,28 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
 
   function resetAndClose() {
     setShowAddPayment(false);
-    setEditingPaymentId(null);
-    setNewPayment(defaultForm);
+    setEditPaymentData(null);
   }
 
-  const handleAddPayment = async () => {
-    if (!newPayment.amount) { toast.error("El monto es requerido"); return; }
-    const effectiveStatus = parseFloat(newPayment.amount) > 0 ? "complete" : newPayment.status;
-    try {
-      const res = await fetch(`/api/events/${eventId}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: parseFloat(newPayment.amount),
-          notes: newPayment.description || null,
-          paymentDate: newPayment.paymentDate ? new Date(newPayment.paymentDate) : new Date(),
-          paymentMethod: newPayment.paymentMethod,
-          reference: newPayment.reference || null,
-          status: effectiveStatus,
-          documentId: newPayment.documentId ? parseInt(newPayment.documentId) : null,
-          attachmentUrl: newPayment.attachmentUrl || null,
-          attachmentName: newPayment.attachmentName || null,
-          direction: "outgoing",
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Pago registrado");
-        resetAndClose();
-        fetchPayments();
-        fetchEventDocs();
-      } else {
-        toast.error(data?.error?.message || "Error al registrar pago");
-      }
-    } catch {
-      toast.error("Error al registrar pago");
-    }
-  };
+  function handlePaymentSuccess() {
+    resetAndClose();
+    fetchPayments();
+    fetchEventDocs();
+  }
 
   function openEditPayment(payment: Payment) {
-    setEditingPaymentId(payment.id);
-    setNewPayment({
-      description: payment.description || "",
+    setEditPaymentData({
+      id: payment.id,
       amount: payment.amount,
-      paymentDate: payment.paidDate ? String(payment.paidDate).split("T")[0] : (payment.dueDate ? String(payment.dueDate).split("T")[0] : new Date().toISOString().split("T")[0]),
-      paymentMethod: payment.paymentMethod || "bank_transfer",
-      reference: payment.reference || "",
+      direction: "outgoing",
+      paymentMethod: payment.paymentMethod,
+      reference: payment.reference,
+      notes: payment.description || null,
       status: payment.status || "complete",
-      documentId: "",
-      attachmentUrl: payment.attachmentUrl || "",
-      attachmentName: "",
+      paymentDate: payment.paidDate || payment.dueDate || undefined,
+      attachmentUrl: payment.attachmentUrl,
     });
     setShowAddPayment(true);
-  }
-
-  async function handleUpdatePayment() {
-    if (!editingPaymentId || !newPayment.amount) { toast.error("El monto es requerido"); return; }
-    try {
-      const res = await fetch(`/api/events/${eventId}/payments/${editingPaymentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: parseFloat(newPayment.amount),
-          paymentMethod: newPayment.paymentMethod,
-          paymentDate: new Date(newPayment.paymentDate),
-          reference: newPayment.reference || null,
-          notes: newPayment.description || null,
-          attachmentUrl: newPayment.attachmentUrl || null,
-          attachmentName: newPayment.attachmentName || null,
-        }),
-      });
-      if (res.ok) {
-        toast.success("Pago actualizado");
-        resetAndClose();
-        fetchPayments();
-      } else {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error?.message || "Error al actualizar pago");
-      }
-    } catch { toast.error("Error al actualizar pago"); }
   }
 
   async function deletePayment(id: number) {
@@ -279,27 +187,6 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
         toast.error("Error al eliminar pago");
       }
     } catch { toast.error("Error al eliminar pago"); }
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const result = await uploadFile(file);
-    if (result) {
-      setNewPayment((prev) => ({ ...prev, attachmentUrl: result.url, attachmentName: result.name }));
-      toast.success("Comprobante adjuntado");
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function handleDocumentSelect(docId: string) {
-    setNewPayment((prev) => ({ ...prev, documentId: docId }));
-    if (docId && docId !== "none") {
-      const doc = eventDocs.find((d) => d.id.toString() === docId);
-      if (doc) {
-        setNewPayment((prev) => ({ ...prev, documentId: docId, amount: doc.total }));
-      }
-    }
   }
 
   // Calendar helpers
@@ -516,144 +403,17 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* Add/Edit Payment Drawer */}
-      <Sheet open={showAddPayment} onOpenChange={(open) => { if (!open) resetAndClose(); }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editingPaymentId ? "Editar pago" : "Registrar pago"}</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 px-4 py-4">
-            {!editingPaymentId && eventDocs.length > 0 && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <RiFileTextLine className="h-4 w-4" />
-                  Conciliar con documento (opcional)
-                </Label>
-                <Select
-                  value={newPayment.documentId || "none"}
-                  onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar documento..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin documento</SelectItem>
-                    {eventDocs.map((doc) => (
-                      <SelectItem key={doc.id} value={doc.id.toString()}>
-                        {doc.type === "invoice" ? "Factura" : "Presupuesto (Promesa de pago)"} {doc.number} — {formatCurrency(parseFloat(doc.total))}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Concepto</Label>
-              <Input
-                value={newPayment.description}
-                onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
-                placeholder="Ej: Seña del salón"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Monto *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={newPayment.amount}
-                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={newPayment.paymentDate}
-                  onChange={(e) => setNewPayment({ ...newPayment, paymentDate: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Método</Label>
-                <Select
-                  value={newPayment.paymentMethod}
-                  onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Efectivo</SelectItem>
-                    <SelectItem value="bank_transfer">Transferencia</SelectItem>
-                    <SelectItem value="card">Tarjeta</SelectItem>
-                    <SelectItem value="stripe">Stripe</SelectItem>
-                    <SelectItem value="other">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select
-                  value={newPayment.status}
-                  onValueChange={(value) => setNewPayment({ ...newPayment, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="complete">Completado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Referencia</Label>
-              <Input
-                value={newPayment.reference}
-                onChange={(e) => setNewPayment({ ...newPayment, reference: e.target.value })}
-                placeholder="Nº transferencia, recibo, etc."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <RiAttachmentLine className="h-4 w-4" />
-                Comprobante (opcional)
-              </Label>
-              {newPayment.attachmentUrl ? (
-                <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
-                  <RiFileDownloadLine className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a href={newPayment.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate flex-1">
-                    {newPayment.attachmentName || "Comprobante"}
-                  </a>
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setNewPayment((p) => ({ ...p, attachmentUrl: "", attachmentName: "" }))}>
-                    <RiCloseLine className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileUpload} className="hidden" />
-                  <Button type="button" variant="outline" size="sm" disabled={fileUploading} onClick={() => fileInputRef.current?.click()}>
-                    {fileUploading ? <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" /> : <RiAttachmentLine className="mr-2 h-4 w-4" />}
-                    {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-1">PDF o imagen, máx. 10MB</p>
-                </div>
-              )}
-            </div>
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={resetAndClose}>Cancelar</Button>
-            <Button onClick={editingPaymentId ? handleUpdatePayment : handleAddPayment} disabled={!newPayment.amount}>
-              {editingPaymentId ? "Guardar cambios" : "Registrar pago"}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <PaymentDrawer
+        open={showAddPayment}
+        onOpenChange={(open) => { if (!open) resetAndClose(); else setShowAddPayment(true); }}
+        onSuccess={handlePaymentSuccess}
+        editPayment={editPaymentData}
+        eventId={eventId}
+        defaultDirection="outgoing"
+        conciliableDocuments={eventDocs as ConciliableDocument[]}
+        showDirectionSelector={false}
+        apiBasePath={`/api/events/${eventId}/payments`}
+      />
     </div>
     </EventSectionGuard>
   );

@@ -203,6 +203,7 @@ export function TaskInfoTab({
     paymentMethod: "",
     notes: "",
     direction: "outgoing",
+    status: "complete",
     documentId: null as number | null,
     attachmentUrl: "",
     attachmentName: "",
@@ -296,11 +297,12 @@ export function TaskInfoTab({
         paymentMethod: newPayment.paymentMethod || undefined,
         notes: newPayment.notes || undefined,
         direction: newPayment.direction,
+        status: newPayment.status,
         documentId: newPayment.documentId || undefined,
         attachmentUrl: newPayment.attachmentUrl || undefined,
         attachmentName: newPayment.attachmentName || undefined,
       });
-      setNewPayment({ amount: "", date: "", vendorId: null, paymentMethod: "", notes: "", direction: "outgoing", documentId: null, attachmentUrl: "", attachmentName: "" });
+      setNewPayment({ amount: "", date: "", vendorId: null, paymentMethod: "", notes: "", direction: "outgoing", status: "complete", documentId: null, attachmentUrl: "", attachmentName: "" });
       setShowPaymentDialog(false);
       toast.success("Pago registrado");
     } finally {
@@ -466,6 +468,18 @@ export function TaskInfoTab({
                         <SelectItem value="cash">Efectivo</SelectItem>
                         <SelectItem value="card">Tarjeta</SelectItem>
                         <SelectItem value="other">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select value={newPayment.status} onValueChange={(v) => setNewPayment({ ...newPayment, status: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendiente</SelectItem>
+                        <SelectItem value="complete">Completado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
