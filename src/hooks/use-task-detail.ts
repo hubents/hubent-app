@@ -61,6 +61,7 @@ interface TaskAttachment {
 interface TaskScheduleItem {
   id: number;
   taskId: number;
+  vendorId: number | null;
   title: string;
   description: string | null;
   date: string;
@@ -69,6 +70,7 @@ interface TaskScheduleItem {
   location: string | null;
   notes: string | null;
   sortOrder: number;
+  vendorName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -472,7 +474,7 @@ export function useTaskDetail(taskId: number | null) {
   }, [taskId, fetchAttachments]);
 
   // Add schedule item
-  const addScheduleItem = useCallback(async (itemData: { title: string; date: string; startTime?: string; endTime?: string; description?: string; location?: string }) => {
+  const addScheduleItem = useCallback(async (itemData: { title: string; date: string; startTime?: string; endTime?: string; description?: string; location?: string; vendorId?: number }) => {
     if (!taskId) return null;
     
     try {

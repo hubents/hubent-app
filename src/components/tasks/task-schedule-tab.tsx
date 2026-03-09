@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,12 +18,14 @@ import {
   RiTimeLine,
   RiCalendarLine,
   RiFileDownloadLine,
+  RiUser3Line,
 } from "@remixicon/react";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
 interface TaskScheduleItem {
   id: number;
   taskId: number;
+  vendorId: number | null;
   title: string;
   description: string | null;
   date: string;
@@ -31,6 +34,12 @@ interface TaskScheduleItem {
   location: string | null;
   notes: string | null;
   sortOrder: number;
+  vendorName: string | null;
+}
+
+interface VendorOption {
+  id: number;
+  name: string;
 }
 
 interface TaskScheduleTabProps {
@@ -38,6 +47,7 @@ interface TaskScheduleTabProps {
   scheduleItems: TaskScheduleItem[];
   loading: boolean;
   readOnly?: boolean;
+  eventId?: number;
   onAddScheduleItem: (data: {
     title: string;
     date: string;
@@ -45,6 +55,7 @@ interface TaskScheduleTabProps {
     endTime?: string;
     description?: string;
     location?: string;
+    vendorId?: number;
   }) => Promise<unknown>;
   onUpdateScheduleItem: (
     scheduleItemId: number,
@@ -57,6 +68,7 @@ export function TaskScheduleTab({
   taskId,
   scheduleItems,
   loading,
+  eventId,
   onAddScheduleItem,
   onUpdateScheduleItem,
   onDeleteScheduleItem,
@@ -64,6 +76,21 @@ export function TaskScheduleTab({
 }: TaskScheduleTabProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+
+  const fetchVendors = useCallback(async () => {
+    try {
+      const res = await fetch("/api/vendors");
+      const data = await res.json();
+      if (data.success) {
+        setVendorOptions(data.data?.map((v: any) => ({ id: v.id, name: v.name })) || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    fetchVendors();
+  }, [fetchVendors]);
 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
@@ -84,6 +111,8 @@ export function TaskScheduleTab({
     startTime: "",
     endTime: "",
     description: "",
+    location: "",
+    vendorId: "" as string,
   });
 
   const toggleExpanded = (id: number) => {
@@ -106,6 +135,8 @@ export function TaskScheduleTab({
         startTime: newItem.startTime || undefined,
         endTime: newItem.endTime || undefined,
         description: newItem.description.trim() || undefined,
+        location: newItem.location.trim() || undefined,
+        vendorId: newItem.vendorId ? parseInt(newItem.vendorId, 10) : undefined,
       });
       setNewItem({
         title: "",
@@ -113,6 +144,8 @@ export function TaskScheduleTab({
         startTime: "",
         endTime: "",
         description: "",
+        location: "",
+        vendorId: "",
       });
       setShowAddForm(false);
     } finally {
@@ -173,9 +206,9 @@ export function TaskScheduleTab({
       {/* Add Form */}
       {showAddForm && (
         <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <Input
-              placeholder="Descripción *"
+              placeholder="Título *"
               value={newItem.title}
               onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
             />
@@ -184,23 +217,38 @@ export function TaskScheduleTab({
               value={newItem.date}
               onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
             />
-            <div className="flex gap-2">
-              <Input
-                type="time"
-                placeholder="Inicio"
-                value={newItem.startTime}
-                onChange={(e) => setNewItem({ ...newItem, startTime: e.target.value })}
-              />
-              <Input
-                type="time"
-                placeholder="Fin"
-                value={newItem.endTime}
-                onChange={(e) => setNewItem({ ...newItem, endTime: e.target.value })}
-              />
-            </div>
+            <Input
+              type="time"
+              placeholder="Inicio"
+              value={newItem.startTime}
+              onChange={(e) => setNewItem({ ...newItem, startTime: e.target.value })}
+            />
+            <Input
+              type="time"
+              placeholder="Fin"
+              value={newItem.endTime}
+              onChange={(e) => setNewItem({ ...newItem, endTime: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={newItem.vendorId}
+              onChange={(e) => setNewItem({ ...newItem, vendorId: e.target.value })}
+            >
+              <option value="">Proveedor (opcional)</option>
+              {vendorOptions.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+            <Input
+              placeholder="Ubicación (opcional)"
+              value={newItem.location}
+              onChange={(e) => setNewItem({ ...newItem, location: e.target.value })}
+            />
           </div>
           <Textarea
-            placeholder="Más detalles (opcional)"
+            placeholder="Notas (opcional)"
             value={newItem.description}
             onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
             rows={2}
@@ -243,8 +291,14 @@ export function TaskScheduleTab({
                   <div className="flex-1 min-w-0">
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Descripción</p>
+                        <p className="text-xs text-muted-foreground mb-1">Título</p>
                         <p className="font-medium">{item.title}</p>
+                        {item.vendorName && (
+                          <Badge variant="outline" className="mt-1 text-[10px] gap-1">
+                            <RiUser3Line className="h-2.5 w-2.5" />
+                            {item.vendorName}
+                          </Badge>
+                        )}
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">

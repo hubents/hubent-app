@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { taskScheduleItems, tasks, events, organizations } from "@/db/schema";
+import { taskScheduleItems, tasks, events, organizations, vendors } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -31,10 +31,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       await requireEventSectionAccess(task.eventId, "tasks", "view");
     }
 
-    // Fetch schedule items
+    // Fetch schedule items with vendor name
     const scheduleItems = await db
-      .select()
+      .select({
+        id: taskScheduleItems.id,
+        taskId: taskScheduleItems.taskId,
+        vendorId: taskScheduleItems.vendorId,
+        title: taskScheduleItems.title,
+        description: taskScheduleItems.description,
+        date: taskScheduleItems.date,
+        startTime: taskScheduleItems.startTime,
+        endTime: taskScheduleItems.endTime,
+        location: taskScheduleItems.location,
+        notes: taskScheduleItems.notes,
+        sortOrder: taskScheduleItems.sortOrder,
+        createdAt: taskScheduleItems.createdAt,
+        updatedAt: taskScheduleItems.updatedAt,
+        vendorName: vendors.name,
+      })
       .from(taskScheduleItems)
+      .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
       .where(eq(taskScheduleItems.taskId, taskIdNum))
       .orderBy(asc(taskScheduleItems.date), asc(taskScheduleItems.sortOrder));
 
@@ -112,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // ============================================
 
 function generateTaskScheduleHTML(data: {
-  items: typeof taskScheduleItems.$inferSelect[];
+  items: { id: number; taskId: number; vendorId: number | null; title: string; description: string | null; date: Date; startTime: string | null; endTime: string | null; location: string | null; notes: string | null; sortOrder: number | null; vendorName: string | null; createdAt: Date | null; updatedAt: Date | null }[];
   taskTitle: string;
   eventName: string | null;
   eventDate: Date | null;
@@ -144,13 +160,16 @@ function generateTaskScheduleHTML(data: {
         .map(
           (item) => `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 100px;">
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 90px;">
             <strong style="font-size: 14px;">${item.startTime || "—"}</strong>
             ${item.endTime ? `<br><span style="color: #9ca3af; font-size: 12px;">→ ${item.endTime}</span>` : ""}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
             <strong style="font-size: 14px;">${item.title}</strong>
             ${item.description ? `<br><span style="color: #6b7280; font-size: 12px;">${item.description}</span>` : ""}
+          </td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #374151; font-weight: 500;">
+            ${item.vendorName || "—"}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #6b7280;">
             ${item.location || "—"}
@@ -172,10 +191,11 @@ function generateTaskScheduleHTML(data: {
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 100px;">Hora</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 90px;">Hora</th>
                 <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">Actividad</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Ubicación</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 160px;">Notas</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Proveedor</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Ubicación</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Notas</th>
               </tr>
             </thead>
             <tbody>

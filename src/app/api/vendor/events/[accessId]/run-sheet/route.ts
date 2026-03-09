@@ -71,6 +71,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select({
         id: taskScheduleItems.id,
         taskId: taskScheduleItems.taskId,
+        vendorId: taskScheduleItems.vendorId,
         title: taskScheduleItems.title,
         description: taskScheduleItems.description,
         date: taskScheduleItems.date,
@@ -80,9 +81,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         notes: taskScheduleItems.notes,
         sortOrder: taskScheduleItems.sortOrder,
         taskTitle: tasks.title,
+        vendorName: vendors.name,
       })
       .from(taskScheduleItems)
       .innerJoin(tasks, eq(taskScheduleItems.taskId, tasks.id))
+      .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
       .where(
         and(
           eq(tasks.eventId, access.eventId),

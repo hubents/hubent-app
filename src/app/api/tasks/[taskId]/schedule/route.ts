@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
-import { taskScheduleItems, tasks } from "@/db/schema";
+import { taskScheduleItems, tasks, vendors } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
@@ -29,8 +29,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const scheduleItems = await db
-      .select()
+      .select({
+        id: taskScheduleItems.id,
+        taskId: taskScheduleItems.taskId,
+        vendorId: taskScheduleItems.vendorId,
+        title: taskScheduleItems.title,
+        description: taskScheduleItems.description,
+        date: taskScheduleItems.date,
+        startTime: taskScheduleItems.startTime,
+        endTime: taskScheduleItems.endTime,
+        location: taskScheduleItems.location,
+        notes: taskScheduleItems.notes,
+        sortOrder: taskScheduleItems.sortOrder,
+        createdAt: taskScheduleItems.createdAt,
+        updatedAt: taskScheduleItems.updatedAt,
+        vendorName: vendors.name,
+      })
       .from(taskScheduleItems)
+      .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
       .where(eq(taskScheduleItems.taskId, parseInt(taskId, 10)))
       .orderBy(asc(taskScheduleItems.sortOrder), asc(taskScheduleItems.date));
 
@@ -56,7 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
-    const { title, description, date, startTime, endTime, location, notes, sortOrder } = body;
+    const { title, description, date, startTime, endTime, location, notes, sortOrder, vendorId } = body;
 
     if (!title || !date) {
       return NextResponse.json(
@@ -83,6 +99,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const [scheduleItem] = await db.insert(taskScheduleItems).values({
       taskId: parseInt(taskId, 10),
+      vendorId: vendorId || null,
       title,
       description,
       date: new Date(date),

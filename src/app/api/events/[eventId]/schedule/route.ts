@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { eventScheduleItems, tasks, taskScheduleItems } from "@/db/schema";
+import { eventScheduleItems, tasks, taskScheduleItems, vendors } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select({
         id: taskScheduleItems.id,
         taskId: taskScheduleItems.taskId,
+        vendorId: taskScheduleItems.vendorId,
         title: taskScheduleItems.title,
         description: taskScheduleItems.description,
         date: taskScheduleItems.date,
@@ -76,9 +77,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         createdAt: taskScheduleItems.createdAt,
         updatedAt: taskScheduleItems.updatedAt,
         taskTitle: tasks.title,
+        vendorName: vendors.name,
       })
       .from(taskScheduleItems)
       .innerJoin(tasks, eq(taskScheduleItems.taskId, tasks.id))
+      .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
       .where(
         and(
           eq(tasks.eventId, eventId),
@@ -101,6 +104,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         organizationId: session.organizationId,
         color: null,
         source: "task" as const,
+        vendorName: item.vendorName || null,
       })),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 

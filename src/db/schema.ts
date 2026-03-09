@@ -1124,6 +1124,7 @@ export const eventScheduleItems = pgTable("event_schedule_items", {
 export const taskScheduleItems = pgTable("task_schedule_items", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  vendorId: integer("vendor_id").references(() => vendors.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),

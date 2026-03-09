@@ -47,6 +47,7 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
 interface RunSheetItem {
   id: number;
   taskId: number;
+  vendorId: number | null;
   title: string;
   description: string | null;
   date: string;
@@ -55,6 +56,7 @@ interface RunSheetItem {
   location: string | null;
   notes: string | null;
   taskTitle: string;
+  vendorName: string | null;
   source: string;
 }
 
@@ -651,6 +653,11 @@ function VendorRunSheetTab({
                             <Badge variant="outline" className="text-[10px]" style={{ borderColor: "#f59e0b", color: "#d97706" }}>
                               {item.taskTitle}
                             </Badge>
+                            {item.vendorName && (
+                              <Badge variant="secondary" className="text-[10px] gap-0.5">
+                                {item.vendorName}
+                              </Badge>
+                            )}
                           </div>
                           {item.description && (
                             <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>

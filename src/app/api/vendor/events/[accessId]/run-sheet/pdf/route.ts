@@ -26,6 +26,7 @@ interface ScheduleRow {
   location: string | null;
   notes: string | null;
   taskTitle: string;
+  vendorName: string | null;
 }
 
 /**
@@ -96,9 +97,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           location: taskScheduleItems.location,
           notes: taskScheduleItems.notes,
           taskTitle: tasks.title,
+          vendorName: vendors.name,
         })
         .from(taskScheduleItems)
         .innerJoin(tasks, eq(taskScheduleItems.taskId, tasks.id))
+        .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
         .where(
           and(
             eq(tasks.eventId, access.eventId),
@@ -206,13 +209,16 @@ function generateVendorRunSheetHTML(data: {
         .map(
           (item) => `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 100px;">
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 90px;">
             <strong style="font-size: 14px;">${item.startTime || "—"}</strong>
             ${item.endTime ? `<br><span style="color: #9ca3af; font-size: 12px;">→ ${item.endTime}</span>` : ""}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
             <strong style="font-size: 14px;">${item.title}</strong>
             ${item.description ? `<br><span style="color: #6b7280; font-size: 12px;">${item.description}</span>` : ""}
+          </td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #374151; font-weight: 500;">
+            ${item.vendorName || "—"}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #6b7280;">
             ${item.location || "—"}
@@ -239,11 +245,12 @@ function generateVendorRunSheetHTML(data: {
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 100px;">Hora</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 90px;">Hora</th>
                 <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">Actividad</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Ubicación</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 110px;">Tarea</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 160px;">Notas</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Proveedor</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Ubicación</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 100px;">Tarea</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Notas</th>
               </tr>
             </thead>
             <tbody>

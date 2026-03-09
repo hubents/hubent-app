@@ -7,6 +7,7 @@ import {
   taskScheduleItems,
   events,
   organizations,
+  vendors,
 } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { format } from "date-fns";
@@ -31,6 +32,8 @@ interface ScheduleRow {
   source: "event" | "task";
   taskTitle: string | null;
   taskId: number | null;
+  vendorId: number | null;
+  vendorName: string | null;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -46,6 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { searchParams } = new URL(request.url);
     const filterTaskId = searchParams.get("taskId");
+    const filterVendorId = searchParams.get("vendorId");
 
     // Fetch event info
     const [event] = await db
@@ -92,6 +96,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         source: "event" as const,
         taskTitle: null,
         taskId: null,
+        vendorId: null,
+        vendorName: null,
       }));
     }
 
@@ -100,6 +106,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .select({
         id: taskScheduleItems.id,
         taskId: taskScheduleItems.taskId,
+        vendorId: taskScheduleItems.vendorId,
         title: taskScheduleItems.title,
         description: taskScheduleItems.description,
         date: taskScheduleItems.date,
@@ -109,15 +116,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         notes: taskScheduleItems.notes,
         sortOrder: taskScheduleItems.sortOrder,
         taskTitle: tasks.title,
+        vendorName: vendors.name,
       })
       .from(taskScheduleItems)
       .innerJoin(tasks, eq(taskScheduleItems.taskId, tasks.id))
+      .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
       .where(
         and(
           eq(tasks.eventId, eventId),
           eq(tasks.organizationId, session.organizationId),
           ...(filterTaskId
             ? [eq(taskScheduleItems.taskId, parseInt(filterTaskId, 10))]
+            : []),
+          ...(filterVendorId
+            ? [eq(taskScheduleItems.vendorId, parseInt(filterVendorId, 10))]
             : [])
         )
       )
@@ -137,6 +149,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       source: "task" as const,
       taskTitle: item.taskTitle,
       taskId: item.taskId,
+      vendorId: item.vendorId,
+      vendorName: item.vendorName,
     }));
 
     // Combine and sort
@@ -157,17 +171,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Determine filter label for PDF title
+    let filterLabel: string | null = null;
+    if (filterTaskId) {
+      filterLabel = rawTaskItems[0]?.taskTitle || null;
+    } else if (filterVendorId) {
+      filterLabel = rawTaskItems[0]?.vendorName || null;
+    }
+
+    // When filtering by vendor, also exclude event items (they don't have vendors)
+    const finalItems = filterVendorId ? allItems.filter((i) => i.source === "task") : allItems;
+
     // Generate HTML
     const html = generateRunSheetHTML({
-      items: allItems,
+      items: finalItems,
       eventName: event?.name || "Evento",
       eventDate: event?.date || null,
       eventLocation: event?.location || null,
       orgName: org?.name || "",
       orgLogo: logoDataUri,
-      filterTaskTitle: filterTaskId
-        ? rawTaskItems[0]?.taskTitle || null
-        : null,
+      filterLabel,
+      filterType: filterTaskId ? "task" : filterVendorId ? "vendor" : null,
     });
 
     // Return HTML for client-side PDF generation (html2canvas + jsPDF)
@@ -203,7 +227,8 @@ function generateRunSheetHTML(data: {
   eventLocation: string | null;
   orgName: string;
   orgLogo?: string;
-  filterTaskTitle: string | null;
+  filterLabel: string | null;
+  filterType: "task" | "vendor" | null;
 }): string {
   // Group by date
   const byDate: Record<string, ScheduleRow[]> = {};
@@ -220,8 +245,8 @@ function generateRunSheetHTML(data: {
 
   const sortedDates = Object.keys(byDate).sort();
 
-  const title = data.filterTaskTitle
-    ? `Orden del día — ${data.filterTaskTitle}`
+  const title = data.filterLabel
+    ? `Orden del día — ${data.filterLabel}`
     : "Orden del día";
 
   const datesSectionsHTML = sortedDates
@@ -236,13 +261,16 @@ function generateRunSheetHTML(data: {
         .map(
           (item) => `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 100px;">
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; vertical-align: top; width: 90px;">
             <strong style="font-size: 14px;">${item.startTime || "—"}</strong>
             ${item.endTime ? `<br><span style="color: #9ca3af; font-size: 12px;">→ ${item.endTime}</span>` : ""}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top;">
             <strong style="font-size: 14px;">${item.title}</strong>
             ${item.description ? `<br><span style="color: #6b7280; font-size: 12px;">${item.description}</span>` : ""}
+          </td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #374151; font-weight: 500;">
+            ${item.vendorName || "—"}
           </td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; font-size: 12px; color: #6b7280;">
             ${item.location || "—"}
@@ -269,11 +297,12 @@ function generateRunSheetHTML(data: {
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 100px;">Hora</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 90px;">Hora</th>
                 <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">Actividad</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Ubicación</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 110px;">Origen</th>
-                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 160px;">Notas</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Proveedor</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 120px;">Ubicación</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 100px;">Origen</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; border-bottom: 1px solid #e5e7eb; width: 140px;">Notas</th>
               </tr>
             </thead>
             <tbody>
