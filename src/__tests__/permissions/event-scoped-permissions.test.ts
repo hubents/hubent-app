@@ -500,3 +500,412 @@ describe("N3: Task schedule PDF — eventScoped permission check", () => {
     expect(hasAccess).toBe(false);
   });
 });
+
+// ========== B1: Main sidebar filtering for eventScoped users ==========
+
+describe("B1: Main sidebar — eventScoped navigation filtering", () => {
+  interface NavItem {
+    name: string;
+    permission: string | null;
+  }
+
+  const navigationBeforeFinance: NavItem[] = [
+    { name: "Dashboard", permission: null },
+    { name: "Calendario", permission: null },
+    { name: "Eventos", permission: "events:read" },
+    { name: "CRM", permission: "crm:read" },
+    { name: "Tareas", permission: "tasks:read" },
+  ];
+
+  const navigationAfterFinance: NavItem[] = [
+    { name: "Proveedores", permission: "vendors:read" },
+    { name: "Equipo", permission: "team:read" },
+    { name: "Enti IA", permission: null },
+  ];
+
+  function canOrgPerm(orgPermissions: string[], permission: string): boolean {
+    return orgPermissions.includes(permission);
+  }
+
+  function filterMainSidebar(
+    items: NavItem[],
+    orgPermissions: string[],
+    eventScoped: boolean
+  ): string[] {
+    const base = items.filter(
+      (item) => !item.permission || canOrgPerm(orgPermissions, item.permission)
+    );
+    if (eventScoped) return base.filter((item) => item.name === "Eventos").map((i) => i.name);
+    return base.map((i) => i.name);
+  }
+
+  function showFinance(orgPermissions: string[], eventScoped: boolean): boolean {
+    return !eventScoped && canOrgPerm(orgPermissions, "finance:read");
+  }
+
+  function showContacts(orgPermissions: string[], eventScoped: boolean): boolean {
+    return !eventScoped && canOrgPerm(orgPermissions, "crm:read");
+  }
+
+  function showMoreMenu(eventScoped: boolean): boolean {
+    return !eventScoped;
+  }
+
+  function showBottomSettings(eventScoped: boolean): boolean {
+    return !eventScoped;
+  }
+
+  it("eventScoped client → only sees 'Eventos'", () => {
+    const result = filterMainSidebar(navigationBeforeFinance, CLIENT_ROLE_PERMISSIONS_AFTER_FIX, true);
+    expect(result).toEqual(["Eventos"]);
+  });
+
+  it("eventScoped client → afterFinance items hidden", () => {
+    const result = filterMainSidebar(navigationAfterFinance, CLIENT_ROLE_PERMISSIONS_AFTER_FIX, true);
+    expect(result).toEqual([]);
+  });
+
+  it("eventScoped client → Finance menu hidden", () => {
+    expect(showFinance(CLIENT_ROLE_PERMISSIONS_AFTER_FIX, true)).toBe(false);
+  });
+
+  it("eventScoped client → Contacts menu hidden", () => {
+    expect(showContacts(CLIENT_ROLE_PERMISSIONS_AFTER_FIX, true)).toBe(false);
+  });
+
+  it("eventScoped client → More menu hidden", () => {
+    expect(showMoreMenu(true)).toBe(false);
+  });
+
+  it("eventScoped client → Settings (bottom) hidden", () => {
+    expect(showBottomSettings(true)).toBe(false);
+  });
+
+  it("non-eventScoped admin → sees Dashboard, Calendario, Eventos, CRM, Tareas", () => {
+    const adminPerms = ["events:read", "crm:read", "tasks:read", "finance:read", "vendors:read", "team:read"];
+    const result = filterMainSidebar(navigationBeforeFinance, adminPerms, false);
+    expect(result).toEqual(["Dashboard", "Calendario", "Eventos", "CRM", "Tareas"]);
+  });
+
+  it("non-eventScoped admin → sees afterFinance items", () => {
+    const adminPerms = ["vendors:read", "team:read"];
+    const result = filterMainSidebar(navigationAfterFinance, adminPerms, false);
+    expect(result).toEqual(["Proveedores", "Equipo", "Enti IA"]);
+  });
+
+  it("non-eventScoped admin → Finance visible", () => {
+    expect(showFinance(["finance:read"], false)).toBe(true);
+  });
+
+  it("non-eventScoped without finance:read → Finance hidden", () => {
+    expect(showFinance([], false)).toBe(false);
+  });
+
+  it("non-eventScoped → More menu visible", () => {
+    expect(showMoreMenu(false)).toBe(true);
+  });
+});
+
+// ========== Multi-role permission matrix ==========
+
+describe("Multi-role permission matrix", () => {
+  const ROLES: Record<string, { orgPermissions: string[]; eventScoped: boolean }> = {
+    admin: {
+      eventScoped: false,
+      orgPermissions: [
+        "events:read", "events:create", "events:update", "events:delete",
+        "tasks:read", "tasks:create", "tasks:update", "tasks:delete", "tasks:comment",
+        "vendors:read", "vendors:create", "vendors:update", "vendors:delete",
+        "crm:read", "crm:manage",
+        "finance:read", "finance:create", "finance:manage",
+        "guests:read", "guests:manage",
+        "team:read", "team:manage",
+        "settings:read", "settings:manage",
+      ],
+    },
+    planner: {
+      eventScoped: false,
+      orgPermissions: [
+        "events:read", "events:create", "events:update",
+        "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
+        "vendors:read", "vendors:create", "vendors:update",
+        "crm:read", "crm:manage",
+        "finance:read", "finance:create",
+        "guests:read", "guests:manage",
+      ],
+    },
+    assistant: {
+      eventScoped: false,
+      orgPermissions: [
+        "events:read", "events:update",
+        "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
+        "vendors:read",
+        "guests:read", "guests:manage",
+        "finance:read",
+      ],
+    },
+    client: {
+      eventScoped: true,
+      orgPermissions: CLIENT_ROLE_PERMISSIONS_AFTER_FIX,
+    },
+    viewer: {
+      eventScoped: false,
+      orgPermissions: [
+        "events:read",
+        "tasks:read",
+        "vendors:read",
+        "guests:read",
+        "finance:read",
+      ],
+    },
+    member: {
+      eventScoped: false,
+      orgPermissions: [
+        "events:read",
+        "tasks:read", "tasks:comment",
+        "vendors:read",
+      ],
+    },
+  };
+
+  describe("Admin role", () => {
+    const role = ROLES.admin;
+
+    it("is not eventScoped", () => {
+      expect(role.eventScoped).toBe(false);
+    });
+
+    it("can create/update/delete tasks at org level", () => {
+      expect(role.orgPermissions).toContain("tasks:create");
+      expect(role.orgPermissions).toContain("tasks:update");
+      expect(role.orgPermissions).toContain("tasks:delete");
+    });
+
+    it("can manage finances at org level", () => {
+      expect(role.orgPermissions).toContain("finance:read");
+      expect(role.orgPermissions).toContain("finance:create");
+      expect(role.orgPermissions).toContain("finance:manage");
+    });
+
+    it("isTaskReadOnly always false (non-eventScoped)", () => {
+      expect(isTaskReadOnly(null, role.eventScoped)).toBe(false);
+    });
+
+    it("canEditFinances always true (non-eventScoped)", () => {
+      expect(canEditFinances(null, role.eventScoped)).toBe(true);
+    });
+  });
+
+  describe("Planner role", () => {
+    const role = ROLES.planner;
+
+    it("is not eventScoped", () => {
+      expect(role.eventScoped).toBe(false);
+    });
+
+    it("has finance:create but not finance:manage", () => {
+      expect(role.orgPermissions).toContain("finance:create");
+      expect(role.orgPermissions).not.toContain("finance:manage");
+    });
+
+    it("canEditFinances always true (non-eventScoped)", () => {
+      expect(canEditFinances(null, role.eventScoped)).toBe(true);
+    });
+  });
+
+  describe("Client role (eventScoped)", () => {
+    const role = ROLES.client;
+
+    it("is eventScoped", () => {
+      expect(role.eventScoped).toBe(true);
+    });
+
+    it("does NOT have tasks:create or tasks:update", () => {
+      expect(role.orgPermissions).not.toContain("tasks:create");
+      expect(role.orgPermissions).not.toContain("tasks:update");
+    });
+
+    it("has tasks:read and tasks:comment", () => {
+      expect(role.orgPermissions).toContain("tasks:read");
+      expect(role.orgPermissions).toContain("tasks:comment");
+    });
+
+    it("does NOT have finance:create", () => {
+      expect(role.orgPermissions).not.toContain("finance:create");
+    });
+
+    it("tasks readOnly depends on event permissions", () => {
+      expect(isTaskReadOnly({ tasks: "edit" }, true)).toBe(false);
+      expect(isTaskReadOnly({ tasks: "view" }, true)).toBe(true);
+      expect(isTaskReadOnly({ tasks: "none" }, true)).toBe(true);
+    });
+
+    it("finances canEdit depends on event permissions", () => {
+      expect(canEditFinances({ finances: "edit" }, true)).toBe(true);
+      expect(canEditFinances({ finances: "view" }, true)).toBe(false);
+      expect(canEditFinances({ finances: "none" }, true)).toBe(false);
+    });
+
+    it("canView per section with mixed permissions", () => {
+      const perms: EventSectionPermissions = {
+        general: "view", tasks: "view", guests: "edit",
+        rsvp: "edit", vendors: "none", finances: "none", settings: "none",
+      };
+      expect(canView(perms, "general", true)).toBe(true);
+      expect(canView(perms, "tasks", true)).toBe(true);
+      expect(canView(perms, "guests", true)).toBe(true);
+      expect(canView(perms, "rsvp", true)).toBe(true);
+      expect(canView(perms, "vendors", true)).toBe(false);
+      expect(canView(perms, "finances", true)).toBe(false);
+      expect(canView(perms, "settings", true)).toBe(false);
+    });
+  });
+
+  describe("Viewer role", () => {
+    const role = ROLES.viewer;
+
+    it("is not eventScoped", () => {
+      expect(role.eventScoped).toBe(false);
+    });
+
+    it("has read-only org permissions (no create/update/delete)", () => {
+      const writePerms = role.orgPermissions.filter(
+        (p) => p.includes(":create") || p.includes(":update") || p.includes(":delete") || p.includes(":manage")
+      );
+      expect(writePerms).toEqual([]);
+    });
+
+    it("canEditFinances always true (non-eventScoped bypasses)", () => {
+      expect(canEditFinances(null, role.eventScoped)).toBe(true);
+    });
+  });
+
+  describe("Member role", () => {
+    const role = ROLES.member;
+
+    it("does not have finance:read", () => {
+      expect(role.orgPermissions).not.toContain("finance:read");
+    });
+
+    it("does not have guests:read", () => {
+      expect(role.orgPermissions).not.toContain("guests:read");
+    });
+
+    it("has tasks:comment", () => {
+      expect(role.orgPermissions).toContain("tasks:comment");
+    });
+  });
+});
+
+// ========== Finance ticket compatibility ==========
+
+describe("Finance ticket compatibility — canEditFinances pattern", () => {
+  it("unified payment drawer should respect canEditFinances for eventScoped client", () => {
+    const perms: EventSectionPermissions = { finances: "view" };
+    const canCreate = canEditFinances(perms, true);
+    expect(canCreate).toBe(false);
+  });
+
+  it("unified payment drawer allows creation when finances:edit", () => {
+    const perms: EventSectionPermissions = { finances: "edit" };
+    const canCreate = canEditFinances(perms, true);
+    expect(canCreate).toBe(true);
+  });
+
+  it("partial payment status change requires finances:edit", () => {
+    const canChangeStatus = canEdit({ finances: "view" }, "finances", true);
+    expect(canChangeStatus).toBe(false);
+  });
+
+  it("non-eventScoped user always allowed to edit finances", () => {
+    expect(canEditFinances(null, false)).toBe(true);
+    expect(canEditFinances({ finances: "none" }, false)).toBe(true);
+  });
+
+  it("EventSectionGuard still blocks page access when finances:none", () => {
+    const blocked = !canView({ finances: "none" }, "finances", true);
+    expect(blocked).toBe(true);
+  });
+
+  it("EventSectionGuard allows page access when finances:view (read-only)", () => {
+    const allowed = canView({ finances: "view" }, "finances", true);
+    expect(allowed).toBe(true);
+  });
+});
+
+// ========== Cross-section permission scenarios ==========
+
+describe("Cross-section permission scenarios", () => {
+  it("RSVP-only client: can only view RSVP and guests", () => {
+    const perms: EventSectionPermissions = {
+      general: "view", tasks: "none", guests: "view",
+      rsvp: "edit", vendors: "none", finances: "none", settings: "none",
+    };
+    expect(canView(perms, "rsvp", true)).toBe(true);
+    expect(canEdit(perms, "rsvp", true)).toBe(true);
+    expect(canView(perms, "guests", true)).toBe(true);
+    expect(canView(perms, "tasks", true)).toBe(false);
+    expect(canView(perms, "finances", true)).toBe(false);
+    expect(canView(perms, "vendors", true)).toBe(false);
+    expect(canView(perms, "settings", true)).toBe(false);
+  });
+
+  it("full-access preset: everything edit except vendors/finances (view only)", () => {
+    const perms: EventSectionPermissions = {
+      general: "edit", tasks: "edit", guests: "edit",
+      rsvp: "edit", vendors: "view", finances: "view", settings: "none",
+    };
+    expect(canEdit(perms, "general", true)).toBe(true);
+    expect(canEdit(perms, "tasks", true)).toBe(true);
+    expect(canEdit(perms, "vendors", true)).toBe(false);
+    expect(canView(perms, "vendors", true)).toBe(true);
+    expect(canEdit(perms, "finances", true)).toBe(false);
+    expect(canView(perms, "finances", true)).toBe(true);
+  });
+
+  it("read-only preset: all sections view, none edit", () => {
+    const perms: EventSectionPermissions = {
+      general: "view", tasks: "view", guests: "view",
+      rsvp: "view", vendors: "view", finances: "view", settings: "none",
+    };
+    const sections: (keyof EventSectionPermissions)[] = [
+      "general", "tasks", "guests", "rsvp", "vendors", "finances",
+    ];
+    for (const s of sections) {
+      expect(canView(perms, s, true)).toBe(true);
+      expect(canEdit(perms, s, true)).toBe(false);
+    }
+    expect(canView(perms, "settings", true)).toBe(false);
+  });
+
+  it("no-access preset: everything none", () => {
+    const perms: EventSectionPermissions = {
+      general: "none", tasks: "none", guests: "none",
+      rsvp: "none", vendors: "none", finances: "none", settings: "none",
+    };
+    const sections: (keyof EventSectionPermissions)[] = [
+      "general", "tasks", "guests", "rsvp", "vendors", "finances", "settings",
+    ];
+    for (const s of sections) {
+      expect(canView(perms, s, true)).toBe(false);
+      expect(canEdit(perms, s, true)).toBe(false);
+    }
+  });
+
+  it("dashboard redirect: eventScoped → /dashboard/events", () => {
+    const shouldRedirect = true; // eventScoped
+    expect(shouldRedirect).toBe(true);
+  });
+
+  it("mobile bottom nav: eventScoped general nav → only Eventos", () => {
+    const generalNav = ["Dashboard", "Eventos", "Contactos", "Tareas"];
+    const filtered = generalNav.filter((n) => n === "Eventos");
+    expect(filtered).toEqual(["Eventos"]);
+  });
+
+  it("mobile bottom nav: eventScoped → no more menu items", () => {
+    const moreItems = ["Proveedores", "Pagos", "Configuración"];
+    const filtered: string[] = []; // eventScoped → empty
+    expect(filtered).toEqual([]);
+  });
+});

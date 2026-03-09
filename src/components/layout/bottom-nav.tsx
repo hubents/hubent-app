@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUserSession } from "@/hooks/use-user-session";
 
 // General navigation (when no event is active)
 const generalNavigation = [
@@ -40,6 +41,7 @@ const generalMoreItems = [
 export function BottomNav() {
   const pathname = usePathname();
   const { activeEvent, isEventView } = useEvent();
+  const { eventScoped } = useUserSession();
 
   // Event-specific navigation
   const getEventNavigation = (eventId: number) => [
@@ -55,13 +57,17 @@ export function BottomNav() {
     { name: "Configuración", href: `/dashboard/events/${eventId}/settings`, icon: RiSettings4Line },
   ];
 
+  const filteredGeneralNav = eventScoped
+    ? generalNavigation.filter((item) => item.name === "Eventos")
+    : generalNavigation;
+
   const navigation = isEventView && activeEvent 
     ? getEventNavigation(activeEvent.id) 
-    : generalNavigation;
+    : filteredGeneralNav;
   
   const moreItems = isEventView && activeEvent 
     ? getEventMoreItems(activeEvent.id) 
-    : generalMoreItems;
+    : eventScoped ? [] : generalMoreItems;
 
   const isMoreActive = moreItems.some(item => 
     pathname === item.href || pathname.startsWith(item.href + "/")
@@ -93,7 +99,7 @@ export function BottomNav() {
         })}
 
         {/* More Menu */}
-        <DropdownMenu>
+        {moreItems.length > 0 && <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
@@ -117,7 +123,7 @@ export function BottomNav() {
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
       </div>
     </nav>
   );

@@ -150,7 +150,7 @@ const defaultRoles = [
     isSystem: true,
     permissions: [
       "events:read", "events:update",
-      "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
+      "tasks:read", "tasks:comment",
       "vendors:read",
       "guests:read", "guests:manage",
       "finance:read",

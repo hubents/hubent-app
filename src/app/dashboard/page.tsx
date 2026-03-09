@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface DashboardStats {
   totalEvents: number;
@@ -37,10 +38,19 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { eventScoped, loading: sessionLoading } = useUserSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!sessionLoading && eventScoped) {
+      router.replace("/dashboard/events");
+      return;
+    }
+  }, [eventScoped, sessionLoading, router]);
+
+  useEffect(() => {
+    if (eventScoped) return;
     async function loadStats() {
       try {
         const res = await fetch("/api/dashboard/stats");

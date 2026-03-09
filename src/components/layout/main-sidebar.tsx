@@ -93,21 +93,22 @@ interface MainSidebarProps {
 export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const pathname = usePathname();
   const { isEventView } = useEvent();
-  const { can, loading: sessionLoading } = useUserSession();
+  const { can, eventScoped, loading: sessionLoading } = useUserSession();
   const [financeExpanded, setFinanceExpanded] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
   const [contactsExpanded, setContactsExpanded] = useState(false);
 
-  const filteredNavBefore = useMemo(() => 
-    navigationBeforeFinance.filter((item) => !item.permission || can(item.permission)),
-    [can]
-  );
-  const filteredNavAfter = useMemo(() =>
-    navigationAfterFinance.filter((item) => !item.permission || can(item.permission)),
-    [can]
-  );
-  const showFinance = useMemo(() => can("finance:read"), [can]);
-  const showContacts = useMemo(() => can("crm:read"), [can]);
+  const filteredNavBefore = useMemo(() => {
+    const base = navigationBeforeFinance.filter((item) => !item.permission || can(item.permission));
+    if (eventScoped) return base.filter((item) => item.name === "Eventos");
+    return base;
+  }, [can, eventScoped]);
+  const filteredNavAfter = useMemo(() => {
+    if (eventScoped) return [];
+    return navigationAfterFinance.filter((item) => !item.permission || can(item.permission));
+  }, [can, eventScoped]);
+  const showFinance = useMemo(() => !eventScoped && can("finance:read"), [can, eventScoped]);
+  const showContacts = useMemo(() => !eventScoped && can("crm:read"), [can, eventScoped]);
   
   // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
@@ -349,7 +350,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             ))}
 
             {/* More Menu with Submenu */}
-            {isCollapsed ? (
+            {!eventScoped && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -420,7 +421,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   </div>
                 )}
               </div>
-            )}
+            ))}
 
             {/* Items after Finance */}
             {filteredNavAfter.map((item) => {
@@ -469,7 +470,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
 
           {/* Bottom Navigation */}
           <div className="border-t border-[var(--border)] px-2 py-4">
-            {bottomNavigation.map((item) => {
+            {!eventScoped && bottomNavigation.map((item) => {
               const isActive = pathname === item.href;
               
               if (isCollapsed) {
