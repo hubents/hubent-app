@@ -21,7 +21,7 @@ export default function VendorCalendarPage() {
     goToPrevMonth,
     goToNextMonth,
     goToToday,
-  } = useCalendar({ visibleTypes: ["event", "task"], filterKey: "hubents-calendar-filters-vendor" });
+  } = useCalendar({ visibleTypes: ["event", "task", "meeting", "payment", "task_payment", "document", "lead"], filterKey: "hubents-calendar-filters-vendor" });
 
   return (
     <div className="space-y-6">

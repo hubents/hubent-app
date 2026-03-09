@@ -129,9 +129,9 @@ describe("visibleTypes filtering logic", () => {
     return apiTypes.filter((t) => visibleTypes.includes(t));
   }
 
-  it("dashboard: only event + task from full API types", () => {
-    const result = filterByVisibleTypes(ALL_TYPES, ["event", "task"]);
-    expect(result).toEqual(["event", "task"]);
+  it("dashboard/general: all types except schedule", () => {
+    const result = filterByVisibleTypes(ALL_TYPES, ["event", "task", "meeting", "payment", "task_payment", "document", "lead"]);
+    expect(result).toEqual(["event", "task", "meeting", "payment", "task_payment", "document", "lead"]);
   });
 
   it("event cronograma: event + task + meeting + task_payment + document", () => {
