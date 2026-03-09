@@ -19,6 +19,9 @@ import {
   RiCalendarLine,
   RiFileDownloadLine,
   RiUser3Line,
+  RiEditLine,
+  RiCloseLine,
+  RiCheckLine,
 } from "@remixicon/react";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
@@ -77,6 +80,17 @@ export function TaskScheduleTab({
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editFields, setEditFields] = useState({
+    title: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    description: "",
+    location: "",
+    vendorId: "" as string,
+  });
+  const [saving, setSaving] = useState(false);
 
   const fetchVendors = useCallback(async () => {
     try {
@@ -114,6 +128,40 @@ export function TaskScheduleTab({
     location: "",
     vendorId: "" as string,
   });
+
+  const startEdit = (item: TaskScheduleItem) => {
+    setEditingId(item.id);
+    setEditFields({
+      title: item.title,
+      date: typeof item.date === "string" && item.date.includes("T")
+        ? item.date.split("T")[0]
+        : item.date,
+      startTime: item.startTime || "",
+      endTime: item.endTime || "",
+      description: item.description || "",
+      location: item.location || "",
+      vendorId: item.vendorId?.toString() || "",
+    });
+  };
+
+  const handleSaveEdit = async (item: TaskScheduleItem) => {
+    if (!editFields.title.trim() || !editFields.date) return;
+    setSaving(true);
+    try {
+      await onUpdateScheduleItem(item.id, {
+        title: editFields.title.trim(),
+        date: editFields.date,
+        startTime: editFields.startTime || null,
+        endTime: editFields.endTime || null,
+        description: editFields.description.trim() || null,
+        location: editFields.location.trim() || null,
+        vendorId: editFields.vendorId ? parseInt(editFields.vendorId, 10) : null,
+      });
+      setEditingId(null);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleExpanded = (id: number) => {
     const newExpanded = new Set(expandedItems);
@@ -279,7 +327,76 @@ export function TaskScheduleTab({
         </div>
       ) : (
         <div className="space-y-2">
-          {scheduleItems.map((item) => (
+          {scheduleItems.map((item) => {
+            const isEditing = editingId === item.id;
+
+            if (isEditing && !readOnly) {
+              return (
+                <div key={item.id} className="rounded-lg border border-primary overflow-hidden">
+                  <div className="p-4 bg-muted/50 space-y-3">
+                    <div className="grid grid-cols-4 gap-3">
+                      <Input
+                        placeholder="Título *"
+                        value={editFields.title}
+                        onChange={(e) => setEditFields({ ...editFields, title: e.target.value })}
+                      />
+                      <Input
+                        type="date"
+                        value={editFields.date}
+                        onChange={(e) => setEditFields({ ...editFields, date: e.target.value })}
+                      />
+                      <Input
+                        type="time"
+                        value={editFields.startTime}
+                        onChange={(e) => setEditFields({ ...editFields, startTime: e.target.value })}
+                      />
+                      <Input
+                        type="time"
+                        value={editFields.endTime}
+                        onChange={(e) => setEditFields({ ...editFields, endTime: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={editFields.vendorId}
+                        onChange={(e) => setEditFields({ ...editFields, vendorId: e.target.value })}
+                      >
+                        <option value="">Sin proveedor</option>
+                        {vendorOptions.map((v) => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                      </select>
+                      <Input
+                        placeholder="Ubicación (opcional)"
+                        value={editFields.location}
+                        onChange={(e) => setEditFields({ ...editFields, location: e.target.value })}
+                      />
+                    </div>
+                    <Textarea
+                      placeholder="Notas (opcional)"
+                      value={editFields.description}
+                      onChange={(e) => setEditFields({ ...editFields, description: e.target.value })}
+                      rows={2}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                        <RiCloseLine className="h-4 w-4 mr-1" />Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveEdit(item)}
+                        disabled={saving || !editFields.title.trim() || !editFields.date}
+                      >
+                        <RiCheckLine className="h-4 w-4 mr-1" />{saving ? "Guardando..." : "Guardar"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
             <Collapsible
               key={item.id}
               open={expandedItems.has(item.id)}
@@ -331,14 +448,24 @@ export function TaskScheduleTab({
                       </Button>
                     </CollapsibleTrigger>
                     {!readOnly && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => onDeleteScheduleItem(item.id)}
-                    >
-                      <RiDeleteBinLine className="h-4 w-4" />
-                    </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => startEdit(item)}
+                        >
+                          <RiEditLine className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => onDeleteScheduleItem(item.id)}
+                        >
+                          <RiDeleteBinLine className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -367,7 +494,8 @@ export function TaskScheduleTab({
                 </CollapsibleContent>
               </div>
             </Collapsible>
-          ))}
+            );
+          })}
         </div>
       )}
 
