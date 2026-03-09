@@ -121,7 +121,7 @@ function getDocumentLabel(doc: ConciliableDocument) {
     invoice: "Factura",
     quote: "Presupuesto",
     proforma: "Proforma",
-    delivery_note: "Albar\u00e1n",
+    delivery_note: "Albarán",
   };
   const statusLabels: Record<string, string> = {
     payment_promise: " (Promesa de pago)",
@@ -385,18 +385,18 @@ export function PaymentDrawer({
               </Select>
               {conciliableDocuments.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No hay documentos pendientes de conciliaci\u00f3n
+                  No hay documentos pendientes de conciliación
                 </p>
               )}
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Concepto / Descripci\u00f3n</Label>
+            <Label>Concepto / Descripción</Label>
             <Textarea
               value={form.notes}
               onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Ej: Se\u00f1a del sal\u00f3n, pago mensual..."
+              placeholder="Ej: Seña del salón, pago mensual..."
               rows={2}
             />
           </div>
@@ -465,7 +465,7 @@ export function PaymentDrawer({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>M\u00e9todo de pago</Label>
+              <Label>Método de pago</Label>
               <Select
                 value={form.paymentMethod}
                 onValueChange={(v) => setForm((prev) => ({ ...prev, paymentMethod: v }))}
@@ -505,7 +505,7 @@ export function PaymentDrawer({
             <Input
               value={form.reference}
               onChange={(e) => setForm((prev) => ({ ...prev, reference: e.target.value }))}
-              placeholder="N\u00ba de transferencia, recibo, etc."
+              placeholder="Nº de transferencia, recibo, etc."
             />
           </div>
 
@@ -559,7 +559,7 @@ export function PaymentDrawer({
                   {fileUploading ? "Subiendo..." : "Adjuntar comprobante"}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PDF o imagen, m\u00e1x. 10MB
+                  PDF o imagen, máx. 10MB
                 </p>
               </div>
             )}
