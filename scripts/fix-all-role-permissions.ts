@@ -15,7 +15,7 @@ import { eq } from "drizzle-orm";
 const ROLE_PERMISSION_UPDATES: Record<string, string[]> = {
   client: [
     "events:read", "events:update",
-    "tasks:read", "tasks:create", "tasks:update", "tasks:comment",
+    "tasks:read", "tasks:comment",
     "vendors:read",
     "guests:read", "guests:manage",
     "finance:read",
