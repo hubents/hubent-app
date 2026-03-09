@@ -97,6 +97,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         source: "event" as const,
         taskTitle: null,
         taskId: null,
+        vendorId: null,
+        vendorName: null,
       })),
       ...taskItems.map((item) => ({
         ...item,

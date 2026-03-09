@@ -50,7 +50,6 @@ interface TaskScheduleTabProps {
   scheduleItems: TaskScheduleItem[];
   loading: boolean;
   readOnly?: boolean;
-  eventId?: number;
   onAddScheduleItem: (data: {
     title: string;
     date: string;
@@ -71,7 +70,6 @@ export function TaskScheduleTab({
   taskId,
   scheduleItems,
   loading,
-  eventId,
   onAddScheduleItem,
   onUpdateScheduleItem,
   onDeleteScheduleItem,

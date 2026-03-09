@@ -548,19 +548,19 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-sm text-muted-foreground">Total items</p>
-            <p className="text-2xl font-bold">{items.length}</p>
+            <p className="text-2xl font-bold">{filteredItems.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-sm text-muted-foreground">Del evento</p>
-            <p className="text-2xl font-bold">{items.filter((i) => i.source === "event").length}</p>
+            <p className="text-2xl font-bold">{filteredItems.filter((i) => i.source === "event").length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <p className="text-sm text-muted-foreground">De tareas</p>
-            <p className="text-2xl font-bold">{items.filter((i) => i.source === "task").length}</p>
+            <p className="text-2xl font-bold">{filteredItems.filter((i) => i.source === "task").length}</p>
           </CardContent>
         </Card>
         <Card>
