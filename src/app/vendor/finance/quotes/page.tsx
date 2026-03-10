@@ -37,6 +37,7 @@ import {
   RiExchangeLine,
   RiSearchLine,
   RiFileCopyLine,
+  RiMoneyDollarCircleLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -56,6 +57,7 @@ interface Quote {
   personFirstName: string | null;
   personLastName: string | null;
   total: string;
+  paidAmount: string | null;
   status: string;
   issueDate: string;
   currency: string;
@@ -74,7 +76,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise" | "partial";
+type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise" | "partial" | "paid";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todos" },
   { key: "sent", label: "Pendiente" },
@@ -82,6 +84,7 @@ const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "rejected", label: "Rechazado" },
   { key: "payment_promise", label: "Promesa de pago" },
   { key: "partial", label: "Parcial" },
+  { key: "paid", label: "Pagado" },
 ];
 
 export default function VendorQuotesPage() {
@@ -365,6 +368,7 @@ export default function VendorQuotesPage() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Número</TableHead>
+                  <TableHead>Pagado</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10"></TableHead>
@@ -382,6 +386,22 @@ export default function VendorQuotesPage() {
                       </TableCell>
                       <TableCell>{getClientName(q)}</TableCell>
                       <TableCell className="font-medium">{q.number}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const total = parseFloat(q.total || "0");
+                          const paid = parseFloat(q.paidAmount || "0");
+                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          return (
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(q.total, q.currency)}
                       </TableCell>
@@ -442,6 +462,10 @@ export default function VendorQuotesPage() {
                             )}
                             {q.status === "payment_promise" && (
                               <>
+                                <DropdownMenuItem onClick={() => openPreview(q.id)}>
+                                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                  Registrar Pago
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateStatus(q.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" />
                                   Aceptar

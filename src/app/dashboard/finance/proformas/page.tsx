@@ -363,6 +363,7 @@ export default function ProformasPage() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Número</TableHead>
+                <TableHead>Pagado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -371,7 +372,7 @@ export default function ProformasPage() {
             <TableBody>
               {proformas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No hay proformas
                   </TableCell>
                 </TableRow>
@@ -389,6 +390,22 @@ export default function ProformasPage() {
                     </TableCell>
                     <TableCell>{getClientName(doc)}</TableCell>
                     <TableCell className="font-medium">{doc.number}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const total = parseFloat(doc.total || "0");
+                        const paid = parseFloat(doc.paidAmount || "0");
+                        if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                        const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                        return (
+                          <div className="flex items-center gap-2 min-w-[100px]">
+                            <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(doc.total, doc.currency)}
                     </TableCell>

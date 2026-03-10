@@ -541,58 +541,55 @@ export function DocumentPreview({
           </div>
         )}
 
-        {/* Document Preview - same layout as PDF and edit mode */}
-        {previewData && (
-          <div className="mt-4 -mx-6">
-            <LiveDocumentPreview data={previewData} />
-          </div>
-        )}
-
-        {/* Payment Section (invoices/proformas/quotes with payments) */}
-        {(document.type === "invoice" || document.type === "proforma" || (document.type === "quote" && (document.status === "partial" || document.status === "paid"))) && paidAmount > 0 && (
-          <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2">
+        {/* Payment Section — ABOVE document preview for visibility */}
+        {(document.type === "invoice" || document.type === "proforma" || 
+          (document.type === "quote" && ["payment_promise", "partial", "paid"].includes(document.status))) && (
+          <div className="mt-4 p-4 border rounded-lg space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total documento</span>
               <span className="font-medium">{formatCurrency(document.total, document.currency)}</span>
             </div>
-            <div className="flex justify-between text-sm text-emerald-600">
-              <span>Pagado</span>
-              <span>-{formatCurrency(paidAmount.toString(), document.currency)}</span>
-            </div>
+            {paidAmount > 0 && (
+              <div className="flex justify-between text-sm text-emerald-600">
+                <span>Pagado</span>
+                <span>-{formatCurrency(paidAmount.toString(), document.currency)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm font-bold">
               <span>Pendiente</span>
               <span className={pendingAmount > 0 ? "text-amber-600" : "text-emerald-600"}>
                 {formatCurrency(pendingAmount.toString(), document.currency)}
               </span>
             </div>
-            <div className="mt-2">
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-300"
-                  style={{ width: `${paymentPercentage}%` }}
-                />
+            {paidAmount > 0 && (
+              <div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${paymentPercentage}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 text-right">
+                  {paymentPercentage.toFixed(0)}% pagado
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1 text-right">
-                {paymentPercentage.toFixed(0)}% pagado
-              </p>
-            </div>
+            )}
+            {document.status !== "paid" && document.status !== "cancelled" && pendingAmount > 0 && (
+              <Button 
+                className="w-full"
+                onClick={() => setPaymentDialogOpen(true)}
+              >
+                <RiMoneyDollarCircleLine className="h-4 w-4 mr-1" />
+                Registrar pago
+              </Button>
+            )}
           </div>
         )}
 
-        {/* Register Payment Button */}
-        {(document.type === "invoice" || document.type === "proforma" || (document.type === "quote" && document.status === "payment_promise") || (document.type === "quote" && document.status === "partial")) && 
-         document.status !== "paid" && 
-         document.status !== "cancelled" && 
-         pendingAmount > 0 && (
-          <div className="flex justify-end mt-4">
-            <Button 
-              variant="default" 
-              size="sm"
-              onClick={() => setPaymentDialogOpen(true)}
-            >
-              <RiMoneyDollarCircleLine className="h-4 w-4 mr-1" />
-              Registrar pago
-            </Button>
+        {/* Document Preview - same layout as PDF and edit mode */}
+        {previewData && (
+          <div className="mt-4 -mx-6">
+            <LiveDocumentPreview data={previewData} />
           </div>
         )}
       </SheetContent>

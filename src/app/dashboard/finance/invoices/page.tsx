@@ -9,13 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -54,15 +47,7 @@ import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
+import { PaymentDrawer } from "@/components/finance/payment-drawer";
 import { cn } from "@/lib/utils";
 
 interface DocumentItem {
@@ -160,9 +145,6 @@ function InvoicesContent() {
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
-  const [paymentReference, setPaymentReference] = useState("");
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -328,10 +310,6 @@ function InvoicesContent() {
 
   function openPaymentDialog(invoice: Invoice) {
     setPaymentInvoice(invoice);
-    const remaining = parseFloat(invoice.total || "0") - parseFloat(invoice.paidAmount || "0");
-    setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : invoice.total);
-    setPaymentMethod("bank_transfer");
-    setPaymentReference(`Pago ${invoice.number}`);
     setPaymentDialogOpen(true);
   }
 
@@ -347,36 +325,6 @@ function InvoicesContent() {
       }
     } catch (error) {
       toast.error("Error al cargar documento");
-    }
-  }
-
-  async function submitPayment() {
-    if (!paymentInvoice || !paymentAmount) return;
-
-    try {
-      const res = await fetch("/api/finance/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentId: paymentInvoice.id,
-          amount: parseFloat(paymentAmount),
-          currency: paymentInvoice.currency || "EUR",
-          direction: paymentInvoice.direction === "incoming" ? "outgoing" : "incoming",
-          paymentMethod: paymentMethod,
-          paymentDate: new Date().toISOString(),
-          reference: paymentReference,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success("Pago registrado correctamente");
-        setPaymentDialogOpen(false);
-        fetchInvoices();
-      } else {
-        toast.error("Error al registrar pago");
-      }
-    } catch (error) {
-      toast.error("Error al registrar pago");
     }
   }
 
@@ -526,7 +474,7 @@ function InvoicesContent() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Número</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
+                <TableHead>Pagado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -566,8 +514,21 @@ function InvoicesContent() {
                       <TableCell className="font-medium">
                         {invoice.number}
                       </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(invoice.subtotal, invoice.currency)}
+                      <TableCell>
+                        {(() => {
+                          const total = parseFloat(invoice.total || "0");
+                          const paid = parseFloat(invoice.paidAmount || "0");
+                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          return (
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(invoice.total, invoice.currency)}
@@ -690,57 +651,26 @@ function InvoicesContent() {
       />
 
       {/* Payment Drawer */}
-      <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Registrar Pago</SheetTitle>
-            <SheetDescription>
-              {paymentInvoice && `Registrar pago para factura ${paymentInvoice.number}`}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Monto</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Método de Pago</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Efectivo</SelectItem>
-                  <SelectItem value="bank_transfer">Transferencia</SelectItem>
-                  <SelectItem value="card">Tarjeta</SelectItem>
-                  <SelectItem value="stripe">Stripe</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Referencia</Label>
-              <Input
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Número de transferencia, etc."
-              />
-            </div>
-          </div>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={submitPayment}>Registrar Pago</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {paymentInvoice && (
+        <PaymentDrawer
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          onSuccess={() => {
+            setPaymentDialogOpen(false);
+            setPaymentInvoice(null);
+            fetchInvoices();
+          }}
+          documentId={paymentInvoice.id}
+          document={{
+            number: paymentInvoice.number,
+            total: paymentInvoice.total,
+            paidAmount: paymentInvoice.paidAmount || "0",
+            currency: paymentInvoice.currency,
+            direction: paymentInvoice.direction,
+          }}
+          showDirectionSelector={false}
+        />
+      )}
 
       {/* Document Preview */}
       <DocumentPreview

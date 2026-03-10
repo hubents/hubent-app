@@ -302,8 +302,8 @@ export default function VendorInvoicesPage() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Número</TableHead>
+                  <TableHead>Pagado</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Pagado</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -323,11 +323,22 @@ export default function VendorInvoicesPage() {
                       </TableCell>
                       <TableCell>{getClientName(inv)}</TableCell>
                       <TableCell className="font-medium">{inv.number}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          return (
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(inv.total, inv.currency)}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        {paid > 0 ? formatCurrency(inv.paidAmount || "0", inv.currency) : "-"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">

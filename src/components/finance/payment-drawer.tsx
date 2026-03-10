@@ -350,57 +350,6 @@ export function PaymentDrawer({
             </>
           )}
 
-          {showContactSelector && (
-            <div className="space-y-2">
-              <Label>Contacto</Label>
-              <ContactSelector
-                value={contactValue}
-                onChange={setContactValue}
-                placeholder="Seleccionar contacto"
-              />
-            </div>
-          )}
-
-          {!documentId && conciliableDocuments.length > 0 && !isEdit && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <RiFileTextLine className="h-4 w-4" />
-                Conciliar con documento (opcional)
-              </Label>
-              <Select
-                value={form.documentId || "none"}
-                onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar documento a conciliar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin documento</SelectItem>
-                  {conciliableDocuments.map((doc) => (
-                    <SelectItem key={doc.id} value={doc.id.toString()}>
-                      {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {conciliableDocuments.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No hay documentos pendientes de conciliación
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label>Concepto / Descripción</Label>
-            <Textarea
-              value={form.notes}
-              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Ej: Seña del salón, pago mensual..."
-              rows={2}
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Monto *</Label>
@@ -436,23 +385,6 @@ export function PaymentDrawer({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {showDirectionSelector && (
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={form.direction}
-                  onValueChange={(v) => setForm((prev) => ({ ...prev, direction: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="incoming">Cobro (Ingreso)</SelectItem>
-                    <SelectItem value="outgoing">Pago (Gasto)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="space-y-2">
               <Label>Fecha</Label>
               <Input
@@ -460,6 +392,21 @@ export function PaymentDrawer({
                 value={form.paymentDate}
                 onChange={(e) => setForm((prev) => ({ ...prev, paymentDate: e.target.value }))}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="complete">Completado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -483,21 +430,35 @@ export function PaymentDrawer({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={form.status}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="complete">Completado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {showDirectionSelector && (
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select
+                  value={form.direction}
+                  onValueChange={(v) => setForm((prev) => ({ ...prev, direction: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="incoming">Cobro (Ingreso)</SelectItem>
+                    <SelectItem value="outgoing">Pago (Gasto)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>Concepto / Descripción</Label>
+            <Textarea
+              value={form.notes}
+              onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Ej: Seña del salón, pago mensual..."
+              rows={2}
+            />
           </div>
 
           <div className="space-y-2">
@@ -508,6 +469,42 @@ export function PaymentDrawer({
               placeholder="Nº de transferencia, recibo, etc."
             />
           </div>
+
+          {!documentId && conciliableDocuments.length > 0 && !isEdit && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <RiFileTextLine className="h-4 w-4" />
+                Conciliar con documento (opcional)
+              </Label>
+              <Select
+                value={form.documentId || "none"}
+                onValueChange={(v) => handleDocumentSelect(v === "none" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar documento a conciliar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin documento</SelectItem>
+                  {conciliableDocuments.map((doc) => (
+                    <SelectItem key={doc.id} value={doc.id.toString()}>
+                      {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {showContactSelector && (
+            <div className="space-y-2">
+              <Label>Contacto</Label>
+              <ContactSelector
+                value={contactValue}
+                onChange={setContactValue}
+                placeholder="Seleccionar contacto"
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="flex items-center gap-2">

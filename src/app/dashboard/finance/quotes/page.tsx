@@ -42,6 +42,7 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiEyeLine,
+  RiMoneyDollarCircleLine,
   RiCheckDoubleLine,
   RiTruckLine,
   RiFileDownloadLine,
@@ -82,6 +83,7 @@ interface Quote {
   subtotal: string;
   taxAmount: string;
   total: string;
+  paidAmount: string | null;
   currency: string;
   globalDiscount: string | null;
   globalDiscountType: string | null;
@@ -107,7 +109,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise" | "partial";
+type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise" | "partial" | "paid";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todos" },
   { key: "sent", label: "Pendiente" },
@@ -115,6 +117,7 @@ const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "rejected", label: "Rechazado" },
   { key: "payment_promise", label: "Promesa de pago" },
   { key: "partial", label: "Parcial" },
+  { key: "paid", label: "Pagado" },
 ];
 
 type DirectionTab = "all" | "outgoing" | "incoming";
@@ -432,6 +435,7 @@ function QuotesContent() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Número</TableHead>
+                <TableHead>Pagado</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -440,7 +444,7 @@ function QuotesContent() {
             <TableBody>
               {fetchError ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="text-red-600 font-medium">{fetchError}</div>
                     <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchQuotes()}>
                       Reintentar
@@ -449,7 +453,7 @@ function QuotesContent() {
                 </TableRow>
               ) : quotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No hay presupuestos
                   </TableCell>
                 </TableRow>
@@ -470,6 +474,22 @@ function QuotesContent() {
                       <TableCell>{getClientName(quote)}</TableCell>
                       <TableCell className="font-medium">
                         {quote.number}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const total = parseFloat(quote.total || "0");
+                          const paid = parseFloat(quote.paidAmount || "0");
+                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          return (
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(quote.total, quote.currency)}
@@ -526,6 +546,10 @@ function QuotesContent() {
                             )}
                             {quote.status === "payment_promise" && (
                               <>
+                                <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                                  Registrar Pago
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" />
                                   Volver a Aceptado

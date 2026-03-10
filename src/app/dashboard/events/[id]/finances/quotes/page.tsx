@@ -34,6 +34,7 @@ import {
   RiExchangeLine,
   RiCloseLine,
   RiHandCoinLine,
+  RiMoneyDollarCircleLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -291,6 +292,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                   <TableHead>Fecha</TableHead>
                   <TableHead>Cliente / Proveedor</TableHead>
                   <TableHead>Número</TableHead>
+                  <TableHead>Pagado</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -320,6 +322,22 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                         </div>
                       </TableCell>
                       <TableCell className="font-medium text-sm">{doc.number}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const total = parseFloat(doc.total || "0");
+                          const paid = parseFloat(doc.paidAmount || "0");
+                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
+                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          return (
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
                       <TableCell className="text-right font-semibold text-sm">
                         {formatCurrencyStr(doc.total, doc.currency)}
                       </TableCell>
@@ -370,6 +388,9 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                             )}
                             {canEditFinances && doc.status === "payment_promise" && (
                               <>
+                                <DropdownMenuItem onClick={() => openPreview(doc.id)}>
+                                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" /> Registrar Pago
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateDocStatus(doc.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" /> Volver a Aceptado
                                 </DropdownMenuItem>
