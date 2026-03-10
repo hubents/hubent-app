@@ -112,7 +112,7 @@ El módulo de Formularios permite crear formularios personalizados para captar l
 - **Externos (Landing)**: Generan una URL pública (/f/{slug}) para captar leads. Las respuestas se ven en el panel de Formularios del planner.
 
 ### Crear un Formulario
-1. Ir a Herramientas → Formularios
+1. Ir a Formularios (sidebar principal)
 2. Clic en "+ Nuevo formulario"
 3. En la pestaña **Diseño**: nombre, descripción, color, texto del botón, página de agradecimiento
 4. En la pestaña **Campos**: agregar y ordenar campos con drag & drop (máximo 50)

@@ -51,6 +51,7 @@ const navigationBeforeFinance = [
   // Contactos is now a submenu, handled separately
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine, permission: "crm:read" },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine, permission: "tasks:read" },
+  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, permission: null },
 ];
 
 const contactsSubNav = [
@@ -67,7 +68,6 @@ const navigationAfterFinance = [
 ];
 
 const moreSubNav = [
-  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, comingSoon: false },
   { name: "Menús", href: "/dashboard/menus", icon: RiRestaurantLine, comingSoon: true },
   { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
 ];
@@ -114,10 +114,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
   const isContactsPage = pathname.startsWith("/dashboard/contacts");
-  const isMorePage = pathname.startsWith("/dashboard/calendar") || 
-                     pathname.startsWith("/dashboard/menus") ||
-                     pathname.startsWith("/dashboard/documents") || 
-                     pathname.startsWith("/dashboard/forms");
+  const isMorePage = pathname.startsWith("/dashboard/menus") ||
+                     pathname.startsWith("/dashboard/documents");
   
   useEffect(() => {
     if (isFinancePage) {

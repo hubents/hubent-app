@@ -108,7 +108,7 @@ export function TaskFormsTab({ taskId }: { taskId: number }) {
         <RiSurveyLine className="h-10 w-10 text-muted-foreground/50 mb-3" />
         <h3 className="text-base font-medium">Sin formularios</h3>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-          Vincula formularios a esta tarea desde el editor de formularios (Herramientas → Formularios → Configuración → Instancias).
+          Vincula formularios a esta tarea desde el editor de formularios (Formularios → Configuración → Instancias).
         </p>
         <Link href="/dashboard/forms" className="mt-4">
           <Button variant="outline" size="sm" className="gap-2">
