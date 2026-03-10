@@ -3,16 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +41,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
@@ -105,6 +98,15 @@ const directionTabs: { key: DirectionTab; label: string }[] = [
   { key: "all", label: "Todas" },
   { key: "outgoing", label: "Cobros" },
   { key: "incoming", label: "Pagos" },
+];
+
+const proformaStatusTabs = [
+  { key: "all", label: "Todas" },
+  { key: "draft", label: "Borrador" },
+  { key: "approved", label: "Aprobada" },
+  { key: "sent", label: "Pendiente" },
+  { key: "paid", label: "Pagada" },
+  { key: "cancelled", label: "Cancelada" },
 ];
 
 export default function ProformasPage() {
@@ -305,54 +307,18 @@ export default function ProformasPage() {
         </Button>
       </div>
 
-      {/* Direction Tabs */}
-      <div className="flex gap-1 border-b">
-        {directionTabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => { setDirectionTab(tab.key); setPage(1); }}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
-              directionTab === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por número o cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="approved">Aprobada</SelectItem>
-                <SelectItem value="sent">Pendiente</SelectItem>
-                <SelectItem value="paid">Pagada</SelectItem>
-                <SelectItem value="cancelled">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <FinanceToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onSearchSubmit={handleSearchSubmit}
+        searchPlaceholder="Buscar por número o cliente..."
+        directions={directionTabs}
+        activeDirection={directionTab}
+        onDirectionChange={(key) => { setDirectionTab(key as DirectionTab); setPage(1); }}
+        statusTabs={proformaStatusTabs}
+        activeStatus={statusFilter}
+        onStatusChange={(key) => { setStatusFilter(key); setPage(1); }}
+      />
 
       {/* Table */}
       <Card>

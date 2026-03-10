@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,6 +40,7 @@ import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 import { type ContactSelectorValue } from "@/components/finance/contact-selector";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 
 interface Payment {
   id: number;
@@ -477,38 +477,14 @@ export default function PaymentsPage() {
         </Card>
       )}
 
-      {/* Direction Tabs */}
-      <div className="flex gap-1 border-b">
-        {directionTabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => { setDirectionFilter(tab.key); setPage(1); }}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
-              directionFilter === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por referencia, contacto o documento..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <FinanceToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por referencia, contacto o documento..."
+        directions={directionTabs}
+        activeDirection={directionFilter}
+        onDirectionChange={(key) => { setDirectionFilter(key as DirectionTab); setPage(1); }}
+      />
 
       {/* Table */}
       <Card>

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -46,6 +45,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 
 interface Quote {
@@ -85,6 +85,12 @@ const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "payment_promise", label: "Promesa de pago" },
   { key: "partial", label: "Parcial" },
   { key: "paid", label: "Pagado" },
+];
+
+const vendorDirectionTabs = [
+  { key: "all", label: "Todos" },
+  { key: "incoming", label: "Cobros" },
+  { key: "outgoing", label: "Pagos" },
 ];
 
 export default function VendorQuotesPage() {
@@ -303,50 +309,17 @@ export default function VendorQuotesPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por número, cliente..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-1">
-          {(["all", "incoming", "outgoing"] as const).map((d) => (
-            <button
-              key={d}
-              onClick={() => setDirectionFilter(d)}
-              className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                directionFilter === d
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {d === "all" ? "Todos" : d === "incoming" ? "Cobros" : "Pagos"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex gap-1 border-b">
-        {statusTabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setStatusFilter(tab.key)}
-            className={cn(
-              "px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
-              statusFilter === tab.key
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <FinanceToolbar
+        searchTerm={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por número, cliente..."
+        directions={vendorDirectionTabs}
+        activeDirection={directionFilter}
+        onDirectionChange={(key) => setDirectionFilter(key as "all" | "incoming" | "outgoing")}
+        statusTabs={statusTabs}
+        activeStatus={statusFilter}
+        onStatusChange={(key) => setStatusFilter(key as StatusTab)}
+      />
 
       {quotes.length === 0 ? (
         <Card>
