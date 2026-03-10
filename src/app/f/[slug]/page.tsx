@@ -145,8 +145,11 @@ export default function PublicFormPage() {
 
   if (state === "success") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md text-center p-8">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="max-w-md text-center p-8 flex-1 flex flex-col items-center justify-center">
+          {formData?.form.logoUrl && (
+            <img src={formData.form.logoUrl} alt="" className="h-10 mx-auto mb-6 object-contain" />
+          )}
           <div
             className="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-6"
             style={{ backgroundColor: formData?.form.primaryColor || "#111827" }}
@@ -161,6 +164,11 @@ export default function PublicFormPage() {
               Redirigiendo...
             </p>
           )}
+        </div>
+        <div className="pb-6 flex items-center justify-center gap-1.5">
+          <span className="text-[11px] text-gray-400">Hecho con</span>
+          <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+          <span className="text-[11px] font-medium text-gray-400">hubents</span>
         </div>
       </div>
     );
@@ -241,9 +249,11 @@ export default function PublicFormPage() {
         </form>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Formulario creado con HubEnts
-        </p>
+        <div className="flex items-center justify-center gap-1.5 mt-6">
+          <span className="text-[11px] text-gray-400">Hecho con</span>
+          <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+          <span className="text-[11px] font-medium text-gray-400">hubents</span>
+        </div>
       </div>
     </div>
   );

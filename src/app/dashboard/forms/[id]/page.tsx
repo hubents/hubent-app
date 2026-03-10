@@ -371,7 +371,7 @@ export default function FormEditorPage() {
                         <RiImageAddLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       )}
                       <p className="text-sm">{uploadingCover ? "Subiendo..." : "Agregar cover"}</p>
-                      <p className="text-xs mt-1">JPG, PNG hasta 10MB</p>
+                      <p className="text-xs mt-1">JPG, PNG hasta 10MB · Ideal: 1200×400px</p>
                     </div>
                   </label>
                 )}
@@ -416,6 +416,7 @@ export default function FormEditorPage() {
                   )}
                   <div className="text-sm text-muted-foreground">
                     <p>{logoUrl ? "Logo cargado" : "Sin logo"}</p>
+                    <p className="text-xs">Ideal: 200×200px, fondo transparente</p>
                     <button
                       type="button"
                       className="text-primary hover:underline text-xs"

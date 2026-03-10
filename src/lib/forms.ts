@@ -19,9 +19,9 @@ export async function listForms(organizationId: number): Promise<FormWithCounts[
   const result = await db
     .select({
       form: forms,
-      fieldCount: sql<number>`(SELECT COUNT(*) FROM form_fields WHERE form_id = ${forms.id})`.as("field_count"),
-      instanceCount: sql<number>`(SELECT COUNT(*) FROM form_instances WHERE form_id = ${forms.id})`.as("instance_count"),
-      submissionCount: sql<number>`(SELECT COUNT(*) FROM form_submissions WHERE form_id = ${forms.id})`.as("submission_count"),
+      fieldCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_fields WHERE form_id = ${forms.id}), 0)`.as("field_count"),
+      instanceCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_instances WHERE form_id = ${forms.id}), 0)`.as("instance_count"),
+      submissionCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_submissions WHERE form_id = ${forms.id}), 0)`.as("submission_count"),
     })
     .from(forms)
     .where(eq(forms.organizationId, organizationId))
