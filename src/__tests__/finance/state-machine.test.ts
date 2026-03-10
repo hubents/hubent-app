@@ -358,3 +358,46 @@ describe("Direction Inference Logic", () => {
     expect(inferDirection("outgoing", 5)).toBe("outgoing");
   });
 });
+
+describe("Invoice Overdue Detection Logic", () => {
+  function isOverdue(status: string, dueDate: string | null, referenceDate: Date): boolean {
+    if (!dueDate) return false;
+    if (status === "paid" || status === "cancelled") return false;
+    return new Date(dueDate) < referenceDate;
+  }
+
+  function getDisplayStatus(status: string, dueDate: string | null, referenceDate: Date): string {
+    if (isOverdue(status, dueDate, referenceDate)) return "overdue";
+    return status;
+  }
+
+  const past = new Date("2025-01-01");
+  const future = new Date("2099-12-31");
+  const now = new Date("2026-03-10");
+
+  it("marks sent invoice as overdue when dueDate is in the past", () => {
+    expect(isOverdue("sent", past.toISOString(), now)).toBe(true);
+    expect(getDisplayStatus("sent", past.toISOString(), now)).toBe("overdue");
+  });
+
+  it("does not mark paid invoice as overdue even if past due", () => {
+    expect(isOverdue("paid", past.toISOString(), now)).toBe(false);
+    expect(getDisplayStatus("paid", past.toISOString(), now)).toBe("paid");
+  });
+
+  it("does not mark cancelled invoice as overdue", () => {
+    expect(isOverdue("cancelled", past.toISOString(), now)).toBe(false);
+  });
+
+  it("does not mark future-due invoice as overdue", () => {
+    expect(isOverdue("sent", future.toISOString(), now)).toBe(false);
+  });
+
+  it("does not mark invoice without dueDate as overdue", () => {
+    expect(isOverdue("sent", null, now)).toBe(false);
+  });
+
+  it("marks partial invoice as overdue when past due", () => {
+    expect(isOverdue("partial", past.toISOString(), now)).toBe(true);
+  });
+});
