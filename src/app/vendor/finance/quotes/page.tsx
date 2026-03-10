@@ -71,20 +71,15 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
   payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
-  partial: { label: "Parcial", color: "bg-purple-100 text-purple-700" },
-  paid: { label: "Pagado", color: "bg-emerald-100 text-emerald-700" },
-  overdue: { label: "Vencido", color: "bg-orange-100 text-orange-700" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise" | "partial" | "paid";
+type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todos" },
   { key: "sent", label: "Pendiente" },
   { key: "accepted", label: "Aceptado" },
   { key: "rejected", label: "Rechazado" },
   { key: "payment_promise", label: "Promesa de pago" },
-  { key: "partial", label: "Parcial" },
-  { key: "paid", label: "Pagado" },
 ];
 
 const vendorDirectionTabs = [

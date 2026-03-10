@@ -253,7 +253,7 @@ export function ContactSelector({
               </button>
             ))}
           </div>
-          <CommandList>
+          <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty>
               {loading ? "Cargando..." : "No se encontraron resultados"}
             </CommandEmpty>

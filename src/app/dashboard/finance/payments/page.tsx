@@ -76,6 +76,8 @@ interface FinancialDocument {
   number: string;
   total: string;
   status: string;
+  contactId?: number | null;
+  vendorId?: number | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
@@ -216,8 +218,8 @@ export default function PaymentsPage() {
       if (quotesRes.ok) {
         const data = await quotesRes.json();
         if (data.success && data.data) {
-          const withPromise = data.data.filter((d: FinancialDocument) => 
-            d.status === "payment_promise" || d.status === "partial"
+          const withPromise = data.data.filter((d: FinancialDocument) =>
+            d.status === "payment_promise"
           );
           allDocs.push(...withPromise);
         }
