@@ -32,12 +32,12 @@ import {
   RiFileDownloadLine,
   RiMoneyDollarCircleLine,
 } from "@remixicon/react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
+import { PaymentDrawer } from "@/components/finance/payment-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
@@ -84,13 +84,16 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
-  const router = useRouter();
   const { eventScoped } = useUserSessionContext();
   const { canEdit } = useEventPermissions(eventId, eventScoped);
   const canEditFinances = canEdit("finances");
 
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<FinDoc[]>([]);
+
+  // Payment drawer state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState<FinDoc | null>(null);
 
   // Document drawer/preview state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -103,6 +106,22 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
   const formatCurrencyStr = useCallback((amount: string, cur = "EUR") => {
     return new Intl.NumberFormat("es-ES", { style: "currency", currency: cur }).format(parseFloat(amount || "0"));
   }, []);
+
+  function isOverdue(doc: FinDoc): boolean {
+    if (!doc.dueDate) return false;
+    if (doc.status === "paid" || doc.status === "cancelled") return false;
+    return new Date(doc.dueDate) < new Date();
+  }
+
+  function getDisplayStatus(doc: FinDoc): string {
+    if (isOverdue(doc)) return "overdue";
+    return doc.status;
+  }
+
+  function openPaymentDialog(doc: FinDoc) {
+    setPaymentInvoice(doc);
+    setPaymentDialogOpen(true);
+  }
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -294,7 +313,8 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
               </TableHeader>
               <TableBody>
                 {invoices.map((doc) => {
-                  const st = invoiceStatusConfig[doc.status] || invoiceStatusConfig.sent || { label: doc.status, color: "bg-gray-100 text-gray-700" };
+                  const displayStatus = getDisplayStatus(doc);
+                  const st = invoiceStatusConfig[displayStatus] || invoiceStatusConfig.sent || { label: doc.status, color: "bg-gray-100 text-gray-700" };
                   const isIncoming = doc.direction === "incoming";
                   return (
                     <TableRow
@@ -336,7 +356,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                               </DropdownMenuItem>
                             )}
                             {canEditFinances && (doc.status === "sent" || doc.status === "partial") && (
-                              <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${eventId}/finances/payments`)}>
+                              <DropdownMenuItem onClick={() => openPaymentDialog(doc)}>
                                 <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" /> Registrar Pago
                               </DropdownMenuItem>
                             )}
@@ -364,6 +384,30 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Payment Drawer */}
+      {paymentInvoice && (
+        <PaymentDrawer
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          onSuccess={() => {
+            setPaymentDialogOpen(false);
+            setPaymentInvoice(null);
+            fetchDocuments();
+          }}
+          documentId={paymentInvoice.id}
+          document={{
+            number: paymentInvoice.number,
+            total: paymentInvoice.total,
+            paidAmount: paymentInvoice.paidAmount || "0",
+            currency: paymentInvoice.currency,
+            direction: paymentInvoice.direction,
+          }}
+          eventId={eventId}
+          apiBasePath={`/api/events/${eventId}/payments`}
+          showDirectionSelector={false}
+        />
       )}
 
       {/* Document Drawer */}

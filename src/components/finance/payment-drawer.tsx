@@ -39,6 +39,8 @@ export interface ConciliableDocument {
   number: string;
   total: string;
   status: string;
+  contactId?: number | null;
+  vendorId?: number | null;
   companyName?: string | null;
   personFirstName?: string | null;
   personLastName?: string | null;
@@ -125,7 +127,6 @@ function getDocumentLabel(doc: ConciliableDocument) {
   };
   const statusLabels: Record<string, string> = {
     payment_promise: " (Promesa de pago)",
-    partial: " (Parcial)",
   };
   const clientName = doc.companyName ||
     (doc.personFirstName ? `${doc.personFirstName} ${doc.personLastName || ""}` : "");
@@ -160,6 +161,14 @@ export function PaymentDrawer({
   const [form, setForm] = useState<PaymentForm>({ ...defaultForm, direction: defaultDirection, status: defaultStatus });
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Filter conciliable documents by selected contact when showContactSelector is active
+  const visibleDocuments = showContactSelector && contactValue
+    ? conciliableDocuments.filter((doc) =>
+        (contactValue.type === "contact" && doc.contactId === contactValue.id) ||
+        (contactValue.type === "vendor" && doc.vendorId === contactValue.id)
+      )
+    : conciliableDocuments;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { upload: uploadFile, uploading: fileUploading } = useFileUpload({ folder: "payments" });
 
@@ -320,14 +329,14 @@ export function PaymentDrawer({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) resetAndClose(); }}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="sm:max-w-2xl flex flex-col overflow-hidden">
+        <SheetHeader className="px-6 pt-6 pb-0">
           <SheetTitle>{isEdit ? "Editar Pago" : "Registrar Pago"}</SheetTitle>
           <SheetDescription>
             {isEdit ? "Modifica los datos del pago" : documentSummary ? `Registrar pago para ${documentSummary.number}` : "Registra un nuevo cobro o pago"}
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-4 px-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 px-6 py-4">
           {documentSummary && (
             <>
               <div className="p-3 bg-muted/50 rounded-lg space-y-2">
@@ -470,7 +479,7 @@ export function PaymentDrawer({
             />
           </div>
 
-          {!documentId && conciliableDocuments.length > 0 && !isEdit && (
+          {!documentId && visibleDocuments.length > 0 && !isEdit && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <RiFileTextLine className="h-4 w-4" />
@@ -485,7 +494,7 @@ export function PaymentDrawer({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin documento</SelectItem>
-                  {conciliableDocuments.map((doc) => (
+                  {visibleDocuments.map((doc) => (
                     <SelectItem key={doc.id} value={doc.id.toString()}>
                       {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
                     </SelectItem>

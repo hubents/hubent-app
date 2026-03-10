@@ -96,7 +96,7 @@ const typeLabels: Record<string, string> = {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
-  approved: { label: "Aprobado", color: "bg-indigo-100 text-indigo-800" },
+  approved: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-800" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-800" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-800" },

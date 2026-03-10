@@ -513,9 +513,7 @@ const QUOTE_TRANSITIONS: Record<string, string[]> = {
   sent: ["accepted", "rejected"],
   accepted: ["payment_promise", "sent"],
   rejected: ["sent", "accepted"],
-  payment_promise: ["accepted", "sent", "partial", "paid"],
-  partial: ["paid", "payment_promise"],
-  paid: ["payment_promise"],
+  payment_promise: ["accepted", "sent"],
 };
 
 const INVOICE_TRANSITIONS: Record<string, string[]> = {
@@ -640,14 +638,14 @@ export async function updateDocument(
   });
   if (!currentDoc) return null;
 
-  // RULE: Block editing invoices/quotes with paid/partial status
-  if ((currentDoc.type === "invoice" || currentDoc.type === "quote") && (currentDoc.status === "paid" || currentDoc.status === "partial")) {
+  // RULE: Block editing invoices with paid/partial status
+  if (currentDoc.type === "invoice" && (currentDoc.status === "paid" || currentDoc.status === "partial")) {
     throw new Error(`Cannot edit a ${currentDoc.type} with payments. Remove payments first.`);
   }
 
   // RULE: If quote is accepted/rejected/payment_promise and items or discount change, auto-reset to "sent"
-  const isQuoteWithActiveStatus = currentDoc.type === "quote" && 
-    ["accepted", "rejected", "payment_promise", "partial", "paid"].includes(currentDoc.status || "");
+  const isQuoteWithActiveStatus = currentDoc.type === "quote" &&
+    ["accepted", "rejected", "payment_promise"].includes(currentDoc.status || "");
   const hasFinancialChanges = data.items !== undefined || data.globalDiscount !== undefined || data.globalDiscountType !== undefined || data.termsAndConditions !== undefined;
   let autoResetStatus = false;
   if (isQuoteWithActiveStatus && hasFinancialChanges) {
@@ -1075,17 +1073,25 @@ export async function recalculateDocumentPayments(
 
   // Determine correct status
   let targetStatus: string | null = null;
-  if (totalPaid <= 0) {
+  if (doc.type === "quote") {
+    // Quotes never transition to partial/paid — they stay in payment_promise.
+    // Only revert if somehow stuck in an invalid state.
     if (doc.status === "paid" || doc.status === "partial") {
-      targetStatus = doc.type === "quote" ? "payment_promise" : "sent";
-    }
-  } else if (totalPaid < docTotal) {
-    if (doc.status !== "partial") {
-      targetStatus = "partial";
+      targetStatus = "payment_promise";
     }
   } else {
-    if (doc.status !== "paid") {
-      targetStatus = "paid";
+    if (totalPaid <= 0) {
+      if (doc.status === "paid" || doc.status === "partial") {
+        targetStatus = "sent";
+      }
+    } else if (totalPaid < docTotal) {
+      if (doc.status !== "partial") {
+        targetStatus = "partial";
+      }
+    } else {
+      if (doc.status !== "paid") {
+        targetStatus = "paid";
+      }
     }
   }
 

@@ -115,7 +115,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
       if (quoteRes.ok) {
         const data = await quoteRes.json();
         if (data.success && data.data) {
-          docs.push(...data.data.filter((d: EventDocument) => d.status === "payment_promise" || d.status === "partial"));
+          docs.push(...data.data.filter((d: EventDocument) => d.status === "payment_promise"));
         }
       }
       setEventDocs(docs);
@@ -411,6 +411,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
         eventId={eventId}
         defaultDirection="outgoing"
         conciliableDocuments={eventDocs as ConciliableDocument[]}
+        showContactSelector={true}
         showDirectionSelector={false}
         apiBasePath={`/api/events/${eventId}/payments`}
       />

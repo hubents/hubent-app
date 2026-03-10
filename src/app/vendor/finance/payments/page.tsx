@@ -126,7 +126,7 @@ export default function VendorPaymentsPage() {
       if (quoteRes.ok) {
         const data = await quoteRes.json();
         if (data.success && data.data) {
-          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "payment_promise" || d.status === "partial"));
+          docs.push(...data.data.filter((d: FinancialDocument) => d.status === "payment_promise"));
         }
       }
       setDocuments(docs);
