@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, paymentRecords, financialDocuments, contacts } from "@/db/schema";
+import { providerEventAccess, paymentRecords, financialDocuments, contacts, organizations } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
@@ -15,6 +15,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const session = await requireAuth();
     const { accessId } = await params;
     const aid = parseInt(accessId, 10);
+
+    // Verify caller is a provider org
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+      columns: { orgType: true },
+    });
+    if (!org || org.orgType !== "provider") {
+      return NextResponse.json(
+        { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
+        { status: 403 }
+      );
+    }
 
     // Verify access belongs to this provider org
     const access = await db.query.providerEventAccess.findFirst({

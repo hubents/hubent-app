@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { eventPayments, taskPayments } from "@/db/schema";
+import { eventPayments, taskPayments, tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updatePaymentRecord, deletePaymentRecord } from "@/lib/finance";
@@ -22,7 +22,7 @@ export async function PATCH(
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
-    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "edit");
     const body = await request.json();
 
     const { source, realId } = resolvePaymentSource(paymentIdNum);
@@ -58,6 +58,21 @@ export async function PATCH(
     }
 
     if (source === "legacy_task") {
+      const [tp] = await db.select({ taskId: taskPayments.taskId })
+        .from(taskPayments)
+        .where(eq(taskPayments.id, realId))
+        .limit(1);
+      if (!tp) {
+        return NextResponse.json({ success: false, error: { message: "Payment not found" } }, { status: 404 });
+      }
+      const [task] = await db.select({ eventId: tasks.eventId, orgId: tasks.organizationId })
+        .from(tasks)
+        .where(and(eq(tasks.id, tp.taskId), eq(tasks.eventId, eventIdNum), eq(tasks.organizationId, session.organizationId)))
+        .limit(1);
+      if (!task) {
+        return NextResponse.json({ success: false, error: { message: "Payment does not belong to this event" } }, { status: 403 });
+      }
+
       const updateData: Record<string, unknown> = {};
       if (body.description !== undefined) updateData.description = body.description;
       if (body.amount !== undefined) updateData.amount = parseFloat(body.amount).toString();
@@ -90,7 +105,7 @@ export async function DELETE(
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
-    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "edit");
 
     const { source, realId } = resolvePaymentSource(paymentIdNum);
 
@@ -106,6 +121,20 @@ export async function DELETE(
     }
 
     if (source === "legacy_task") {
+      const [tp] = await db.select({ taskId: taskPayments.taskId })
+        .from(taskPayments)
+        .where(eq(taskPayments.id, realId))
+        .limit(1);
+      if (!tp) {
+        return NextResponse.json({ success: false, error: { message: "Payment not found" } }, { status: 404 });
+      }
+      const [task] = await db.select({ eventId: tasks.eventId, orgId: tasks.organizationId })
+        .from(tasks)
+        .where(and(eq(tasks.id, tp.taskId), eq(tasks.eventId, eventIdNum), eq(tasks.organizationId, session.organizationId)))
+        .limit(1);
+      if (!task) {
+        return NextResponse.json({ success: false, error: { message: "Payment does not belong to this event" } }, { status: 403 });
+      }
       await db.delete(taskPayments).where(eq(taskPayments.id, realId));
       return NextResponse.json({ success: true });
     }

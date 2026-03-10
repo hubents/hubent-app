@@ -62,7 +62,7 @@ export async function GET() {
 // PATCH /api/finance/settings - Update organization finance settings
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await requirePermission("finance:update");
+    const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
 

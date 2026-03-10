@@ -156,7 +156,7 @@ export async function POST(
   try {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
-    const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
+    const session = await requireEventSectionAccess(eventIdNum, "finances", "edit");
     const body = await request.json();
 
     // Create in unified paymentRecords
