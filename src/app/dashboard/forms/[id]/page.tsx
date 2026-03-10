@@ -252,6 +252,24 @@ export default function FormEditorPage() {
                 placeholder="Nombre del formulario"
               />
               <Badge className={st.color}>{st.label}</Badge>
+              {(() => {
+                const landingSlug = form.instances?.find((i) => i.type === "landing" && i.slug)?.slug;
+                if (!landingSlug) return null;
+                return (
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/f/${landingSlug}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("Link copiado");
+                    }}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline ml-1"
+                    title={`${window.location.origin}/f/${landingSlug}`}
+                  >
+                    <RiGlobeLine className="h-3.5 w-3.5" />
+                    Copiar link
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

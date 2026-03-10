@@ -13,6 +13,7 @@ export interface FormWithCounts extends Form {
   fieldCount: number;
   instanceCount: number;
   submissionCount: number;
+  landingSlug: string | null;
 }
 
 export async function listForms(organizationId: number): Promise<FormWithCounts[]> {
@@ -21,7 +22,7 @@ export async function listForms(organizationId: number): Promise<FormWithCounts[
     orderBy: [desc(forms.updatedAt)],
     with: {
       fields: { columns: { id: true } },
-      instances: { columns: { id: true } },
+      instances: { columns: { id: true, slug: true, type: true } },
       submissions: { columns: { id: true } },
     },
   });
@@ -34,6 +35,7 @@ export async function listForms(organizationId: number): Promise<FormWithCounts[
     fieldCount: r.fields?.length ?? 0,
     instanceCount: r.instances?.length ?? 0,
     submissionCount: r.submissions?.length ?? 0,
+    landingSlug: r.instances?.find((i) => i.type === "landing" && i.slug)?.slug ?? null,
   }));
 }
 

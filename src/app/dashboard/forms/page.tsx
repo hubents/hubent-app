@@ -46,6 +46,7 @@ interface FormItem {
   fieldCount: number;
   instanceCount: number;
   submissionCount: number;
+  landingSlug: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -296,6 +297,21 @@ export default function FormsPage() {
               </div>
 
               <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+                {form.landingSlug && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const url = `${window.location.origin}/f/${form.landingSlug}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("Link copiado");
+                    }}
+                    className="flex items-center gap-1 text-primary hover:underline"
+                    title="Copiar link público"
+                  >
+                    <RiLink className="h-3.5 w-3.5" />
+                    Copiar link
+                  </button>
+                )}
                 {form.instanceCount > 0 && (
                   <span className="flex items-center gap-1">
                     <RiTaskLine className="h-3.5 w-3.5" />
