@@ -90,10 +90,10 @@ export function FinanceToolbar({
               key={tab.key}
               onClick={() => onStatusChange(tab.key)}
               className={cn(
-                "px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap flex items-center gap-1.5",
+                "px-3 py-2.5 text-sm font-medium border-b-[2.5px] transition-colors -mb-px whitespace-nowrap flex items-center gap-1.5",
                 activeStatus === tab.key
-                  ? "border-primary text-foreground font-semibold"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-foreground text-foreground font-semibold"
+                  : "border-transparent text-muted-foreground/70 hover:text-foreground"
               )}
             >
               {tab.label}
@@ -102,7 +102,7 @@ export function FinanceToolbar({
                   className={cn(
                     "text-[10px] font-medium rounded-full px-1.5 py-0.5 leading-none",
                     activeStatus === tab.key
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-foreground/10 text-foreground"
                       : "bg-muted text-muted-foreground"
                   )}
                 >
