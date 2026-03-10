@@ -125,6 +125,7 @@ export async function duplicateForm(
       description: original.description,
       status: "draft",
       logoUrl: original.logoUrl,
+      coverImage: original.coverImage,
       primaryColor: original.primaryColor,
       submitButtonText: original.submitButtonText,
       thankYouTitle: original.thankYouTitle,

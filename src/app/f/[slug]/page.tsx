@@ -32,6 +32,7 @@ interface PublicFormData {
     name: string;
     description: string | null;
     logoUrl: string | null;
+    coverImage: string | null;
     primaryColor: string;
     submitButtonText: string;
     thankYouTitle: string;
@@ -171,19 +172,25 @@ export default function PublicFormPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          {form.logoUrl && (
-            <img src={form.logoUrl} alt="" className="h-12 mx-auto mb-4 object-contain" />
-          )}
-          <h1 className="text-2xl font-bold text-gray-900">{form.name}</h1>
-          {form.description && (
-            <p className="text-gray-600 mt-2">{form.description}</p>
-          )}
-        </div>
+        {/* Cover Image */}
+        {form.coverImage && (
+          <div className="h-44 rounded-t-2xl overflow-hidden -mb-4">
+            <img src={form.coverImage} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border p-6 space-y-5">
+        <form onSubmit={handleSubmit} className={`bg-white shadow-sm border p-6 space-y-5 ${form.coverImage ? "rounded-b-2xl" : "rounded-2xl"}`}>
+          {/* Header */}
+          <div className="text-center pb-2">
+            {form.logoUrl && (
+              <img src={form.logoUrl} alt="" className="h-12 mx-auto mb-3 object-contain" />
+            )}
+            <h1 className="text-2xl font-bold text-gray-900">{form.name}</h1>
+            {form.description && (
+              <p className="text-gray-600 mt-2">{form.description}</p>
+            )}
+          </div>
           {form.fields.map((field) => (
             <FieldRenderer
               key={field.id}

@@ -1767,6 +1767,7 @@ export const forms = pgTable("forms", {
   description: text("description"),
   status: text("status").notNull().default("draft"), // draft | active | paused
   logoUrl: text("logo_url"),
+  coverImage: text("cover_image"),
   primaryColor: text("primary_color").default("#111827"),
   submitButtonText: text("submit_button_text").default("Enviar"),
   thankYouTitle: text("thank_you_title").default("¡Gracias!"),

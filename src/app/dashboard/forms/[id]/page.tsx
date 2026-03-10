@@ -30,9 +30,12 @@ import {
   RiDeleteBinLine,
   RiAddLine,
   RiCalendarEventLine,
+  RiImageAddLine,
+  RiCloseLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { FormBuilder, type BuilderField } from "@/components/forms/form-builder";
+import { useFileUpload } from "@/hooks/use-file-upload";
 
 interface FormData {
   id: number;
@@ -40,6 +43,7 @@ interface FormData {
   description: string | null;
   status: string;
   logoUrl: string | null;
+  coverImage: string | null;
   primaryColor: string;
   submitButtonText: string;
   thankYouTitle: string;
@@ -100,6 +104,26 @@ export default function FormEditorPage() {
   const [gdprEnabled, setGdprEnabled] = useState(false);
   const [gdprText, setGdprText] = useState("");
   const [gdprLink, setGdprLink] = useState("");
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  const { upload: uploadCover, uploading: uploadingCover } = useFileUpload({
+    folder: `forms/${formId}/cover`,
+    allowedTypes: ["image/*"],
+    onSuccess: (result) => {
+      setCoverImage(result.url);
+      toast.success("Cover subido");
+    },
+  });
+
+  const { upload: uploadLogo, uploading: uploadingLogo } = useFileUpload({
+    folder: `forms/${formId}/logo`,
+    allowedTypes: ["image/*"],
+    onSuccess: (result) => {
+      setLogoUrl(result.url);
+      toast.success("Logo subido");
+    },
+  });
 
   const fetchForm = useCallback(async () => {
     try {
@@ -120,6 +144,8 @@ export default function FormEditorPage() {
         setGdprEnabled(f.gdprEnabled ?? false);
         setGdprText(f.gdprText || "");
         setGdprLink(f.gdprLink || "");
+        setCoverImage(f.coverImage || null);
+        setLogoUrl(f.logoUrl || null);
       }
     } catch {
       // silent
@@ -140,6 +166,8 @@ export default function FormEditorPage() {
         body: JSON.stringify({
           name,
           description: description || null,
+          logoUrl: logoUrl || null,
+          coverImage: coverImage || null,
           primaryColor,
           submitButtonText,
           thankYouTitle,
@@ -271,6 +299,9 @@ export default function FormEditorPage() {
             <TabsTrigger value="responses" className="gap-2">
               <RiFileList2Line className="h-4 w-4" /> Respuestas
             </TabsTrigger>
+            <TabsTrigger value="preview" className="gap-2">
+              <RiEyeLine className="h-4 w-4" /> Preview
+            </TabsTrigger>
             <TabsTrigger value="config" className="gap-2">
               <RiSettings4Line className="h-4 w-4" /> Configuración
             </TabsTrigger>
@@ -297,6 +328,110 @@ export default function FormEditorPage() {
                     rows={3}
                   />
                 </div>
+              </div>
+            </section>
+
+            {/* Cover & Logo */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Cover y Logo</h2>
+              {/* Cover Image */}
+              <div>
+                <Label className="mb-2 block">Imagen de portada</Label>
+                {coverImage ? (
+                  <div className="relative h-40 rounded-lg overflow-hidden group">
+                    <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => document.getElementById("cover-upload")?.click()}
+                      >
+                        Cambiar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setCoverImage(null)}
+                      >
+                        <RiCloseLine className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="cover-upload"
+                    className="h-40 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors border-2 border-dashed border-muted-foreground/25"
+                  >
+                    <div className="text-center text-muted-foreground">
+                      {uploadingCover ? (
+                        <RiLoader4Line className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                      ) : (
+                        <RiImageAddLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      )}
+                      <p className="text-sm">{uploadingCover ? "Subiendo..." : "Agregar cover"}</p>
+                      <p className="text-xs mt-1">JPG, PNG hasta 10MB</p>
+                    </div>
+                  </label>
+                )}
+                <input
+                  type="file"
+                  id="cover-upload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCover(f); e.target.value = ""; }}
+                />
+              </div>
+              {/* Logo */}
+              <div>
+                <Label className="mb-2 block">Logo</Label>
+                <div className="flex items-center gap-4">
+                  {logoUrl ? (
+                    <div className="relative h-16 w-16 rounded-lg overflow-hidden group border">
+                      <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => setLogoUrl(null)}
+                        >
+                          <RiCloseLine className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="logo-upload"
+                      className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors border-2 border-dashed border-muted-foreground/25"
+                    >
+                      {uploadingLogo ? (
+                        <RiLoader4Line className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <RiImageAddLine className="h-5 w-5 text-muted-foreground opacity-50" />
+                      )}
+                    </label>
+                  )}
+                  <div className="text-sm text-muted-foreground">
+                    <p>{logoUrl ? "Logo cargado" : "Sin logo"}</p>
+                    <button
+                      type="button"
+                      className="text-primary hover:underline text-xs"
+                      onClick={() => document.getElementById("logo-upload")?.click()}
+                    >
+                      {logoUrl ? "Cambiar logo" : "Subir logo"}
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  id="logo-upload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }}
+                />
               </div>
             </section>
 
@@ -429,6 +564,114 @@ export default function FormEditorPage() {
         {/* Responses Tab */}
         <TabsContent value="responses" className="flex-1 overflow-y-auto p-6">
           <SubmissionsTab formId={formId} fields={form.fields || []} />
+        </TabsContent>
+
+        {/* Preview Tab */}
+        <TabsContent value="preview" className="flex-1 overflow-y-auto">
+          <div className="min-h-full bg-gray-100 py-8 px-4">
+            <div className="max-w-xl mx-auto">
+              {/* Cover Image */}
+              {coverImage && (
+                <div className="h-44 rounded-t-2xl overflow-hidden -mb-4">
+                  <img src={coverImage} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+              {/* Form Card */}
+              <div className={`bg-white shadow-sm border p-6 space-y-5 ${coverImage ? "rounded-b-2xl" : "rounded-2xl"}`}>
+                {/* Header */}
+                <div className="text-center pb-2">
+                  {logoUrl && (
+                    <img src={logoUrl} alt="" className="h-12 mx-auto mb-3 object-contain" />
+                  )}
+                  <h1 className="text-2xl font-bold text-gray-900">{name || "Sin nombre"}</h1>
+                  {description && <p className="text-gray-600 mt-2">{description}</p>}
+                </div>
+
+                {/* Fields preview */}
+                {(form.fields || []).map((field) => (
+                  <div key={field.id} className="space-y-1.5">
+                    {field.type === "section_title" ? (
+                      <h2 className="text-lg font-semibold text-gray-900 pt-2">{field.label}</h2>
+                    ) : field.type === "descriptive_text" ? (
+                      <p className="text-sm text-gray-600">{field.label}</p>
+                    ) : field.type === "separator" ? (
+                      <hr className="border-gray-200" />
+                    ) : (
+                      <>
+                        <label className="text-sm font-medium text-gray-700">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </label>
+                        {["message", "long_text"].includes(field.type) ? (
+                          <div className="w-full h-20 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-400">
+                            {field.placeholder || ""}
+                          </div>
+                        ) : ["single_select", "multi_select"].includes(field.type) ? (
+                          <div className="space-y-1.5">
+                            {((field.options as { choices?: { label: string; value: string }[] })?.choices || []).slice(0, 3).map((opt, i) => (
+                              <div key={i} className="flex items-center gap-2 rounded-lg border border-gray-200 p-2.5">
+                                <div className={`h-4 w-4 border-2 border-gray-300 ${field.type === "single_select" ? "rounded-full" : "rounded"}`} />
+                                <span className="text-sm text-gray-700">{opt.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : field.type === "checkbox" ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 rounded border-2 border-gray-300" />
+                            <span className="text-sm text-gray-700">{field.label}</span>
+                          </div>
+                        ) : field.type === "image_select" ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {((field.options as { choices?: { label: string; value: string; imageUrl?: string }[] })?.choices || []).slice(0, 4).map((opt, i) => (
+                              <div key={i} className="rounded-xl border-2 border-gray-200 overflow-hidden">
+                                {opt.imageUrl ? (
+                                  <img src={opt.imageUrl} alt={opt.label} className="w-full h-20 object-cover" />
+                                ) : (
+                                  <div className="w-full h-20 bg-gray-100 flex items-center justify-center text-xs text-gray-400">Sin imagen</div>
+                                )}
+                                <p className="text-xs font-medium p-1.5 text-center">{opt.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : field.type === "event_date" ? (
+                          <div className="w-full h-10 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center text-sm text-gray-400">
+                            dd/mm/aaaa
+                          </div>
+                        ) : (
+                          <div className="w-full h-10 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center text-sm text-gray-400">
+                            {field.placeholder || ""}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ))}
+
+                {/* GDPR Preview */}
+                {gdprEnabled && (
+                  <div className="flex items-start gap-3 pt-2">
+                    <div className="h-4 w-4 rounded border-2 border-gray-300 mt-0.5 shrink-0" />
+                    <p className="text-sm text-gray-600 leading-snug">
+                      {gdprText || "Acepto la política de privacidad."}
+                      {gdprLink && <span className="text-blue-600 underline ml-1">Ver política</span>}
+                    </p>
+                  </div>
+                )}
+
+                {/* Submit button preview */}
+                <button
+                  type="button"
+                  className="w-full h-11 rounded-md text-white font-medium text-base"
+                  style={{ backgroundColor: primaryColor || "#111827" }}
+                >
+                  {submitButtonText || "Enviar"}
+                </button>
+              </div>
+
+              {/* Footer */}
+              <p className="text-center text-xs text-gray-400 mt-6">Formulario creado con HubEnts</p>
+            </div>
+          </div>
         </TabsContent>
 
         {/* Config Tab */}

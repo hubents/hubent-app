@@ -9,6 +9,7 @@ const updateFormSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
   logoUrl: z.string().nullable().optional(),
+  coverImage: z.string().nullable().optional(),
   primaryColor: z.string().max(20).optional(),
   submitButtonText: z.string().max(100).optional(),
   thankYouTitle: z.string().max(200).optional(),

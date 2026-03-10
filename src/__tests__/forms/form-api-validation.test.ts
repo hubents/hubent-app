@@ -12,6 +12,7 @@ const updateFormSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).nullable().optional(),
   logoUrl: z.string().nullable().optional(),
+  coverImage: z.string().nullable().optional(),
   primaryColor: z.string().max(20).optional(),
   submitButtonText: z.string().max(100).optional(),
   thankYouTitle: z.string().max(200).optional(),
@@ -121,6 +122,36 @@ describe('Update Form Schema', () => {
   it('rejects gdprText over 500 chars', () => {
     const result = updateFormSchema.safeParse({ gdprText: "A".repeat(501) });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts coverImage URL', () => {
+    const result = updateFormSchema.safeParse({ coverImage: "https://cdn.example.com/cover.jpg" });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null coverImage (remove)', () => {
+    const result = updateFormSchema.safeParse({ coverImage: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts logoUrl', () => {
+    const result = updateFormSchema.safeParse({ logoUrl: "https://cdn.example.com/logo.png" });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts null logoUrl (remove)', () => {
+    const result = updateFormSchema.safeParse({ logoUrl: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts full design update with cover + logo + color', () => {
+    const result = updateFormSchema.safeParse({
+      coverImage: "https://cdn.example.com/cover.jpg",
+      logoUrl: "https://cdn.example.com/logo.png",
+      primaryColor: "#FF5733",
+      submitButtonText: "Enviar ahora",
+    });
+    expect(result.success).toBe(true);
   });
 });
 

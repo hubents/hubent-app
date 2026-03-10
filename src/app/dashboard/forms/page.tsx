@@ -350,10 +350,13 @@ interface OrgSubmission {
   instanceSlug: string | null;
 }
 
+type ResponseFilter = "all" | "landing" | "task";
+
 function AllSubmissionsView() {
   const [subs, setSubs] = useState<OrgSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<ResponseFilter>("all");
 
   useEffect(() => {
     async function load() {
@@ -369,6 +372,10 @@ function AllSubmissionsView() {
     }
     load();
   }, []);
+
+  const filteredSubs = typeFilter === "all"
+    ? subs
+    : subs.filter((s) => s.instanceType === typeFilter);
 
   const downloadPdf = async (formId: number, subId: number) => {
     try {
@@ -402,9 +409,30 @@ function AllSubmissionsView() {
     );
   }
 
+  const responseFilterTabs: { label: string; value: ResponseFilter; icon: typeof RiGlobeLine }[] = [
+    { label: "Todas", value: "all", icon: RiFileList2Line },
+    { label: "Landing", value: "landing", icon: RiGlobeLine },
+    { label: "Tareas", value: "task", icon: RiTaskLine },
+  ];
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{total} respuestas en total</p>
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 bg-muted rounded-lg p-1">
+          {responseFilterTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setTypeFilter(tab.value)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                typeFilter === tab.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <tab.icon className="h-3.5 w-3.5" /> {tab.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">{filteredSubs.length} de {total} respuestas</p>
+      </div>
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
@@ -418,7 +446,7 @@ function AllSubmissionsView() {
             </tr>
           </thead>
           <tbody>
-            {subs.map((sub) => (
+            {filteredSubs.map((sub) => (
               <tr key={sub.id} className="border-t hover:bg-muted/30">
                 <td className="px-4 py-2">
                   <a href={`/dashboard/forms/${sub.formId}`} className="text-primary hover:underline font-medium">

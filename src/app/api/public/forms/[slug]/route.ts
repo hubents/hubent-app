@@ -31,6 +31,7 @@ export async function GET(
           name: instance.form.name,
           description: instance.form.description,
           logoUrl: instance.form.logoUrl,
+          coverImage: instance.form.coverImage,
           primaryColor: instance.form.primaryColor,
           submitButtonText: instance.form.submitButtonText,
           thankYouTitle: instance.form.thankYouTitle,

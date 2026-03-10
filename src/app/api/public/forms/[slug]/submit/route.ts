@@ -5,6 +5,8 @@ import {
   extractCrmData,
   createLeadFromSubmission,
   linkSubmissionToLead,
+  createContactFromSubmission,
+  linkSubmissionToContact,
 } from "@/lib/form-submissions";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +69,7 @@ export async function POST(
       userAgent,
     });
 
-    // Create lead in CRM (for landing instances)
+    // Create lead + contact in CRM (for landing instances)
     if (instance.type === "landing" && (crmData.name || crmData.email)) {
       try {
         const leadId = await createLeadFromSubmission(
@@ -77,7 +79,18 @@ export async function POST(
         );
         await linkSubmissionToLead(submission.id, leadId);
       } catch {
-        // Don't fail the submission if CRM creation fails
+        // Don't fail the submission if lead creation fails
+      }
+
+      try {
+        const contactId = await createContactFromSubmission(
+          instance.organizationId,
+          crmData,
+          `form:${instance.form.name}`
+        );
+        await linkSubmissionToContact(submission.id, contactId);
+      } catch {
+        // Don't fail the submission if contact creation fails
       }
     }
 
