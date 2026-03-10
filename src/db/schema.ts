@@ -1837,6 +1837,7 @@ export const formsRelations = relations(forms, ({ one, many }) => ({
   }),
   fields: many(formFields),
   instances: many(formInstances),
+  submissions: many(formSubmissions),
 }));
 
 export const formFieldsRelations = relations(formFields, ({ one }) => ({

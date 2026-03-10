@@ -16,22 +16,24 @@ export interface FormWithCounts extends Form {
 }
 
 export async function listForms(organizationId: number): Promise<FormWithCounts[]> {
-  const result = await db
-    .select({
-      form: forms,
-      fieldCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_fields WHERE form_id = ${forms.id}), 0)`.as("field_count"),
-      instanceCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_instances WHERE form_id = ${forms.id}), 0)`.as("instance_count"),
-      submissionCount: sql<number>`COALESCE((SELECT COUNT(*)::int FROM form_submissions WHERE form_id = ${forms.id}), 0)`.as("submission_count"),
-    })
-    .from(forms)
-    .where(eq(forms.organizationId, organizationId))
-    .orderBy(desc(forms.updatedAt));
+  const result = await db.query.forms.findMany({
+    where: eq(forms.organizationId, organizationId),
+    orderBy: [desc(forms.updatedAt)],
+    with: {
+      fields: { columns: { id: true } },
+      instances: { columns: { id: true } },
+      submissions: { columns: { id: true } },
+    },
+  });
 
   return result.map((r) => ({
-    ...r.form,
-    fieldCount: Number(r.fieldCount),
-    instanceCount: Number(r.instanceCount),
-    submissionCount: Number(r.submissionCount),
+    ...r,
+    fields: undefined as never,
+    instances: undefined as never,
+    submissions: undefined as never,
+    fieldCount: r.fields?.length ?? 0,
+    instanceCount: r.instances?.length ?? 0,
+    submissionCount: r.submissions?.length ?? 0,
   }));
 }
 
