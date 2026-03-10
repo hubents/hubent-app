@@ -95,7 +95,7 @@ export function FinanceToolbar({
                   ? "text-foreground font-semibold"
                   : "text-muted-foreground/70 hover:text-foreground"
               )}
-              style={activeStatus === tab.key ? { boxShadow: "inset 0 -2.5px 0 0 hsl(var(--foreground))" } : undefined}
+              style={activeStatus === tab.key ? { boxShadow: "inset 0 -2.5px 0 0 var(--foreground)" } : undefined}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
