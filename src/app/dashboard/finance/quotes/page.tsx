@@ -97,6 +97,9 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
   payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
+  // Legacy fallbacks — cleaned up by migration 0044, kept for safety
+  partial: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
+  paid: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
 };
 
 type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";

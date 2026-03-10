@@ -134,7 +134,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   const deleteFile = useCallback(async (url: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/upload?url=${encodeURIComponent(url)}`, {
+      const response = await fetch(`/api/upload?key=${encodeURIComponent(url)}`, {
         method: "DELETE",
       });
       const data = await response.json();
