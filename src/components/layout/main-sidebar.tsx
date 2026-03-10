@@ -26,6 +26,7 @@ import {
   RiTruckLine,
   RiBankLine,
   RiMore2Line,
+  RiToolsLine,
   RiCalendar2Line,
   RiFolder3Line,
   RiSurveyLine,
@@ -66,9 +67,9 @@ const navigationAfterFinance = [
 ];
 
 const moreSubNav = [
+  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, comingSoon: false },
   { name: "Menús", href: "/dashboard/menus", icon: RiRestaurantLine, comingSoon: true },
   { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
-  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, comingSoon: true },
 ];
 
 const financeSubNav = [
@@ -362,11 +363,11 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                         : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                     )}
                   >
-                    <RiMore2Line className="h-5 w-5" />
+                    <RiToolsLine className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  Más
+                  Herramientas
                 </TooltipContent>
               </Tooltip>
             ) : (
@@ -381,8 +382,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <RiMore2Line className="h-5 w-5" />
-                    Más
+                    <RiToolsLine className="h-5 w-5" />
+                    Herramientas
                   </div>
                   <RiArrowDownSLine 
                     className={cn(

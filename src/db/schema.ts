@@ -1757,6 +1757,138 @@ export const aiAnalytics = pgTable("ai_analytics", {
 });
 
 // ============================================
+// FORMS MODULE (Template → Instance → Submission)
+// ============================================
+
+export const forms = pgTable("forms", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("draft"), // draft | active | paused
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").default("#111827"),
+  submitButtonText: text("submit_button_text").default("Enviar"),
+  thankYouTitle: text("thank_you_title").default("¡Gracias!"),
+  thankYouMessage: text("thank_you_message").default("Tu respuesta ha sido registrada."),
+  redirectUrl: text("redirect_url"),
+  defaultEventType: text("default_event_type"),
+  notifyOnResponse: boolean("notify_on_response").default(true),
+  notifyEmail: text("notify_email"),
+  gdprEnabled: boolean("gdpr_enabled").default(false),
+  gdprText: text("gdpr_text").default("Acepto la política de privacidad."),
+  gdprLink: text("gdpr_link"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const formFields = pgTable("form_fields", {
+  id: serial("id").primaryKey(),
+  formId: integer("form_id").notNull().references(() => forms.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  label: text("label").notNull(),
+  placeholder: text("placeholder"),
+  required: boolean("required").default(false),
+  crmMapping: text("crm_mapping"),
+  options: jsonb("options"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  config: jsonb("config").default({}),
+});
+
+export const formInstances = pgTable("form_instances", {
+  id: serial("id").primaryKey(),
+  formId: integer("form_id").notNull().references(() => forms.id, { onDelete: "cascade" }),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  type: text("type").notNull().default("landing"), // 'landing' | 'task'
+  slug: text("slug"),
+  eventId: integer("event_id").references(() => events.id, { onDelete: "cascade" }),
+  taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("active"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const formSubmissions = pgTable("form_submissions", {
+  id: serial("id").primaryKey(),
+  instanceId: integer("instance_id").notNull().references(() => formInstances.id, { onDelete: "cascade" }),
+  formId: integer("form_id").notNull().references(() => forms.id, { onDelete: "cascade" }),
+  data: jsonb("data").notNull(),
+  respondentName: text("respondent_name"),
+  respondentEmail: text("respondent_email"),
+  respondentUserId: text("respondent_user_id").references(() => users.id),
+  leadId: integer("lead_id").references(() => leads.id),
+  contactId: integer("contact_id").references(() => contacts.id),
+  pdfUrl: text("pdf_url"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const formsRelations = relations(forms, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [forms.organizationId],
+    references: [organizations.id],
+  }),
+  creator: one(users, {
+    fields: [forms.createdBy],
+    references: [users.id],
+  }),
+  fields: many(formFields),
+  instances: many(formInstances),
+}));
+
+export const formFieldsRelations = relations(formFields, ({ one }) => ({
+  form: one(forms, {
+    fields: [formFields.formId],
+    references: [forms.id],
+  }),
+}));
+
+export const formInstancesRelations = relations(formInstances, ({ one, many }) => ({
+  form: one(forms, {
+    fields: [formInstances.formId],
+    references: [forms.id],
+  }),
+  organization: one(organizations, {
+    fields: [formInstances.organizationId],
+    references: [organizations.id],
+  }),
+  event: one(events, {
+    fields: [formInstances.eventId],
+    references: [events.id],
+  }),
+  task: one(tasks, {
+    fields: [formInstances.taskId],
+    references: [tasks.id],
+  }),
+  submissions: many(formSubmissions),
+}));
+
+export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => ({
+  instance: one(formInstances, {
+    fields: [formSubmissions.instanceId],
+    references: [formInstances.id],
+  }),
+  form: one(forms, {
+    fields: [formSubmissions.formId],
+    references: [forms.id],
+  }),
+  respondent: one(users, {
+    fields: [formSubmissions.respondentUserId],
+    references: [users.id],
+  }),
+  lead: one(leads, {
+    fields: [formSubmissions.leadId],
+    references: [leads.id],
+  }),
+  contact: one(contacts, {
+    fields: [formSubmissions.contactId],
+    references: [contacts.id],
+  }),
+}));
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -1879,3 +2011,13 @@ export type NewAiMessage = typeof aiMessages.$inferInsert;
 export type AiFeedback = typeof aiFeedback.$inferSelect;
 export type NewAiFeedback = typeof aiFeedback.$inferInsert;
 export type AiAnalytics = typeof aiAnalytics.$inferSelect;
+
+// Forms Module Types
+export type Form = typeof forms.$inferSelect;
+export type NewForm = typeof forms.$inferInsert;
+export type FormField = typeof formFields.$inferSelect;
+export type NewFormField = typeof formFields.$inferInsert;
+export type FormInstance = typeof formInstances.$inferSelect;
+export type NewFormInstance = typeof formInstances.$inferInsert;
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export type NewFormSubmission = typeof formSubmissions.$inferInsert;

@@ -101,6 +101,56 @@ Si se ofrece transporte:
 Cada vez que un invitado confirma, el organizador recibe una notificación push con el nombre y cantidad de personas.
 `,
 
+  forms: `
+## 📝 Módulo Formularios
+
+### ¿Qué es?
+El módulo de Formularios permite crear formularios personalizados para captar leads, recopilar briefings de clientes, y obtener información de proveedores de forma estructurada.
+
+### Tipos de Formularios
+- **Internos (Briefing/Tarea)**: Vinculados a un evento y/o tarea específica. Las respuestas se ven en el panel del proyecto/tarea.
+- **Externos (Landing)**: Generan una URL pública (/f/{slug}) para captar leads. Las respuestas se ven en el panel de Formularios del planner.
+
+### Crear un Formulario
+1. Ir a Herramientas → Formularios
+2. Clic en "+ Nuevo formulario"
+3. En la pestaña **Diseño**: nombre, descripción, color, texto del botón, página de agradecimiento
+4. En la pestaña **Campos**: agregar y ordenar campos con drag & drop (máximo 50)
+5. En la pestaña **Configuración**: notificaciones, GDPR, instancias/vinculaciones
+6. Activar el formulario cuando esté listo
+
+### Tipos de Campos Disponibles
+**Datos CRM:** Nombre, Email, Teléfono, Nombre de pareja, Email de pareja, Fecha del evento, Lugar del evento, Cantidad de invitados, Presupuesto, Mensaje
+**Campos adicionales:** Texto corto, Texto largo, Selección única (radio), Selección múltiple (checkboxes), Checkbox individual, Selección con imágenes
+**Diseño:** Título de sección, Texto descriptivo, Separador
+
+### Selección con Imágenes
+Permite al usuario elegir opciones visuales (ej: estilos de decoración, ambientación). Cada opción tiene imagen + label.
+
+### Vinculaciones
+- **A un evento**: El formulario aparece en la card de Formularios del evento
+- **A una tarea**: El formulario aparece en el tab Formularios del drawer de la tarea
+- **Landing pública**: Genera URL /f/{slug} compartible
+
+### PDF de Respuestas
+Al enviar un formulario, se genera automáticamente un PDF con las respuestas. Si está vinculado a una tarea, el PDF se guarda en la sección de archivos de esa tarea.
+
+### GDPR / Privacidad
+Se puede activar consentimiento GDPR con texto personalizable y link a política de privacidad. Se puede generar automáticamente con ENTI.
+
+### Instancias
+Cada vez que se vincula un formulario a un contexto diferente (evento, tarea, landing), se crea una "instancia" con ID único. Esto permite reutilizar el mismo formulario en múltiples contextos manteniendo las respuestas separadas.
+
+### APIs
+- GET/POST /api/forms - Listar/Crear formularios
+- GET/PATCH/DELETE /api/forms/{id} - Detalle/Editar/Eliminar
+- GET/PUT /api/forms/{id}/fields - Campos del formulario
+- GET/POST /api/forms/{id}/instances - Instancias
+- GET /api/forms/{id}/submissions - Respuestas
+- GET /api/public/forms/{slug} - Formulario público
+- POST /api/public/forms/{slug}/submit - Enviar respuesta
+`,
+
   guests: `
 ## 📋 Módulo Lista de Invitados
 
@@ -246,6 +296,20 @@ El usuario está en el dashboard. Ofrece un resumen general:
 - Tareas urgentes
 - Recordatorios importantes
 `,
+  forms: `
+## Contexto: Vista de Formularios
+El usuario está en la sección de Formularios. Puedes ayudar con:
+- Cómo crear un formulario nuevo
+- Cómo agregar campos y ordenarlos
+- Diferencia entre formularios internos (briefing/tarea) y externos (landing)
+- Cómo vincular un formulario a un evento o tarea
+- Cómo generar el texto GDPR
+- Cómo ver las respuestas y descargar PDFs
+- Tipos de campos disponibles incluyendo selección con imágenes
+
+Usa la documentación de FEATURE_DOCS.forms para responder preguntas sobre Formularios.
+`,
+
   guests: `
 ## Contexto: Vista de Lista de Invitados
 El usuario está en la sección de Lista de Invitados de un evento. Puedes ayudar con:
@@ -348,6 +412,14 @@ export function buildSystemPrompt(options: {
     // Contexto RSVP general (sin evento específico)
     fullPrompt += "\n" + CONTEXT_PROMPTS["rsvp"];
     fullPrompt += "\n\n" + FEATURE_DOCS.rsvp;
+  } else if (context?.startsWith("forms:")) {
+    const formId = context.split(":")[1];
+    fullPrompt += "\n" + CONTEXT_PROMPTS["forms"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.forms;
+    fullPrompt += `\n\n**IMPORTANTE**: El usuario está editando el formulario con ID ${formId}. Usa esta documentación para responder preguntas sobre cómo usar Formularios.`;
+  } else if (context === "forms") {
+    fullPrompt += "\n" + CONTEXT_PROMPTS["forms"];
+    fullPrompt += "\n\n" + FEATURE_DOCS.forms;
   } else if (context?.startsWith("guests:")) {
     // Manejar contexto de Lista de Invitados específico (formato: "guests:123")
     const eventId = context.split(":")[1];
@@ -397,6 +469,11 @@ export const INITIAL_SUGGESTIONS = {
     "¿Cómo configuro el transporte para invitados?",
     "¿Cómo exporto la lista de invitados?",
     "¿Cómo funciona la fecha límite de confirmación?",
+  ],
+  forms: [
+    "¿Cómo creo un formulario?",
+    "¿Qué tipos de campos puedo usar?",
+    "¿Cómo vinculo un form a un evento?",
   ],
   guests: [
     "¿Cómo importo invitados desde un CSV?",

@@ -28,6 +28,7 @@ import {
   RiTaskLine,
   RiListOrdered2,
   RiInformationLine,
+  RiSurveyLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,11 +36,12 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
-type TabKey = "documents" | "payments" | "tasks" | "runsheet";
+type TabKey = "documents" | "payments" | "tasks" | "runsheet" | "forms";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "tasks", label: "Mis Tareas", icon: RiTaskLine },
-  { key: "runsheet", label: "Orden del d\u00eda", icon: RiListOrdered2 },
+  { key: "forms", label: "Formularios", icon: RiSurveyLine },
+  { key: "runsheet", label: "Orden del día", icon: RiListOrdered2 },
   { key: "documents", label: "Documentos", icon: RiFileTextLine },
   { key: "payments", label: "Pagos", icon: RiMoneyDollarCircleLine },
 ];
@@ -471,6 +473,10 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
         </Card>
       )}
 
+      {activeTab === "forms" && (
+        <VendorFormsTab accessId={accessId} />
+      )}
+
       {activeTab === "runsheet" && (
         <VendorRunSheetTab
           items={runSheetItems}
@@ -685,6 +691,227 @@ function VendorRunSheetTab({
             </div>
           );
         })
+      )}
+    </div>
+  );
+}
+
+interface VendorFormItem {
+  id: number;
+  formName: string;
+  formDescription: string | null;
+  taskId: number | null;
+  status: string;
+}
+
+function VendorFormsTab({ accessId }: { accessId: string }) {
+  const [formsList, setFormsList] = useState<VendorFormItem[]>([]);
+  const [loadingForms, setLoadingForms] = useState(true);
+  const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
+  const [vendorFormData, setVendorFormData] = useState<{
+    instanceId: number;
+    form: {
+      name: string;
+      description: string | null;
+      primaryColor: string;
+      submitButtonText: string;
+      thankYouTitle: string;
+      thankYouMessage: string;
+      gdprEnabled: boolean;
+      gdprText: string;
+      gdprLink: string | null;
+      fields: { id: number; type: string; label: string; placeholder: string | null; required: boolean; options: unknown; sortOrder: number }[];
+    };
+  } | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [vendorGdprAccepted, setVendorGdprAccepted] = useState(false);
+
+  useEffect(() => {
+    async function loadForms() {
+      try {
+        const res = await fetch(`/api/vendor/events/${accessId}/forms`);
+        const data = await res.json();
+        if (data.success) setFormsList(data.data);
+      } catch {
+        // silent
+      } finally {
+        setLoadingForms(false);
+      }
+    }
+    loadForms();
+  }, [accessId]);
+
+  const openForm = async (instanceId: number) => {
+    setSelectedFormId(instanceId);
+    setVendorFormData(null);
+    setFormValues({});
+    setHasSubmitted(false);
+    try {
+      const res = await fetch(`/api/vendor/forms/${instanceId}`);
+      const data = await res.json();
+      if (data.success) setVendorFormData(data.data);
+    } catch {
+      // silent
+    }
+  };
+
+  const submitVendorForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorFormData || !selectedFormId) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/vendor/forms/${selectedFormId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: formValues }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHasSubmitted(true);
+        toast.success("Formulario enviado correctamente");
+      } else {
+        toast.error(data.error || "Error al enviar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loadingForms) {
+    return (
+      <Card><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+    );
+  }
+
+  if (formsList.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center text-muted-foreground">
+          <RiSurveyLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No hay formularios asignados para este evento.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (hasSubmitted && vendorFormData) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <RiSurveyLine className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-semibold">{vendorFormData.form.thankYouTitle || "¡Gracias!"}</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            {vendorFormData.form.thankYouMessage || "Tu respuesta ha sido registrada."}
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => { setSelectedFormId(null); setVendorFormData(null); setHasSubmitted(false); }}>
+            Volver a formularios
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (selectedFormId && vendorFormData) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedFormId(null); setVendorFormData(null); }}>
+              <RiArrowLeftLine className="h-4 w-4 mr-1" /> Volver
+            </Button>
+          </div>
+          <h3 className="text-lg font-semibold">{vendorFormData.form.name}</h3>
+          {vendorFormData.form.description && (
+            <p className="text-sm text-muted-foreground mt-1">{vendorFormData.form.description}</p>
+          )}
+          <form onSubmit={submitVendorForm} className="mt-6 space-y-4 max-w-lg">
+            {vendorFormData.form.fields.map((field) => (
+              <VendorFieldRenderer
+                key={field.id}
+                field={field}
+                value={formValues[field.label]}
+                onChange={(val) => setFormValues((prev) => ({ ...prev, [field.label]: val }))}
+              />
+            ))}
+            {vendorFormData.form.gdprEnabled && (
+              <div className="flex items-start gap-2">
+                <input type="checkbox" checked={vendorGdprAccepted} onChange={(e) => setVendorGdprAccepted(e.target.checked)} className="mt-1" />
+                <span className="text-sm text-muted-foreground">
+                  {vendorFormData.form.gdprText}
+                  {vendorFormData.form.gdprLink && (
+                    <a href={vendorFormData.form.gdprLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Ver política</a>
+                  )}
+                </span>
+              </div>
+            )}
+            <Button type="submit" disabled={isSubmitting || (vendorFormData.form.gdprEnabled && !vendorGdprAccepted)} style={{ backgroundColor: vendorFormData.form.primaryColor }}>
+              {isSubmitting ? "Enviando..." : vendorFormData.form.submitButtonText || "Enviar"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {formsList.map((form) => (
+        <Card key={form.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openForm(form.id)}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <h4 className="font-medium">{form.formName}</h4>
+              {form.formDescription && <p className="text-sm text-muted-foreground mt-0.5">{form.formDescription}</p>}
+            </div>
+            <Badge variant="outline">Completar</Badge>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function VendorFieldRenderer({ field, value, onChange }: {
+  field: { id: number; type: string; label: string; placeholder: string | null; required: boolean; options: unknown };
+  value: unknown;
+  onChange: (val: unknown) => void;
+}) {
+  if (field.type === "section_title") return <h3 className="text-base font-semibold pt-2">{field.label}</h3>;
+  if (field.type === "descriptive_text") return <p className="text-sm text-muted-foreground">{field.label}</p>;
+  if (field.type === "separator") return <hr className="border-border" />;
+
+  const isTextArea = field.type === "message" || field.type === "long_text";
+  const inputType = field.type === "email" || field.type === "partner_email" ? "email" : field.type === "phone" ? "tel" : field.type === "event_date" ? "date" : "text";
+
+  return (
+    <div className="space-y-1">
+      <label className="text-sm font-medium">
+        {field.label}
+        {field.required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {isTextArea ? (
+        <textarea
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || ""}
+          required={field.required}
+          rows={3}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      ) : (
+        <input
+          type={inputType}
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder || ""}
+          required={field.required}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
       )}
     </div>
   );

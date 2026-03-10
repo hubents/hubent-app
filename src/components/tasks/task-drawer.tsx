@@ -21,11 +21,13 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiFileCopyLine,
+  RiSurveyLine,
 } from "@remixicon/react";
 import { useTaskDetail } from "@/hooks/use-task-detail";
 import { TaskGeneralTab } from "./task-general-tab";
 import { TaskInfoTab } from "./task-info-tab";
 import { TaskScheduleTab } from "./task-schedule-tab";
+import { TaskFormsTab } from "./task-forms-tab";
 import { TaskChat } from "./task-chat";
 import { TaskAIDrawer } from "./task-ai-drawer";
 import { Sparkles } from "lucide-react";
@@ -452,6 +454,10 @@ export function TaskDrawer({
                       <RiCalendarScheduleLine className="h-4 w-4" />
                       Orden del día
                     </TabsTrigger>
+                    <TabsTrigger value="forms" className="gap-2">
+                      <RiSurveyLine className="h-4 w-4" />
+                      Formularios
+                    </TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -511,6 +517,10 @@ export function TaskDrawer({
                       onUpdateScheduleItem={updateScheduleItem}
                       onDeleteScheduleItem={deleteScheduleItem}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="forms" className="h-full m-0">
+                    <TaskFormsTab taskId={effectiveTaskId!} />
                   </TabsContent>
                 </div>
               </Tabs>

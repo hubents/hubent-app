@@ -87,6 +87,11 @@ const BASE_PERMISSIONS = [
   // Settings
   { name: "Ver configuración", slug: "settings:read", resource: "settings", action: "read" },
   { name: "Editar configuración", slug: "settings:update", resource: "settings", action: "update" },
+  // Forms
+  { name: "Ver formularios", slug: "forms:read", resource: "forms", action: "read" },
+  { name: "Crear formularios", slug: "forms:create", resource: "forms", action: "create" },
+  { name: "Editar formularios", slug: "forms:update", resource: "forms", action: "update" },
+  { name: "Eliminar formularios", slug: "forms:delete", resource: "forms", action: "delete" },
 ];
 
 /**

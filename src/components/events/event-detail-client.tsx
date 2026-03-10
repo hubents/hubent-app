@@ -136,6 +136,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     permissions: Record<string, string> | null;
   }>>([]);
   const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
+  const [eventForms, setEventForms] = useState<Array<{ id: number; formId: number; formName?: string; type: string; slug: string | null; submissionCount: number }>>([]);
 
   // Set active event when loaded
   useEffect(() => {
@@ -228,10 +229,22 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
+  const fetchEventForms = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/forms`);
+      const data = await res.json();
+      if (data.success) {
+        setEventForms(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch event forms:", error);
+    }
+  };
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchCollaborators()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchCollaborators(), fetchEventForms()]);
       setLoading(false);
     }
     loadData();
@@ -935,6 +948,48 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No hay documentos
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Formularios */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <RiFileListLine className="h-5 w-5" />
+              Formularios ({eventForms.length})
+            </CardTitle>
+            <Link href="/dashboard/forms">
+              <Button variant="outline" size="sm">
+                Ver todos
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {eventForms.length > 0 ? (
+              <div className="space-y-2">
+                {eventForms.map((fi) => (
+                  <Link
+                    key={fi.id}
+                    href={`/dashboard/forms/${fi.formId}`}
+                    className="flex items-center justify-between p-2 rounded border hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {fi.type === "landing" ? "Landing" : "Tarea"}
+                      </Badge>
+                      <span className="font-medium text-sm truncate">{fi.formName || `Form #${fi.formId}`}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {fi.submissionCount} resp.
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay formularios vinculados
               </div>
             )}
           </CardContent>

@@ -1,7 +1,7 @@
 ﻿import { tool } from "ai";
 import { z } from "zod";
 import { db } from "@/db";
-import { events, tasks, organizationMembers, users, roles, eventVendors, vendors } from "@/db/schema";
+import { events, tasks, organizationMembers, users, roles, eventVendors, vendors, forms, formInstances, formSubmissions } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 interface UserContext {
@@ -152,6 +152,25 @@ export function createAITools(userContext: UserContext) {
           .where(eq(events.organizationId, organizationId)).orderBy(desc(events.date)).limit(5);
         return { date: new Date().toLocaleDateString("es-ES"), tasks: { pending: pendingTasks.length, list: pendingTasks.slice(0, 5) },
           events: { count: upcomingEvents.length, list: upcomingEvents.map(e => ({ ...e, date: e.date ? new Date(e.date).toLocaleDateString("es-ES") : null }))}};
+      },
+    }),
+
+    getForms: tool({
+      description: "Obtiene los formularios de la organizacion. Puede filtrar por estado.",
+      inputSchema: z.object({
+        status: z.enum(["draft", "active", "paused"]).optional().describe("Filtrar por estado"),
+        limit: z.number().optional().default(20),
+      }),
+      execute: async ({ status, limit }) => {
+        let allForms = await db.select({
+          id: forms.id, name: forms.name, status: forms.status,
+          description: forms.description, createdAt: forms.createdAt,
+        }).from(forms).where(eq(forms.organizationId, organizationId)).orderBy(desc(forms.updatedAt)).limit(50);
+
+        if (status) allForms = allForms.filter(f => f.status === status);
+
+        return { count: allForms.length, forms: allForms.slice(0, limit).map(f => ({
+          ...f, createdAt: f.createdAt ? new Date(f.createdAt).toLocaleDateString("es-ES") : null }))};
       },
     }),
   };
