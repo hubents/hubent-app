@@ -90,11 +90,12 @@ export function FinanceToolbar({
               key={tab.key}
               onClick={() => onStatusChange(tab.key)}
               className={cn(
-                "px-3 py-2.5 text-sm font-medium border-b-[2.5px] transition-colors -mb-px whitespace-nowrap flex items-center gap-1.5",
+                "px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5",
                 activeStatus === tab.key
-                  ? "border-foreground text-foreground font-semibold"
-                  : "border-transparent text-muted-foreground/70 hover:text-foreground"
+                  ? "text-foreground font-semibold"
+                  : "text-muted-foreground/70 hover:text-foreground"
               )}
+              style={activeStatus === tab.key ? { boxShadow: "inset 0 -2.5px 0 0 hsl(var(--foreground))" } : undefined}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
