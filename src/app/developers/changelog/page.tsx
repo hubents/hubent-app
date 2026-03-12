@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { RiArrowLeftSLine } from "@remixicon/react";
 
 const CHANGELOG = [
@@ -44,7 +45,10 @@ export default function ChangelogPage() {
               <Link href="/developers" className="text-muted-foreground hover:text-foreground">
                 <RiArrowLeftSLine className="h-5 w-5" />
               </Link>
-              <Link href="/" className="font-bold text-xl">HubEnts</Link>
+              <Link href="/" className="flex items-center">
+                <Image src="/images/logo-dark.png" alt="HubEnts" width={100} height={24} className="dark:hidden" />
+                <Image src="/images/logo-light.png" alt="HubEnts" width={100} height={24} className="hidden dark:block" />
+              </Link>
               <span className="text-muted-foreground">/</span>
               <span className="text-sm font-medium">Changelog</span>
             </div>
@@ -108,7 +112,7 @@ export default function ChangelogPage() {
 
       <footer className="border-t py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto flex items-center justify-between text-sm text-muted-foreground">
-          <p>HubEnts API v2025-01-01 — Powered by NapsixAI</p>
+          <p>© 2025 HubEnts — API v2025-01-01</p>
           <div className="flex gap-4">
             <Link href="/developers" className="hover:text-foreground">Docs</Link>
             <a href="/api/v1/openapi" target="_blank" className="hover:text-foreground">OpenAPI</a>

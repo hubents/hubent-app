@@ -27,6 +27,7 @@ export async function GET() {
       data: { keys, stats, available_scopes: availableScopes, org_type: session.orgType },
     });
   } catch (error) {
+    console.error("[API Keys GET]", error);
     const message = error instanceof Error ? error.message : "Failed to fetch API keys";
     const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
     return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
       message: "API key created. Copy the raw key now — it won't be shown again.",
     }, { status: 201 });
   } catch (error) {
+    console.error("[API Keys POST]", error);
     const message = error instanceof Error ? error.message : "Failed to create API key";
     const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
     return NextResponse.json({ success: false, error: { code: "CREATE_ERROR", message } }, { status });
