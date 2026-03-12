@@ -6,6 +6,7 @@ import {
   editTaskMessage,
   deleteTaskMessage,
   canAccessTaskChat,
+  canCommentOnTask,
   getTaskParticipantUserIds
 } from "@/lib/task-chat";
 import { triggerTaskMessage, EVENTS } from "@/lib/pusher";
@@ -36,15 +37,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const messages = await getTaskMessages(session, parseInt(taskId, 10), {
-      limit,
-      offset,
-      includePrivate: true,
-    });
+    const taskIdNum = parseInt(taskId, 10);
+
+    const [messages, canComment] = await Promise.all([
+      getTaskMessages(session, taskIdNum, {
+        limit,
+        offset,
+        includePrivate: true,
+      }),
+      canCommentOnTask(session, taskIdNum),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: messages,
+      canComment,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch messages";

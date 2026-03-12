@@ -39,7 +39,7 @@ interface TaskChatProps {
 
 export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const { data: session } = useSession();
-  const { messages, loading, sending, sendMessage, deleteMessage, refetch, isRealtime } = useTaskMessages(taskId);
+  const { messages, loading, sending, sendMessage, deleteMessage, refetch, isRealtime, canComment } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -460,6 +460,12 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
       </div>
 
       {/* Input Area with Drag & Drop */}
+      {!canComment ? (
+        <div className="p-4 border-t border-border shrink-0 text-center text-sm text-muted-foreground">
+          <RiLockLine className="h-4 w-4 inline-block mr-1" />
+          No tienes permisos para comentar en esta tarea
+        </div>
+      ) : (
       <div 
         ref={dropZoneRef}
         className={`p-4 border-t border-border shrink-0 space-y-3 relative transition-colors ${
@@ -612,6 +618,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

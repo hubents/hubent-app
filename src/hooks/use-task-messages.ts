@@ -39,6 +39,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isRealtime, setIsRealtime] = useState(false);
+  const [canComment, setCanComment] = useState(true);
   const lastMessageIdRef = useRef<number | null>(null);
   const { data: session } = useSession();
   const showNotifications = options?.showNotifications ?? true;
@@ -58,6 +59,9 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
       const data = await res.json();
       if (data.success) {
         setMessages(data.data);
+        if (typeof data.canComment === "boolean") {
+          setCanComment(data.canComment);
+        }
         // Track last message ID for deduplication
         if (data.data.length > 0) {
           lastMessageIdRef.current = data.data[data.data.length - 1].id;
@@ -279,6 +283,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
     error,
     sending,
     isRealtime,
+    canComment,
     refetch: fetchMessages,
     sendMessage,
     editMessage,

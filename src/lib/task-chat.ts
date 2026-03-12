@@ -20,11 +20,10 @@ export async function canAccessTaskChat(
   session: TenantSession,
   taskId: number
 ): Promise<boolean> {
-  // Planners and above can access all tasks
-  const roleHierarchy = ["viewer", "accountant", "assistant", "planner", "admin", "owner"];
-  const userRoleIndex = roleHierarchy.indexOf(session.role);
+  // High-privilege roles can access all tasks in their org
+  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
   
-  if (userRoleIndex >= roleHierarchy.indexOf("planner")) {
+  if (highRoles.includes(session.role)) {
     // Verify task belongs to organization
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) => 
@@ -36,7 +35,7 @@ export async function canAccessTaskChat(
     return !!task;
   }
 
-  // For others, check if they're participants
+  // For others, must be a direct task participant
   const [participant] = await db
     .select()
     .from(taskParticipants)
@@ -144,6 +143,34 @@ export async function getTaskMessages(
 
   // Reverse to get chronological order
   return messagesWithAttachments.reverse();
+}
+
+/**
+ * Check if user can comment on a task (for UI conditional rendering)
+ * Returns: true if user can comment, false otherwise
+ */
+export async function canCommentOnTask(
+  session: TenantSession,
+  taskId: number
+): Promise<boolean> {
+  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  if (highRoles.includes(session.role)) {
+    return true;
+  }
+
+  const [participant] = await db
+    .select({ canComment: taskParticipants.canComment })
+    .from(taskParticipants)
+    .where(
+      and(
+        eq(taskParticipants.taskId, taskId),
+        eq(taskParticipants.userId, session.user.userId)
+      )
+    )
+    .limit(1);
+
+  if (!participant) return false;
+  return participant.canComment !== false;
 }
 
 /**
@@ -255,12 +282,11 @@ export async function deleteTaskMessage(
     throw new Error("Message not found");
   }
 
-  // Only sender or planner+ can delete
-  const roleHierarchy = ["viewer", "accountant", "assistant", "planner", "admin", "owner"];
-  const userRoleIndex = roleHierarchy.indexOf(session.role);
-  const isPlanner = userRoleIndex >= roleHierarchy.indexOf("planner");
+  // Only sender or high-privilege roles can delete
+  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const isHighRole = highRoles.includes(session.role);
 
-  if (message.senderId !== session.user.userId && !isPlanner) {
+  if (message.senderId !== session.user.userId && !isHighRole) {
     throw new Error("You don't have permission to delete this message");
   }
 
@@ -339,12 +365,11 @@ export async function deleteTaskAttachment(
     throw new Error("Attachment not found");
   }
 
-  // Only uploader or planner+ can delete
-  const roleHierarchy = ["viewer", "accountant", "assistant", "planner", "admin", "owner"];
-  const userRoleIndex = roleHierarchy.indexOf(session.role);
-  const isPlanner = userRoleIndex >= roleHierarchy.indexOf("planner");
+  // Only uploader or high-privilege roles can delete
+  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const isHighRole = highRoles.includes(session.role);
 
-  if (attachment.uploadedBy !== session.user.userId && !isPlanner) {
+  if (attachment.uploadedBy !== session.user.userId && !isHighRole) {
     throw new Error("You don't have permission to delete this attachment");
   }
 
