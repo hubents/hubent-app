@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/ui/logo";
 import { RiCodeSSlashLine, RiShieldKeyholeLine, RiWebhookLine, RiRobot2Line, RiSpeedLine, RiRepeatLine, RiLockLine, RiFileList3Line, RiTerminalLine, RiArrowRightSLine, RiExternalLinkLine, RiBrainLine, RiDatabase2Line, RiPlugLine } from "@remixicon/react";
 
 const NAV_ITEMS = [
@@ -178,9 +178,8 @@ export default function DeveloperPortalPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Link href="/" className="flex items-center gap-2">
-                <Image src="/images/logo-dark.png" alt="HubEnts" width={120} height={28} className="dark:hidden" />
-                <Image src="/images/logo-light.png" alt="HubEnts" width={120} height={28} className="hidden dark:block" />
+              <Link href="/" className="flex items-center">
+                <Logo variant="full" size="md" theme="light" />
               </Link>
               <span className="text-muted-foreground">/</span>
               <span className="text-sm font-medium">Developer Portal</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/ui/logo";
 import { RiArrowLeftSLine } from "@remixicon/react";
 
 const CHANGELOG = [
@@ -46,8 +46,7 @@ export default function ChangelogPage() {
                 <RiArrowLeftSLine className="h-5 w-5" />
               </Link>
               <Link href="/" className="flex items-center">
-                <Image src="/images/logo-dark.png" alt="HubEnts" width={100} height={24} className="dark:hidden" />
-                <Image src="/images/logo-light.png" alt="HubEnts" width={100} height={24} className="hidden dark:block" />
+                <Logo variant="full" size="md" theme="light" />
               </Link>
               <span className="text-muted-foreground">/</span>
               <span className="text-sm font-medium">Changelog</span>
