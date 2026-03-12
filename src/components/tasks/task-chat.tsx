@@ -350,7 +350,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
                 <TooltipContent side="bottom">
                   {isRealtime 
                     ? "Mensajes en tiempo real activos" 
-                    : "Modo offline - los mensajes se actualizan cada 60s"}
+                    : "Modo offline - los mensajes se actualizan cada 15s"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -425,7 +425,8 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
             {messages.map((message) => (
               <TaskChatMessage 
                 key={message.id} 
-                message={message} 
+                message={message}
+                isOwnMessage={message.senderId === session?.user?.id}
                 onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
               />
             ))}

@@ -171,6 +171,9 @@ export interface PresenceMember {
   };
 }
 
+// Reference counting for presence channels (separate from private channels)
+const presenceSubscriptions = new Map<string, { channel: PresenceChannel; refCount: number }>();
+
 export function usePresenceChannel(channelName: string | null) {
   const channelRef = useRef<PresenceChannel | null>(null);
   const [members, setMembers] = useState<PresenceMember[]>([]);
@@ -184,36 +187,47 @@ export function usePresenceChannel(channelName: string | null) {
     if (!pusher) return;
 
     try {
-      const channel = pusher.subscribe(channelName) as PresenceChannel;
-      channelRef.current = channel;
+      const existing = presenceSubscriptions.get(channelName);
 
-      // Handle subscription error (e.g., user not authorized)
-      channel.bind("pusher:subscription_error", (error: { status: number }) => {
-        console.warn(`Pusher presence subscription failed for ${channelName}:`, error.status);
-      });
+      if (existing) {
+        existing.refCount++;
+        channelRef.current = existing.channel;
+      } else {
+        const channel = pusher.subscribe(channelName) as PresenceChannel;
+        presenceSubscriptions.set(channelName, { channel, refCount: 1 });
+        channelRef.current = channel;
 
-      // When subscription succeeds, get initial members
-      channel.bind("pusher:subscription_succeeded", (data: { members: Record<string, PresenceMember["info"]>; me: { id: string; info: PresenceMember["info"] } }) => {
-        const memberList: PresenceMember[] = [];
-        Object.entries(data.members).forEach(([id, info]) => {
-          memberList.push({ id, info });
+        channel.bind("pusher:subscription_error", (error: { status: number }) => {
+          console.warn(`Pusher presence subscription failed for ${channelName}:`, error.status);
         });
-        setMembers(memberList);
-        setMe({ id: data.me.id, info: data.me.info });
-      });
 
-      // When someone joins
-      channel.bind("pusher:member_added", (member: PresenceMember) => {
-        setMembers(prev => [...prev.filter(m => m.id !== member.id), member]);
-      });
+        channel.bind("pusher:subscription_succeeded", (data: { members: Record<string, PresenceMember["info"]>; me: { id: string; info: PresenceMember["info"] } }) => {
+          const memberList: PresenceMember[] = [];
+          Object.entries(data.members).forEach(([id, info]) => {
+            memberList.push({ id, info });
+          });
+          setMembers(memberList);
+          setMe({ id: data.me.id, info: data.me.info });
+        });
 
-      // When someone leaves
-      channel.bind("pusher:member_removed", (member: PresenceMember) => {
-        setMembers(prev => prev.filter(m => m.id !== member.id));
-      });
+        channel.bind("pusher:member_added", (member: PresenceMember) => {
+          setMembers(prev => [...prev.filter(m => m.id !== member.id), member]);
+        });
+
+        channel.bind("pusher:member_removed", (member: PresenceMember) => {
+          setMembers(prev => prev.filter(m => m.id !== member.id));
+        });
+      }
 
       return () => {
-        pusher.unsubscribe(channelName);
+        const sub = presenceSubscriptions.get(channelName);
+        if (sub) {
+          sub.refCount--;
+          if (sub.refCount <= 0) {
+            pusher.unsubscribe(channelName);
+            presenceSubscriptions.delete(channelName);
+          }
+        }
         channelRef.current = null;
         setMembers([]);
         setMe(null);
@@ -222,7 +236,7 @@ export function usePresenceChannel(channelName: string | null) {
       console.warn("Pusher client not available:", error);
       return;
     }
-  }, [channelName, session]);
+  }, [channelName, session?.user?.id]);
 
   const bind = useCallback(<T>(event: string, callback: (data: T) => void) => {
     channelRef.current?.bind(event, callback);
@@ -265,6 +279,12 @@ export function useUserNotifications(onNotification?: (data: unknown) => void) {
         "task:updated",
         "task:comment",
         "event:updated",
+        "event:new",
+        "rsvp:received",
+        "contact:new",
+        "lead:new",
+        "payment:new",
+        "document:received",
       ];
 
       events.forEach(event => {

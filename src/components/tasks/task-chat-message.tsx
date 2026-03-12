@@ -43,6 +43,7 @@ interface TaskMessage {
 
 interface TaskChatMessageProps {
   message: TaskMessage;
+  isOwnMessage?: boolean;
   onDelete?: (messageId: number) => void;
 }
 
@@ -85,7 +86,7 @@ function getFileIcon(mimeType: string | null) {
   return <RiFileTextLine className="h-5 w-5 text-primary" />;
 }
 
-export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
+export function TaskChatMessage({ message, isOwnMessage = false, onDelete }: TaskChatMessageProps) {
   const initials = message.senderName
     ? message.senderName
         .split(" ")
@@ -96,17 +97,17 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
     : "?";
 
   return (
-    <div className="group flex gap-3">
-      <Avatar className="h-8 w-8 shrink-0">
+    <div className={`group flex gap-3 ${isOwnMessage ? "flex-row-reverse" : ""}`}>
+      <Avatar className={`h-8 w-8 shrink-0 ${isOwnMessage ? "ring-2 ring-primary/20" : ""}`}>
         <AvatarImage src={message.senderImage} />
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        <AvatarFallback className={`text-xs ${isOwnMessage ? "bg-primary/20 text-primary" : ""}`}>{initials}</AvatarFallback>
       </Avatar>
 
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 ${isOwnMessage ? "text-right" : ""}`}>
         {/* Header */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className={`flex items-center gap-2 flex-wrap ${isOwnMessage ? "justify-end" : ""}`}>
           <span className="font-medium text-sm">
-            {message.senderName || message.senderEmail || "Usuario"}
+            {isOwnMessage ? "Tú" : (message.senderName || message.senderEmail || "Usuario")}
           </span>
           
           {message.isPrivate && (
@@ -126,11 +127,17 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
         </div>
 
         {/* Content */}
-        <div className="mt-1">
+        <div className={`mt-1 ${isOwnMessage ? "flex flex-col items-end" : ""}`}>
           {message.type === "text" && (
-            <p className="text-sm whitespace-pre-wrap break-words">
-              {message.content}
-            </p>
+            <div className={`inline-block rounded-xl px-3 py-2 max-w-[85%] ${
+              isOwnMessage 
+                ? "bg-primary/10 text-foreground rounded-tr-sm" 
+                : "bg-muted/60 text-foreground rounded-tl-sm"
+            }`}>
+              <p className="text-sm whitespace-pre-wrap break-words text-left">
+                {message.content}
+              </p>
+            </div>
           )}
 
           {message.type === "file" && message.attachments && message.attachments.length > 0 && (
@@ -212,7 +219,7 @@ export function TaskChatMessage({ message, onDelete }: TaskChatMessageProps) {
 
         {/* Actions (visible on hover) */}
         {onDelete && (
-          <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOwnMessage ? "text-right" : ""}`}>
             <Button
               variant="ghost"
               size="sm"

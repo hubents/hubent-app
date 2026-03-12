@@ -67,6 +67,12 @@ export const EVENTS = {
   TASK_UPDATED: "task:updated",
   TASK_COMMENT: "task:comment",
   EVENT_UPDATED: "event:updated",
+  EVENT_NEW: "event:new",
+  RSVP_RECEIVED: "rsvp:received",
+  CONTACT_NEW: "contact:new",
+  LEAD_NEW: "lead:new",
+  PAYMENT_NEW: "payment:new",
+  DOCUMENT_RECEIVED: "document:received",
   
   // Presence events (built-in Pusher events)
   MEMBER_ADDED: "pusher:member_added",
@@ -108,6 +114,12 @@ export interface TaskNotificationEvent {
   actorImage?: string;
   message?: string;
   timestamp: string;
+}
+
+export interface InAppNotificationEvent {
+  type: string;
+  timestamp: string;
+  [key: string]: unknown;
 }
 
 export interface PresenceMember {
@@ -157,6 +169,22 @@ export async function triggerToMultipleUsers(
   const channels = userIds.map(id => CHANNELS.userNotifications(id));
   
   // Pusher allows triggering to up to 100 channels at once
+  const batchSize = 100;
+  for (let i = 0; i < channels.length; i += batchSize) {
+    const batch = channels.slice(i, i + batchSize);
+    await pusher.trigger(batch, event, data);
+  }
+}
+
+// Trigger in-app notifications with flexible payload (for non-task notifications)
+export async function triggerInAppToUsers(
+  userIds: string[],
+  event: string,
+  data: InAppNotificationEvent
+) {
+  const pusher = getPusherServer();
+  const channels = userIds.map(id => CHANNELS.userNotifications(id));
+  
   const batchSize = 100;
   for (let i = 0; i < channels.length; i += batchSize) {
     const batch = channels.slice(i, i + batchSize);

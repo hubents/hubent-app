@@ -1,12 +1,34 @@
 /**
  * Push Notifications Module
  * Centralized functions for sending push notifications via Pusher Beams
+ * AND in-app real-time toasts via Pusher Channels
  */
 
 import { sendPushToUsers } from "./beams";
+import { triggerInAppToUsers } from "./pusher";
 import { db } from "@/db";
 import { tasks, taskParticipants, events, organizationMembers, notifications } from "@/db/schema";
 import { eq } from "drizzle-orm";
+
+/**
+ * Send in-app real-time notification via Pusher Channels
+ * This shows a toast to users already on the app
+ */
+async function triggerInApp(
+  userIds: string[],
+  type: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  try {
+    await triggerInAppToUsers(userIds, type, {
+      ...payload,
+      type,
+      timestamp: new Date().toISOString(),
+    });
+  } catch {
+    // Don't fail if Pusher Channels trigger fails
+  }
+}
 
 /**
  * Save notification to database for history
@@ -96,6 +118,7 @@ export async function notifyTaskAssigned(
   const data = { type: "task_assigned", taskId: taskId.toString() };
 
   await sendPushToUsers([assignedToUserId], { title, body, deep_link: link, data });
+  triggerInApp([assignedToUserId], "assigned", { taskId, taskTitle, actorName: assignedByName });
   
   // Save to DB if organizationId provided
   if (organizationId) {
@@ -130,6 +153,7 @@ export async function notifyTaskStatusChanged(
     deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
     data: { type: "task_status_changed", taskId: taskId.toString(), status: newStatus },
   });
+  triggerInApp(filtered, "updated", { taskId, taskTitle, actorName: changedByName });
 }
 
 /**
@@ -246,6 +270,7 @@ export async function notifyGuestRsvp(
     deep_link: `${BASE_URL}/dashboard/eventos/${eventId}/invitados`,
     data: { type: "rsvp_received", eventId: eventId.toString(), response },
   });
+  triggerInApp(recipients, "rsvp_received", { eventId, eventName, body });
 }
 
 // ============================================
@@ -273,6 +298,7 @@ export async function notifyNewContact(
     deep_link: `${BASE_URL}/dashboard/contactos`,
     data: { type: "new_contact", contactType },
   });
+  triggerInApp(filtered, "new_contact", { body: `${contactName} (${typeLabel}) agregado al CRM` });
 }
 
 /**
@@ -451,6 +477,7 @@ export async function notifyNewEvent(
     deep_link: `${BASE_URL}/dashboard/eventos/${eventId}`,
     data: { type: "new_event", eventId: eventId.toString() },
   });
+  triggerInApp(filtered, "new_event", { eventId, eventName, body: `${eventName} - ${dateStr}` });
 }
 
 // ============================================

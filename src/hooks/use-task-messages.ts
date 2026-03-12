@@ -88,10 +88,18 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
 
     // New message received
     const unbindNew = bind<TaskMessage>(EVENTS.MESSAGE_NEW, (newMessage) => {
-      // Avoid duplicates - check if we already have this message
       setMessages(prev => {
+        // Avoid duplicates - check if we already have this message
         if (prev.some(m => m.id === newMessage.id)) {
           return prev;
+        }
+        // Check if there's a pending optimistic message from the same sender with same content
+        const optimisticIdx = prev.findIndex(m => m.id < 0 && m.senderId === newMessage.senderId && m.content === newMessage.content);
+        if (optimisticIdx !== -1) {
+          // Replace optimistic with real message
+          const updated = [...prev];
+          updated[optimisticIdx] = newMessage;
+          return updated;
         }
         return [...prev, newMessage];
       });
@@ -137,7 +145,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
     };
   }, [channel, bind, fetchMessages]);
 
-  // Fallback polling: only if Pusher is not connected (every 60 seconds)
+  // Fallback polling: only if Pusher is not connected (every 15 seconds)
   useEffect(() => {
     if (!taskId || isRealtime) return;
     
@@ -156,7 +164,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
     return () => clearInterval(interval);
   }, [taskId, isRealtime]);
 
-  // Send message
+  // Send message with optimistic UI
   const sendMessage = useCallback(async (messageData: {
     content: string;
     type?: string;
@@ -166,6 +174,27 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
     if (!taskId) return null;
     
     setSending(true);
+
+    // Optimistic: add message to local state immediately
+    const tempId = -Date.now();
+    const optimisticMessage: TaskMessage = {
+      id: tempId,
+      taskId,
+      senderId: session?.user?.id || "",
+      senderName: session?.user?.name || session?.user?.email || "Tú",
+      senderEmail: session?.user?.email || undefined,
+      senderImage: session?.user?.image || undefined,
+      type: messageData.type || "text",
+      content: messageData.content,
+      isPrivate: messageData.isPrivate || false,
+      visibleTo: messageData.visibleTo || null,
+      isEdited: false,
+      editedAt: null,
+      createdAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
     
     try {
       const res = await fetch(`/api/tasks/${taskId}/messages`, {
@@ -175,19 +204,32 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
       });
       const data = await res.json();
       if (data.success) {
-        await fetchMessages();
+        // Replace optimistic message with real one, or remove temp if Pusher already delivered it
+        setMessages(prev => {
+          const hasReal = prev.some(m => m.id === data.data.id);
+          if (hasReal) {
+            // Pusher already delivered the real message — just remove the temp
+            return prev.filter(m => m.id !== tempId);
+          }
+          // Replace temp with real
+          return prev.map(m => m.id === tempId ? { ...data.data, createdAt: data.data.createdAt || optimisticMessage.createdAt } : m);
+        });
+        lastMessageIdRef.current = data.data.id;
         return data.data;
       }
-      // Log error for debugging
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       console.error("Failed to send message - API error:", data.error);
       throw new Error(data.error?.message || "Failed to send message");
     } catch (err) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       console.error("Failed to send message:", err);
-      throw err; // Re-throw so caller can handle
+      throw err;
     } finally {
       setSending(false);
     }
-  }, [taskId, fetchMessages]);
+  }, [taskId, session]);
 
   // Edit message
   const editMessage = useCallback(async (messageId: number, content: string) => {
