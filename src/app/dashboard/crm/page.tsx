@@ -12,6 +12,7 @@ import { LeadDrawer } from "@/components/crm/lead-drawer";
 import { StageConfigDrawer } from "@/components/crm/stage-config-drawer";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
+import { useUserSession } from "@/hooks/use-user-session";
 
 // Types are inferred from the hook and components
 
@@ -156,6 +157,9 @@ export default function CRMPage() {
     setIsStageDialogOpen(true);
   };
 
+  const { can } = useUserSession();
+  const canManageCRM = can("crm:manage");
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -166,10 +170,12 @@ export default function CRMPage() {
             Gestiona tus leads y clientes potenciales
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo Lead
-        </Button>
+        {canManageCRM && (
+          <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Nuevo Lead
+          </Button>
+        )}
       </div>
 
       {/* Pipeline Stats */}

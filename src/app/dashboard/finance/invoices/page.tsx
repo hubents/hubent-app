@@ -49,6 +49,7 @@ import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { PaymentDrawer } from "@/components/finance/payment-drawer";
 import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { cn } from "@/lib/utils";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface DocumentItem {
   id: number;
@@ -127,6 +128,7 @@ export default function InvoicesPage() {
 function InvoicesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { can } = useUserSession();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -405,10 +407,12 @@ function InvoicesContent() {
             Gestiona tus facturas de venta
           </p>
         </div>
-        <Button onClick={openNewDrawer}>
-          <RiAddLine className="mr-2 h-4 w-4" />
-          Nueva Factura
-        </Button>
+        {can("finance:create") && (
+          <Button onClick={openNewDrawer}>
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Nueva Factura
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar

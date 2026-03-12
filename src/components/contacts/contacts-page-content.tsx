@@ -60,6 +60,7 @@ import { LinkContactDrawer } from "./link-contact-drawer";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
 import { ContactPreviewDrawer } from "./contact-preview-drawer";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface Contact {
   id: number;
@@ -89,6 +90,8 @@ type SortField = "name" | "category" | "city" | "type" | null;
 type SortDirection = "asc" | "desc";
 
 export function ContactsPageContent() {
+  const { can } = useUserSession();
+  const canManage = can("crm:manage");
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
@@ -427,14 +430,18 @@ export function ContactsPageContent() {
             <RiDownloadLine className="h-4 w-4" />
             Exportar CSV
           </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setIsImportDialogOpen(true)}>
-            <RiUploadLine className="h-4 w-4" />
-            Importar CSV
-          </Button>
-          <Button className="gap-2" onClick={openCreateDrawer}>
-            <RiAddLine className="h-4 w-4" />
-            Nuevo Contacto
-          </Button>
+          {canManage && (
+            <Button variant="outline" className="gap-2" onClick={() => setIsImportDialogOpen(true)}>
+              <RiUploadLine className="h-4 w-4" />
+              Importar CSV
+            </Button>
+          )}
+          {canManage && (
+            <Button className="gap-2" onClick={openCreateDrawer}>
+              <RiAddLine className="h-4 w-4" />
+              Nuevo Contacto
+            </Button>
+          )}
         </div>
       </div>
 
@@ -589,10 +596,12 @@ export function ContactsPageContent() {
               <RiDownloadLine className="h-3.5 w-3.5 mr-1" />
               Exportar
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs text-destructive border-destructive/50" onClick={handleBulkDelete}>
-              <RiDeleteBinLine className="h-3.5 w-3.5 mr-1" />
-              Eliminar
-            </Button>
+            {canManage && (
+              <Button variant="outline" size="sm" className="h-7 text-xs text-destructive border-destructive/50" onClick={handleBulkDelete}>
+                <RiDeleteBinLine className="h-3.5 w-3.5 mr-1" />
+                Eliminar
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="h-7 text-xs ml-auto" onClick={() => setSelectedIds(new Set())}>
               Cancelar
             </Button>
@@ -613,7 +622,7 @@ export function ContactsPageContent() {
               <p className="text-sm text-muted-foreground mb-4">
                 {search || hasActiveFilters ? "No se encontraron contactos con esos filtros" : "Crea tu primer contacto para comenzar"}
               </p>
-              {!search && !hasActiveFilters && (
+              {!search && !hasActiveFilters && canManage && (
                 <Button onClick={openCreateDrawer}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Nuevo Contacto

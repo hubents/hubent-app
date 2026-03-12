@@ -45,6 +45,7 @@ import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface DocumentItem {
   id: number;
@@ -110,6 +111,7 @@ const proformaStatusTabs = [
 ];
 
 export default function ProformasPage() {
+  const { can } = useUserSession();
   const [proformas, setProformas] = useState<Proforma[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -301,10 +303,12 @@ export default function ProformasPage() {
             Facturas proforma para anticipos y presupuestos formales
           </p>
         </div>
-        <Button onClick={openNewDrawer}>
-          <RiAddLine className="mr-2 h-4 w-4" />
-          Nueva Proforma
-        </Button>
+        {can("finance:create") && (
+          <Button onClick={openNewDrawer}>
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Nueva Proforma
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar

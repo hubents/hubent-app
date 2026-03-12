@@ -19,6 +19,7 @@ import {
   RiBarChartLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   BarChart,
   Bar,
@@ -82,6 +83,8 @@ interface RecentDocument {
 const AGING_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444", "#dc2626"];
 
 export default function FinanceDashboardPage() {
+  const { can } = useUserSession();
+  const canCreate = can("finance:create");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentDocuments, setRecentDocuments] = useState<RecentDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,20 +189,22 @@ export default function FinanceDashboardPage() {
             Dashboard financiero con métricas avanzadas
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/finance/quotes/new">
-              <RiAddLine className="mr-2 h-4 w-4" />
-              Nuevo Presupuesto
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard/finance/invoices/new">
-              <RiAddLine className="mr-2 h-4 w-4" />
-              Nueva Factura
-            </Link>
-          </Button>
-        </div>
+        {canCreate && (
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/finance/quotes/new">
+                <RiAddLine className="mr-2 h-4 w-4" />
+                Nuevo Presupuesto
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/finance/invoices/new">
+                <RiAddLine className="mr-2 h-4 w-4" />
+                Nueva Factura
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards with CFO metrics */}
@@ -461,24 +466,30 @@ export default function FinanceDashboardPage() {
             <CardTitle>Acciones Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/dashboard/finance/quotes/new">
-                <RiFileTextLine className="mr-2 h-4 w-4" />
-                Crear Presupuesto
-              </Link>
-            </Button>
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/dashboard/finance/invoices/new">
-                <RiFileList2Line className="mr-2 h-4 w-4" />
-                Crear Factura
-              </Link>
-            </Button>
-            <Button variant="outline" className="justify-start" asChild>
-              <Link href="/dashboard/finance/payments">
-                <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                Registrar Pago
-              </Link>
-            </Button>
+            {canCreate && (
+              <Button variant="outline" className="justify-start" asChild>
+                <Link href="/dashboard/finance/quotes/new">
+                  <RiFileTextLine className="mr-2 h-4 w-4" />
+                  Crear Presupuesto
+                </Link>
+              </Button>
+            )}
+            {canCreate && (
+              <Button variant="outline" className="justify-start" asChild>
+                <Link href="/dashboard/finance/invoices/new">
+                  <RiFileList2Line className="mr-2 h-4 w-4" />
+                  Crear Factura
+                </Link>
+              </Button>
+            )}
+            {canCreate && (
+              <Button variant="outline" className="justify-start" asChild>
+                <Link href="/dashboard/finance/payments">
+                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
+                  Registrar Pago
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" className="justify-start" asChild>
               <Link href="/dashboard/finance/reports">
                 <RiBarChartLine className="mr-2 h-4 w-4" />

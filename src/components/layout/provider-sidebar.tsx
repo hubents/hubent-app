@@ -42,8 +42,8 @@ const financeSubNav = [
 
 const bottomNav = [
   { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine, permission: null },
-  { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: null },
-  { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line, permission: null },
+  { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: "team:read" },
+  { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line, permission: "settings:read" },
 ];
 
 export function ProviderSidebar() {

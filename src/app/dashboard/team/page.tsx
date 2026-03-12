@@ -42,6 +42,7 @@ import { useRoles } from "@/hooks/use-roles";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useUserSession } from "@/hooks/use-user-session";
 
 const DEFAULT_ROLE_LABELS: Record<string, string> = {
   owner: "Propietario",
@@ -61,6 +62,8 @@ const isValidEmail = (email: string) => {
 
 export default function TeamPage() {
   const router = useRouter();
+  const { can } = useUserSession();
+  const canManageTeam = can("team:manage");
   const { members, invitations, loading, inviteMember, removeMember, cancelInvitation, resendInvitation } = useTeam();
   const { systemRoles, customRoles, loading: rolesLoading } = useRoles();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -164,14 +167,18 @@ export default function TeamPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.push("/dashboard/settings/roles")}>
-            <RiTeamLine className="h-4 w-4 mr-2" />
-            Roles
-          </Button>
-          <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
-            <RiUserAddLine className="h-4 w-4" />
-            Invitar Miembro
-          </Button>
+          {canManageTeam && (
+            <Button variant="outline" onClick={() => router.push("/dashboard/settings/roles")}>
+              <RiTeamLine className="h-4 w-4 mr-2" />
+              Roles
+            </Button>
+          )}
+          {canManageTeam && (
+            <Button className="gap-2" onClick={() => setIsDrawerOpen(true)}>
+              <RiUserAddLine className="h-4 w-4" />
+              Invitar Miembro
+            </Button>
+          )}
         </div>
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
           <SheetContent className="sm:max-w-2xl overflow-y-auto">
@@ -272,7 +279,7 @@ export default function TeamPage() {
                   <Badge variant="secondary">
                     {getRoleLabel(member.role || "viewer")}
                   </Badge>
-                  {member.role !== "owner" && (
+                  {member.role !== "owner" && canManageTeam && (
                     <Button
                       variant="ghost"
                       size="icon"

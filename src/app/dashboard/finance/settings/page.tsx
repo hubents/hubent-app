@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Select,
   SelectContent,
@@ -111,6 +112,8 @@ const CURRENCIES = [
 function FinanceSettingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { can } = useUserSession();
+  const canManageFinance = can("finance:manage");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<FinanceSettings | null>(null);
@@ -646,10 +649,12 @@ function FinanceSettingsContent() {
                   Configura las tasas de impuestos disponibles
                 </CardDescription>
               </div>
-              <Button size="sm" onClick={() => setTaxDialogOpen(true)}>
-                <RiAddLine className="mr-2 h-4 w-4" />
-                Nuevo Impuesto
-              </Button>
+              {canManageFinance && (
+                <Button size="sm" onClick={() => setTaxDialogOpen(true)}>
+                  <RiAddLine className="mr-2 h-4 w-4" />
+                  Nuevo Impuesto
+                </Button>
+              )}
               <Sheet open={taxDialogOpen} onOpenChange={(open) => {
                 setTaxDialogOpen(open);
                 if (!open) resetTaxForm();
@@ -895,10 +900,12 @@ function FinanceSettingsContent() {
                   Configura las cuentas bancarias para recibir pagos
                 </CardDescription>
               </div>
-              <Button size="sm" onClick={() => setBankDialogOpen(true)}>
-                <RiAddLine className="mr-2 h-4 w-4" />
-                Nueva Cuenta
-              </Button>
+              {canManageFinance && (
+                <Button size="sm" onClick={() => setBankDialogOpen(true)}>
+                  <RiAddLine className="mr-2 h-4 w-4" />
+                  Nueva Cuenta
+                </Button>
+              )}
               <Sheet open={bankDialogOpen} onOpenChange={(open) => {
                 setBankDialogOpen(open);
                 if (!open) resetBankForm();

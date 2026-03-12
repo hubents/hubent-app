@@ -17,6 +17,7 @@ import {
   RiShieldCheckLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface ProviderDashboard {
   organization: {
@@ -41,6 +42,8 @@ const VERIFICATION_STATUS_MAP: Record<string, { label: string; variant: "success
 };
 
 export default function VendorDashboardPage() {
+  const { can } = useUserSession();
+  const canReadFinance = can("finance:read");
   const [data, setData] = useState<ProviderDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,35 +179,39 @@ export default function VendorDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Ingresos Totales</p>
-                <p className="text-3xl font-bold">
-                  {(data?.stats?.totalRevenue ?? 0).toLocaleString(undefined, { style: "currency", currency: data?.stats?.currency || "EUR", minimumFractionDigits: 0 })}
-                </p>
+        {canReadFinance && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Ingresos Totales</p>
+                  <p className="text-3xl font-bold">
+                    {(data?.stats?.totalRevenue ?? 0).toLocaleString(undefined, { style: "currency", currency: data?.stats?.currency || "EUR", minimumFractionDigits: 0 })}
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+                  <RiMoneyDollarCircleLine className="h-6 w-6 text-green-600" />
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <RiMoneyDollarCircleLine className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Facturas Pendientes</p>
-                <p className="text-3xl font-bold">{data?.stats?.pendingInvoices ?? 0}</p>
+        {canReadFinance && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Facturas Pendientes</p>
+                  <p className="text-3xl font-bold">{data?.stats?.pendingInvoices ?? 0}</p>
+                </div>
+                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
+                  <RiTimeLine className="h-6 w-6 text-red-600" />
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <RiTimeLine className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -237,19 +244,21 @@ export default function VendorDashboardPage() {
           </Link>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <Link href="/vendor/finance">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <RiMoneyDollarCircleLine className="h-5 w-5 text-green-600" />
-                Finanzas
-              </CardTitle>
-              <CardDescription>
-                Presupuestos, facturas y pagos
-              </CardDescription>
-            </CardHeader>
-          </Link>
-        </Card>
+        {canReadFinance && (
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <Link href="/vendor/finance">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <RiMoneyDollarCircleLine className="h-5 w-5 text-green-600" />
+                  Finanzas
+                </CardTitle>
+                <CardDescription>
+                  Presupuestos, facturas y pagos
+                </CardDescription>
+              </CardHeader>
+            </Link>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Table,
   TableBody,
@@ -103,6 +104,7 @@ export default function DeliveryNotesPage() {
 function DeliveryNotesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { can } = useUserSession();
   const [notes, setNotes] = useState<DeliveryNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -293,10 +295,12 @@ function DeliveryNotesContent() {
             Notas de entrega de productos y servicios
           </p>
         </div>
-        <Button onClick={openNewDrawer}>
-          <RiAddLine className="mr-2 h-4 w-4" />
-          Nuevo Albarán
-        </Button>
+        {can("finance:create") && (
+          <Button onClick={openNewDrawer}>
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Nuevo Albarán
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar

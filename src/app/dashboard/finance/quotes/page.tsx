@@ -48,6 +48,7 @@ import { DocumentPreview } from "@/components/finance/document-preview";
 import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface DocumentItem {
   id: number;
@@ -129,6 +130,7 @@ export default function QuotesPage() {
 function QuotesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { can } = useUserSession();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -357,10 +359,12 @@ function QuotesContent() {
             Gestiona tus presupuestos y cotizaciones
           </p>
         </div>
-        <Button onClick={openNewDrawer}>
-          <RiAddLine className="mr-2 h-4 w-4" />
-          Nuevo Presupuesto
-        </Button>
+        {can("finance:create") && (
+          <Button onClick={openNewDrawer}>
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Nuevo Presupuesto
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar
