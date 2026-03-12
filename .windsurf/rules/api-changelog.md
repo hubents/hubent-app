@@ -1,0 +1,40 @@
+# API Changelog Management Rule
+
+## Cuándo actualizar el changelog
+
+Cada vez que se realice alguno de estos cambios, se DEBE actualizar el changelog en `src/app/developers/changelog/page.tsx`:
+
+1. **Nuevo endpoint** — agregar entrada `added` con descripción del endpoint
+2. **Endpoint modificado** (breaking change) — agregar entrada `changed` y considerar nueva versión
+3. **Endpoint eliminado** — agregar entrada `removed` y nueva versión obligatoria
+4. **Nuevo scope** — agregar entrada `added`
+5. **Nuevo webhook event type** — agregar entrada `added`
+6. **Cambio en rate limits** — agregar entrada `changed`
+7. **Nuevo MCP tool o resource** — agregar entrada `added`
+8. **Fix de seguridad** — agregar entrada `security`
+9. **Deprecación** — agregar entrada `deprecated`
+
+## Formato del changelog
+
+Cada release tiene:
+- `version`: fecha ISO (ej: `"2025-03-12"`)
+- `date`: misma fecha legible
+- `current`: `true` solo para la versión más reciente
+- `changes[]`: array de `{ type, text }` donde type es: `added`, `changed`, `deprecated`, `removed`, `fixed`, `security`
+
+## Regla de versionado
+
+- **Date-based versioning** (ej: `2025-01-01`, `2025-03-12`)
+- Breaking changes REQUIEREN nueva versión
+- Backwards-compatible changes se agregan a la versión actual
+- El header `X-HubEnts-Version` en las responses refleja la versión
+
+## Archivos impactados al agregar features API
+
+1. `src/app/developers/changelog/page.tsx` — Changelog entries
+2. `src/lib/api/openapi-spec.ts` — Si hay nuevo endpoint/schema
+3. `src/lib/api/mcp-server.ts` — Si hay nuevo MCP tool
+4. `src/lib/api/api-webhooks.ts` — Si hay nuevo webhook event type
+5. `src/lib/api/api-auth.ts` — Si hay nuevo scope
+6. `src/lib/api/api-feature-flags.ts` — Si hay nuevo feature flag
+7. `README.md` — Actualizar si cambia algo relevante para developers
