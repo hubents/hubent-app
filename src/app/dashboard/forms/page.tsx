@@ -21,6 +21,7 @@ import {
   RiLoader4Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ type ViewMode = "forms" | "responses";
 
 export default function FormsPage() {
   const router = useRouter();
+  const { can } = useUserSession();
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -63,6 +65,10 @@ export default function FormsPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("forms");
+
+  const canCreate = can("forms:create");
+  const canUpdate = can("forms:update");
+  const canDelete = can("forms:delete");
 
   const fetchForms = useCallback(async () => {
     try {
@@ -165,10 +171,12 @@ export default function FormsPage() {
             Crea formularios para captar leads o recopilar información de tareas
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={creating}>
-          <RiAddLine className="h-4 w-4 mr-2" />
-          {creating ? "Creando..." : "Nuevo formulario"}
-        </Button>
+        {canCreate && (
+          <Button onClick={handleCreate} disabled={creating}>
+            <RiAddLine className="h-4 w-4 mr-2" />
+            {creating ? "Creando..." : "Nuevo formulario"}
+          </Button>
+        )}
       </div>
 
       {/* View Mode Toggle */}
@@ -243,7 +251,7 @@ export default function FormsPage() {
               ? "Crea tu primer formulario para captar leads o recopilar información de tus clientes."
               : "Intenta con otros filtros o términos de búsqueda."}
           </p>
-          {forms.length === 0 && (
+          {forms.length === 0 && canCreate && (
             <Button onClick={handleCreate} className="mt-4" disabled={creating}>
               <RiAddLine className="h-4 w-4 mr-2" />
               Crear formulario
@@ -278,19 +286,23 @@ export default function FormsPage() {
                     <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
                         <RiEditLine className="h-4 w-4 mr-2" />
-                        Editar
+                        {canUpdate ? "Editar" : "Ver"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(form.id)}>
-                        <RiFileCopyLine className="h-4 w-4 mr-2" />
-                        Duplicar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => setDeleteId(form.id)}
-                      >
-                        <RiDeleteBinLine className="h-4 w-4 mr-2" />
-                        Eliminar
-                      </DropdownMenuItem>
+                      {canCreate && (
+                        <DropdownMenuItem onClick={() => handleDuplicate(form.id)}>
+                          <RiFileCopyLine className="h-4 w-4 mr-2" />
+                          Duplicar
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => setDeleteId(form.id)}
+                        >
+                          <RiDeleteBinLine className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

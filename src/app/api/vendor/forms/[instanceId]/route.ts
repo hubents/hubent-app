@@ -12,6 +12,11 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+
+    if (session.orgType !== "provider") {
+      return NextResponse.json({ success: false, error: "Solo organizaciones proveedoras" }, { status: 403 });
+    }
+
     const { instanceId } = await params;
     const id = parseInt(instanceId, 10);
     if (isNaN(id)) {
@@ -38,7 +43,7 @@ export async function GET(
       where: and(
         eq(providerEventAccess.providerOrgId, session.organizationId),
         eq(providerEventAccess.plannerOrgId, instance.organizationId),
-        eq(providerEventAccess.status, "accepted")
+        eq(providerEventAccess.status, "active")
       ),
     });
     if (!access) {

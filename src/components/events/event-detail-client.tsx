@@ -95,7 +95,7 @@ interface EventDetailClientProps {
 export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const router = useRouter();
   const { setActiveEvent } = useEvent();
-  const { eventScoped } = useUserSessionContext();
+  const { eventScoped, can } = useUserSessionContext();
   const { canEdit } = useEventPermissions(eventId, eventScoped);
   const [event, setEvent] = useState<Event | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -960,32 +960,43 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               <RiFileListLine className="h-5 w-5" />
               Formularios ({eventForms.length})
             </CardTitle>
-            <Link href="/dashboard/forms">
-              <Button variant="outline" size="sm">
-                Ver todos
-              </Button>
-            </Link>
+            {can("forms:read") && (
+              <Link href="/dashboard/forms">
+                <Button variant="outline" size="sm">
+                  Ver todos
+                </Button>
+              </Link>
+            )}
           </CardHeader>
           <CardContent>
             {eventForms.length > 0 ? (
               <div className="space-y-2">
-                {eventForms.map((fi) => (
-                  <Link
-                    key={fi.id}
-                    href={`/dashboard/forms/${fi.formId}`}
-                    className="flex items-center justify-between p-2 rounded border hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {fi.type === "landing" ? "Landing" : "Tarea"}
-                      </Badge>
-                      <span className="font-medium text-sm truncate">{fi.formName || `Form #${fi.formId}`}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {fi.submissionCount} resp.
-                    </span>
-                  </Link>
-                ))}
+                {eventForms.map((fi) => {
+                  const canEditForms = can("forms:update");
+                  const href = canEditForms
+                    ? `/dashboard/forms/${fi.formId}`
+                    : fi.slug
+                      ? `/f/${fi.slug}`
+                      : `#`;
+                  return (
+                    <Link
+                      key={fi.id}
+                      href={href}
+                      target={!canEditForms && fi.slug ? "_blank" : undefined}
+                      className="flex items-center justify-between p-2 rounded border hover:bg-muted transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {fi.type === "landing" ? "Landing" : "Tarea"}
+                        </Badge>
+                        <span className="font-medium text-sm truncate">{fi.formName || `Form #${fi.formId}`}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {fi.submissionCount} resp.
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">

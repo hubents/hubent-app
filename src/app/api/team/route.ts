@@ -1,35 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { organizationMembers, users, roles, invitations, organizations } from "@/db/schema";
+import { organizationMembers, users, roles, invitations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requirePermission } from "@/lib/session";
 
 export async function GET() {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const cookieStore = await cookies();
-    const orgIdCookie = cookieStore.get("hubents-org-id")?.value;
-    
-    let organizationId: number | undefined;
-    
-    if (orgIdCookie) {
-      organizationId = parseInt(orgIdCookie, 10);
-    } else {
-      const membership = await db.query.organizationMembers.findFirst({
-        where: eq(organizationMembers.userId, session.user.id),
-      });
-      organizationId = membership?.organizationId;
-    }
-
-    if (!organizationId) {
-      return NextResponse.json({ members: [], pendingInvitations: [] });
-    }
+    const session = await requirePermission("team:read");
+    const organizationId = session.organizationId;
 
     const memberships = await db
       .select({
@@ -92,10 +70,13 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error("Get team error:", error);
+    const message = error instanceof Error ? error.message : "Error interno del servidor";
+    const status = message.includes("Unauthorized") ? 401
+      : message.includes("Forbidden") || message.includes("Missing permission") ? 403
+      : 500;
     return NextResponse.json(
-      { success: false, error: "Error interno del servidor" },
-      { status: 500 }
+      { success: false, error: { code: "FETCH_ERROR", message } },
+      { status }
     );
   }
 }

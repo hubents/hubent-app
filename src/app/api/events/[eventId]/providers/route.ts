@@ -163,7 +163,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         plannerOrgId: session.organizationId,
         vendorId: finalVendorId,
         invitedBy: session.user.userId,
-        status: "pending",
+        status: "active",
+        acceptedAt: new Date(),
       })
       .returning();
 

@@ -51,7 +51,7 @@ const navigationBeforeFinance = [
   // Contactos is now a submenu, handled separately
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine, permission: "crm:read" },
   { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine, permission: "tasks:read" },
-  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, permission: null },
+  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, permission: "forms:read" },
 ];
 
 const contactsSubNav = [

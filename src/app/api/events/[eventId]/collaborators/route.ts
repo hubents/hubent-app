@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { getEventParticipants, addEventParticipant } from "@/lib/events";
 import { inviteCollaboratorContact } from "@/lib/invitations";
+import { sendClientCollaboratorNotificationEmail } from "@/lib/email";
 import { db } from "@/db";
-import { events, organizationMembers, contacts, vendors, invitations } from "@/db/schema";
+import { events, organizationMembers, contacts, vendors, invitations, users, organizations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -186,6 +187,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       inviteCollaboratorContact(session, contactId, id, role)
         .then(result => console.log(`Auto-invite contact ${contactId} result:`, result.status))
         .catch(err => console.error("Auto-invite failed:", err));
+    }
+
+    // Notify existing user when added as collaborator (non-blocking)
+    if (userId) {
+      (async () => {
+        try {
+          const [user, evt, org] = await Promise.all([
+            db.query.users.findFirst({ where: eq(users.id, userId), columns: { email: true, name: true } }),
+            db.query.events.findFirst({ where: eq(events.id, id), columns: { name: true } }),
+            db.query.organizations.findFirst({ where: eq(organizations.id, session.organizationId), columns: { name: true } }),
+          ]);
+          if (user?.email && evt?.name && org?.name) {
+            await sendClientCollaboratorNotificationEmail(
+              user.email,
+              evt.name,
+              org.name,
+              session.user.name || null,
+              role
+            );
+            console.log(`Collaborator notification sent to ${user.email} for event ${evt.name}`);
+          }
+        } catch (err) {
+          console.error("Collaborator notification email failed:", err);
+        }
+      })();
     }
 
     return NextResponse.json({ success: true, data: participant }, { status: 201 });

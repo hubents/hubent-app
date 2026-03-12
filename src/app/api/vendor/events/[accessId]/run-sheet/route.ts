@@ -22,11 +22,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { accessId } = await params;
     const aid = parseInt(accessId, 10);
 
-    // Verify access belongs to this provider org
+    // Verify access belongs to this provider org and is active
     const access = await db.query.providerEventAccess.findFirst({
       where: and(
         eq(providerEventAccess.id, aid),
-        eq(providerEventAccess.providerOrgId, session.organizationId)
+        eq(providerEventAccess.providerOrgId, session.organizationId),
+        eq(providerEventAccess.status, "active")
       ),
     });
 

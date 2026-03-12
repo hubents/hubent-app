@@ -34,6 +34,7 @@ import {
   RiCloseLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { useUserSession } from "@/hooks/use-user-session";
 import { FormBuilder, type BuilderField } from "@/components/forms/form-builder";
 import { useFileUpload } from "@/hooks/use-file-upload";
 
@@ -83,6 +84,8 @@ interface InstanceData {
 export default function FormEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const { can } = useUserSession();
+  const canEdit = can("forms:update");
   const formId = Number(params.id);
 
   const [form, setForm] = useState<FormData | null>(null);
@@ -250,6 +253,7 @@ export default function FormEditorPage() {
                 onChange={(e) => setName(e.target.value)}
                 className="text-lg font-semibold border-none shadow-none p-0 h-auto focus-visible:ring-0"
                 placeholder="Nombre del formulario"
+                disabled={!canEdit}
               />
               <Badge className={st.color}>{st.label}</Badge>
               {(() => {
@@ -275,32 +279,34 @@ export default function FormEditorPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {form.status === "draft" && (
+          {canEdit && form.status === "draft" && (
             <Button variant="outline" size="sm" onClick={() => handleStatusChange("active")}>
               <RiPlayLine className="h-4 w-4 mr-1" /> Activar
             </Button>
           )}
-          {form.status === "active" && (
+          {canEdit && form.status === "active" && (
             <Button variant="outline" size="sm" onClick={() => handleStatusChange("paused")}>
               <RiPauseLine className="h-4 w-4 mr-1" /> Pausar
             </Button>
           )}
-          {form.status === "paused" && (
+          {canEdit && form.status === "paused" && (
             <Button variant="outline" size="sm" onClick={() => handleStatusChange("active")}>
               <RiPlayLine className="h-4 w-4 mr-1" /> Reactivar
             </Button>
           )}
 
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
-            ) : saved ? (
-              <RiCheckLine className="h-4 w-4 mr-1" />
-            ) : (
-              <RiSaveLine className="h-4 w-4 mr-1" />
-            )}
-            {saving ? "Guardando..." : saved ? "Guardado" : "Guardar"}
-          </Button>
+          {canEdit && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+              ) : saved ? (
+                <RiCheckLine className="h-4 w-4 mr-1" />
+              ) : (
+                <RiSaveLine className="h-4 w-4 mr-1" />
+              )}
+              {saving ? "Guardando..." : saved ? "Guardado" : "Guardar"}
+            </Button>
+          )}
         </div>
       </div>
 

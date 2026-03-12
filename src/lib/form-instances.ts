@@ -51,7 +51,7 @@ export async function createFormInstance(
   return instance;
 }
 
-export async function getEventFormInstances(eventId: number): Promise<FormInstanceWithCounts[]> {
+export async function getEventFormInstances(eventId: number, organizationId: number): Promise<FormInstanceWithCounts[]> {
   const result = await db
     .select({
       instance: formInstances,
@@ -60,7 +60,7 @@ export async function getEventFormInstances(eventId: number): Promise<FormInstan
     })
     .from(formInstances)
     .leftJoin(forms, eq(formInstances.formId, forms.id))
-    .where(eq(formInstances.eventId, eventId))
+    .where(and(eq(formInstances.eventId, eventId), eq(formInstances.organizationId, organizationId)))
     .orderBy(formInstances.createdAt);
 
   return result.map((r) => ({
@@ -100,7 +100,7 @@ export async function getFormInstanceById(instanceId: number) {
   });
 }
 
-export async function getTaskFormInstances(taskId: number): Promise<FormInstanceWithCounts[]> {
+export async function getTaskFormInstances(taskId: number, organizationId: number): Promise<FormInstanceWithCounts[]> {
   const result = await db
     .select({
       instance: formInstances,
@@ -109,7 +109,7 @@ export async function getTaskFormInstances(taskId: number): Promise<FormInstance
     })
     .from(formInstances)
     .leftJoin(forms, eq(formInstances.formId, forms.id))
-    .where(and(eq(formInstances.taskId, taskId), eq(formInstances.type, "task")))
+    .where(and(eq(formInstances.taskId, taskId), eq(formInstances.type, "task"), eq(formInstances.organizationId, organizationId)))
     .orderBy(formInstances.createdAt);
 
   return result.map((r) => ({

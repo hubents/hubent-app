@@ -25,7 +25,7 @@ export async function GET(
       }
     }
 
-    const instances = await getEventFormInstances(id);
+    const instances = await getEventFormInstances(id, session.organizationId);
     return NextResponse.json({ success: true, data: instances });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error interno";

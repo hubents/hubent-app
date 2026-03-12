@@ -12,6 +12,11 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+
+    if (session.orgType !== "provider") {
+      return NextResponse.json({ success: false, error: "Solo organizaciones proveedoras" }, { status: 403 });
+    }
+
     const { accessId } = await params;
     const accessIdNum = parseInt(accessId, 10);
     if (isNaN(accessIdNum)) {
@@ -26,7 +31,7 @@ export async function GET(
       ),
     });
 
-    if (!access || access.status !== "accepted") {
+    if (!access || access.status !== "active") {
       return NextResponse.json({ success: false, error: "Acceso denegado" }, { status: 403 });
     }
 

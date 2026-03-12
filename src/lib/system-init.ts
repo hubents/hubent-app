@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { roles, subscriptionPlans, permissions } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { roles, subscriptionPlans, permissions, rolePermissions } from "@/db/schema";
+import { eq, and, isNull } from "drizzle-orm";
 
 /**
  * System initialization functions
@@ -169,6 +169,110 @@ export async function initializePermissions(): Promise<{ created: string[]; exis
   return { created, existing };
 }
 
+// Canonical role → permission slug mapping
+// owner, admin, provider_owner have bypass — no rolePermissions needed
+const ROLE_PERMISSION_MAP: Record<string, string[]> = {
+  planner: [
+    "events:read", "events:create", "events:update",
+    "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
+    "vendors:read", "vendors:create", "vendors:update",
+    "team:read",
+    "finance:read",
+    "crm:read", "crm:manage",
+    "settings:read",
+    "forms:read", "forms:create", "forms:update", "forms:delete",
+  ],
+  assistant: [
+    "events:read",
+    "tasks:read", "tasks:create", "tasks:update",
+    "vendors:read",
+    "forms:read",
+  ],
+  accountant: [
+    "events:read",
+    "vendors:read",
+    "finance:read", "finance:create", "finance:manage",
+    "crm:read",
+    "settings:read",
+  ],
+  viewer: [
+    "events:read",
+    "tasks:read",
+    "vendors:read",
+    "finance:read",
+    "forms:read",
+  ],
+  client: [
+    "events:read",
+    "tasks:read",
+  ],
+  provider_admin: [
+    "events:read",
+    "tasks:read", "tasks:create", "tasks:update",
+    "vendors:read",
+    "team:read",
+    "finance:read", "finance:create", "finance:manage",
+    "crm:read",
+    "settings:read",
+    "forms:read",
+  ],
+  provider_tech: [
+    "events:read",
+    "tasks:read", "tasks:update",
+    "forms:read",
+  ],
+};
+
+/**
+ * Initialize role permissions for system roles.
+ * Only inserts missing permissions — does NOT delete existing ones.
+ * For a full reset, use scripts/hard-reset-permissions.ts
+ */
+export async function initializeRolePermissions(): Promise<{ updated: string[]; skipped: string[] }> {
+  const updated: string[] = [];
+  const skipped: string[] = [];
+
+  const allPerms = await db.select({ id: permissions.id, slug: permissions.slug }).from(permissions);
+  const permIdBySlug: Record<string, number> = {};
+  for (const p of allPerms) {
+    permIdBySlug[p.slug] = p.id;
+  }
+
+  for (const [roleSlug, permSlugs] of Object.entries(ROLE_PERMISSION_MAP)) {
+    const role = await db.query.roles.findFirst({
+      where: and(eq(roles.slug, roleSlug), isNull(roles.organizationId)),
+    });
+
+    if (!role) {
+      skipped.push(roleSlug);
+      continue;
+    }
+
+    // Get existing permission IDs for this role
+    const existing = await db
+      .select({ permissionId: rolePermissions.permissionId })
+      .from(rolePermissions)
+      .where(eq(rolePermissions.roleId, role.id));
+    const existingSet = new Set(existing.map((e) => e.permissionId));
+
+    // Insert only missing
+    const toInsert = permSlugs
+      .map((slug) => permIdBySlug[slug])
+      .filter((id): id is number => id !== undefined && !existingSet.has(id));
+
+    if (toInsert.length > 0) {
+      await db.insert(rolePermissions).values(
+        toInsert.map((permissionId) => ({ roleId: role.id, permissionId }))
+      );
+      updated.push(roleSlug);
+    } else {
+      skipped.push(roleSlug);
+    }
+  }
+
+  return { updated, skipped };
+}
+
 /**
  * Initialize all system data
  */
@@ -176,6 +280,7 @@ export async function initializeSystem(): Promise<{
   roles: { created: string[]; existing: string[] };
   plans: { created: string[]; existing: string[] };
   permissions: { created: string[]; existing: string[] };
+  rolePermissions: { updated: string[]; skipped: string[] };
 }> {
   const [rolesResult, plansResult, permissionsResult] = await Promise.all([
     initializeSystemRoles(),
@@ -183,10 +288,14 @@ export async function initializeSystem(): Promise<{
     initializePermissions(),
   ]);
 
+  // Must run after roles and permissions are created
+  const rolePermissionsResult = await initializeRolePermissions();
+
   return {
     roles: rolesResult,
     plans: plansResult,
     permissions: permissionsResult,
+    rolePermissions: rolePermissionsResult,
   };
 }
 

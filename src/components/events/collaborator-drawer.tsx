@@ -88,11 +88,12 @@ const LEVEL_LABELS: Record<string, string> = {
   edit: "Editar",
 };
 
+const BYPASS_ROLES = ["owner", "admin", "provider_owner"];
+
 const PRESETS = [
   { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", vendors: "view", finances: "view", settings: "none" } },
   { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", vendors: "view", finances: "view", settings: "none" } },
   { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", vendors: "none", finances: "none", settings: "none" } },
-  { label: "Solo información", value: { general: "none", tasks: "none", guests: "none", rsvp: "none", vendors: "none", finances: "none", settings: "none" } },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, string> = {
@@ -148,6 +149,11 @@ export function CollaboratorDrawer({
   const isEditing = !!editingParticipant;
 
   const hasSelection = selectedUserId || selectedContactId || selectedVendorId;
+
+  const selectedMemberRole = selectedUserId
+    ? members.find((m) => m.id === selectedUserId)?.role || ""
+    : "";
+  const isBypassRole = BYPASS_ROLES.includes(selectedMemberRole);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -499,72 +505,86 @@ export function CollaboratorDrawer({
               </SelectContent>
             </Select>
             {roleError && <p className="text-xs text-destructive">Seleccioná un rol para continuar</p>}
-            <p className="text-xs text-muted-foreground">Etiqueta descriptiva. Los permisos reales se configuran abajo.</p>
+            <p className="text-xs text-muted-foreground">Etiqueta organizativa (no afecta permisos de acceso).</p>
           </div>
 
-          {/* Presets */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Presets rápidos</label>
-            <div className="flex flex-wrap gap-2">
-              {PRESETS.map((preset) => (
-                <Button
-                  key={preset.label}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => applyPreset(preset.value)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
+          {/* Bypass role warning */}
+          {isBypassRole && !isEditing && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+              <span className="shrink-0">⚠️</span>
+              <span>Este usuario ya tiene <strong>acceso total</strong> por su rol de organización (<strong>{selectedMemberRole}</strong>). Los permisos por sección no le aplicarán.</span>
             </div>
-          </div>
+          )}
 
-          {/* Permission matrix */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Permisos por sección</label>
-            <div className="border rounded-lg divide-y">
-              {SECTIONS.map(({ key, label, levels }) => (
-                <div key={key} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {LEVEL_LABELS[permissions[key] || "none"]}
-                    </p>
-                  </div>
-                  <Select
-                    value={permissions[key] || "none"}
-                    onValueChange={(val) => setSectionLevel(key, val)}
+          {/* Presets — hidden for bypass roles */}
+          {!isBypassRole && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Presets rápidos</label>
+              <div className="flex flex-wrap gap-2">
+                {PRESETS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyPreset(preset.value)}
                   >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {levels.map((level) => (
-                        <SelectItem key={level} value={level}>
-                          {LEVEL_LABELS[level]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Summary */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Resumen de acceso</label>
-            <div className="flex flex-wrap gap-1.5">
-              {SECTIONS.filter(({ key }) => permissions[key] !== "none").map(({ key, label }) => (
-                <Badge key={key} variant={permissions[key] === "edit" ? "default" : "secondary"}>
-                  {label} ({permissions[key] === "edit" ? "editar" : "ver"})
-                </Badge>
-              ))}
-              {SECTIONS.every(({ key }) => permissions[key] === "none") && (
-                <p className="text-sm text-muted-foreground">Solo información (sin acceso a secciones)</p>
-              )}
+          {/* Permission matrix — hidden for bypass roles */}
+          {!isBypassRole && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Permisos por sección</label>
+              <div className="border rounded-lg divide-y">
+                {SECTIONS.map(({ key, label, levels }) => (
+                  <div key={key} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {LEVEL_LABELS[permissions[key] || "none"]}
+                      </p>
+                    </div>
+                    <Select
+                      value={permissions[key] || "none"}
+                      onValueChange={(val) => setSectionLevel(key, val)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {levels.map((level) => (
+                          <SelectItem key={level} value={level}>
+                            {LEVEL_LABELS[level]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Summary — hidden for bypass roles */}
+          {!isBypassRole && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Resumen de acceso</label>
+              <div className="flex flex-wrap gap-1.5">
+                {SECTIONS.filter(({ key }) => permissions[key] !== "none").map(({ key, label }) => (
+                  <Badge key={key} variant={permissions[key] === "edit" ? "default" : "secondary"}>
+                    {label} ({permissions[key] === "edit" ? "editar" : "ver"})
+                  </Badge>
+                ))}
+                {SECTIONS.every(({ key }) => permissions[key] === "none") && (
+                  <p className="text-sm text-muted-foreground">Sin acceso a secciones</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <SheetFooter className="px-4">
