@@ -417,14 +417,18 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsDuplicateOpen(true)}>
-                <RiFileCopyLine className="h-4 w-4 mr-2" />
-                Duplicar Evento
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsSaveTemplateOpen(true)}>
-                <RiFileList3Line className="h-4 w-4 mr-2" />
-                Guardar como Template
-              </DropdownMenuItem>
+              {can("events:create") && (
+                <DropdownMenuItem onClick={() => setIsDuplicateOpen(true)}>
+                  <RiFileCopyLine className="h-4 w-4 mr-2" />
+                  Duplicar Evento
+                </DropdownMenuItem>
+              )}
+              {can("events:create") && (
+                <DropdownMenuItem onClick={() => setIsSaveTemplateOpen(true)}>
+                  <RiFileList3Line className="h-4 w-4 mr-2" />
+                  Guardar como Template
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href={`/dashboard/events/${eventId}/tasks`}>
@@ -1019,6 +1023,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         onTaskUpdated={() => fetchTasks()}
         onTaskCreated={handleTaskCreated}
         mode={drawerMode}
+        readOnly={!canEdit("tasks")}
         initialData={{ eventId }}
       />
 

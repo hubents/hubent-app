@@ -43,6 +43,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useUserSessionContext } from "@/contexts/user-session-context";
 
 const priorityConfig = {
   high: { label: "Alta", variant: "destructive" as const, color: "text-red-500" },
@@ -517,6 +518,10 @@ export function TasksPageContent() {
     }
   };
 
+  const { can } = useUserSessionContext();
+  const canCreateTask = can("tasks:create");
+  const canUpdateTask = can("tasks:update");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -526,10 +531,12 @@ export function TasksPageContent() {
             Gestiona las tareas de todos tus eventos
           </p>
         </div>
-        <Button className="gap-2" onClick={() => openCreateDrawer()}>
-          <RiAddLine className="h-4 w-4" />
-          Nueva Tarea
-        </Button>
+        {canCreateTask && (
+          <Button className="gap-2" onClick={() => openCreateDrawer()}>
+            <RiAddLine className="h-4 w-4" />
+            Nueva Tarea
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -623,10 +630,12 @@ export function TasksPageContent() {
             <p className="text-sm text-muted-foreground mb-4">
               Crea tu primera tarea para comenzar
             </p>
-            <Button onClick={() => openCreateDrawer()}>
-              <RiAddLine className="h-4 w-4 mr-2" />
-              Nueva Tarea
-            </Button>
+            {canCreateTask && (
+              <Button onClick={() => openCreateDrawer()}>
+                <RiAddLine className="h-4 w-4 mr-2" />
+                Nueva Tarea
+              </Button>
+            )}
           </div>
         ) : (
           <DndContext
@@ -688,7 +697,7 @@ export function TasksPageContent() {
                 <p className="text-sm text-muted-foreground mb-4">
                   {displayTasks.length === 0 ? "Crea tu primera tarea para comenzar" : "No hay tareas que coincidan con la búsqueda"}
                 </p>
-                {displayTasks.length === 0 && (
+                {displayTasks.length === 0 && canCreateTask && (
                   <Button onClick={() => openCreateDrawer()}>
                     <RiAddLine className="h-4 w-4 mr-2" />
                     Nueva Tarea
@@ -776,6 +785,7 @@ export function TasksPageContent() {
         onTaskUpdated={refetch}
         onTaskCreated={handleTaskCreated}
         mode={drawerMode}
+        readOnly={!canUpdateTask}
         initialData={drawerInitialData}
       />
     </div>

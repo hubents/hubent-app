@@ -151,7 +151,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
           }
         })
         .catch(() => {}); // Silent fail for polling
-    }, 60000); // 60 seconds
+    }, 15000); // 15 seconds fallback when Pusher is not connected
 
     return () => clearInterval(interval);
   }, [taskId, isRealtime]);

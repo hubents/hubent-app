@@ -19,6 +19,9 @@ import { useSession } from "next-auth/react";
 let pusherInstance: Pusher | null = null;
 let pusherInitFailed = false;
 
+// Reference counting for shared channel subscriptions
+const channelSubscriptions = new Map<string, { channel: Channel; refCount: number }>();
+
 function getPusherClient(): Pusher | null {
   // If init already failed, don't retry
   if (pusherInitFailed) return null;
@@ -83,9 +86,10 @@ export function usePusherConnection() {
 }
 
 // Subscribe to a private channel (for task chat)
+// Uses reference counting so multiple hooks can share the same channel safely
 export function usePrivateChannel(channelName: string | null) {
   const channelRef = useRef<Channel | null>(null);
-  const [subscribed, setSubscribed] = useState(false);
+  const [channelState, setChannelState] = useState<Channel | null>(null);
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -95,30 +99,52 @@ export function usePrivateChannel(channelName: string | null) {
     if (!pusher) return;
 
     try {
-      const channel = pusher.subscribe(channelName);
-      channelRef.current = channel;
+      const existing = channelSubscriptions.get(channelName);
 
-      // Handle subscription success
-      channel.bind("pusher:subscription_succeeded", () => {
-        setSubscribed(true);
-      });
+      if (existing) {
+        // Channel already subscribed by another hook — just increment refCount
+        existing.refCount++;
+        channelRef.current = existing.channel;
+        setChannelState(existing.channel);
+      } else {
+        // First subscriber — actually subscribe
+        const channel = pusher.subscribe(channelName);
+        channelSubscriptions.set(channelName, { channel, refCount: 1 });
+        channelRef.current = channel;
 
-      // Handle subscription error (e.g., user not authorized)
-      channel.bind("pusher:subscription_error", (error: { status: number }) => {
-        console.warn(`Pusher subscription failed for ${channelName}:`, error.status);
-        setSubscribed(false);
-      });
+        channel.bind("pusher:subscription_succeeded", () => {
+          setChannelState(channel);
+        });
+
+        channel.bind("pusher:subscription_error", (error: { status: number }) => {
+          console.warn(`Pusher subscription failed for ${channelName}:`, error.status);
+          setChannelState(null);
+        });
+
+        // If channel is already subscribed (e.g. reconnect), set state immediately
+        if ((channel as unknown as { subscribed: boolean }).subscribed) {
+          setChannelState(channel);
+        }
+      }
 
       return () => {
-        pusher.unsubscribe(channelName);
+        const sub = channelSubscriptions.get(channelName);
+        if (sub) {
+          sub.refCount--;
+          if (sub.refCount <= 0) {
+            // Last consumer — actually unsubscribe
+            pusher.unsubscribe(channelName);
+            channelSubscriptions.delete(channelName);
+          }
+        }
         channelRef.current = null;
-        setSubscribed(false);
+        setChannelState(null);
       };
     } catch (error) {
       console.warn("Pusher client not available:", error);
       return;
     }
-  }, [channelName, session]);
+  }, [channelName, session?.user?.id]);
 
   const bind = useCallback(<T>(event: string, callback: (data: T) => void) => {
     channelRef.current?.bind(event, callback);
@@ -132,7 +158,7 @@ export function usePrivateChannel(channelName: string | null) {
     }
   }, []);
 
-  return { channel: channelRef.current, bind, trigger };
+  return { channel: channelState, bind, trigger };
 }
 
 // Presence channel for showing who's viewing a task

@@ -39,6 +39,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useUserSessionContext } from "@/contexts/user-session-context";
 
 interface Participant {
   userId: string;
@@ -96,6 +97,8 @@ const statusLabels: Record<string, string> = {
 type SortOption = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "budget_desc" | "budget_asc";
 
 export default function EventsPage() {
+  const { can } = useUserSessionContext();
+  const canCreate = can("events:create");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -315,10 +318,12 @@ export default function EventsPage() {
           </Button>
         </div>
 
-        <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo evento
-        </Button>
+        {canCreate && (
+          <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Nuevo evento
+          </Button>
+        )}
       </div>
 
       {/* Events Display */}
@@ -345,14 +350,18 @@ export default function EventsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
-                      <RiFileCopyLine className="h-4 w-4 mr-2" />
-                      Duplicar evento
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
-                      <RiFileList3Line className="h-4 w-4 mr-2" />
-                      Guardar como template
-                    </DropdownMenuItem>
+                    {canCreate && (
+                      <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
+                        <RiFileCopyLine className="h-4 w-4 mr-2" />
+                        Duplicar evento
+                      </DropdownMenuItem>
+                    )}
+                    {canCreate && (
+                      <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
+                        <RiFileList3Line className="h-4 w-4 mr-2" />
+                        Guardar como template
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -479,14 +488,18 @@ export default function EventsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
-                                <RiFileCopyLine className="h-4 w-4 mr-2" />
-                                Duplicar evento
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
-                                <RiFileList3Line className="h-4 w-4 mr-2" />
-                                Guardar como template
-                              </DropdownMenuItem>
+                              {canCreate && (
+                                <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
+                                  <RiFileCopyLine className="h-4 w-4 mr-2" />
+                                  Duplicar evento
+                                </DropdownMenuItem>
+                              )}
+                              {canCreate && (
+                                <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
+                                  <RiFileList3Line className="h-4 w-4 mr-2" />
+                                  Guardar como template
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -512,7 +525,7 @@ export default function EventsPage() {
                   : "Crea tu primer evento para comenzar a organizar"
                 }
               </p>
-              {!searchTerm && !filterType && !filterStatus && (
+              {!searchTerm && !filterType && !filterStatus && canCreate && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Crear primer evento

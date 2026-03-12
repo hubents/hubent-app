@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { taskParticipants, tasks, organizationMembers } from "@/db/schema";
+import { taskParticipants, tasks, organizationMembers, roles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Pusher from "pusher";
 
@@ -168,17 +168,19 @@ export async function POST(request: NextRequest) {
  * User must be:
  * - The task assignee
  * - A participant of the task
- * - The task creator (if we track that)
+ * - An org member with planner+ role (same logic as canAccessTaskChat)
  */
 async function verifyTaskAccess(userId: string, taskId: number): Promise<boolean> {
-  // Check if user is assignee
+  // Get the task to know the org
   const [task] = await db
-    .select({ assignedTo: tasks.assignedTo })
+    .select({ assignedTo: tasks.assignedTo, organizationId: tasks.organizationId })
     .from(tasks)
     .where(eq(tasks.id, taskId))
     .limit(1);
 
-  if (task?.assignedTo === userId) {
+  if (!task) return false;
+
+  if (task.assignedTo === userId) {
     return true;
   }
 
@@ -194,7 +196,34 @@ async function verifyTaskAccess(userId: string, taskId: number): Promise<boolean
     )
     .limit(1);
 
-  return !!participant;
+  if (participant) return true;
+
+  // Check if user is an org member with planner+ role (can access all tasks)
+  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const [member] = await db
+    .select({ roleId: organizationMembers.roleId })
+    .from(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.organizationId, task.organizationId),
+        eq(organizationMembers.userId, userId)
+      )
+    )
+    .limit(1);
+
+  if (member?.roleId) {
+    const [role] = await db
+      .select({ slug: roles.slug })
+      .from(roles)
+      .where(eq(roles.id, member.roleId))
+      .limit(1);
+
+    if (role && highRoles.includes(role.slug)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
