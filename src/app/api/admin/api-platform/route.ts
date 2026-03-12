@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePlatformAdmin } from "@/lib/admin-auth";
+import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { apiKeys, apiKeyLogs, organizations, subscriptionPlans, subscriptions } from "@/db/schema";
 import { eq, count, sql, desc, and, gt } from "drizzle-orm";
