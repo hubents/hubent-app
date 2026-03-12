@@ -15,9 +15,6 @@ const createLeadSchema = z.object({
   contact_id: z.number().int().optional(),
   stage_id: z.number().int().optional(),
   source: z.string().optional(),
-  event_type: z.string().optional(),
-  event_date: z.string().datetime().optional(),
-  guest_count: z.number().int().optional(),
   notes: z.string().optional(),
 });
 
@@ -54,10 +51,7 @@ export const GET = withApiAuth(
         contactId: leads.contactId,
         stageId: leads.stageId,
         source: leads.source,
-        eventType: leads.eventType,
-        eventDate: leads.eventDate,
-        guestCount: leads.guestCount,
-        notes: leads.notes,
+        notes: leads.description,
         createdAt: leads.createdAt,
         updatedAt: leads.updatedAt,
         contactName: contacts.name,
@@ -97,10 +91,7 @@ export const POST = withApiAuth(
       contactId: d.contact_id,
       stageId: d.stage_id,
       source: d.source,
-      eventType: d.event_type,
-      eventDate: d.event_date ? new Date(d.event_date) : null,
-      guestCount: d.guest_count,
-      notes: d.notes,
+      description: d.notes,
     }).returning();
 
     void dispatchWebhookEvent(session.organizationId, "lead.created", { ...lead }).catch(() => {});

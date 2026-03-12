@@ -112,7 +112,7 @@ export const POST = withApiAuth(
       })
       .returning();
 
-    void dispatchWebhookEvent(session.organizationId, "event.created", { id: newEvent.id, ...newEvent }).catch(() => {});
+    void dispatchWebhookEvent(session.organizationId, "event.created", { ...newEvent }).catch(() => {});
 
     return {
       status: 201,

@@ -105,7 +105,7 @@ export const POST = withApiAuth(
       groupId: d.group_id,
     }).returning();
 
-    void dispatchWebhookEvent(session.organizationId, "guest.created", { id: guest.id, event_id: eventId, ...guest }).catch(() => {});
+    void dispatchWebhookEvent(session.organizationId, "guest.created", { ...guest, event_id: eventId }).catch(() => {});
 
     return { status: 201, data: { object: "guest", ...guest } };
   },

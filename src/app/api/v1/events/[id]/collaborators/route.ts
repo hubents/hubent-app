@@ -20,7 +20,7 @@ export const GET = withApiAuth(
         userId: eventParticipants.userId,
         eventId: eventParticipants.eventId,
         permissions: eventParticipants.permissions,
-        addedAt: eventParticipants.addedAt,
+        addedAt: eventParticipants.invitedAt,
         userName: users.name,
         userEmail: users.email,
       })

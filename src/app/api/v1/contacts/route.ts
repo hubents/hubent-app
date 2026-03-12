@@ -126,7 +126,7 @@ export const POST = withApiAuth(
       category: d.category,
     }).returning();
 
-    void dispatchWebhookEvent(session.organizationId, "contact.created", { id: contact.id, ...contact }).catch(() => {});
+    void dispatchWebhookEvent(session.organizationId, "contact.created", { ...contact }).catch(() => {});
 
     return { status: 201, data: { object: "contact", ...contact } };
   },

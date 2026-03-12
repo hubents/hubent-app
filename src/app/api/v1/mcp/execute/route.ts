@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const executeSchema = z.object({
   tool: z.string().min(1),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const POST = withApiAuth(

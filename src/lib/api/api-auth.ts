@@ -191,7 +191,7 @@ export async function authenticateApiKey(request: NextRequest): Promise<ApiKeySe
       plan = {
         slug: planRecord.slug,
         name: planRecord.name,
-        limits: (planRecord.limits as Record<string, number>) || {},
+        limits: (planRecord.limits as unknown as Record<string, number>) || {},
       };
     }
   }

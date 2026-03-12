@@ -60,7 +60,7 @@ export const PATCH = withApiAuth(
 
     if (!updated) throw notFoundError("Guest", params.guestId);
 
-    void dispatchWebhookEvent(session.organizationId, "guest.updated", { id: updated.id, event_id: eventId, ...updated }).catch(() => {});
+    void dispatchWebhookEvent(session.organizationId, "guest.updated", { ...updated, event_id: eventId }).catch(() => {});
 
     return { data: { object: "guest", ...updated } };
   },

@@ -42,7 +42,7 @@ export const PATCH = withApiAuth(
 
     if (!updated) throw notFoundError("Task", params.id);
 
-    void dispatchWebhookEvent(session.organizationId, "task.updated", { id: updated.id, ...updated }).catch(() => {});
+    void dispatchWebhookEvent(session.organizationId, "task.updated", { ...updated }).catch(() => {});
     if (body.status === "completed") {
       void dispatchWebhookEvent(session.organizationId, "task.completed", { id: updated.id }).catch(() => {});
     }
