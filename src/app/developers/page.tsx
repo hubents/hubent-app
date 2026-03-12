@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { RiCodeSSlashLine, RiShieldKeyholeLine, RiWebhookLine, RiRobot2Line, RiSpeedLine, RiRepeatLine, RiLockLine, RiFileList3Line, RiTerminalLine, RiArrowRightSLine, RiExternalLinkLine, RiBrainLine, RiDatabase2Line, RiPlugLine } from "@remixicon/react";
@@ -163,31 +163,7 @@ const WEBHOOK_EVENTS = [
 ];
 
 export default function DeveloperPortalPage() {
-  const scalarRef = useRef<HTMLDivElement>(null);
   const [expandedTags, setExpandedTags] = useState<string[]>(["Events"]);
-
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.id = "scalar-script";
-    script.src = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.68";
-    script.onload = () => {
-      if (scalarRef.current && !scalarRef.current.hasChildNodes()) {
-        const el = document.createElement("api-reference");
-        el.setAttribute("data-url", "/api/v1/openapi");
-        el.setAttribute("data-theme", "kepler");
-        el.setAttribute("data-layout", "modern");
-        el.setAttribute("data-show-sidebar", "true");
-        el.setAttribute("data-hide-download-button", "false");
-        el.setAttribute("data-default-open-all-tags", "false");
-        scalarRef.current.appendChild(el);
-      }
-    };
-    if (!document.getElementById("scalar-script")) {
-      document.head.appendChild(script);
-    } else {
-      script.onload?.(new Event("load"));
-    }
-  }, []);
 
   const toggleTag = (tag: string) => {
     setExpandedTags((prev) =>
@@ -237,7 +213,7 @@ export default function DeveloperPortalPage() {
             Compatible con CLI, MCP (AI assistants), webhooks y mas.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/auth/login" className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-medium hover:bg-primary/90 transition-colors">
+            <Link href="/dashboard/settings/developers" className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg font-medium hover:bg-primary/90 transition-colors">
               <RiShieldKeyholeLine className="h-4 w-4" />
               Obtener API Key
             </Link>
@@ -733,7 +709,13 @@ Retry-After: 42
             Documentacion interactiva generada automaticamente desde la OpenAPI 3.1 spec. Proba requests directamente desde el navegador.
           </p>
         </div>
-        <div ref={scalarRef} className="min-h-150" />
+        <iframe
+          src="/api-docs.html"
+          className="w-full border-0"
+          style={{ height: "80vh", minHeight: "600px" }}
+          title="HubEnts API Reference"
+          loading="lazy"
+        />
       </section>
 
       {/* Footer */}
