@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Routes configuration
-const PUBLIC_ROUTES = ["/", "/api/auth", "/api/public", "/components", "/terms", "/privacy", "/providers", "/f"];
+const PUBLIC_ROUTES = ["/", "/api/auth", "/api/public", "/api/v1", "/components", "/terms", "/privacy", "/providers", "/f", "/developers"];
 const TENANT_AUTH_ROUTES = ["/auth"];
 const PROVIDER_AUTH_ROUTES = ["/provider/register", "/provider/login"];
 const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];

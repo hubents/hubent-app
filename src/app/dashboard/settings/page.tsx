@@ -24,9 +24,10 @@ import {
   RiAlertLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface ProfileData {
   user: {
@@ -122,6 +123,14 @@ const settingsSections = [
     href: "/dashboard/settings/templates",
   },
   {
+    id: "developers",
+    title: "Developers",
+    description: "API keys, webhooks y documentación",
+    icon: RiGlobalLine,
+    href: "/dashboard/settings/developers",
+    requiredPermission: "settings:update",
+  },
+  {
     id: "privacy",
     title: "Privacidad",
     description: "Datos y configuración de privacidad",
@@ -132,10 +141,16 @@ const settingsSections = [
 export default function SettingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { can } = useUserSession();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState("profile");
+
+  const filteredSections = useMemo(() =>
+    settingsSections.filter((s) => !('requiredPermission' in s && s.requiredPermission) || can(s.requiredPermission as string)),
+    [can]
+  );
   
   // Form state
   const [formData, setFormData] = useState({
@@ -206,7 +221,7 @@ export default function SettingsPage() {
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-[var(--muted-foreground)]">
+        <p className="text-muted-foreground">
           Administra tu cuenta y preferencias
         </p>
       </div>
@@ -216,7 +231,7 @@ export default function SettingsPage() {
         <Card className="lg:col-span-1 h-fit">
           <CardContent className="p-2">
             <nav className="space-y-1">
-              {settingsSections.map((section) => (
+              {filteredSections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => {
@@ -226,10 +241,10 @@ export default function SettingsPage() {
                       setActiveSection(section.id);
                     }
                   }}
-                  className={`flex w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center gap-3 rounded-(--radius) px-3 py-2.5 text-left text-sm transition-colors ${
                     activeSection === section.id
-                      ? "bg-[var(--primary)] text-white"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                      ? "bg-primary text-white"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <section.icon className="h-5 w-5" />
@@ -239,7 +254,7 @@ export default function SettingsPage() {
                       className={`text-xs ${
                         activeSection === section.id
                           ? "text-white/70"
-                          : "text-[var(--muted-foreground)]"
+                          : "text-muted-foreground"
                       }`}
                     >
                       {section.description}
@@ -310,7 +325,7 @@ export default function SettingsPage() {
                           type="email" 
                           value={formData.email}
                           disabled
-                          className="bg-[var(--muted)]"
+                          className="bg-muted"
                         />
                       </div>
                       <div className="space-y-2">
@@ -497,42 +512,42 @@ function NotificationsSection() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Notificaciones por Email</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Recibir alertas importantes por correo</p>
+              <p className="text-sm text-muted-foreground">Recibir alertas importantes por correo</p>
             </div>
             <Switch checked={prefs.email} onCheckedChange={() => handleToggle("email")} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Notificaciones Push</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Alertas en tiempo real en el navegador</p>
+              <p className="text-sm text-muted-foreground">Alertas en tiempo real en el navegador</p>
             </div>
             <Switch checked={prefs.push} onCheckedChange={() => handleToggle("push")} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Recordatorios de Tareas</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Alertas antes de fechas límite</p>
+              <p className="text-sm text-muted-foreground">Alertas antes de fechas límite</p>
             </div>
             <Switch checked={prefs.taskReminders} onCheckedChange={() => handleToggle("taskReminders")} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Actualizaciones de Eventos</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Cambios en tus eventos</p>
+              <p className="text-sm text-muted-foreground">Cambios en tus eventos</p>
             </div>
             <Switch checked={prefs.eventUpdates} onCheckedChange={() => handleToggle("eventUpdates")} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Actividad del Equipo</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Cuando alguien del equipo hace cambios</p>
+              <p className="text-sm text-muted-foreground">Cuando alguien del equipo hace cambios</p>
             </div>
             <Switch checked={prefs.teamActivity} onCheckedChange={() => handleToggle("teamActivity")} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Comunicaciones de Marketing</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Novedades y ofertas de HubEnts</p>
+              <p className="text-sm text-muted-foreground">Novedades y ofertas de HubEnts</p>
             </div>
             <Switch checked={prefs.marketing} onCheckedChange={() => handleToggle("marketing")} />
           </div>
@@ -566,8 +581,8 @@ function AppearanceSection() {
                 onClick={() => setTheme(option.value as typeof theme)}
                 className={`p-4 rounded-lg border-2 transition-colors ${
                   theme === option.value
-                    ? "border-[var(--primary)] bg-[var(--primary)]/5"
-                    : "border-[var(--border)] hover:border-[var(--primary)]/50"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
                 }`}
               >
                 <div className="text-2xl mb-2">{option.icon}</div>
@@ -601,7 +616,7 @@ function LanguageSection() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Idioma</label>
             <select
-              className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)]"
+              className="w-full h-10 px-3 rounded-md border border-border bg-background"
               value={locale.language}
               onChange={(e) => setLocale({ ...locale, language: e.target.value })}
             >
@@ -613,7 +628,7 @@ function LanguageSection() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Zona Horaria</label>
             <select
-              className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)]"
+              className="w-full h-10 px-3 rounded-md border border-border bg-background"
               value={locale.timezone}
               onChange={(e) => setLocale({ ...locale, timezone: e.target.value })}
             >
@@ -629,7 +644,7 @@ function LanguageSection() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Formato de Fecha</label>
             <select
-              className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)]"
+              className="w-full h-10 px-3 rounded-md border border-border bg-background"
               value={locale.dateFormat}
               onChange={(e) => setLocale({ ...locale, dateFormat: e.target.value })}
             >
@@ -641,7 +656,7 @@ function LanguageSection() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Moneda</label>
             <select
-              className="w-full h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--background)]"
+              className="w-full h-10 px-3 rounded-md border border-border bg-background"
               value={locale.currency}
               onChange={(e) => setLocale({ ...locale, currency: e.target.value })}
             >
@@ -814,7 +829,7 @@ function BillingSection() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Current Plan */}
-          <div className="flex items-center justify-between rounded-lg border border-[var(--border)] p-4">
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-lg">
@@ -823,7 +838,7 @@ function BillingSection() {
                 {billing?.subscription && getStatusBadge(billing.subscription.status)}
               </div>
               {billing?.plan && (
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-muted-foreground">
                   €{billing.plan.priceMonthly}/mes · €{billing.plan.priceYearly}/año
                 </p>
               )}
@@ -833,7 +848,7 @@ function BillingSection() {
                     <RiAlertLine className="h-4 w-4 text-amber-500" />
                     <span>{trialDays} días restantes de prueba</span>
                   </div>
-                  <div className="mt-1 h-2 w-48 rounded-full bg-[var(--muted)]">
+                  <div className="mt-1 h-2 w-48 rounded-full bg-muted">
                     <div
                       className="h-2 rounded-full bg-amber-500 transition-all"
                       style={{ width: `${Math.max(5, ((14 - trialDays) / 14) * 100)}%` }}
@@ -842,7 +857,7 @@ function BillingSection() {
                 </div>
               )}
               {billing?.subscription?.currentPeriodEnd && billing.subscription.status === "active" && (
-                <p className="text-xs text-[var(--muted-foreground)]">
+                <p className="text-xs text-muted-foreground">
                   Próxima facturación: {new Date(billing.subscription.currentPeriodEnd).toLocaleDateString()}
                 </p>
               )}
@@ -869,7 +884,7 @@ function BillingSection() {
               <p className="text-sm font-medium">Incluido en tu plan:</p>
               <div className="grid grid-cols-2 gap-1">
                 {billing.plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                  <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <RiCheckLine className="h-4 w-4 text-green-500 shrink-0" />
                     {feature}
                   </div>
@@ -880,13 +895,13 @@ function BillingSection() {
 
           {/* Invoices */}
           {billing?.invoices && billing.invoices.length > 0 && (
-            <div className="space-y-2 pt-4 border-t border-[var(--border)]">
+            <div className="space-y-2 pt-4 border-t border-border">
               <p className="text-sm font-medium">Últimas facturas</p>
               <div className="space-y-1">
                 {billing.invoices.slice(0, 5).map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between text-sm py-1">
                     <div className="flex items-center gap-2">
-                      <RiFileList3Line className="h-4 w-4 text-[var(--muted-foreground)]" />
+                      <RiFileList3Line className="h-4 w-4 text-muted-foreground" />
                       <span>{inv.period || (inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : "—")}</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -899,7 +914,7 @@ function BillingSection() {
                         {inv.status === "paid" ? "Pagado" : inv.status}
                       </Badge>
                       {inv.pdfUrl && (
-                        <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] hover:underline text-xs">
+                        <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">
                           PDF
                         </a>
                       )}
@@ -915,26 +930,26 @@ function BillingSection() {
       {/* Plan Selector Dialog */}
       {showPlans && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--background)] rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-background rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold">Elige tu plan</h2>
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-muted-foreground">
                   El precio se mostrará en tu moneda local al pagar
                 </p>
               </div>
-              <button onClick={() => setShowPlans(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+              <button onClick={() => setShowPlans(false)} className="text-muted-foreground hover:text-foreground">
                 ✕
               </button>
             </div>
 
             {/* Interval Toggle */}
             <div className="flex justify-center mb-6">
-              <div className="flex gap-1 p-1 bg-[var(--muted)]/50 rounded-lg">
+              <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
                 <button
                   onClick={() => setBillingInterval("month")}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    billingInterval === "month" ? "bg-[var(--background)] shadow-sm" : "text-[var(--muted-foreground)]"
+                    billingInterval === "month" ? "bg-background shadow-sm" : "text-muted-foreground"
                   }`}
                 >
                   Mensual
@@ -942,7 +957,7 @@ function BillingSection() {
                 <button
                   onClick={() => setBillingInterval("year")}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    billingInterval === "year" ? "bg-[var(--background)] shadow-sm" : "text-[var(--muted-foreground)]"
+                    billingInterval === "year" ? "bg-background shadow-sm" : "text-muted-foreground"
                   }`}
                 >
                   Anual <span className="text-green-600 text-xs ml-1">Ahorra 2 meses</span>
@@ -962,8 +977,8 @@ function BillingSection() {
                   <div
                     key={plan.id}
                     className={`rounded-lg border p-4 space-y-4 ${
-                      plan.highlighted ? "border-[var(--primary)] ring-1 ring-[var(--primary)]" : "border-[var(--border)]"
-                    } ${isCurrent ? "bg-[var(--muted)]/30" : ""}`}
+                      plan.highlighted ? "border-primary ring-1 ring-primary" : "border-border"
+                    } ${isCurrent ? "bg-muted/30" : ""}`}
                   >
                     {plan.highlighted && (
                       <Badge className="w-fit">POPULAR</Badge>
@@ -971,12 +986,12 @@ function BillingSection() {
                     <div>
                       <h3 className="font-semibold text-lg">{plan.name}</h3>
                       {plan.description && (
-                        <p className="text-xs text-[var(--muted-foreground)] mt-1">{plan.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
                       )}
                     </div>
                     <div>
                       <span className="text-3xl font-bold">€{price}</span>
-                      <span className="text-[var(--muted-foreground)]">/{billingInterval === "month" ? "mes" : "año"}</span>
+                      <span className="text-muted-foreground">/{billingInterval === "month" ? "mes" : "año"}</span>
                     </div>
                     {plan.features?.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
@@ -1020,7 +1035,7 @@ function TeamSection() {
         <CardDescription>Administra los miembros y roles de tu equipo</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-[var(--muted-foreground)] mb-4">
+        <p className="text-muted-foreground mb-4">
           Para gestionar tu equipo, ve a la sección de Equipo en el menú principal.
         </p>
         <Button onClick={() => window.location.href = "/dashboard/team"}>
@@ -1050,7 +1065,7 @@ function PrivacySection() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Perfil Visible</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Otros miembros pueden ver tu perfil</p>
+              <p className="text-sm text-muted-foreground">Otros miembros pueden ver tu perfil</p>
             </div>
             <Switch 
               checked={privacy.showProfile} 
@@ -1060,7 +1075,7 @@ function PrivacySection() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Mostrar Actividad</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Tu actividad es visible para el equipo</p>
+              <p className="text-sm text-muted-foreground">Tu actividad es visible para el equipo</p>
             </div>
             <Switch 
               checked={privacy.showActivity} 
@@ -1070,7 +1085,7 @@ function PrivacySection() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Análisis de Uso</p>
-              <p className="text-sm text-[var(--muted-foreground)]">Ayúdanos a mejorar con datos anónimos</p>
+              <p className="text-sm text-muted-foreground">Ayúdanos a mejorar con datos anónimos</p>
             </div>
             <Switch 
               checked={privacy.allowAnalytics} 
@@ -1078,7 +1093,7 @@ function PrivacySection() {
             />
           </div>
         </div>
-        <div className="pt-4 border-t border-[var(--border)]">
+        <div className="pt-4 border-t border-border">
           <h4 className="font-medium mb-2">Tus Datos</h4>
           <div className="flex gap-2">
             <Button variant="outline">Exportar Datos</Button>
@@ -1196,7 +1211,7 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <RiAlertLine className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <RiAlertLine className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-sm text-amber-800">
               <p className="font-medium">Importante</p>
               <p>Estos datos aparecerán en todos los documentos fiscales que generes. Asegúrate de que sean correctos.</p>
@@ -1294,13 +1309,13 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-6">
             {/* Logo Preview */}
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               {formData.invoiceLogo ? (
                 <div className="relative">
                   <img
                     src={formData.invoiceLogo}
                     alt="Logo"
-                    className="h-24 w-auto max-w-[200px] object-contain border rounded-lg p-2"
+                    className="h-24 w-auto max-w-50 object-contain border rounded-lg p-2"
                   />
                   <Button
                     variant="ghost"

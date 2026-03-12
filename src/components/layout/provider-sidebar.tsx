@@ -22,6 +22,7 @@ import {
   RiBankLine,
   RiTeamLine,
   RiProfileLine,
+  RiGlobalLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
@@ -43,6 +44,7 @@ const financeSubNav = [
 const bottomNav = [
   { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine, permission: null },
   { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: "team:read" },
+  { name: "Developers", href: "/vendor/settings/developers", icon: RiGlobalLine, permission: "settings:update" },
   { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line, permission: "settings:read" },
 ];
 
@@ -68,10 +70,10 @@ export function ProviderSidebar() {
   }, [isFinancePage]);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[260px] border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] hidden md:block">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-[260px] border-r border-sidebar-border bg-sidebar hidden md:block">
       <div className="flex h-full flex-col">
         {/* Logo + Badge */}
-        <div className="flex h-16 items-center gap-3 border-b border-[var(--border)] px-6">
+        <div className="flex h-16 items-center gap-3 border-b border-border px-6">
           <Image
             src="/images/isotipo-dark.png"
             alt="HubEnts"
@@ -96,10 +98,10 @@ export function ProviderSidebar() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-(--radius) px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-primary text-white"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -114,10 +116,10 @@ export function ProviderSidebar() {
               <button
                 onClick={() => setFinanceExpanded(!financeExpanded)}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex w-full items-center justify-between rounded-(--radius) px-3 py-2.5 text-sm font-medium transition-colors",
                   isFinancePage
-                    ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -133,7 +135,7 @@ export function ProviderSidebar() {
               </button>
 
               {financeExpanded && (
-                <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
+                <div className="ml-4 mt-1 space-y-1 border-l border-border pl-3">
                   {financeSubNav.map((subItem) => {
                     const isSubActive = pathname === subItem.href ||
                       (subItem.href !== "/vendor/finance" && pathname.startsWith(subItem.href));
@@ -143,10 +145,10 @@ export function ProviderSidebar() {
                         key={subItem.name}
                         href={subItem.href}
                         className={cn(
-                          "flex items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-sm transition-colors",
+                          "flex items-center gap-2 rounded-(--radius) px-2 py-2 text-sm transition-colors",
                           isSubActive
-                            ? "bg-[var(--primary)] text-white"
-                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                            ? "bg-primary text-white"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         <subItem.icon className="h-4 w-4" />
@@ -161,7 +163,7 @@ export function ProviderSidebar() {
         </nav>
 
         {/* Bottom Nav */}
-        <div className="border-t border-[var(--border)] px-2 py-4 space-y-1">
+        <div className="border-t border-border px-2 py-4 space-y-1">
           {filteredBottomNav.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -170,10 +172,10 @@ export function ProviderSidebar() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-(--radius) px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-primary text-white"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 <item.icon className="h-5 w-5" />

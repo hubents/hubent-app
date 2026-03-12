@@ -1757,6 +1757,92 @@ export const aiAnalytics = pgTable("ai_analytics", {
 });
 
 // ============================================
+// PUBLIC API MODULE
+// ============================================
+
+export const apiKeyEnvironmentEnum = pgEnum("api_key_environment", [
+  "live",
+  "test",
+]);
+
+export const webhookLogStatusEnum = pgEnum("webhook_log_status", [
+  "pending",
+  "delivered",
+  "failed",
+]);
+
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  keyPrefix: text("key_prefix").notNull(),
+  scopes: json("scopes").$type<string[]>().notNull(),
+  environment: text("environment").notNull().default("live"),
+  rateLimit: integer("rate_limit").default(100),
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: text("revoked_by").references(() => users.id),
+});
+
+export const apiKeyLogs = pgTable("api_key_logs", {
+  id: serial("id").primaryKey(),
+  apiKeyId: integer("api_key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
+  method: text("method").notNull(),
+  path: text("path").notNull(),
+  statusCode: integer("status_code").notNull(),
+  responseTimeMs: integer("response_time_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  requestId: text("request_id").notNull(),
+  errorCode: text("error_code"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const idempotencyKeys = pgTable("idempotency_keys", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull(),
+  apiKeyId: integer("api_key_id").notNull().references(() => apiKeys.id, { onDelete: "cascade" }),
+  requestPath: text("request_path").notNull(),
+  requestBodyHash: text("request_body_hash"),
+  responseCode: integer("response_code"),
+  responseBody: jsonb("response_body"),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const webhooks = pgTable("webhooks", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  events: json("events").$type<string[]>().notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const webhookLogs = pgTable("webhook_logs", {
+  id: serial("id").primaryKey(),
+  webhookId: integer("webhook_id").notNull().references(() => webhooks.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").notNull(),
+  responseCode: integer("response_code"),
+  responseBody: text("response_body"),
+  attempt: integer("attempt").notNull().default(1),
+  deliveredAt: timestamp("delivered_at"),
+  nextRetryAt: timestamp("next_retry_at"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
 // FORMS MODULE (Template → Instance → Submission)
 // ============================================
 
@@ -2023,3 +2109,14 @@ export type FormInstance = typeof formInstances.$inferSelect;
 export type NewFormInstance = typeof formInstances.$inferInsert;
 export type FormSubmission = typeof formSubmissions.$inferSelect;
 export type NewFormSubmission = typeof formSubmissions.$inferInsert;
+
+// Public API Types
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
+export type ApiKeyLog = typeof apiKeyLogs.$inferSelect;
+export type NewApiKeyLog = typeof apiKeyLogs.$inferInsert;
+export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
+export type Webhook = typeof webhooks.$inferSelect;
+export type NewWebhook = typeof webhooks.$inferInsert;
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+export type NewWebhookLog = typeof webhookLogs.$inferInsert;
