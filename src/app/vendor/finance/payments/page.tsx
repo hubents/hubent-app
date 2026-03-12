@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Table,
   TableBody,
@@ -82,6 +83,8 @@ const directionTabs: { key: DirectionTab; label: string }[] = [
 ];
 
 export default function VendorPaymentsPage() {
+  const { can } = useUserSession();
+  const canCreate = can("finance:create");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [directionFilter, setDirectionFilter] = useState<DirectionTab>("all");
@@ -227,10 +230,12 @@ export default function VendorPaymentsPage() {
             <p className="text-muted-foreground text-sm">{payments.length} pagos registrados</p>
           </div>
         </div>
-        <Button onClick={openNew}>
-          <RiAddLine className="h-4 w-4 mr-2" />
-          Registrar Pago
-        </Button>
+        {canCreate && (
+          <Button onClick={openNew}>
+            <RiAddLine className="h-4 w-4 mr-2" />
+            Registrar Pago
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -287,10 +292,12 @@ export default function VendorPaymentsPage() {
           <CardContent className="py-12 text-center">
             <RiMoneyDollarCircleLine className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">No hay pagos registrados</p>
-            <Button variant="outline" className="mt-4" onClick={openNew}>
-              <RiAddLine className="h-4 w-4 mr-2" />
-              Registrar primer pago
-            </Button>
+            {canCreate && (
+              <Button variant="outline" className="mt-4" onClick={openNew}>
+                <RiAddLine className="h-4 w-4 mr-2" />
+                Registrar primer pago
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

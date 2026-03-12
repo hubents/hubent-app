@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,8 @@ const TIMEZONES = [
 const CURRENCIES = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "GBP"];
 
 export default function VendorSettingsPage() {
+  const { can } = useUserSession();
+  const canUpdateSettings = can("settings:update");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
@@ -186,12 +189,14 @@ export default function VendorSettingsPage() {
             </div>
           </div>
 
-          <div className="pt-2">
-            <Button onClick={handleSaveSettings} disabled={saving}>
-              <RiSaveLine className="h-4 w-4 mr-2" />
-              {saving ? "Guardando..." : "Guardar"}
-            </Button>
-          </div>
+          {canUpdateSettings && (
+            <div className="pt-2">
+              <Button onClick={handleSaveSettings} disabled={saving}>
+                <RiSaveLine className="h-4 w-4 mr-2" />
+                {saving ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

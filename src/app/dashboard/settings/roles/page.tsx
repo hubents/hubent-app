@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Sheet,
   SheetContent,
@@ -95,6 +96,8 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function RolesPage() {
   const router = useRouter();
+  const { can } = useUserSession();
+  const canManageTeam = can("team:manage");
   const [systemRoles, setSystemRoles] = useState<Role[]>([]);
   const [customRoles, setCustomRoles] = useState<Role[]>([]);
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
@@ -439,10 +442,12 @@ export default function RolesPage() {
             </p>
           </div>
         </div>
-        <Button className="gap-2" onClick={handleCreateRole}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo Rol
-        </Button>
+        {canManageTeam && (
+          <Button className="gap-2" onClick={handleCreateRole}>
+            <RiAddLine className="h-4 w-4" />
+            Nuevo Rol
+          </Button>
+        )}
       </div>
 
       {/* System Roles */}
@@ -484,10 +489,12 @@ export default function RolesPage() {
               <p className="text-sm text-[var(--muted-foreground)] mb-4">
                 Crea un rol personalizado para asignar permisos específicos
               </p>
-              <Button variant="outline" onClick={handleCreateRole}>
-                <RiAddLine className="h-4 w-4 mr-2" />
-                Crear Rol
-              </Button>
+              {canManageTeam && (
+                <Button variant="outline" onClick={handleCreateRole}>
+                  <RiAddLine className="h-4 w-4 mr-2" />
+                  Crear Rol
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

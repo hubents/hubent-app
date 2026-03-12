@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -94,6 +95,8 @@ const eventTypeIcons: Record<string, string> = {
 };
 
 export default function TemplatesPage() {
+  const { can } = useUserSession();
+  const canManageTemplates = can("events:create");
   const [templates, setTemplates] = useState<EventTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<EventTemplate | null>(null);
@@ -289,10 +292,12 @@ export default function TemplatesPage() {
             Crea y gestiona templates para agilizar la creación de eventos
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Template
-        </Button>
+        {canManageTemplates && (
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Template
+          </Button>
+        )}
       </div>
 
       {templates.length === 0 ? (
@@ -303,10 +308,12 @@ export default function TemplatesPage() {
             <p className="text-muted-foreground text-center mb-4">
               Crea tu primer template para agilizar la creación de eventos
             </p>
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Crear Template
-            </Button>
+            {canManageTemplates && (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Crear Template
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

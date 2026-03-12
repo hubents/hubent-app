@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Table,
   TableBody,
@@ -87,6 +88,8 @@ const vendorDirectionTabs = [
 
 export default function VendorInvoicesPage() {
   const router = useRouter();
+  const { can } = useUserSession();
+  const canCreate = can("finance:create");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusTab>("all");
@@ -237,10 +240,12 @@ export default function VendorInvoicesPage() {
             <p className="text-muted-foreground text-sm">{invoices.length} facturas</p>
           </div>
         </div>
-        <Button onClick={openNewInvoice}>
-          <RiAddLine className="h-4 w-4 mr-2" />
-          Nueva Factura
-        </Button>
+        {canCreate && (
+          <Button onClick={openNewInvoice}>
+            <RiAddLine className="h-4 w-4 mr-2" />
+            Nueva Factura
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar
@@ -260,10 +265,12 @@ export default function VendorInvoicesPage() {
           <CardContent className="py-12 text-center">
             <RiFileList2Line className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">No hay facturas</p>
-            <Button variant="outline" className="mt-4" onClick={openNewInvoice}>
-              <RiAddLine className="h-4 w-4 mr-2" />
-              Crear primera factura
-            </Button>
+            {canCreate && (
+              <Button variant="outline" className="mt-4" onClick={openNewInvoice}>
+                <RiAddLine className="h-4 w-4 mr-2" />
+                Crear primera factura
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

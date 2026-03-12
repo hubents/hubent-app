@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Sheet,
   SheetContent,
@@ -39,6 +40,8 @@ const statusConfig: Record<string, { label: string; variant: "success" | "warnin
 };
 
 export default function PaymentsPage() {
+  const { can } = useUserSession();
+  const canCreateFinance = can("finance:create");
   const { payments, stats, loading, createPayment, markAsPaid } = usePayments();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -87,10 +90,12 @@ export default function PaymentsPage() {
             Control de pagos a proveedores y cobros a clientes
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
-          <RiAddLine className="h-4 w-4" />
-          Nuevo Pago
-        </Button>
+        {canCreateFinance && (
+          <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+            <RiAddLine className="h-4 w-4" />
+            Nuevo Pago
+          </Button>
+        )}
         <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <SheetContent className="sm:max-w-3xl overflow-y-auto">
             <SheetHeader>
@@ -388,10 +393,12 @@ export default function PaymentsPage() {
               <p className="text-[var(--muted-foreground)] mb-4">
                 Registra tu primer pago o cobro
               </p>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <RiAddLine className="h-4 w-4 mr-2" />
-                Nuevo Pago
-              </Button>
+              {canCreateFinance && (
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <RiAddLine className="h-4 w-4 mr-2" />
+                  Nuevo Pago
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

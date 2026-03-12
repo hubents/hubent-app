@@ -38,7 +38,7 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { eventScoped, loading: sessionLoading } = useUserSession();
+  const { eventScoped, can, loading: sessionLoading } = useUserSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -115,61 +115,69 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="grid gap-[var(--gap-cards)] md:grid-cols-4 animate-fade-in">
-        <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--primary)] hover:-translate-y-1 bg-[var(--primary)] text-[var(--primary-foreground)]"
-          onClick={() => router.push("/dashboard/events?new=true")}
-        >
-          <CardContent className="p-4 flex items-center gap-3">
-            <RiCalendarEventLine className="h-8 w-8" />
-            <div>
-              <p className="font-semibold">Nuevo Evento</p>
-              <p className="text-xs opacity-80">Crear evento rápido</p>
-            </div>
-            <RiArrowRightUpLine className="h-5 w-5 ml-auto" />
-          </CardContent>
-        </Card>
-        <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--success)] hover:-translate-y-1"
-          onClick={() => router.push("/dashboard/crm?new=true")}
-        >
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--success)]/10 flex items-center justify-center">
-              <RiUserAddLine className="h-5 w-5 text-[var(--success)]" />
-            </div>
-            <div>
-              <p className="font-semibold">Agregar Lead</p>
-              <p className="text-xs text-[var(--muted-foreground)]">CRM rápido</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--warning)] hover:-translate-y-1"
-          onClick={() => router.push("/dashboard/tasks?new=true")}
-        >
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--warning)]/10 flex items-center justify-center">
-              <RiFileListLine className="h-5 w-5 text-[var(--warning)]" />
-            </div>
-            <div>
-              <p className="font-semibold">Nueva Tarea</p>
-              <p className="text-xs text-[var(--muted-foreground)]">Agregar tarea</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--info)] hover:-translate-y-1"
-          onClick={() => router.push("/dashboard/payments?new=true")}
-        >
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[var(--info)]/10 flex items-center justify-center">
-              <RiMoneyDollarCircleLine className="h-5 w-5 text-[var(--info)]" />
-            </div>
-            <div>
-              <p className="font-semibold">Registrar Pago</p>
-              <p className="text-xs text-[var(--muted-foreground)]">Cobros</p>
-            </div>
-          </CardContent>
-        </Card>
+        {can("events:create") && (
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--primary)] hover:-translate-y-1 bg-[var(--primary)] text-[var(--primary-foreground)]"
+            onClick={() => router.push("/dashboard/events?new=true")}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <RiCalendarEventLine className="h-8 w-8" />
+              <div>
+                <p className="font-semibold">Nuevo Evento</p>
+                <p className="text-xs opacity-80">Crear evento rápido</p>
+              </div>
+              <RiArrowRightUpLine className="h-5 w-5 ml-auto" />
+            </CardContent>
+          </Card>
+        )}
+        {can("crm:manage") && (
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--success)] hover:-translate-y-1"
+            onClick={() => router.push("/dashboard/crm?new=true")}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-[var(--success)]/10 flex items-center justify-center">
+                <RiUserAddLine className="h-5 w-5 text-[var(--success)]" />
+              </div>
+              <div>
+                <p className="font-semibold">Agregar Lead</p>
+                <p className="text-xs text-[var(--muted-foreground)]">CRM rápido</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {can("tasks:create") && (
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--warning)] hover:-translate-y-1"
+            onClick={() => router.push("/dashboard/tasks?new=true")}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-[var(--warning)]/10 flex items-center justify-center">
+                <RiFileListLine className="h-5 w-5 text-[var(--warning)]" />
+              </div>
+              <div>
+                <p className="font-semibold">Nueva Tarea</p>
+                <p className="text-xs text-[var(--muted-foreground)]">Agregar tarea</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {can("finance:create") && (
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-lg hover:border-[var(--info)] hover:-translate-y-1"
+            onClick={() => router.push("/dashboard/payments?new=true")}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-[var(--info)]/10 flex items-center justify-center">
+                <RiMoneyDollarCircleLine className="h-5 w-5 text-[var(--info)]" />
+              </div>
+              <div>
+                <p className="font-semibold">Registrar Pago</p>
+                <p className="text-xs text-[var(--muted-foreground)]">Cobros</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Content Grid */}

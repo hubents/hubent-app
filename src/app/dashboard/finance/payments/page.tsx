@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Table,
   TableBody,
@@ -105,6 +106,7 @@ interface PaymentStats {
 }
 
 export default function PaymentsPage() {
+  const { can } = useUserSession();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);
   const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
@@ -351,10 +353,12 @@ export default function PaymentsPage() {
             Registro de cobros y pagos
           </p>
         </div>
-        <Button onClick={() => { setEditPaymentData(null); setDialogOpen(true); }}>
-          <RiAddLine className="mr-2 h-4 w-4" />
-          Registrar Pago
-        </Button>
+        {can("finance:create") && (
+          <Button onClick={() => { setEditPaymentData(null); setDialogOpen(true); }}>
+            <RiAddLine className="mr-2 h-4 w-4" />
+            Registrar Pago
+          </Button>
+        )}
         <PaymentDrawer
           open={dialogOpen}
           onOpenChange={(open) => { if (!open) resetAndClose(); else setDialogOpen(true); }}

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSession } from "@/hooks/use-user-session";
 import {
   Table,
   TableBody,
@@ -92,6 +93,8 @@ const vendorDirectionTabs = [
 ];
 
 export default function VendorQuotesPage() {
+  const { can } = useUserSession();
+  const canCreate = can("finance:create");
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusTab>("all");
@@ -301,10 +304,12 @@ export default function VendorQuotesPage() {
             <p className="text-muted-foreground text-sm">{quotes.length} presupuestos</p>
           </div>
         </div>
-        <Button onClick={openNewQuote}>
-          <RiAddLine className="h-4 w-4 mr-2" />
-          Nuevo Presupuesto
-        </Button>
+        {canCreate && (
+          <Button onClick={openNewQuote}>
+            <RiAddLine className="h-4 w-4 mr-2" />
+            Nuevo Presupuesto
+          </Button>
+        )}
       </div>
 
       <FinanceToolbar
@@ -324,10 +329,12 @@ export default function VendorQuotesPage() {
           <CardContent className="py-12 text-center">
             <RiFileTextLine className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">No hay presupuestos</p>
-            <Button variant="outline" className="mt-4" onClick={openNewQuote}>
-              <RiAddLine className="h-4 w-4 mr-2" />
-              Crear primer presupuesto
-            </Button>
+            {canCreate && (
+              <Button variant="outline" className="mt-4" onClick={openNewQuote}>
+                <RiAddLine className="h-4 w-4 mr-2" />
+                Crear primer presupuesto
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
