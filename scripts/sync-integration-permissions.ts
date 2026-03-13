@@ -58,7 +58,7 @@ async function main() {
       if (permResult.length === 0) continue;
       const permId = permResult[0].id;
 
-      const existing = await sql`SELECT id FROM role_permissions WHERE role_id = ${roleId} AND permission_id = ${permId}`;
+      const existing = await sql`SELECT role_id FROM role_permissions WHERE role_id = ${roleId} AND permission_id = ${permId}`;
       if (existing.length === 0) {
         await sql`INSERT INTO role_permissions (role_id, permission_id) VALUES (${roleId}, ${permId})`;
         console.log(`  ✅ Assigned ${permSlug} to ${roleSlug}`);
