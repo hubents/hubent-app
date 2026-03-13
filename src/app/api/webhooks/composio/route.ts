@@ -116,14 +116,32 @@ interface GmailTriggerData {
   threadId?: string;
   subject?: string;
   from?: string;
+  sender?: string;
+  fromEmail?: string;
+  from_email?: string;
   to?: string;
   message_text?: string;
+  body?: string;
+  snippet?: string;
   date?: string;
   messageId?: string;
+  message_id?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 async function handleInboundEmail(data: GmailTriggerData, connectedAccountId?: string) {
-  const { threadId, subject, from, to, message_text, messageId } = data;
+  // Log full payload keys for debugging
+  console.log("[Inbound Email] Trigger data keys:", Object.keys(data));
+  console.log("[Inbound Email] Trigger data sample:", JSON.stringify(data).slice(0, 1000));
+
+  // Extract from multiple possible field names
+  const from = data.from || data.sender || data.fromEmail || data.from_email || null;
+  const to = data.to || null;
+  const threadId = data.threadId || data.thread_id || null;
+  const subject = data.subject || null;
+  const message_text = data.message_text || data.body || data.snippet || null;
+  const messageId = data.messageId || data.message_id || data.id || null;
 
   if (!threadId && !subject) {
     console.warn("[Inbound Email] No threadId or subject — cannot match to task");

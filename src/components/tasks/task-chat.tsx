@@ -458,7 +458,18 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
                 isOwnMessage={message.senderId === session?.user?.id}
                 onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
                 onEmailReply={(replyTo, replySubject) => {
-                  setEmailReply({ to: replyTo, subject: replySubject });
+                  // Smart reply: if replyTo is our own connected email or empty,
+                  // find the original recipient from the first email_sent in this task
+                  let finalReplyTo = replyTo;
+                  if (!finalReplyTo || message.type === "email_received") {
+                    const firstSent = messages.find(
+                      (m) => m.type === "email_sent" && m.emailTo && m.emailTo.length > 0
+                    );
+                    if (firstSent?.emailTo?.[0]) {
+                      finalReplyTo = firstSent.emailTo[0];
+                    }
+                  }
+                  setEmailReply({ to: finalReplyTo, subject: replySubject });
                   setChatMode("email");
                 }}
               />
