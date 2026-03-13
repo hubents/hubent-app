@@ -81,27 +81,30 @@ export async function GET(req: Request) {
         });
       }
 
-      return NextResponse.redirect(
-        new URL(
-          `${portal}/settings/integrations?connected=${toolkit}`,
-          process.env.NEXT_PUBLIC_APP_URL!
-        )
-      );
+      return popupResponse({ status: "connected", toolkit });
     }
 
-    return NextResponse.redirect(
-      new URL(
-        `${portal}/settings/integrations?error=connection_failed&toolkit=${toolkit}`,
-        process.env.NEXT_PUBLIC_APP_URL!
-      )
-    );
+    return popupResponse({ status: "error", error: "connection_failed", toolkit });
   } catch (error) {
     console.error("[Integrations] Callback error:", error);
-    return NextResponse.redirect(
-      new URL(
-        "/dashboard/settings/integrations?error=unexpected",
-        process.env.NEXT_PUBLIC_APP_URL!
-      )
-    );
+    return popupResponse({ status: "error", error: "unexpected" });
   }
+}
+
+function popupResponse(data: Record<string, string | undefined>) {
+  const payload = JSON.stringify(data);
+  const html = `<!DOCTYPE html><html><head><title>Conectando...</title></head><body>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ type: 'composio-callback', payload: ${payload} }, '*');
+    window.close();
+  } else {
+    window.location.href = '/dashboard/settings/integrations';
+  }
+</script>
+<p>Conectado. Podés cerrar esta ventana.</p>
+</body></html>`;
+  return new Response(html, {
+    headers: { "Content-Type": "text/html" },
+  });
 }

@@ -55,6 +55,23 @@ export function useIntegrations() {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Listen for OAuth popup callback
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "composio-callback") {
+        const { status, toolkit, error } = event.data.payload || {};
+        if (status === "connected") {
+          toast.success(`${toolkit === "gmail" ? "Gmail" : toolkit === "whatsapp" ? "WhatsApp" : toolkit} conectado`);
+          fetchStatus();
+        } else if (error) {
+          toast.error("Error al conectar la integración");
+        }
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [fetchStatus]);
+
   const connect = useCallback(
     async (toolkit: string) => {
       try {
