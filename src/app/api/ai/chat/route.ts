@@ -2,6 +2,7 @@ import { streamText, convertToModelMessages, UIMessage, stepCountIs } from "ai";
 import { getGeminiModel, defaultChatConfig } from "@/lib/ai/gemini";
 import { buildSystemPrompt, INITIAL_SUGGESTIONS } from "@/lib/ai/system-prompt";
 import { createAITools } from "@/lib/ai/tools";
+import { getComposioTools } from "@/lib/composio";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { 
@@ -73,13 +74,32 @@ export async function POST(req: Request) {
     );
 
     // Crear tools si hay contexto de organización
-    const tools = userInfo?.organizationId 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let tools: any = userInfo?.organizationId 
       ? createAITools({
           userId,
           organizationId: userInfo.organizationId,
           role: userInfo.role || "viewer",
         })
       : undefined;
+
+    // Merge Composio tools (Gmail, WhatsApp) — graceful degradation
+    if (userInfo?.organizationId) {
+      try {
+        const composioTools = await getComposioTools(userInfo.organizationId);
+        if (composioTools && typeof composioTools === "object") {
+          // Prefix composio tools to avoid key collisions with internal tools
+          const prefixedTools: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(composioTools)) {
+            const safeKey = key in (tools || {}) ? `composio_${key}` : key;
+            prefixedTools[safeKey] = value;
+          }
+          tools = { ...(tools || {}), ...prefixedTools };
+        }
+      } catch (error) {
+        console.warn("[Composio] Tools not available:", error instanceof Error ? error.message : error);
+      }
+    }
 
     // Generar respuesta con streaming
     const result = streamText({

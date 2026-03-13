@@ -123,6 +123,14 @@ const settingsSections = [
     href: "/dashboard/settings/templates",
   },
   {
+    id: "integrations",
+    title: "Integraciones",
+    description: "Gmail, WhatsApp y más",
+    icon: RiGlobalLine,
+    href: "/dashboard/settings/integrations",
+    requiredPermission: "integrations:read",
+  },
+  {
     id: "developers",
     title: "Developers",
     description: "API keys, webhooks y documentación",

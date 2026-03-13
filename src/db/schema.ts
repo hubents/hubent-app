@@ -113,6 +113,10 @@ export const messageTypeEnum = pgEnum("message_type", [
   "image",
   "link",
   "system",
+  "email_sent",
+  "email_received",
+  "whatsapp_sent",
+  "whatsapp_received",
 ]);
 
 export const participantTypeEnum = pgEnum("participant_type", [
@@ -1076,6 +1080,15 @@ export const taskMessages = pgTable("task_messages", {
   visibleTo: json("visible_to").$type<string[]>(),
   isEdited: boolean("is_edited").default(false),
   editedAt: timestamp("edited_at"),
+  emailFrom: text("email_from"),
+  emailTo: text("email_to").array(),
+  emailCc: text("email_cc").array(),
+  emailBcc: text("email_bcc").array(),
+  emailSubject: text("email_subject"),
+  emailThreadId: text("email_thread_id"),
+  emailMessageId: text("email_message_id"),
+  whatsappTo: text("whatsapp_to"),
+  whatsappTemplate: text("whatsapp_template"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
@@ -1771,6 +1784,29 @@ export const webhookLogStatusEnum = pgEnum("webhook_log_status", [
   "failed",
 ]);
 
+// ============================================
+// INTEGRATIONS (Composio)
+// ============================================
+
+export const organizationIntegrations = pgTable("organization_integrations", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  toolkit: text("toolkit").notNull(),
+  composioConnectedAccountId: text("composio_connected_account_id"),
+  status: text("status").notNull().default("disconnected"),
+  connectedBy: text("connected_by").references(() => users.id),
+  connectedEmail: text("connected_email"),
+  metadata: jsonb("metadata"),
+  connectedAt: timestamp("connected_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
+// PUBLIC API
+// ============================================
+
 export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
@@ -2109,6 +2145,10 @@ export type FormInstance = typeof formInstances.$inferSelect;
 export type NewFormInstance = typeof formInstances.$inferInsert;
 export type FormSubmission = typeof formSubmissions.$inferSelect;
 export type NewFormSubmission = typeof formSubmissions.$inferInsert;
+
+// Integration Types
+export type OrganizationIntegration = typeof organizationIntegrations.$inferSelect;
+export type NewOrganizationIntegration = typeof organizationIntegrations.$inferInsert;
 
 // Public API Types
 export type ApiKey = typeof apiKeys.$inferSelect;

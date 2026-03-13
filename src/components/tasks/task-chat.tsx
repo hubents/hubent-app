@@ -18,7 +18,12 @@ import {
   RiErrorWarningLine,
   RiWifiLine,
   RiWifiOffLine,
+  RiMailLine,
+  RiWhatsappLine,
+  RiChat1Line,
 } from "@remixicon/react";
+import { TaskEmailComposer } from "./task-email-composer";
+import { TaskWhatsAppComposer } from "./task-whatsapp-composer";
 import { toast } from "sonner";
 import { useTaskMessages } from "@/hooks/use-task-messages";
 import { useTypingIndicator, usePresenceChannel } from "@/hooks/use-pusher";
@@ -42,6 +47,8 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const { messages, loading, sending, sendMessage, deleteMessage, refetch, isRealtime, canComment } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [chatMode, setChatMode] = useState<"comment" | "email" | "whatsapp">("comment");
+  const [integrationStatus, setIntegrationStatus] = useState<{ gmail: boolean; whatsapp: boolean }>({ gmail: false, whatsapp: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
@@ -58,6 +65,27 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const presenceChannelName = taskId ? `presence-task-${taskId}` : null;
   const { typingUsers, setTyping } = useTypingIndicator(channelName);
   const { members: activeViewers } = usePresenceChannel(presenceChannelName);
+
+  // Fetch integration status
+  useEffect(() => {
+    async function fetchIntegrationStatus() {
+      try {
+        const res = await fetch("/api/integrations/status");
+        const data = await res.json();
+        if (data.success) {
+          const gmail = data.data.toolkits.find((t: { slug: string }) => t.slug === "gmail");
+          const whatsapp = data.data.toolkits.find((t: { slug: string }) => t.slug === "whatsapp");
+          setIntegrationStatus({
+            gmail: gmail?.isConnected || false,
+            whatsapp: whatsapp?.isConnected || false,
+          });
+        }
+      } catch {
+        // Integration status not critical
+      }
+    }
+    fetchIntegrationStatus();
+  }, []);
 
   // Fetch team members for mentions
   useEffect(() => {
@@ -525,6 +553,78 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
           </div>
         )}
         
+        {/* Mode selector */}
+        <div className="flex items-center gap-1 mb-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatMode === "comment" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setChatMode("comment")}
+                >
+                  <RiChat1Line className="w-3.5 h-3.5" />
+                  Comentario
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Comentario interno</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatMode === "email" ? "default" : "ghost"}
+                  size="sm"
+                  className={`h-7 text-xs gap-1 ${!integrationStatus.gmail ? "opacity-50" : ""}`}
+                  onClick={() => integrationStatus.gmail ? setChatMode("email") : toast.info("Conectá Gmail en Configuración > Integraciones")}
+                >
+                  <RiMailLine className="w-3.5 h-3.5" />
+                  Email
+                  {!integrationStatus.gmail && <span className="text-[8px]">(no conectado)</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {integrationStatus.gmail ? "Enviar email desde Gmail" : "Gmail no conectado. Configuralo en Integraciones."}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={chatMode === "whatsapp" ? "default" : "ghost"}
+                  size="sm"
+                  className={`h-7 text-xs gap-1 ${!integrationStatus.whatsapp ? "opacity-50" : ""}`}
+                  onClick={() => integrationStatus.whatsapp ? setChatMode("whatsapp") : toast.info("Conectá WhatsApp en Configuración > Integraciones")}
+                >
+                  <RiWhatsappLine className="w-3.5 h-3.5" />
+                  WhatsApp
+                  {!integrationStatus.whatsapp && <span className="text-[8px]">(no conectado)</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {integrationStatus.whatsapp ? "Enviar mensaje vía WhatsApp Business" : "WhatsApp no conectado. Configuralo en Integraciones."}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        {/* Email/WhatsApp composers */}
+        {chatMode === "email" && taskId && (
+          <TaskEmailComposer
+            taskId={taskId}
+            onClose={() => setChatMode("comment")}
+            onSent={refetch}
+          />
+        )}
+        {chatMode === "whatsapp" && taskId && (
+          <TaskWhatsAppComposer
+            taskId={taskId}
+            onClose={() => setChatMode("comment")}
+            onSent={refetch}
+          />
+        )}
+
+        {/* Regular comment input */}
+        {chatMode === "comment" && (
         <Textarea
           ref={textareaRef}
           value={newMessage}
@@ -534,7 +634,9 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
           className="min-h-20 resize-none"
           disabled={sending}
         />
+        )}
         
+        {chatMode === "comment" && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Private toggle */}
@@ -617,6 +719,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
             </Button>
           </div>
         </div>
+        )}
       </div>
       )}
     </div>

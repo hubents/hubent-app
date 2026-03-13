@@ -97,6 +97,15 @@ export async function getTaskMessages(
       senderName: users.name,
       senderEmail: users.email,
       senderImage: users.image,
+      emailFrom: taskMessages.emailFrom,
+      emailTo: taskMessages.emailTo,
+      emailCc: taskMessages.emailCc,
+      emailBcc: taskMessages.emailBcc,
+      emailSubject: taskMessages.emailSubject,
+      emailThreadId: taskMessages.emailThreadId,
+      emailMessageId: taskMessages.emailMessageId,
+      whatsappTo: taskMessages.whatsappTo,
+      whatsappTemplate: taskMessages.whatsappTemplate,
     })
     .from(taskMessages)
     .innerJoin(users, eq(taskMessages.senderId, users.id))

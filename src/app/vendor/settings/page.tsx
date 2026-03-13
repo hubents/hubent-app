@@ -17,7 +17,9 @@ import {
   RiSettings4Line,
   RiLockLine,
   RiSaveLine,
+  RiPlugLine,
 } from "@remixicon/react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 const TIMEZONES = [
@@ -36,6 +38,7 @@ const TIMEZONES = [
 const CURRENCIES = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "GBP"];
 
 export default function VendorSettingsPage() {
+  const router = useRouter();
   const { can } = useUserSession();
   const canUpdateSettings = can("settings:update");
   const [loading, setLoading] = useState(true);
@@ -198,6 +201,19 @@ export default function VendorSettingsPage() {
             </div>
           )}
         </CardContent>
+      </Card>
+
+      <Card
+        className="cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => router.push("/vendor/settings/integrations")}
+      >
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RiPlugLine className="h-5 w-5" />
+            Integraciones
+          </CardTitle>
+          <CardDescription>Gmail, WhatsApp y más</CardDescription>
+        </CardHeader>
       </Card>
 
       <Card>

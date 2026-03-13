@@ -13,6 +13,8 @@ import {
   RiFileWordLine,
   RiFileExcelLine,
 } from "@remixicon/react";
+import { TaskEmailBubble } from "./task-email-bubble";
+import { TaskWhatsAppBubble } from "./task-whatsapp-bubble";
 
 interface TaskMessageAttachment {
   id: number;
@@ -39,6 +41,15 @@ interface TaskMessage {
   createdAt: string;
   deletedAt: string | null;
   attachments?: TaskMessageAttachment[];
+  emailFrom?: string | null;
+  emailTo?: string[] | null;
+  emailCc?: string[] | null;
+  emailBcc?: string[] | null;
+  emailSubject?: string | null;
+  emailThreadId?: string | null;
+  emailMessageId?: string | null;
+  whatsappTo?: string | null;
+  whatsappTemplate?: string | null;
 }
 
 interface TaskChatMessageProps {
@@ -214,6 +225,32 @@ export function TaskChatMessage({ message, isOwnMessage = false, onDelete }: Tas
               <RiFileTextLine className="h-4 w-4" />
               <span className="truncate">{message.content}</span>
             </div>
+          )}
+
+          {/* Email messages */}
+          {(message.type === "email_sent" || message.type === "email_received") && (
+            <TaskEmailBubble
+              type={message.type as "email_sent" | "email_received"}
+              subject={message.emailSubject || null}
+              from={message.emailFrom || null}
+              to={message.emailTo || null}
+              cc={message.emailCc || null}
+              content={message.content}
+              senderName={message.senderName || null}
+              createdAt={message.createdAt}
+            />
+          )}
+
+          {/* WhatsApp messages */}
+          {(message.type === "whatsapp_sent" || message.type === "whatsapp_received") && (
+            <TaskWhatsAppBubble
+              type={message.type as "whatsapp_sent" | "whatsapp_received"}
+              to={message.whatsappTo || null}
+              content={message.content}
+              template={message.whatsappTemplate || null}
+              senderName={message.senderName || null}
+              createdAt={message.createdAt}
+            />
           )}
         </div>
 

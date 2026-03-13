@@ -23,6 +23,7 @@ import {
   RiTeamLine,
   RiProfileLine,
   RiGlobalLine,
+  RiPlugLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
@@ -44,6 +45,7 @@ const financeSubNav = [
 const bottomNav = [
   { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine, permission: null },
   { name: "Equipo", href: "/vendor/team", icon: RiTeamLine, permission: "team:read" },
+  { name: "Integraciones", href: "/vendor/settings/integrations", icon: RiPlugLine, permission: "integrations:read" },
   { name: "Developers", href: "/vendor/settings/developers", icon: RiGlobalLine, permission: "settings:update" },
   { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line, permission: "settings:read" },
 ];

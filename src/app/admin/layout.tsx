@@ -28,6 +28,7 @@ const sidebarItems = [
   { href: "/admin/billing", label: "Billing", icon: CreditCard },
   { href: "/admin/ai", label: "Asistente IA", icon: Bot },
   { href: "/admin/api-platform", label: "API Platform", icon: Plug },
+  { href: "/admin/integrations", label: "Integraciones", icon: Plug },
   { href: "/admin/audit", label: "Auditoría", icon: ScrollText },
   { href: "/admin/announcements", label: "Anuncios", icon: Megaphone },
   { href: "/admin/settings", label: "Configuración", icon: Settings },

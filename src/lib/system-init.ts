@@ -92,6 +92,9 @@ const BASE_PERMISSIONS = [
   { name: "Crear formularios", slug: "forms:create", resource: "forms", action: "create" },
   { name: "Editar formularios", slug: "forms:update", resource: "forms", action: "update" },
   { name: "Eliminar formularios", slug: "forms:delete", resource: "forms", action: "delete" },
+  // Integrations
+  { name: "Ver integraciones", slug: "integrations:read", resource: "integrations", action: "read" },
+  { name: "Gestionar integraciones", slug: "integrations:manage", resource: "integrations", action: "manage" },
 ];
 
 /**
@@ -181,6 +184,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "crm:read", "crm:manage",
     "settings:read",
     "forms:read", "forms:create", "forms:update", "forms:delete",
+    "integrations:read",
   ],
   assistant: [
     "events:read",
@@ -194,6 +198,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "finance:read", "finance:create", "finance:manage",
     "crm:read",
     "settings:read",
+    "integrations:read",
   ],
   viewer: [
     "events:read",
@@ -215,6 +220,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "crm:read",
     "settings:read",
     "forms:read",
+    "integrations:read", "integrations:manage",
   ],
   provider_tech: [
     "events:read",

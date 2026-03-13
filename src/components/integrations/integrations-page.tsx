@@ -1,0 +1,160 @@
+"use client";
+
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { IntegrationCard } from "./integration-card";
+import { ComingSoonCard } from "./coming-soon-card";
+import { useIntegrations } from "@/hooks/use-integrations";
+import { useUserSession } from "@/hooks/use-user-session";
+import { toast } from "sonner";
+import { RiPlugLine } from "@remixicon/react";
+
+interface IntegrationsPageProps {
+  portalType: "tenant" | "provider";
+}
+
+export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
+  const searchParams = useSearchParams();
+  const { toolkits, comingSoonApps, loading, connect, disconnect, refresh } = useIntegrations();
+  const { role, can } = useUserSession();
+
+  const canManage =
+    role === "owner" ||
+    role === "admin" ||
+    role === "provider_owner" ||
+    role === "provider_admin" ||
+    can("integrations:manage");
+
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+
+    if (connected) {
+      toast.success(`${connected} conectado correctamente`);
+      refresh();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname
+      );
+    }
+    if (error) {
+      toast.error(
+        error === "connection_failed"
+          ? "Error al conectar la integración"
+          : error === "missing_params"
+          ? "Parámetros faltantes en callback"
+          : "Error inesperado"
+      );
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname
+      );
+    }
+  }, [searchParams, refresh]);
+
+  const connectedToolkits = toolkits.filter((t) => t.isConnected);
+  const availableToolkits = toolkits.filter((t) => !t.isConnected);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <RiPlugLine className="w-6 h-6" />
+          Integraciones
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Conectá tus apps externas para enviar emails, mensajes de WhatsApp y más
+          desde HubEnts.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : (
+        <Tabs defaultValue={connectedToolkits.length > 0 ? "my-apps" : "marketplace"}>
+          <TabsList>
+            <TabsTrigger value="my-apps">
+              Mis Apps{" "}
+              {connectedToolkits.length > 0 && (
+                <span className="ml-1 text-[10px] bg-green-600 text-white rounded-full px-1.5">
+                  {connectedToolkits.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="my-apps" className="mt-4 space-y-3">
+            {connectedToolkits.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <RiPlugLine className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No tenés apps conectadas</p>
+                <p className="text-xs mt-1">
+                  Andá al Marketplace para conectar Gmail, WhatsApp y más
+                </p>
+              </div>
+            ) : (
+              connectedToolkits.map((toolkit) => (
+                <IntegrationCard
+                  key={toolkit.slug}
+                  {...toolkit}
+                  canManage={canManage}
+                  onConnect={connect}
+                  onDisconnect={disconnect}
+                />
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="marketplace" className="mt-4 space-y-4">
+            {/* Disponibles */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Disponibles
+              </h3>
+              <div className="space-y-3">
+                {toolkits.map((toolkit) => (
+                  <IntegrationCard
+                    key={toolkit.slug}
+                    {...toolkit}
+                    canManage={canManage}
+                    onConnect={connect}
+                    onDisconnect={disconnect}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Próximamente */}
+            {comingSoonApps.length > 0 && (
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Próximamente
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {comingSoonApps.map((app) => (
+                    <ComingSoonCard key={app.slug} {...app} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {!canManage && !loading && (
+        <p className="text-xs text-muted-foreground border-t pt-3">
+          Solo el owner o admin de la organización puede conectar/desconectar
+          integraciones.
+        </p>
+      )}
+    </div>
+  );
+}

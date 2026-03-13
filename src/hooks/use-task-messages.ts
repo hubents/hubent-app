@@ -22,6 +22,15 @@ interface TaskMessage {
   createdAt: string;
   deletedAt: string | null;
   attachments?: TaskMessageAttachment[];
+  emailFrom?: string | null;
+  emailTo?: string[] | null;
+  emailCc?: string[] | null;
+  emailBcc?: string[] | null;
+  emailSubject?: string | null;
+  emailThreadId?: string | null;
+  emailMessageId?: string | null;
+  whatsappTo?: string | null;
+  whatsappTemplate?: string | null;
 }
 
 interface TaskMessageAttachment {

@@ -3,6 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "composio.dev",
+        pathname: "/toolkits/logos/**",
+      },
+    ],
+  },
   
   // Expose env vars to serverless functions at runtime
   env: {
