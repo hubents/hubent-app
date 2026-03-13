@@ -27,7 +27,7 @@ describe("Composio Core Library", () => {
   });
 
   it("Gmail metadata has correct icon path", () => {
-    expect(TOOLKIT_META.gmail.icon).toBe("/icons/gmail.svg");
+    expect(TOOLKIT_META.gmail.icon).toBe("https://logos.composio.dev/api/gmail");
   });
 
   it("WhatsApp metadata has requiresBusiness flag", () => {
@@ -215,9 +215,9 @@ describe("Coming Soon Apps - Curated Marketplace", () => {
     }
   });
 
-  it("all logo URLs point to Simple Icons CDN", () => {
+  it("all logo URLs point to Composio CDN", () => {
     for (const app of COMING_SOON_APPS) {
-      expect(app.logoUrl).toMatch(/^https:\/\/cdn\.simpleicons\.org\/.+$/);
+      expect(app.logoUrl).toMatch(/^https:\/\/logos\.composio\.dev\/api\/.+$/);
     }
   });
 

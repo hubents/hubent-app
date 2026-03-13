@@ -31,7 +31,6 @@ import {
   RiBarChartBoxLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
-import Image from "next/image";
 
 interface IntegrationRow {
   id: number;
@@ -106,10 +105,10 @@ export default function AdminIntegrationsPage() {
 
   const toolkitIcon = (toolkit: string) => {
     if (toolkit === "gmail")
-      return <Image src="/icons/gmail.svg" alt="Gmail" width={16} height={16} />;
+      return <img src="https://logos.composio.dev/api/gmail" alt="Gmail" width={16} height={16} />;
     if (toolkit === "whatsapp")
       return (
-        <Image src="/icons/whatsapp.svg" alt="WhatsApp" width={16} height={16} />
+        <img src="https://logos.composio.dev/api/whatsapp" alt="WhatsApp" width={16} height={16} />
       );
     return <RiPlugLine className="w-4 h-4" />;
   };

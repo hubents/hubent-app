@@ -10,7 +10,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { RiExternalLinkLine, RiInformationLine } from "@remixicon/react";
-import Image from "next/image";
 
 interface IntegrationCardProps {
   slug: string;
@@ -51,8 +50,8 @@ export function IntegrationCard({
     <Card className="relative overflow-hidden">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-            <Image src={icon} alt={name} width={24} height={24} />
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+            <img src={icon} alt={name} width={24} height={24} />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -112,7 +111,7 @@ export function IntegrationCard({
             )}
           </div>
 
-          <div className="flex-shrink-0 flex gap-1.5">
+          <div className="shrink-0 flex gap-1.5">
             {isConnected ? (
               <>
                 <Button
