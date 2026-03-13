@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { organizationIntegrations } from "@/db/schema";
+import { organizationIntegrations, composioTriggers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getConnectedAccountDetails } from "@/lib/composio";
+import { getConnectedAccountDetails, createComposioTrigger, type ComposioToolkit, MVP_TOOLKITS } from "@/lib/composio";
 
 export async function GET(req: Request) {
   try {
@@ -79,6 +79,42 @@ export async function GET(req: Request) {
           connectedEmail,
           connectedAt: new Date(),
         });
+      }
+
+      // Auto-create inbound trigger for this toolkit
+      if (MVP_TOOLKITS.includes(toolkit as ComposioToolkit)) {
+        try {
+          const existingTrigger = await db
+            .select()
+            .from(composioTriggers)
+            .where(
+              and(
+                eq(composioTriggers.organizationId, orgId),
+                eq(composioTriggers.toolkit, toolkit),
+                eq(composioTriggers.status, "active")
+              )
+            )
+            .limit(1);
+
+          if (existingTrigger.length === 0) {
+            const triggerResult = await createComposioTrigger(orgId, toolkit as ComposioToolkit);
+            if (triggerResult) {
+              await db.insert(composioTriggers).values({
+                organizationId: orgId,
+                toolkit,
+                triggerSlug: toolkit === "gmail" ? "GMAIL_NEW_GMAIL_MESSAGE" : "WHATSAPP_NEW_MESSAGE",
+                composioTriggerId: triggerResult.triggerId,
+                connectedAccountId,
+                status: "active",
+              });
+              console.log(`[Integrations] Auto-created trigger for org ${orgId}/${toolkit}: ${triggerResult.triggerId}`);
+            }
+          } else {
+            console.log(`[Integrations] Trigger already exists for org ${orgId}/${toolkit}`);
+          }
+        } catch (triggerError) {
+          console.warn("[Integrations] Could not auto-create trigger:", triggerError);
+        }
       }
 
       return popupResponse({ status: "connected", toolkit });

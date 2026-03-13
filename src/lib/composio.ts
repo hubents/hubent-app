@@ -171,6 +171,47 @@ export async function executeComposioTool(
   return session.execute(toolSlug, args);
 }
 
+// Trigger slugs for inbound message monitoring
+export const TRIGGER_SLUGS: Record<ComposioToolkit, string> = {
+  gmail: "GMAIL_NEW_GMAIL_MESSAGE",
+  whatsapp: "WHATSAPP_NEW_MESSAGE",
+};
+
+export async function createComposioTrigger(
+  orgId: number,
+  toolkit: ComposioToolkit
+): Promise<{ triggerId: string } | null> {
+  try {
+    const composio = getComposioClient();
+    const userId = composioEntityId(orgId);
+    const slug = TRIGGER_SLUGS[toolkit];
+
+    const trigger = await composio.triggers.create(
+      userId,
+      slug,
+      { triggerConfig: {} }
+    );
+
+    console.log(`[Composio] Trigger created for org ${orgId}/${toolkit}: ${trigger.triggerId}`);
+    return { triggerId: trigger.triggerId };
+  } catch (error) {
+    console.error(`[Composio] Error creating trigger for org ${orgId}/${toolkit}:`, error);
+    return null;
+  }
+}
+
+export async function deleteComposioTrigger(triggerId: string): Promise<boolean> {
+  try {
+    const composio = getComposioClient();
+    await composio.triggers.disable(triggerId);
+    console.log(`[Composio] Trigger disabled: ${triggerId}`);
+    return true;
+  } catch (error) {
+    console.error(`[Composio] Error disabling trigger ${triggerId}:`, error);
+    return false;
+  }
+}
+
 export async function getConnectedAccountDetails(connectedAccountId: string) {
   try {
     const composio = getComposioClient();
