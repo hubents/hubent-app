@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,12 +47,19 @@ export function IntegrationCard({
   onConnect,
   onDisconnect,
 }: IntegrationCardProps) {
+  const [imgError, setImgError] = useState(false);
+  const initials = name.slice(0, 2).toUpperCase();
+
   return (
     <Card className="relative overflow-hidden">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-            <img src={icon} alt={name} width={24} height={24} />
+            {imgError ? (
+              <span className="text-xs font-semibold text-muted-foreground">{initials}</span>
+            ) : (
+              <img src={icon} alt={name} width={24} height={24} onError={() => setImgError(true)} />
+            )}
           </div>
 
           <div className="flex-1 min-w-0">

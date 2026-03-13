@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { organizationIntegrations, composioTriggers, taskMessages, users } from "@/db/schema";
+import { organizationIntegrations, taskMessages, users, tasks } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
@@ -169,7 +169,18 @@ async function handleInboundEmail(data: GmailTriggerData, connectedAccountId?: s
   if (!matchedTaskId && subject) {
     const tagMatch = subject.match(/\[HE-(\d+)\]/);
     if (tagMatch) {
-      matchedTaskId = parseInt(tagMatch[1], 10);
+      const candidateTaskId = parseInt(tagMatch[1], 10);
+      // Verify task actually exists to prevent FK violation
+      const taskExists = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(eq(tasks.id, candidateTaskId))
+        .limit(1);
+      if (taskExists.length > 0) {
+        matchedTaskId = candidateTaskId;
+      } else {
+        console.warn("[Inbound Email] Subject tag [HE-" + candidateTaskId + "] references non-existent task");
+      }
     }
   }
 
@@ -259,7 +270,7 @@ async function handleInboundWhatsApp(data: WhatsAppTriggerData, connectedAccount
     .from(taskMessages)
     .where(
       and(
-        eq(taskMessages.type, sql`'whatsapp_sent'`),
+        sql`${taskMessages.type} = 'whatsapp_sent'`,
         sql`replace(replace(replace(${taskMessages.whatsappTo}, '+', ''), ' ', ''), '-', '') = ${normalizedFrom}`
       )
     )

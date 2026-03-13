@@ -59,7 +59,7 @@ export function TaskEmailBubble({
 
         {senderName && (
           <p className="text-[10px] text-muted-foreground mt-1">
-            Enviado por {senderName}
+            {isSent ? "Enviado por" : "Recibido vía cuenta de"} {senderName}
           </p>
         )}
       </div>

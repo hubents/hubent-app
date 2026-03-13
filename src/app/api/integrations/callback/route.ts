@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { organizationIntegrations, composioTriggers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getConnectedAccountDetails, createComposioTrigger, type ComposioToolkit, MVP_TOOLKITS } from "@/lib/composio";
+import { getConnectedAccountDetails, createComposioTrigger, TRIGGER_SLUGS, type ComposioToolkit, MVP_TOOLKITS } from "@/lib/composio";
 
 export async function GET(req: Request) {
   try {
@@ -102,7 +102,7 @@ export async function GET(req: Request) {
               await db.insert(composioTriggers).values({
                 organizationId: orgId,
                 toolkit,
-                triggerSlug: toolkit === "gmail" ? "GMAIL_NEW_GMAIL_MESSAGE" : "WHATSAPP_NEW_MESSAGE",
+                triggerSlug: TRIGGER_SLUGS[toolkit as ComposioToolkit],
                 composioTriggerId: triggerResult.triggerId,
                 connectedAccountId,
                 status: "active",
