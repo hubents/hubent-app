@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getDocuments, createDocument } from "@/lib/finance";
+import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/finance/documents - List documents
-export async function GET(request: NextRequest) {
-  try {
-    const session = await requirePermission("finance:read");
+export const GET = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("finance:read");
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -20,24 +20,16 @@ export async function GET(request: NextRequest) {
 
     const result = await getDocuments(session, { page, limit, type, status, direction, search, eventId, contactId, vendorId });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch documents";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: result.data,
+    meta: result.meta,
+  });
+}, { name: "GET /api/finance/documents" });
 
 // POST /api/finance/documents - Create document
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requirePermission("finance:create");
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("finance:create");
     const body = await request.json();
 
     const { type, items } = body;
@@ -69,15 +61,8 @@ export async function POST(request: NextRequest) {
       items,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: document,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create document";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: document,
+  });
+}, { name: "POST /api/finance/documents" });

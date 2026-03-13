@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getVendors, createVendor } from "@/lib/vendors";
+import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/vendors - List vendors
-export async function GET(request: NextRequest) {
-  try {
-    const session = await requirePermission("vendors:read");
+export const GET = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("vendors:read");
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -15,24 +15,16 @@ export async function GET(request: NextRequest) {
 
     const result = await getVendors(session, { page, limit, category, search });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch vendors";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: result.data,
+    meta: result.meta,
+  });
+}, { name: "GET /api/vendors" });
 
 // POST /api/vendors - Create vendor
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requirePermission("vendors:update");
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("vendors:update");
     const body = await request.json();
 
     const { name } = body;
@@ -46,15 +38,8 @@ export async function POST(request: NextRequest) {
 
     const vendor = await createVendor(session, body);
 
-    return NextResponse.json({
-      success: true,
-      data: vendor,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create vendor";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: vendor,
+  });
+}, { name: "POST /api/vendors" });

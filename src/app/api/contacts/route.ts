@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getContacts, createContact, findDuplicateContacts } from "@/lib/contacts";
 import { notifyNewContact } from "@/lib/push-notifications";
+import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/contacts - List contacts
-export async function GET(request: NextRequest) {
-  try {
-    const session = await requirePermission("crm:read");
+export const GET = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("crm:read");
     const { searchParams } = new URL(request.url);
 
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -20,27 +20,17 @@ export async function GET(request: NextRequest) {
 
     const result = await getContacts(session, { page, limit, search, type, isLead, isVendor });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      stats: result.stats,
-      meta: result.meta,
-    });
-  } catch (error) {
-    console.error("GET /api/contacts error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch contacts";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: result.data,
+    stats: result.stats,
+    meta: result.meta,
+  });
+}, { name: "GET /api/contacts" });
 
 // POST /api/contacts - Create contact
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requirePermission("crm:manage");
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     const { type, name } = body;
@@ -121,17 +111,8 @@ export async function POST(request: NextRequest) {
       session.user.userId
     ).catch(err => console.error("Push notification failed:", err));
 
-    return NextResponse.json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error("POST /api/contacts error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create contact";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: contact,
+  });
+}, { name: "POST /api/contacts" });

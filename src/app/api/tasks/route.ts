@@ -3,11 +3,11 @@ import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, events, users, eventParticipants } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/tasks - List tasks
-export async function GET(request: NextRequest) {
-  try {
-    const session = await requirePermission("tasks:read");
+export const GET = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("tasks:read");
     const { searchParams } = new URL(request.url);
     
     const eventId = searchParams.get("eventId");
@@ -61,25 +61,15 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    return NextResponse.json({
-      success: true,
-      data: results,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch tasks";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: results,
+  });
+}, { name: "GET /api/tasks" });
 
 // POST /api/tasks - Create task
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requirePermission("tasks:create");
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const session = await requirePermission("tasks:create");
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;
@@ -122,17 +112,8 @@ export async function POST(request: NextRequest) {
       sortOrder: nextSortOrder,
     }).returning();
 
-    return NextResponse.json({
-      success: true,
-      data: task,
-    });
-  } catch (error) {
-    console.error("POST /api/tasks error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create task";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: task,
+  });
+}, { name: "POST /api/tasks" });

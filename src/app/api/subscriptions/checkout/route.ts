@@ -4,10 +4,10 @@ import { subscriptionPlans, subscriptions, organizations, users } from "@/db/sch
 import { requireAuth } from "@/lib/session";
 import { getStripePlatform } from "@/lib/stripe-platform";
 import { eq } from "drizzle-orm";
+import { withMonitoring } from "@/lib/monitoring";
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requireAuth();
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const session = await requireAuth();
     const body = await request.json();
     const { planId, interval } = body as {
       planId: number;
@@ -117,17 +117,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: { url: checkoutSession.url },
-    });
-  } catch (error) {
-    console.error("POST /api/subscriptions/checkout error:", error);
-    const message =
-      error instanceof Error ? error.message : "Error creating checkout";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: { url: checkoutSession.url },
+  });
+}, { name: "POST /api/subscriptions/checkout", critical: true });

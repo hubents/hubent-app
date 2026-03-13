@@ -4,10 +4,10 @@ import { users, organizations, subscriptions, subscriptionPlans, organizationMem
 import { eq } from "drizzle-orm";
 import { hashPassword, validatePassword } from "@/lib/password";
 import { sendWelcomeEmail } from "@/lib/email";
+import { withMonitoring } from "@/lib/monitoring";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+export const POST = withMonitoring(async (request: NextRequest) => {
+  const body = await request.json();
     const { name, email, password, companyName } = body;
 
     if (!name || !email || !password || !companyName) {
@@ -143,26 +143,19 @@ export async function POST(request: NextRequest) {
       trialEndsAt
     ).catch((err) => console.error("Failed to send welcome email:", err));
 
-    return NextResponse.json({
-      success: true,
-      message: "Cuenta creada exitosamente",
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-      },
-      organization: {
-        id: newOrg.id,
-        name: newOrg.name,
-        slug: newOrg.slug,
-      },
-      trialEndsAt: trialEndsAt.toISOString(),
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    message: "Cuenta creada exitosamente",
+    user: {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+    },
+    organization: {
+      id: newOrg.id,
+      name: newOrg.name,
+      slug: newOrg.slug,
+    },
+    trialEndsAt: trialEndsAt.toISOString(),
+  });
+}, { name: "POST /api/auth/register", critical: true });

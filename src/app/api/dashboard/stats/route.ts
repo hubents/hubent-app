@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { requireAuth } from "@/lib/session";
 import { events, tasks } from "@/db/schema";
 import { eq, and, count, inArray } from "drizzle-orm";
 import { getUserEventAccess } from "@/lib/event-permissions";
+import { withMonitoring } from "@/lib/monitoring";
 
-export async function GET() {
-  try {
-    const session = await requireAuth();
+export const GET = withMonitoring(async (_request: NextRequest) => {
+  const session = await requireAuth();
     const orgId = session.organizationId;
 
     // For eventScoped users, restrict to their assigned events
@@ -61,30 +61,23 @@ export async function GET() {
       limit: 5,
     });
 
-    return NextResponse.json({
-      totalEvents: eventsResult[0]?.count || 0,
-      pendingTasks: tasksResult[0]?.count || 0,
-      pendingPayments: 0, // TODO: implement when payments are ready
-      activeLeads: 0, // TODO: implement when leads are ready
-      recentEvents: recentEvents.map((e) => ({
-        id: e.id,
-        name: e.name,
-        date: e.date,
-        status: e.status,
-        guestCount: e.guestCount,
-      })),
-      pendingTasksList: pendingTasksList.map((t) => ({
-        id: t.id,
-        title: t.title,
-        priority: t.priority,
-        dueDate: t.dueDate,
-      })),
-    });
-  } catch (error) {
-    console.error("Dashboard stats error:", error);
-    return NextResponse.json(
-      { error: "Error al cargar estadísticas" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    totalEvents: eventsResult[0]?.count || 0,
+    pendingTasks: tasksResult[0]?.count || 0,
+    pendingPayments: 0, // TODO: implement when payments are ready
+    activeLeads: 0, // TODO: implement when leads are ready
+    recentEvents: recentEvents.map((e) => ({
+      id: e.id,
+      name: e.name,
+      date: e.date,
+      status: e.status,
+      guestCount: e.guestCount,
+    })),
+    pendingTasksList: pendingTasksList.map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      dueDate: t.dueDate,
+    })),
+  });
+}, { name: "GET /api/dashboard/stats" });
