@@ -58,6 +58,7 @@ interface TaskChatMessageProps {
   message: TaskMessage;
   isOwnMessage?: boolean;
   onDelete?: (messageId: number) => void;
+  onEmailReply?: (to: string, subject: string) => void;
 }
 
 function formatMessageDate(dateString: string): string {
@@ -99,7 +100,7 @@ function getFileIcon(mimeType: string | null) {
   return <RiFileTextLine className="h-5 w-5 text-primary" />;
 }
 
-export function TaskChatMessage({ message, isOwnMessage = false, onDelete }: TaskChatMessageProps) {
+export function TaskChatMessage({ message, isOwnMessage = false, onDelete, onEmailReply }: TaskChatMessageProps) {
   const initials = message.senderName
     ? message.senderName
         .split(" ")
@@ -240,6 +241,7 @@ export function TaskChatMessage({ message, isOwnMessage = false, onDelete }: Tas
               content={message.content}
               senderName={message.senderName || null}
               createdAt={message.createdAt}
+              onReply={onEmailReply}
             />
           )}
 

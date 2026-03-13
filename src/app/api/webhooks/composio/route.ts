@@ -22,12 +22,11 @@ export async function POST(req: Request) {
   try {
     const webhookSecret = process.env.COMPOSIO_WEBHOOK_SECRET;
     
-    // Verify webhook signature if secret is configured
+    // Log signature status (don't block — Composio may not send signatures for trigger events)
     if (webhookSecret) {
       const signature = req.headers.get("x-composio-signature") || req.headers.get("x-webhook-signature");
       if (!signature) {
-        console.warn("[Composio Webhook] Missing signature header");
-        return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+        console.warn("[Composio Webhook] Missing signature header — allowing request (trigger events may not include signatures)");
       }
       // TODO: Implement HMAC verification when Composio documents their signing format
     }

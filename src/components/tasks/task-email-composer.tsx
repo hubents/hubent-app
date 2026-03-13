@@ -11,16 +11,20 @@ interface TaskEmailComposerProps {
   taskId: number;
   onClose: () => void;
   onSent: () => void;
+  initialTo?: string;
+  initialSubject?: string;
 }
 
 export function TaskEmailComposer({
   taskId,
   onClose,
   onSent,
+  initialTo,
+  initialSubject,
 }: TaskEmailComposerProps) {
-  const [to, setTo] = useState("");
+  const [to, setTo] = useState(initialTo || "");
   const [cc, setCc] = useState("");
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(initialSubject || "");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [showCc, setShowCc] = useState(false);

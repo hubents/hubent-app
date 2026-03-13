@@ -48,6 +48,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [chatMode, setChatMode] = useState<"comment" | "email" | "whatsapp">("comment");
+  const [emailReply, setEmailReply] = useState<{ to: string; subject: string } | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<{ gmail: boolean; whatsapp: boolean }>({ gmail: false, whatsapp: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMentions, setShowMentions] = useState(false);
@@ -456,6 +457,10 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
                 message={message}
                 isOwnMessage={message.senderId === session?.user?.id}
                 onDelete={message.senderId === session?.user?.id ? deleteMessage : undefined}
+                onEmailReply={(replyTo, replySubject) => {
+                  setEmailReply({ to: replyTo, subject: replySubject });
+                  setChatMode("email");
+                }}
               />
             ))}
             {/* Typing indicator - Enhanced */}
@@ -611,8 +616,10 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
         {chatMode === "email" && taskId && (
           <TaskEmailComposer
             taskId={taskId}
-            onClose={() => setChatMode("comment")}
-            onSent={refetch}
+            onClose={() => { setChatMode("comment"); setEmailReply(null); }}
+            onSent={() => { refetch(); setEmailReply(null); }}
+            initialTo={emailReply?.to}
+            initialSubject={emailReply?.subject}
           />
         )}
         {chatMode === "whatsapp" && taskId && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { RiMailLine, RiMailSendLine } from "@remixicon/react";
+import { RiMailLine, RiMailSendLine, RiReplyLine } from "@remixicon/react";
+import { Button } from "@/components/ui/button";
 
 interface TaskEmailBubbleProps {
   type: "email_sent" | "email_received";
@@ -11,6 +12,11 @@ interface TaskEmailBubbleProps {
   content: string;
   senderName: string | null;
   createdAt: string;
+  onReply?: (to: string, subject: string) => void;
+}
+
+function cleanSubject(subject: string): string {
+  return subject.replace(/\[HE-\d+\]\s*/g, "").trim() || subject;
 }
 
 export function TaskEmailBubble({
@@ -22,31 +28,48 @@ export function TaskEmailBubble({
   content,
   senderName,
   createdAt,
+  onReply,
 }: TaskEmailBubbleProps) {
   const isSent = type === "email_sent";
+  const isReceived = type === "email_received";
   const date = new Date(createdAt);
   const timeStr = date.toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const displaySubject = subject ? cleanSubject(subject) : null;
+  const replyTo = isReceived && from ? from : to?.[0] || null;
+  const replySubject = subject ? (subject.startsWith("Re:") ? subject : `Re: ${subject}`) : "Re:";
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-red-50/30 dark:bg-red-950/10">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100/50 dark:bg-red-900/20 border-b">
+    <div className={`border rounded-lg overflow-hidden ${
+      isReceived
+        ? "bg-blue-50/30 dark:bg-blue-950/10"
+        : "bg-red-50/30 dark:bg-red-950/10"
+    }`}>
+      <div className={`flex items-center gap-2 px-3 py-1.5 border-b ${
+        isReceived
+          ? "bg-blue-100/50 dark:bg-blue-900/20"
+          : "bg-red-100/50 dark:bg-red-900/20"
+      }`}>
         {isSent ? (
           <RiMailSendLine className="w-3.5 h-3.5 text-red-600" />
         ) : (
-          <RiMailLine className="w-3.5 h-3.5 text-red-600" />
+          <RiMailLine className="w-3.5 h-3.5 text-blue-600" />
         )}
-        <span className="text-[10px] font-medium text-red-700 dark:text-red-400">
+        <span className={`text-[10px] font-medium ${
+          isReceived
+            ? "text-blue-700 dark:text-blue-400"
+            : "text-red-700 dark:text-red-400"
+        }`}>
           {isSent ? "Email enviado" : "Email recibido"}
         </span>
         <span className="text-[10px] text-muted-foreground ml-auto">{timeStr}</span>
       </div>
 
       <div className="px-3 py-2 space-y-1">
-        {subject && (
-          <p className="text-xs font-medium">{subject}</p>
+        {displaySubject && (
+          <p className="text-xs font-medium">{displaySubject}</p>
         )}
 
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
@@ -57,11 +80,24 @@ export function TaskEmailBubble({
 
         <p className="text-xs mt-1 whitespace-pre-wrap">{content}</p>
 
-        {senderName && (
-          <p className="text-[10px] text-muted-foreground mt-1">
-            {isSent ? "Enviado por" : "Recibido vía cuenta de"} {senderName}
-          </p>
-        )}
+        <div className="flex items-center justify-between mt-1.5">
+          {senderName && (
+            <p className="text-[10px] text-muted-foreground">
+              {isSent ? "Enviado por" : "Recibido vía cuenta de"} {senderName}
+            </p>
+          )}
+          {onReply && replyTo && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => onReply(replyTo, replySubject)}
+            >
+              <RiReplyLine className="w-3 h-3 mr-0.5" />
+              Responder
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
