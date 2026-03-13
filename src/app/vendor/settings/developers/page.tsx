@@ -23,6 +23,7 @@ import {
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useEffect, useState, useCallback } from "react";
+import { useUserSession } from "@/hooks/use-user-session";
 import Link from "next/link";
 
 interface ApiKeyItem {
@@ -55,6 +56,8 @@ const SCOPE_GROUPS = [
 ];
 
 export default function VendorDevelopersPage() {
+  const { can } = useUserSession();
+  const canManageKeys = can("settings:update");
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [stats, setStats] = useState<ApiStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -272,12 +275,12 @@ export default function VendorDevelopersPage() {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : canManageKeys ? (
         <Button onClick={() => setShowCreateForm(true)}>
           <RiAddLine className="h-4 w-4 mr-2" />
           Nueva API Key
         </Button>
-      )}
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -325,7 +328,7 @@ export default function VendorDevelopersPage() {
                         {key.rateLimit && <span>Rate limit: {key.rateLimit}/min</span>}
                       </div>
                     </div>
-                    {key.isActive && (
+                    {key.isActive && canManageKeys && (
                       <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={() => handleRevoke(key.id)}>
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>

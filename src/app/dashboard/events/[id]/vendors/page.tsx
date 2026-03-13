@@ -454,6 +454,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                       )}
                     </div>
                   </div>
+                  {canEditVendors && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -462,6 +463,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                   >
                     <RiDeleteBinLine className="h-4 w-4" />
                   </Button>
+                  )}
                 </div>
 
                 {vendor.service && (
@@ -496,10 +498,12 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
             <p className="text-[var(--muted-foreground)] mb-4">
               Asigna proveedores a este evento para gestionar sus servicios
             </p>
+            {canEditVendors && (
             <Button onClick={() => setShowAddDialog(true)}>
               <RiAddLine className="h-4 w-4 mr-2" />
               Asignar primer proveedor
             </Button>
+            )}
           </CardContent>
         </Card>
       )}

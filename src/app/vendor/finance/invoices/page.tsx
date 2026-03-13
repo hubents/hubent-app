@@ -336,13 +336,13 @@ export default function VendorInvoicesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {inv.status !== "paid" && inv.status !== "partial" && (
+                            {canCreate && inv.status !== "paid" && inv.status !== "partial" && (
                               <DropdownMenuItem onClick={() => openEditInvoice(inv.id)}>
                                 <RiEditLine className="mr-2 h-4 w-4" />
                                 Editar
                               </DropdownMenuItem>
                             )}
-                            {(inv.status === "sent" || inv.status === "partial") && (
+                            {canCreate && (inv.status === "sent" || inv.status === "partial") && (
                               <DropdownMenuItem onClick={() => router.push("/vendor/finance/payments")}>
                                 <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
                                 Registrar Pago
@@ -356,11 +356,13 @@ export default function VendorInvoicesPage() {
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
+                            {canCreate && (
                             <DropdownMenuItem onClick={() => duplicateInvoice(inv.id)}>
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            {(inv.status === "sent" || inv.status === "draft") && (
+                            )}
+                            {canCreate && (inv.status === "sent" || inv.status === "draft") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-600" onClick={() => deleteInvoice(inv.id)}>

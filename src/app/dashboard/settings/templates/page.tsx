@@ -345,6 +345,7 @@ export default function TemplatesPage() {
                         Global
                       </Badge>
                     )}
+                    {canManageTemplates && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -373,6 +374,7 @@ export default function TemplatesPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>

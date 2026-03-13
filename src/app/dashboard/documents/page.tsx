@@ -1,8 +1,12 @@
+"use client";
+
 import { ComingSoonPage } from "@/components/ui/coming-soon-page";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { RiFolder3Line } from "@remixicon/react";
 
 export default function DocumentsPage() {
   return (
+    <EventScopedGuard>
     <ComingSoonPage
       icon={<RiFolder3Line className="h-16 w-16" />}
       title="Gestión de Documentos"
@@ -14,5 +18,6 @@ export default function DocumentsPage() {
         "Firmas digitales integradas",
       ]}
     />
+    </EventScopedGuard>
   );
 }

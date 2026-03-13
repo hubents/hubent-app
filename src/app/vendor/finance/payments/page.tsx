@@ -370,10 +370,12 @@ export default function VendorPaymentsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {canCreate && (
                           <DropdownMenuItem onClick={() => openEdit(p)}>
                             <RiEditLine className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
+                          )}
                           {p.attachmentUrl && (
                             <DropdownMenuItem asChild>
                               <a href={p.attachmentUrl} target="_blank" rel="noopener noreferrer">
@@ -382,11 +384,15 @@ export default function VendorPaymentsPage() {
                               </a>
                             </DropdownMenuItem>
                           )}
+                          {canCreate && (
+                          <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(p.id)}>
                             <RiDeleteBinLine className="mr-2 h-4 w-4" />
                             Eliminar
                           </DropdownMenuItem>
+                          </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

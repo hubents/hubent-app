@@ -3,6 +3,8 @@
 import { useState, useEffect, use, useRef } from "react";
 import { toast } from "sonner";
 import { useEvent } from "@/contexts/event-context";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,6 +128,9 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { activeEvent, setActiveEvent } = useEvent();
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditRsvp = canEdit("rsvp");
 
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<RsvpSettings>({
@@ -639,11 +644,13 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               Vista previa
             </Button>
           </Link>
+          {canEditRsvp && (
           <Button className="gap-2" onClick={handleOpenSendDialog}>
             <RiMailSendLine className="h-4 w-4" />
             Enviar invitaciones
           </Button>
-          {hasChanges && (
+          )}
+          {hasChanges && canEditRsvp && (
             <Button 
               onClick={handleSaveSettings} 
               disabled={saving}
@@ -1046,10 +1053,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, showItinerary: checked })}
               />
             </CardTitle>
+            {canEditRsvp && (
             <Button size="sm" className="gap-1" onClick={() => setEditingSection("itinerary")}>
               <RiAddLine className="h-4 w-4" />
               Añadir
             </Button>
+            )}
           </CardHeader>
           <CardContent>
             {settings.showItinerary && itinerary.length === 0 && (
@@ -1072,6 +1081,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         </p>
                       )}
                     </div>
+                    {canEditRsvp && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEditingItem(item);
@@ -1083,6 +1093,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <RiDeleteBinLine className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1106,10 +1117,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, showHotels: checked })}
               />
             </CardTitle>
+            {canEditRsvp && (
             <Button size="sm" className="gap-1" onClick={() => setEditingSection("hotel")}>
               <RiAddLine className="h-4 w-4" />
               Añadir
             </Button>
+            )}
           </CardHeader>
           <CardContent>
             {settings.showHotels && hotels.length === 0 && (
@@ -1126,6 +1139,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                       {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
                       {hotel.priceRange && <p className="text-xs text-muted-foreground">{hotel.priceRange}</p>}
                     </div>
+                    {canEditRsvp && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEditingItem(hotel);
@@ -1137,6 +1151,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <RiDeleteBinLine className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1160,10 +1175,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, showNearbyPlans: checked })}
               />
             </CardTitle>
+            {canEditRsvp && (
             <Button size="sm" className="gap-1" onClick={() => setEditingSection("nearbyPlan")}>
               <RiAddLine className="h-4 w-4" />
               Añadir
             </Button>
+            )}
           </CardHeader>
           <CardContent>
             {settings.showNearbyPlans && nearbyPlans.length === 0 && (
@@ -1180,6 +1197,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                       {plan.category && <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>}
                       {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
                     </div>
+                    {canEditRsvp && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEditingItem(plan);
@@ -1191,6 +1209,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <RiDeleteBinLine className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1214,10 +1233,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, showTransport: checked })}
               />
             </CardTitle>
+            {canEditRsvp && (
             <Button size="sm" className="gap-1" onClick={() => setEditingSection("transport")}>
               <RiAddLine className="h-4 w-4" />
               Añadir
             </Button>
+            )}
           </CardHeader>
           <CardContent>
             {settings.showTransport && transportOptions.length === 0 && (
@@ -1243,6 +1264,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <p className="text-xs text-muted-foreground">Capacidad: {transport.capacity} personas</p>
                       )}
                     </div>
+                    {canEditRsvp && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => {
                         setEditingItem(transport);
@@ -1254,6 +1276,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <RiDeleteBinLine className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1277,10 +1300,12 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                 onCheckedChange={(checked) => setSettings({ ...settings, showFaqs: checked })}
               />
             </CardTitle>
+            {canEditRsvp && (
             <Button size="sm" className="gap-1" onClick={() => setEditingSection("faq")}>
               <RiAddLine className="h-4 w-4" />
               Añadir FAQ
             </Button>
+            )}
           </CardHeader>
           <CardContent>
             {settings.showFaqs && faqs.length === 0 && (
@@ -1297,6 +1322,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                         <p className="font-medium">{faq.question}</p>
                         <p className="text-sm text-muted-foreground mt-1">{faq.answer}</p>
                       </div>
+                      {canEditRsvp && (
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm" onClick={() => { setEditingItem(faq); setEditingSection("faq-edit"); }}>
                           <RiEditLine className="h-4 w-4" />
@@ -1305,6 +1331,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
                           <RiDeleteBinLine className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1337,6 +1364,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         </Card>
 
         {/* Save Button */}
+        {canEditRsvp && (
         <div className="lg:col-span-2 flex justify-end">
           <Button 
             onClick={handleSaveSettings} 
@@ -1356,6 +1384,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
             )}
           </Button>
         </div>
+        )}
       </div>
 
       {/* Add Itinerary Drawer */}

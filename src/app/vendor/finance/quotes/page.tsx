@@ -399,7 +399,7 @@ export default function VendorQuotesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {q.status === "sent" && (
+                            {canCreate && q.status === "sent" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateStatus(q.id, "accepted")}>
                                   <RiCheckLine className="mr-2 h-4 w-4" />
@@ -412,7 +412,7 @@ export default function VendorQuotesPage() {
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            {q.status === "accepted" && (
+                            {canCreate && q.status === "accepted" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateStatus(q.id, "payment_promise")}>
                                   <RiHandCoinLine className="mr-2 h-4 w-4" />
@@ -425,7 +425,7 @@ export default function VendorQuotesPage() {
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            {q.status === "rejected" && (
+                            {canCreate && q.status === "rejected" && (
                               <>
                                 <DropdownMenuItem onClick={() => updateStatus(q.id, "sent")}>
                                   <RiSendPlaneLine className="mr-2 h-4 w-4" />
@@ -438,7 +438,7 @@ export default function VendorQuotesPage() {
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            {q.status === "payment_promise" && (
+                            {canCreate && q.status === "payment_promise" && (
                               <>
                                 <DropdownMenuItem onClick={() => openPreview(q.id)}>
                                   <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
@@ -455,16 +455,18 @@ export default function VendorQuotesPage() {
                                 <DropdownMenuSeparator />
                               </>
                             )}
-                            {(q.status === "accepted" || q.status === "payment_promise") && (
+                            {canCreate && (q.status === "accepted" || q.status === "payment_promise") && (
                               <DropdownMenuItem onClick={() => fetchDocAndConvert(q.id)}>
                                 <RiExchangeLine className="mr-2 h-4 w-4" />
                                 Convertir a Factura
                               </DropdownMenuItem>
                             )}
+                            {canCreate && (
                             <DropdownMenuItem onClick={() => openEditQuote(q.id)}>
                               <RiEditLine className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openPreview(q.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" />
                               Vista previa
@@ -473,11 +475,13 @@ export default function VendorQuotesPage() {
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
+                            {canCreate && (
                             <DropdownMenuItem onClick={() => duplicateQuote(q.id)}>
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            {(q.status === "sent" || q.status === "rejected" || q.status === "draft") && (
+                            )}
+                            {canCreate && (q.status === "sent" || q.status === "rejected" || q.status === "draft") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-600" onClick={() => deleteQuote(q.id)}>

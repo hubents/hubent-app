@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
+import { useUserSession } from "@/hooks/use-user-session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -164,6 +165,8 @@ const paymentMethodLabels: Record<string, string> = {
 export default function VendorEventDetailPage({ params }: { params: Promise<{ accessId: string }> }) {
   const { accessId } = use(params);
   const router = useRouter();
+  const { can } = useUserSession();
+  const canCreateDocs = can("finance:create");
   const [activeTab, setActiveTab] = useState<TabKey>("tasks");
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -348,6 +351,7 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
       {/* Tab Content */}
       {activeTab === "documents" && (
         <>
+        {canCreateDocs && (
         <div className="flex gap-2">
           <Button size="sm" onClick={() => createQuickDocument("quote")}>
             <RiAddLine className="h-4 w-4 mr-1" />
@@ -358,6 +362,7 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
             Nueva Factura
           </Button>
         </div>
+        )}
         <Card>
           <CardContent className="p-0">
             <Table>

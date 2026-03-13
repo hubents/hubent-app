@@ -605,6 +605,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onTableChange={handleTableChange}
                           onNameChange={handleNameChange}
                           onDelete={handleDeleteGuest}
+                          readOnly={!canEditGuests}
                         />
                       ))}
                     </div>
@@ -636,6 +637,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                     onTableChange={handleTableChange}
                     onNameChange={handleNameChange}
                     onDelete={handleDeleteGuest}
+                    readOnly={!canEditGuests}
                   />
                 ))
               ) : (
@@ -671,6 +673,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onTableChange={handleTableChange}
                           onNameChange={handleNameChange}
                           onDelete={handleDeleteGuest}
+                          readOnly={!canEditGuests}
                         />
                       ))}
                     </div>
@@ -709,6 +712,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           onTableChange={handleTableChange}
                           onNameChange={handleNameChange}
                           onDelete={handleDeleteGuest}
+                          readOnly={!canEditGuests}
                         />
                       ))}
                     </div>
@@ -787,6 +791,7 @@ function GuestRow({
   onTableChange,
   onNameChange,
   onDelete,
+  readOnly = false,
 }: { 
   guest: Guest; 
   tables: EventTable[];
@@ -795,6 +800,7 @@ function GuestRow({
   onTableChange: (guestId: number, tableId: string) => void;
   onNameChange: (guestId: number, firstName: string, lastName: string) => void;
   onDelete: (guestId: number) => void;
+  readOnly?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editFirstName, setEditFirstName] = useState(guest.firstName);
@@ -829,7 +835,7 @@ function GuestRow({
         </div>
         <div>
           <div className="flex items-center gap-2">
-            {isEditing ? (
+            {isEditing && !readOnly ? (
               <div className="flex items-center gap-1">
                 <Input
                   value={editFirstName}
@@ -851,11 +857,11 @@ function GuestRow({
               </div>
             ) : (
               <p 
-                className="font-medium cursor-pointer hover:text-primary flex items-center gap-1"
-                onClick={() => setIsEditing(true)}
+                className={cn("font-medium flex items-center gap-1", !readOnly && "cursor-pointer hover:text-primary")}
+                onClick={() => !readOnly && setIsEditing(true)}
               >
                 {guest.firstName} {guest.lastName}
-                <RiPencilLine className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+                {!readOnly && <RiPencilLine className="h-3 w-3 opacity-0 group-hover:opacity-50" />}
               </p>
             )}
             {guest.ageGroup === "child" && (
@@ -897,6 +903,7 @@ function GuestRow({
         <Select
           value={guest.menuPreference || ""}
           onValueChange={(value) => onMenuChange(guest.id, value)}
+          disabled={readOnly}
         >
           <SelectTrigger className="w-28 h-8">
             <SelectValue placeholder="Menú" />
@@ -914,6 +921,7 @@ function GuestRow({
         <Select
           value={guest.tableId?.toString() || "none"}
           onValueChange={(value) => onTableChange(guest.id, value)}
+          disabled={readOnly}
         >
           <SelectTrigger className="w-32 h-8">
             <SelectValue placeholder="Mesa" />
@@ -932,6 +940,7 @@ function GuestRow({
         <Select
           value={guest.rsvpStatus || "pending"}
           onValueChange={(value) => onStatusChange(guest.id, value)}
+          disabled={readOnly}
         >
           <SelectTrigger className={cn("w-32 h-8", status.color)}>
             <SelectValue />
@@ -944,6 +953,7 @@ function GuestRow({
         </Select>
 
         {/* Delete Button */}
+        {!readOnly && (
         <Button
           variant="ghost"
           size="icon"
@@ -952,6 +962,7 @@ function GuestRow({
         >
           <RiDeleteBinLine className="h-4 w-4" />
         </Button>
+        )}
       </div>
     </div>
   );
