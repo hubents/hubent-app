@@ -13,7 +13,8 @@ import {
   ScrollText,
   Megaphone,
   LogOut,
-  Bot
+  Bot,
+  Plug
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminHeader } from "@/components/layout/admin-header";
@@ -26,6 +27,7 @@ const sidebarItems = [
   { href: "/admin/plans", label: "Planes", icon: CreditCard },
   { href: "/admin/billing", label: "Billing", icon: CreditCard },
   { href: "/admin/ai", label: "Asistente IA", icon: Bot },
+  { href: "/admin/api-platform", label: "API Platform", icon: Plug },
   { href: "/admin/audit", label: "Auditoría", icon: ScrollText },
   { href: "/admin/announcements", label: "Anuncios", icon: Megaphone },
   { href: "/admin/settings", label: "Configuración", icon: Settings },

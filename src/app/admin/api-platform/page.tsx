@@ -11,6 +11,8 @@ import {
   RiBuilding2Line,
   RiTimeLine,
   RiGlobalLine,
+  RiWebhookLine,
+  RiGroupLine,
 } from "@remixicon/react";
 import { useEffect, useState, useCallback } from "react";
 
@@ -27,6 +29,14 @@ interface PlatformData {
     error_rate: string;
     daily_volume: { date: string; count: number }[];
   };
+  webhooks: {
+    total: number;
+    active: number;
+    deliveries_30d: number;
+    delivered_30d: number;
+    failed_30d: number;
+  };
+  orgs_with_api: number;
   top_organizations: { organizationId: number; orgName: string; keyCount: number }[];
   top_endpoints: { endpoint: string; method: string; count: number }[];
   recent_keys: {
@@ -62,27 +72,21 @@ export default function ApiPlatformPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}
+      <div className="space-y-6">
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-28" />)}
         </div>
         <Skeleton className="h-64" />
       </div>
     );
   }
 
-  if (!data) return <div className="p-6">Error cargando datos</div>;
+  if (!data) return <div>Error cargando datos</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">API Platform</h1>
-        <p className="text-sm text-muted-foreground">Monitoreo global de la API publica de HubEnts</p>
-      </div>
-
+    <div className="space-y-6">
       {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -123,6 +127,28 @@ export default function ApiPlatformPage() {
               <div>
                 <p className="text-2xl font-bold">{data.keys.by_environment?.live ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Live / {data.keys.by_environment?.test ?? 0} Test</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10"><RiWebhookLine className="h-5 w-5 text-purple-500" /></div>
+              <div>
+                <p className="text-2xl font-bold">{data.webhooks.active}</p>
+                <p className="text-xs text-muted-foreground">Webhooks activos ({data.webhooks.deliveries_30d} deliveries 30d)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/10"><RiGroupLine className="h-5 w-5 text-amber-500" /></div>
+              <div>
+                <p className="text-2xl font-bold">{data.orgs_with_api}</p>
+                <p className="text-xs text-muted-foreground">Orgs con API activa</p>
               </div>
             </div>
           </CardContent>

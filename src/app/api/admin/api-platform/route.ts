@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
-import { apiKeys, apiKeyLogs, organizations, subscriptionPlans, subscriptions } from "@/db/schema";
+import { apiKeys, apiKeyLogs, organizations, webhooks, webhookLogs } from "@/db/schema";
 import { eq, count, sql, desc, and, gt } from "drizzle-orm";
 
 export async function GET() {
@@ -90,6 +90,25 @@ export async function GET() {
       .orderBy(desc(count()))
       .limit(15);
 
+    // Webhook stats
+    const [totalWebhooks] = await db.select({ count: count() }).from(webhooks);
+    const [activeWebhooks] = await db.select({ count: count() }).from(webhooks)
+      .where(eq(webhooks.isActive, true));
+    const [webhookDeliveries] = await db
+      .select({
+        total: count(),
+        delivered: sql<number>`COUNT(CASE WHEN ${webhookLogs.status} = 'delivered' THEN 1 END)`,
+        failed: sql<number>`COUNT(CASE WHEN ${webhookLogs.status} = 'failed' THEN 1 END)`,
+      })
+      .from(webhookLogs)
+      .where(gt(webhookLogs.createdAt, thirtyDaysAgo));
+
+    // Orgs with API access
+    const orgsWithApi = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${apiKeys.organizationId})` })
+      .from(apiKeys)
+      .where(eq(apiKeys.isActive, true));
+
     return NextResponse.json({
       success: true,
       data: {
@@ -108,6 +127,14 @@ export async function GET() {
           error_rate: requestStats?.total ? ((requestStats.errors / requestStats.total) * 100).toFixed(2) + "%" : "0%",
           daily_volume: dailyVolume,
         },
+        webhooks: {
+          total: totalWebhooks?.count ?? 0,
+          active: activeWebhooks?.count ?? 0,
+          deliveries_30d: webhookDeliveries?.total ?? 0,
+          delivered_30d: webhookDeliveries?.delivered ?? 0,
+          failed_30d: webhookDeliveries?.failed ?? 0,
+        },
+        orgs_with_api: orgsWithApi?.[0]?.count ?? 0,
         top_organizations: topOrgs,
         top_endpoints: topEndpoints,
         recent_keys: recentKeys,
