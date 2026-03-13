@@ -12,7 +12,15 @@ import { createComposioTrigger, TRIGGER_SLUGS, MVP_TOOLKITS, type ComposioToolki
  * that don't already have an active trigger.
  * Runs in production with Vercel env vars.
  */
+export async function GET() {
+  return syncTriggers();
+}
+
 export async function POST() {
+  return syncTriggers();
+}
+
+async function syncTriggers() {
   try {
     await requirePlatformAdmin();
 
