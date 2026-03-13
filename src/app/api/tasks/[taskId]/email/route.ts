@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { taskMessages, organizationIntegrations, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { createComposioSession } from "@/lib/composio";
+import { executeComposioTool } from "@/lib/composio";
 import { canAccessTaskChat } from "@/lib/task-chat";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 
@@ -61,32 +61,15 @@ export async function POST(
       );
     }
 
-    const composioSession = await createComposioSession(orgId, ["gmail"]);
-    const tools = await composioSession.tools();
-
-    const sendEmailTool = Object.entries(tools).find(
-      ([key]) => key.toLowerCase().includes("gmail_send_email")
-    );
-
-    if (!sendEmailTool) {
-      return NextResponse.json(
-        { success: false, error: "Herramienta de envío de email no disponible" },
-        { status: 500 }
-      );
-    }
-
-    let emailResult;
+    let emailResult: { data: Record<string, unknown>; error: string | null; successful: boolean } | undefined;
     try {
-      const [, tool] = sendEmailTool;
-      if (tool && typeof tool === "object" && "execute" in tool && typeof tool.execute === "function") {
-        emailResult = await tool.execute({
-          recipient_email: to.join(", "),
-          subject,
-          body,
-          cc: cc?.join(", ") || undefined,
-          bcc: bcc?.join(", ") || undefined,
-        }, { toolCallId: `task_email_${taskId}_${Date.now()}`, messages: [] });
-      }
+      emailResult = await executeComposioTool(orgId, "GMAIL_SEND_EMAIL", {
+        recipient_email: to.join(", "),
+        subject,
+        body,
+        cc: cc?.join(", ") || undefined,
+        bcc: bcc?.join(", ") || undefined,
+      });
     } catch (emailError) {
       console.error("[Task Email] Composio send error:", emailError);
       return NextResponse.json(
@@ -109,8 +92,8 @@ export async function POST(
         emailCc: cc || null,
         emailBcc: bcc || null,
         emailSubject: subject,
-        emailThreadId: emailResult?.threadId || null,
-        emailMessageId: emailResult?.messageId || null,
+        emailThreadId: (emailResult?.data?.threadId as string) || null,
+        emailMessageId: (emailResult?.data?.messageId as string) || null,
       })
       .returning();
 

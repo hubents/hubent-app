@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { taskMessages, organizationIntegrations, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { createComposioSession } from "@/lib/composio";
+import { executeComposioTool } from "@/lib/composio";
 import { canAccessTaskChat } from "@/lib/task-chat";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 
@@ -61,28 +61,11 @@ export async function POST(
       );
     }
 
-    const composioSession = await createComposioSession(orgId, ["whatsapp"]);
-    const tools = await composioSession.tools();
-
-    const sendMsgTool = Object.entries(tools).find(
-      ([key]) => key.toLowerCase().includes("whatsapp_send_message")
-    );
-
-    if (!sendMsgTool) {
-      return NextResponse.json(
-        { success: false, error: "Herramienta de WhatsApp no disponible" },
-        { status: 500 }
-      );
-    }
-
     try {
-      const [, tool] = sendMsgTool;
-      if (tool && typeof tool === "object" && "execute" in tool && typeof tool.execute === "function") {
-        await tool.execute({
-          to,
-          body: msgContent,
-        }, { toolCallId: `task_wa_${taskId}_${Date.now()}`, messages: [] });
-      }
+      await executeComposioTool(orgId, "WHATSAPP_SEND_MESSAGE", {
+        to,
+        body: msgContent,
+      });
     } catch (waError) {
       console.error("[Task WhatsApp] Composio send error:", waError);
       return NextResponse.json(

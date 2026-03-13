@@ -161,6 +161,20 @@ export async function authorizeToolkit(
   return { redirectUrl: connectionRequest.redirectUrl };
 }
 
+export async function executeComposioTool(
+  orgId: number,
+  toolSlug: string,
+  args: Record<string, unknown>
+) {
+  const composio = getComposioClient();
+  const entityId = composioEntityId(orgId);
+  const result = await composio.tools.execute(toolSlug, {
+    userId: entityId,
+    arguments: args,
+  });
+  return result;
+}
+
 export async function getConnectedAccountDetails(connectedAccountId: string) {
   try {
     const composio = getComposioClient();
