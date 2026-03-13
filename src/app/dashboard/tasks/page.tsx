@@ -1,9 +1,13 @@
+"use client";
+
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TasksPageContent } from "@/components/tasks/tasks-page-content";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 
 export default function TasksPage() {
   return (
+    <EventScopedGuard>
     <Suspense fallback={
       <div className="space-y-[var(--gap-cards-lg)]">
         <Skeleton className="h-10 w-48" />
@@ -17,5 +21,6 @@ export default function TasksPage() {
     }>
       <TasksPageContent />
     </Suspense>
+    </EventScopedGuard>
   );
 }

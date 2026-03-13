@@ -13,6 +13,7 @@ import { StageConfigDrawer } from "@/components/crm/stage-config-drawer";
 import { CRMStats } from "@/components/crm/crm-stats";
 import { useState } from "react";
 import { useUserSession } from "@/hooks/use-user-session";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 
 // Types are inferred from the hook and components
 
@@ -118,6 +119,14 @@ const fallbackStages = [
 ];
 
 export default function CRMPage() {
+  return (
+    <EventScopedGuard>
+      <CRMPageContent />
+    </EventScopedGuard>
+  );
+}
+
+function CRMPageContent() {
   const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -254,3 +263,4 @@ export default function CRMPage() {
     </div>
   );
 }
+

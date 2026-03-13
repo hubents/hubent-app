@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Button } from "@/components/ui/button";
 import { RiAddLine } from "@remixicon/react";
 import { CalendarView } from "@/components/calendar/calendar-view";
@@ -11,6 +12,10 @@ import { CALENDAR_COLORS, CALENDAR_LABELS } from "@/lib/calendar";
 import { useRouter } from "next/navigation";
 
 export default function CalendarPage() {
+  return <EventScopedGuard><CalendarPageContent /></EventScopedGuard>;
+}
+
+function CalendarPageContent() {
   const router = useRouter();
   const {
     month,

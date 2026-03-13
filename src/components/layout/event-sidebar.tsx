@@ -100,12 +100,15 @@ export function EventSidebar() {
   ];
 
   // Filter navigation based on event permissions for scoped users
-  const navigation = eventScoped && eventPermissions
-    ? allNavigation.filter((item) => {
-        const section = SECTION_MAP[item.name];
-        if (!section) return true;
-        return eventPermissions[section] !== "none";
-      })
+  // If eventScoped but permissions haven't loaded yet, show nothing (loading state)
+  const navigation = eventScoped
+    ? eventPermissions
+      ? allNavigation.filter((item) => {
+          const section = SECTION_MAP[item.name];
+          if (!section) return true;
+          return eventPermissions[section] !== "none";
+        })
+      : [] // eventScoped but permissions not yet loaded — hide all until loaded
     : allNavigation;
 
   const financeSubNav = [

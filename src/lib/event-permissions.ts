@@ -133,11 +133,11 @@ export async function getTaskParticipantAccess(userId: string, taskId: number) {
 function defaultFullPermissions(): EventSectionPermissions {
   return {
     general: "view",
-    tasks: "view",
-    guests: "view",
-    rsvp: "view",
-    vendors: "view",
-    finances: "view",
+    tasks: "none",
+    guests: "none",
+    rsvp: "none",
+    vendors: "none",
+    finances: "none",
     settings: "none",
   };
 }

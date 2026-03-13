@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,6 +62,10 @@ const isValidEmail = (email: string) => {
 };
 
 export default function TeamPage() {
+  return <EventScopedGuard><TeamPageContent /></EventScopedGuard>;
+}
+
+function TeamPageContent() {
   const router = useRouter();
   const { can } = useUserSession();
   const canManageTeam = can("team:manage");

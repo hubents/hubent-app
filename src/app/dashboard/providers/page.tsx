@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,10 @@ const CATEGORIES = [
 ];
 
 export default function ProvidersDirectoryPage() {
+  return <EventScopedGuard><ProvidersDirectoryContent /></EventScopedGuard>;
+}
+
+function ProvidersDirectoryContent() {
   const [providers, setProviders] = useState<ProviderOrg[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

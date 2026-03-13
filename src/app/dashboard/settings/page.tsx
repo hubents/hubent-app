@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +148,10 @@ const settingsSections = [
 ];
 
 export default function SettingsPage() {
+  return <EventScopedGuard><SettingsPageContent /></EventScopedGuard>;
+}
+
+function SettingsPageContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const { can } = useUserSession();

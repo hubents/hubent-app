@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,10 @@ type FilterTab = "all" | "active" | "draft" | "paused";
 type ViewMode = "forms" | "responses";
 
 export default function FormsPage() {
+  return <EventScopedGuard><FormsPageContent /></EventScopedGuard>;
+}
+
+function FormsPageContent() {
   const router = useRouter();
   const { can } = useUserSession();
   const [forms, setForms] = useState<FormItem[]>([]);

@@ -1,9 +1,13 @@
+"use client";
+
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContactsPageContent } from "@/components/contacts/contacts-page-content";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 
 export default function ContactsPage() {
   return (
+    <EventScopedGuard>
     <Suspense fallback={
       <div className="space-y-[var(--gap-cards-lg)]">
         <Skeleton className="h-10 w-48" />
@@ -17,5 +21,6 @@ export default function ContactsPage() {
     }>
       <ContactsPageContent />
     </Suspense>
+    </EventScopedGuard>
   );
 }

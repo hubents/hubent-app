@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSession } from "@/hooks/use-user-session";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import {
   Sheet,
   SheetContent,
@@ -40,6 +41,10 @@ const statusConfig: Record<string, { label: string; variant: "success" | "warnin
 };
 
 export default function PaymentsPage() {
+  return <EventScopedGuard><PaymentsPageContent /></EventScopedGuard>;
+}
+
+function PaymentsPageContent() {
   const { can } = useUserSession();
   const canCreateFinance = can("finance:create");
   const { payments, stats, loading, createPayment, markAsPaid } = usePayments();

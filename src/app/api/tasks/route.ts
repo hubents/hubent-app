@@ -27,6 +27,7 @@ export const GET = withMonitoring(async (request: NextRequest) => {
     }
 
     // For eventScoped roles, only show tasks from events where user is a participant
+    // AND has tasks permission != "none" in their event_participants.permissions
     if (session.eventScoped) {
       whereClause = and(
         whereClause,
@@ -34,6 +35,10 @@ export const GET = withMonitoring(async (request: NextRequest) => {
           SELECT ${eventParticipants.eventId}
           FROM ${eventParticipants}
           WHERE ${eventParticipants.userId} = ${session.user.userId}
+            AND (
+              ${eventParticipants.permissions}->>'tasks' IS NOT NULL
+              AND ${eventParticipants.permissions}->>'tasks' != 'none'
+            )
         )`
       )!;
     }
