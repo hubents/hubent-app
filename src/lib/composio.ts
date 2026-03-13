@@ -164,15 +164,11 @@ export async function authorizeToolkit(
 export async function executeComposioTool(
   orgId: number,
   toolSlug: string,
+  toolkits: ComposioToolkit[],
   args: Record<string, unknown>
 ) {
-  const composio = getComposioClient();
-  const entityId = composioEntityId(orgId);
-  const result = await composio.tools.execute(toolSlug, {
-    userId: entityId,
-    arguments: args,
-  });
-  return result;
+  const session = await createComposioSession(orgId, toolkits);
+  return session.execute(toolSlug, args);
 }
 
 export async function getConnectedAccountDetails(connectedAccountId: string) {

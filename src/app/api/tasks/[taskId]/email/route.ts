@@ -61,19 +61,22 @@ export async function POST(
       );
     }
 
-    let emailResult: { data: Record<string, unknown>; error: string | null; successful: boolean } | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let emailResult: any;
     try {
-      emailResult = await executeComposioTool(orgId, "GMAIL_SEND_EMAIL", {
+      emailResult = await executeComposioTool(orgId, "GMAIL_SEND_EMAIL", ["gmail"], {
         recipient_email: to.join(", "),
         subject,
         body,
         cc: cc?.join(", ") || undefined,
         bcc: bcc?.join(", ") || undefined,
       });
+      console.log("[Task Email] Composio result:", JSON.stringify(emailResult)?.slice(0, 500));
     } catch (emailError) {
-      console.error("[Task Email] Composio send error:", emailError);
+      console.error("[Task Email] Composio send error:", emailError instanceof Error ? emailError.message : emailError);
+      console.error("[Task Email] Full error:", JSON.stringify(emailError, Object.getOwnPropertyNames(emailError as object))?.slice(0, 1000));
       return NextResponse.json(
-        { success: false, error: "Error al enviar el email vía Gmail" },
+        { success: false, error: `Error al enviar el email vía Gmail: ${emailError instanceof Error ? emailError.message : "Error desconocido"}` },
         { status: 500 }
       );
     }

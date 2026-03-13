@@ -62,7 +62,7 @@ export async function POST(
     }
 
     try {
-      await executeComposioTool(orgId, "WHATSAPP_SEND_MESSAGE", {
+      await executeComposioTool(orgId, "WHATSAPP_SEND_MESSAGE", ["whatsapp"], {
         to,
         body: msgContent,
       });
