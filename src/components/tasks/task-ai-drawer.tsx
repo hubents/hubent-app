@@ -51,7 +51,7 @@ export function TaskAIDrawer({ open, onOpenChange, task, taskId }: TaskAIDrawerP
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-left">Enti</SheetTitle>
+              <SheetTitle className="text-left">HubIA</SheetTitle>
               <p className="text-xs text-[var(--muted-foreground)] truncate">{taskInfo}</p>
             </div>
           </div>

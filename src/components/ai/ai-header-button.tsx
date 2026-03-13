@@ -29,7 +29,7 @@ export function AIHeaderButton() {
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Asistente IA (Enti)</p>
+          <p>Asistente IA (HubIA)</p>
         </TooltipContent>
       </Tooltip>
 

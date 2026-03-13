@@ -276,7 +276,7 @@ export default function AdminAIDocumentsPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Documentación IA</h1>
           <p className="text-muted-foreground">
-            Contenido que Enti usa para responder preguntas de soporte
+            Contenido que HubIA usa para responder preguntas de soporte
           </p>
         </div>
         <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
@@ -364,7 +364,7 @@ export default function AdminAIDocumentsPage() {
                   <Textarea
                     value={form.content}
                     onChange={(e) => setForm({ ...form, content: e.target.value })}
-                    placeholder="Escribe el contenido que Enti usará para responder..."
+                    placeholder="Escribe el contenido que HubIA usará para responder..."
                     rows={8}
                   />
                 </div>
@@ -505,7 +505,7 @@ export default function AdminAIDocumentsPage() {
               {search ? "No se encontraron documentos" : "No hay documentos aún"}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Agrega documentación para que Enti pueda responder preguntas de soporte
+              Agrega documentación para que HubIA pueda responder preguntas de soporte
             </p>
           </CardContent>
         </Card>

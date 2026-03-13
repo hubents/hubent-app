@@ -122,7 +122,7 @@ export default async function AdminAIPage() {
             <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Asistente IA - Enti</h1>
+            <h1 className="text-2xl font-bold">Asistente IA - HubIA</h1>
             <p className="text-muted-foreground">
               Gestiona y entrena el asistente inteligente {/* HIDDEN TEMPORARILY: • Powered by NapsixAI */}
             </p>

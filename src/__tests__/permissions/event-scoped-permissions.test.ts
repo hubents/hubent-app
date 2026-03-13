@@ -520,7 +520,7 @@ describe("B1: Main sidebar — eventScoped navigation filtering", () => {
   const navigationAfterFinance: NavItem[] = [
     { name: "Proveedores", permission: "vendors:read" },
     { name: "Equipo", permission: "team:read" },
-    { name: "Enti IA", permission: null },
+    { name: "HubIA", permission: null },
   ];
 
   function canOrgPerm(orgPermissions: string[], permission: string): boolean {
@@ -590,7 +590,7 @@ describe("B1: Main sidebar — eventScoped navigation filtering", () => {
   it("non-eventScoped admin → sees afterFinance items", () => {
     const adminPerms = ["vendors:read", "team:read"];
     const result = filterMainSidebar(navigationAfterFinance, adminPerms, false);
-    expect(result).toEqual(["Proveedores", "Equipo", "Enti IA"]);
+    expect(result).toEqual(["Proveedores", "Equipo", "HubIA"]);
   });
 
   it("non-eventScoped admin → Finance visible", () => {

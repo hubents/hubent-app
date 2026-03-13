@@ -64,7 +64,7 @@ const contactsSubNav = [
 const navigationAfterFinance = [
   { name: "Proveedores", href: "/dashboard/providers", icon: RiStoreLine, permission: "vendors:read" },
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine, permission: "team:read" },
-  { name: "Enti IA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null },
+  { name: "HubIA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null },
 ];
 
 const moreSubNav = [

@@ -121,7 +121,7 @@ export function AIGlobalDrawer({ open, onOpenChange }: AIGlobalDrawerProps) {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <SheetTitle className="text-left">Enti</SheetTitle>
+              <SheetTitle className="text-left">HubIA</SheetTitle>
               <p className="text-xs text-[var(--muted-foreground)]">{title}</p>
             </div>
           </div>

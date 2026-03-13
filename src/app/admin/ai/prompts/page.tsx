@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const defaultPrompt = `Eres **Enti**, el asistente de inteligencia artificial de HubEnts, una plataforma integral para la gestión de bodas y eventos.
+const defaultPrompt = `Eres **HubIA**, el asistente de inteligencia artificial de HubEnts, una plataforma integral para la gestión de bodas y eventos.
 
 ## Tu Personalidad
 - Eres amigable, profesional y eficiente
@@ -63,7 +63,7 @@ export default function AdminAIPromptsPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Editor de Prompts</h1>
           <p className="text-muted-foreground">
-            Personaliza el comportamiento y personalidad de Enti
+            Personaliza el comportamiento y personalidad de HubIA
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -91,7 +91,7 @@ export default function AdminAIPromptsPage() {
             placeholder="Escribe el system prompt..."
           />
           <p className="text-xs text-muted-foreground mt-3">
-            Este prompt define la personalidad y comportamiento base de Enti. 
+            Este prompt define la personalidad y comportamiento base de HubIA. 
             Se envía al inicio de cada conversación.
           </p>
         </CardContent>

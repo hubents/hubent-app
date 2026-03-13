@@ -370,7 +370,7 @@ export function TaskDrawer({
                     className="gap-2 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Enti
+                    HubIA
                   </Button>
                   )}
                   {!readOnly && (

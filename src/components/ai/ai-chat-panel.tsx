@@ -89,7 +89,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-semibold text-[var(--foreground)]">Enti</h2>
+              <h2 className="font-semibold text-[var(--foreground)]">HubIA</h2>
               <p className="text-xs text-[var(--muted-foreground)]">
                 Tu asistente IA {/* HIDDEN TEMPORARILY: • by NapsixAI */}
               </p>
@@ -124,7 +124,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--ai-accent)]/20 flex items-center justify-center">
                 <Sparkles className="w-8 h-8 text-[var(--ai-accent)]" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">¡Hola! Soy Enti 👋</h3>
+              <h3 className="font-semibold text-lg mb-2">¡Hola! Soy HubIA 👋</h3>
               <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-[280px] mx-auto">
                 Tu asistente inteligente para gestionar eventos, tareas y más.
               </p>
@@ -215,7 +215,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             )}
           </form>
           <p className="text-[10px] text-center text-[var(--muted-foreground)] mt-2">
-            Enti puede cometer errores. Verifica la información importante.
+            HubIA puede cometer errores. Verifica la información importante.
           </p>
         </div>
       </div>

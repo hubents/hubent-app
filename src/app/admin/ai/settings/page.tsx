@@ -50,8 +50,8 @@ export default function AdminAISettingsPage() {
     enabled: true,
     enabledForAllPlans: true,
     rateLimitPerHour: 50,
-    assistantName: "Enti",
-    welcomeMessage: "¡Hola! Soy Enti, tu asistente inteligente. ¿En qué puedo ayudarte hoy?",
+    assistantName: "HubIA",
+    welcomeMessage: "¡Hola! Soy HubIA, tu asistente inteligente. ¿En qué puedo ayudarte hoy?",
   });
 
   async function handleSave() {
@@ -79,7 +79,7 @@ export default function AdminAISettingsPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Configuración de IA</h1>
           <p className="text-muted-foreground">
-            Ajusta el comportamiento del asistente Enti
+            Ajusta el comportamiento del asistente HubIA
           </p>
         </div>
         <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -248,7 +248,7 @@ export default function AdminAISettingsPage() {
               <Input
                 value={config.assistantName}
                 onChange={(e) => setConfig({ ...config, assistantName: e.target.value })}
-                placeholder="Enti"
+                placeholder="HubIA"
               />
             </div>
 

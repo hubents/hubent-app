@@ -36,7 +36,7 @@ export default function AIPage() {
           <Sparkles className="w-7 h-7 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Enti - Asistente IA</h1>
+          <h1 className="text-2xl font-bold">HubIA - Asistente IA</h1>
           <p className="text-muted-foreground">
             Tu asistente inteligente para gestionar HubEnts {/* HIDDEN TEMPORARILY: • by NapsixAI */}
           </p>
@@ -50,7 +50,7 @@ export default function AIPage() {
             <CardHeader className="pb-3 border-b">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-violet-500" />
-                <CardTitle className="text-lg">Chat con Enti</CardTitle>
+                <CardTitle className="text-lg">Chat con HubIA</CardTitle>
               </div>
               <CardDescription>
                 Pregunta lo que necesites sobre tu organización
@@ -72,7 +72,7 @@ export default function AIPage() {
             <CardHeader>
               <CardTitle className="text-lg">¿Qué puedo hacer?</CardTitle>
               <CardDescription>
-                Enti puede ayudarte con muchas tareas
+                HubIA puede ayudarte con muchas tareas
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -96,7 +96,7 @@ export default function AIPage() {
             <CardHeader>
               <CardTitle className="text-lg">Acceso Rápido</CardTitle>
               <CardDescription>
-                También puedes acceder a Enti desde:
+                También puedes acceder a HubIA desde:
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
@@ -106,7 +106,7 @@ export default function AIPage() {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-violet-500" />
-                <span>El botón "Enti" dentro de cada tarea</span>
+                <span>El botón "HubIA" dentro de cada tarea</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-violet-500" />

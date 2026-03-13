@@ -800,7 +800,7 @@ function GdprFields({ gdprText, setGdprText, gdprLink, setGdprLink, formName, fo
       const data = await res.json();
       if (data.success && data.text) {
         setGdprText(data.text);
-        toast.success("Texto GDPR generado con ENTI");
+        toast.success("Texto GDPR generado con HubIA");
       } else {
         toast.error(data.error || "Error al generar");
       }
@@ -829,7 +829,7 @@ function GdprFields({ gdprText, setGdprText, gdprLink, setGdprLink, formName, fo
             ) : (
               <RiSparklingLine className="h-3.5 w-3.5" />
             )}
-            {generating ? "Generando..." : "Generar con ENTI"}
+            {generating ? "Generando..." : "Generar con HubIA"}
           </Button>
         </div>
         <Textarea

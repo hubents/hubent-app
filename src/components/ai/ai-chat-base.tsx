@@ -22,7 +22,7 @@ interface AIChatBaseProps {
 
 export function AIChatBase({
   context,
-  title = "Enti",
+  title = "HubIA",
   subtitle = "Tu asistente IA",
   suggestions: customSuggestions,
   onClose,
@@ -145,7 +145,7 @@ export function AIChatBase({
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-violet-500" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">¡Hola! Soy Enti 👋</h3>
+            <h3 className="font-semibold text-lg mb-2">¡Hola! Soy HubIA 👋</h3>
             <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-[280px] mx-auto">
               Tu asistente inteligente para gestionar eventos, tareas y más.
             </p>
@@ -233,7 +233,7 @@ export function AIChatBase({
           )}
         </form>
         <p className="text-[10px] text-center text-[var(--muted-foreground)] mt-2">
-          Enti puede cometer errores. Verifica la información importante.
+          HubIA puede cometer errores. Verifica la información importante.
         </p>
 {/* HIDDEN TEMPORARILY - NapsixAI branding
         <Link 
