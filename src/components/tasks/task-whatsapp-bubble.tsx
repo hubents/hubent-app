@@ -5,6 +5,7 @@ import { RiWhatsappLine } from "@remixicon/react";
 interface TaskWhatsAppBubbleProps {
   type: "whatsapp_sent" | "whatsapp_received";
   to: string | null;
+  from: string | null;
   content: string;
   template: string | null;
   senderName: string | null;
@@ -14,6 +15,7 @@ interface TaskWhatsAppBubbleProps {
 export function TaskWhatsAppBubble({
   type,
   to,
+  from,
   content,
   template,
   senderName,
@@ -37,6 +39,9 @@ export function TaskWhatsAppBubble({
       </div>
 
       <div className="px-3 py-2 space-y-1">
+        {from && (
+          <p className="text-[10px] text-muted-foreground">De: {from}</p>
+        )}
         {to && (
           <p className="text-[10px] text-muted-foreground">Para: {to}</p>
         )}

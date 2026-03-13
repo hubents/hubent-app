@@ -30,7 +30,9 @@ interface TaskMessage {
   emailThreadId?: string | null;
   emailMessageId?: string | null;
   whatsappTo?: string | null;
+  whatsappFrom?: string | null;
   whatsappTemplate?: string | null;
+  whatsappMessageId?: string | null;
 }
 
 interface TaskMessageAttachment {

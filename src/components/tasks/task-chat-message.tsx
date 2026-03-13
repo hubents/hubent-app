@@ -49,7 +49,9 @@ interface TaskMessage {
   emailThreadId?: string | null;
   emailMessageId?: string | null;
   whatsappTo?: string | null;
+  whatsappFrom?: string | null;
   whatsappTemplate?: string | null;
+  whatsappMessageId?: string | null;
 }
 
 interface TaskChatMessageProps {
@@ -246,6 +248,7 @@ export function TaskChatMessage({ message, isOwnMessage = false, onDelete }: Tas
             <TaskWhatsAppBubble
               type={message.type as "whatsapp_sent" | "whatsapp_received"}
               to={message.whatsappTo || null}
+              from={message.whatsappFrom || null}
               content={message.content}
               template={message.whatsappTemplate || null}
               senderName={message.senderName || null}
