@@ -19,6 +19,23 @@ function cleanSubject(subject: string): string {
   return subject.replace(/\[HE-\d+\]\s*/g, "").trim() || subject;
 }
 
+function extractEmail(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return match ? match[1] : value.trim();
+}
+
+function cleanEmailContent(content: string): string {
+  // Remove quoted reply chains (lines starting with > or "El ... escribió:")
+  const lines = content.split("\n");
+  const cleanLines: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith(">") || line.match(/^El .+ escribi[oó]:/i) || line.match(/^On .+ wrote:/i)) break;
+    if (line.match(/^-{3,}/) || line.match(/^_{3,}/)) break;
+    cleanLines.push(line);
+  }
+  return cleanLines.join("\n").trim() || content;
+}
+
 export function TaskEmailBubble({
   type,
   subject,
@@ -38,7 +55,7 @@ export function TaskEmailBubble({
     minute: "2-digit",
   });
   const displaySubject = subject ? cleanSubject(subject) : null;
-  const replyTo = isReceived && from ? from : to?.[0] || null;
+  const replyTo = isReceived && from ? extractEmail(from) : to?.[0] ? extractEmail(to[0]) : null;
   const replySubject = subject ? (subject.startsWith("Re:") ? subject : `Re: ${subject}`) : "Re:";
 
   return (
@@ -78,7 +95,7 @@ export function TaskEmailBubble({
           {cc && cc.length > 0 && <span>CC: {cc.join(", ")}</span>}
         </div>
 
-        <p className="text-xs mt-1 whitespace-pre-wrap">{content}</p>
+        <p className="text-xs mt-1 whitespace-pre-wrap">{isReceived ? cleanEmailContent(content) : content}</p>
 
         <div className="flex items-center justify-between mt-1.5">
           {senderName && (

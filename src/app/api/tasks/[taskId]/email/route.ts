@@ -31,7 +31,14 @@ export async function POST(
       );
     }
 
-    const { to, cc, bcc, subject, body } = await req.json();
+    const { to: rawTo, cc, bcc, subject, body } = await req.json();
+
+    // Clean email addresses: extract from "Name <email>" format
+    const extractEmail = (v: string) => {
+      const m = v.match(/<([^>]+)>/);
+      return m ? m[1] : v.trim();
+    };
+    const to = Array.isArray(rawTo) ? rawTo.map(extractEmail) : rawTo;
 
     if (!to || !Array.isArray(to) || to.length === 0 || !subject || !body) {
       return NextResponse.json(
