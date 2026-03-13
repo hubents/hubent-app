@@ -1088,7 +1088,9 @@ export const taskMessages = pgTable("task_messages", {
   emailThreadId: text("email_thread_id"),
   emailMessageId: text("email_message_id"),
   whatsappTo: text("whatsapp_to"),
+  whatsappFrom: text("whatsapp_from"),
   whatsappTemplate: text("whatsapp_template"),
+  whatsappMessageId: text("whatsapp_message_id"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
@@ -1801,6 +1803,18 @@ export const organizationIntegrations = pgTable("organization_integrations", {
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const composioTriggers = pgTable("composio_triggers", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  toolkit: text("toolkit").notNull(),
+  triggerSlug: text("trigger_slug").notNull(),
+  composioTriggerId: text("composio_trigger_id").notNull().unique(),
+  connectedAccountId: text("connected_account_id"),
+  status: text("status").notNull().default("active"),
+  config: jsonb("config"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ============================================
