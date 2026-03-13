@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { organizationIntegrations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { organizationIntegrations, composioTriggers, taskMessages, users } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
 
 /**
  * Composio Webhook Endpoint
  * 
  * Receives events from Composio when:
  * - Connection status changes (connected, disconnected, expired)
- * - Triggers fire (email received, message received) — Phase 2
+ * - Triggers fire (email received, WhatsApp received)
  * 
  * Configure in Composio Dashboard → Settings → Webhook:
  * URL: https://app.hubents.com/api/webhooks/composio
@@ -67,10 +69,19 @@ export async function POST(req: Request) {
         break;
       }
 
-      // Phase 2: Incoming email/message triggers
-      case "trigger.email_received":
-      case "trigger.whatsapp_received": {
-        console.log("[Composio Webhook] Trigger received (Phase 2 - not yet implemented):", eventType);
+      // Composio V3 trigger events
+      case "composio.trigger.message": {
+        const triggerSlug = payload.metadata?.trigger_slug;
+        const data = payload.data || {};
+        const connectedAccountId = payload.metadata?.connected_account_id;
+
+        if (triggerSlug === "GMAIL_NEW_GMAIL_MESSAGE") {
+          await handleInboundEmail(data, connectedAccountId);
+        } else if (triggerSlug === "WHATSAPP_NEW_MESSAGE") {
+          await handleInboundWhatsApp(data, connectedAccountId);
+        } else {
+          console.log("[Composio Webhook] Unhandled trigger slug:", triggerSlug);
+        }
         break;
       }
 
@@ -93,6 +104,243 @@ export async function GET() {
   return NextResponse.json({ 
     status: "ok", 
     endpoint: "composio-webhook",
-    version: "1.0",
+    version: "2.0",
   });
+}
+
+// ============================================
+// Inbound Email Handler
+// ============================================
+
+interface GmailTriggerData {
+  id?: string;
+  threadId?: string;
+  subject?: string;
+  from?: string;
+  to?: string;
+  message_text?: string;
+  date?: string;
+  messageId?: string;
+}
+
+async function handleInboundEmail(data: GmailTriggerData, connectedAccountId?: string) {
+  const { threadId, subject, from, to, message_text, messageId } = data;
+
+  if (!threadId && !subject) {
+    console.warn("[Inbound Email] No threadId or subject — cannot match to task");
+    return;
+  }
+
+  // Deduplicate: skip if we already have this messageId
+  if (messageId) {
+    const existing = await db
+      .select({ id: taskMessages.id })
+      .from(taskMessages)
+      .where(eq(taskMessages.emailMessageId, messageId))
+      .limit(1);
+    if (existing.length > 0) {
+      console.log("[Inbound Email] Duplicate messageId, skipping:", messageId);
+      return;
+    }
+  }
+
+  // Strategy 1: Match by threadId
+  let matchedTaskId: number | null = null;
+  let senderId: string | null = null;
+
+  if (threadId) {
+    const threadMatch = await db
+      .select({
+        taskId: taskMessages.taskId,
+        senderId: taskMessages.senderId,
+      })
+      .from(taskMessages)
+      .where(eq(taskMessages.emailThreadId, threadId))
+      .orderBy(desc(taskMessages.createdAt))
+      .limit(1);
+
+    if (threadMatch.length > 0) {
+      matchedTaskId = threadMatch[0].taskId;
+      senderId = threadMatch[0].senderId;
+    }
+  }
+
+  // Strategy 2: Match by subject tag [HE-{taskId}]
+  if (!matchedTaskId && subject) {
+    const tagMatch = subject.match(/\[HE-(\d+)\]/);
+    if (tagMatch) {
+      matchedTaskId = parseInt(tagMatch[1], 10);
+    }
+  }
+
+  if (!matchedTaskId) {
+    console.log("[Inbound Email] No task match found for threadId:", threadId, "subject:", subject?.slice(0, 50));
+    return;
+  }
+
+  // Resolve senderId: use the user who connected the integration
+  if (!senderId && connectedAccountId) {
+    const integration = await db
+      .select({ connectedBy: organizationIntegrations.connectedBy })
+      .from(organizationIntegrations)
+      .where(eq(organizationIntegrations.composioConnectedAccountId, connectedAccountId))
+      .limit(1);
+    if (integration.length > 0 && integration[0].connectedBy) {
+      senderId = integration[0].connectedBy;
+    }
+  }
+
+  if (!senderId) {
+    console.warn("[Inbound Email] Could not resolve senderId for task:", matchedTaskId);
+    return;
+  }
+
+  // Insert email_received message
+  const [message] = await db
+    .insert(taskMessages)
+    .values({
+      taskId: matchedTaskId,
+      senderId,
+      type: "email_received",
+      content: message_text || "(sin contenido)",
+      emailFrom: from || null,
+      emailTo: to ? [to] : null,
+      emailSubject: subject || null,
+      emailThreadId: threadId || null,
+      emailMessageId: messageId || null,
+    })
+    .returning();
+
+  console.log("[Inbound Email] Saved to task", matchedTaskId, "message id:", message.id);
+
+  // Broadcast via Pusher
+  await broadcastInboundMessage(matchedTaskId, message, senderId);
+}
+
+// ============================================
+// Inbound WhatsApp Handler
+// ============================================
+
+interface WhatsAppTriggerData {
+  from?: string;
+  body?: string;
+  message_id?: string;
+  timestamp?: string;
+}
+
+async function handleInboundWhatsApp(data: WhatsAppTriggerData, connectedAccountId?: string) {
+  const { from: whatsappFrom, body, message_id } = data;
+
+  if (!whatsappFrom) {
+    console.warn("[Inbound WhatsApp] No 'from' number — cannot match to task");
+    return;
+  }
+
+  // Deduplicate
+  if (message_id) {
+    const existing = await db
+      .select({ id: taskMessages.id })
+      .from(taskMessages)
+      .where(eq(taskMessages.whatsappMessageId, message_id))
+      .limit(1);
+    if (existing.length > 0) {
+      console.log("[Inbound WhatsApp] Duplicate message_id, skipping:", message_id);
+      return;
+    }
+  }
+
+  // Match by phone number: find last whatsapp_sent to this number
+  const normalizedFrom = normalizePhone(whatsappFrom);
+  const phoneMatch = await db
+    .select({
+      taskId: taskMessages.taskId,
+      senderId: taskMessages.senderId,
+    })
+    .from(taskMessages)
+    .where(
+      and(
+        eq(taskMessages.type, sql`'whatsapp_sent'`),
+        sql`replace(replace(replace(${taskMessages.whatsappTo}, '+', ''), ' ', ''), '-', '') = ${normalizedFrom}`
+      )
+    )
+    .orderBy(desc(taskMessages.createdAt))
+    .limit(1);
+
+  if (phoneMatch.length === 0) {
+    console.log("[Inbound WhatsApp] No task match for number:", whatsappFrom);
+    return;
+  }
+
+  const matchedTaskId = phoneMatch[0].taskId;
+  let senderId = phoneMatch[0].senderId;
+
+  // Fallback senderId from integration
+  if (!senderId && connectedAccountId) {
+    const integration = await db
+      .select({ connectedBy: organizationIntegrations.connectedBy })
+      .from(organizationIntegrations)
+      .where(eq(organizationIntegrations.composioConnectedAccountId, connectedAccountId))
+      .limit(1);
+    if (integration.length > 0 && integration[0].connectedBy) {
+      senderId = integration[0].connectedBy;
+    }
+  }
+
+  if (!senderId) {
+    console.warn("[Inbound WhatsApp] Could not resolve senderId for task:", matchedTaskId);
+    return;
+  }
+
+  const [message] = await db
+    .insert(taskMessages)
+    .values({
+      taskId: matchedTaskId,
+      senderId,
+      type: "whatsapp_received",
+      content: body || "(sin contenido)",
+      whatsappFrom,
+      whatsappTo: null,
+      whatsappMessageId: message_id || null,
+    })
+    .returning();
+
+  console.log("[Inbound WhatsApp] Saved to task", matchedTaskId, "message id:", message.id);
+
+  await broadcastInboundMessage(matchedTaskId, message, senderId);
+}
+
+// ============================================
+// Shared helpers
+// ============================================
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/[+\s\-()]/g, "");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function broadcastInboundMessage(taskId: number, message: any, senderId: string) {
+  try {
+    const sender = await db
+      .select({ name: users.name, email: users.email, image: users.image })
+      .from(users)
+      .where(eq(users.id, senderId))
+      .limit(1);
+
+    const messagePayload = {
+      ...message,
+      senderName: sender[0]?.name || null,
+      senderEmail: sender[0]?.email || null,
+      senderImage: sender[0]?.image || null,
+      attachments: [],
+    };
+
+    const pusher = getPusherServer();
+    await pusher.trigger(
+      CHANNELS.taskChat(taskId),
+      EVENTS.MESSAGE_NEW,
+      messagePayload
+    );
+  } catch (pusherError) {
+    console.warn("[Inbound Message] Pusher broadcast failed:", pusherError);
+  }
 }

@@ -61,12 +61,13 @@ export async function POST(
       );
     }
 
+    const taggedSubject = subject.includes(`[HE-${taskId}]`) ? subject : `[HE-${taskId}] ${subject}`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let emailResult: any;
     try {
       emailResult = await executeComposioTool(orgId, "GMAIL_SEND_EMAIL", ["gmail"], {
         recipient_email: to.join(", "),
-        subject,
+        subject: taggedSubject,
         body,
         cc: cc?.join(", ") || undefined,
         bcc: bcc?.join(", ") || undefined,
@@ -94,7 +95,7 @@ export async function POST(
         emailTo: to,
         emailCc: cc || null,
         emailBcc: bcc || null,
-        emailSubject: subject,
+        emailSubject: taggedSubject,
         emailThreadId: (emailResult?.data?.threadId as string) || null,
         emailMessageId: (emailResult?.data?.messageId as string) || null,
       })
