@@ -215,9 +215,9 @@ describe("Coming Soon Apps - Curated Marketplace", () => {
     }
   });
 
-  it("all logo URLs point to Composio CDN", () => {
+  it("all logo URLs point to Simple Icons CDN", () => {
     for (const app of COMING_SOON_APPS) {
-      expect(app.logoUrl).toMatch(/^https:\/\/composio\.dev\/toolkits\/logos\/hero\/.+\.svg$/);
+      expect(app.logoUrl).toMatch(/^https:\/\/cdn\.simpleicons\.org\/.+$/);
     }
   });
 

@@ -5,13 +5,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
 
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "composio.dev",
-        pathname: "/toolkits/logos/**",
-      },
-    ],
+    remotePatterns: [],
   },
   
   // Expose env vars to serverless functions at runtime

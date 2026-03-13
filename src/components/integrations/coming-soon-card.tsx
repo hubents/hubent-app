@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
 
 interface ComingSoonCardProps {
   slug: string;
@@ -18,18 +18,25 @@ export function ComingSoonCard({
   category,
   logoUrl,
 }: ComingSoonCardProps) {
+  const [imgError, setImgError] = useState(false);
+  const initials = name.slice(0, 2);
+
   return (
     <Card className="relative overflow-hidden border-dashed opacity-80 hover:opacity-100 transition-opacity">
       <CardContent className="p-3">
         <div className="flex items-start gap-2.5">
           <div className="shrink-0 w-8 h-8 rounded-md bg-muted flex items-center justify-center">
-            <Image
-              src={logoUrl}
-              alt={name}
-              width={18}
-              height={18}
-              unoptimized
-            />
+            {imgError ? (
+              <span className="text-[10px] font-semibold text-muted-foreground">{initials}</span>
+            ) : (
+              <img
+                src={logoUrl}
+                alt={name}
+                width={18}
+                height={18}
+                onError={() => setImgError(true)}
+              />
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
