@@ -4,6 +4,7 @@ import {
   formInstances,
   forms,
   leads,
+  leadStages,
   contacts,
   type FormSubmission,
 } from "@/db/schema";
@@ -188,6 +189,20 @@ export async function createLeadFromSubmission(
     crmData.notes ? `Notas: ${crmData.notes}` : null,
   ].filter(Boolean).join("\n");
 
+  // Find default stage so the lead appears in CRM Kanban
+  const defaultStage = await db.query.leadStages.findFirst({
+    where: (s, { eq, and }) =>
+      and(eq(s.organizationId, organizationId), eq(s.isDefault, true)),
+  });
+  let stageId: number | null = defaultStage?.id ?? null;
+  if (!stageId) {
+    const firstStage = await db.query.leadStages.findFirst({
+      where: (s, { eq }) => eq(s.organizationId, organizationId),
+      orderBy: (s, { asc }) => [asc(s.sortOrder)],
+    });
+    stageId = firstStage?.id ?? null;
+  }
+
   const [lead] = await db
     .insert(leads)
     .values({
@@ -195,6 +210,7 @@ export async function createLeadFromSubmission(
       title: parts.join(" ") || "Lead desde formulario",
       description: description || null,
       source,
+      stageId,
     })
     .returning({ id: leads.id });
   return lead.id;
