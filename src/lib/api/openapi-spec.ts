@@ -302,16 +302,16 @@ export function generateOpenApiSpec() {
         get: { operationId: "listProducts", summary: "List product catalog", tags: ["Finance"], responses: { "200": { description: "Product catalog" } } },
       },
       "/forms": {
-        get: { operationId: "listForms", summary: "List forms", tags: ["Forms"], parameters: [{ $ref: "#/components/parameters/Limit" }, { name: "status", in: "query", schema: { type: "string" } }], responses: { "200": { description: "Paginated list of forms" } } },
-        post: { operationId: "createForm", summary: "Create a form", tags: ["Forms"], responses: { "201": { description: "Form created" } } },
+        get: { operationId: "listForms", summary: "List forms", description: "Returns all forms including CRM config fields (crm_create_contact, crm_create_lead).", tags: ["Forms"], parameters: [{ $ref: "#/components/parameters/Limit" }, { name: "status", in: "query", schema: { type: "string" } }], responses: { "200": { description: "Paginated list of forms" } } },
+        post: { operationId: "createForm", summary: "Create a form", description: "Accepts optional crm_create_contact and crm_create_lead booleans (default true).", tags: ["Forms"], responses: { "201": { description: "Form created" } } },
       },
       "/forms/{id}": {
-        get: { operationId: "getForm", summary: "Get a form", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Form details" } } },
-        patch: { operationId: "updateForm", summary: "Update a form", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Form updated" } } },
+        get: { operationId: "getForm", summary: "Get a form", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Form details including CRM config" } } },
+        patch: { operationId: "updateForm", summary: "Update a form", description: "Supports crm_create_contact and crm_create_lead boolean fields to control CRM behavior on submission.", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Form updated" } } },
       },
       "/forms/{id}/fields": {
         get: { operationId: "listFormFields", summary: "List form fields", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Form fields" } } },
-        put: { operationId: "replaceFormFields", summary: "Replace all form fields", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Fields replaced" } } },
+        put: { operationId: "replaceFormFields", summary: "Replace all form fields", description: "Only allowed when form status is 'draft'. Returns 422 if form is active or paused.", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { "200": { description: "Fields replaced" }, "422": { description: "Form is not in draft status" } } },
       },
       "/forms/{id}/submissions": {
         get: { operationId: "listFormSubmissions", summary: "List form submissions", tags: ["Forms"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }, { $ref: "#/components/parameters/Limit" }], responses: { "200": { description: "Paginated submissions" } } },

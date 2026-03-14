@@ -6,9 +6,20 @@ import { RiArrowLeftSLine } from "@remixicon/react";
 
 const CHANGELOG = [
   {
+    version: "2025-03-14",
+    date: "2025-03-14",
+    current: true,
+    changes: [
+      { type: "added" as const, text: "Forms: crm_create_contact and crm_create_lead boolean fields on form objects (GET, POST, PATCH)" },
+      { type: "added" as const, text: "Forms: 10 new CRM field types for form builder (last_name, nie_cif, address, city, postal_code, state, country, trade_name, website, category)" },
+      { type: "changed" as const, text: "Forms: PUT /forms/{id}/fields now requires form status to be 'draft'. Returns 422 for active/paused forms" },
+      { type: "security" as const, text: "Forms: Server-side enforcement of draft-only field editing on both internal and V1 API routes" },
+    ],
+  },
+  {
     version: "2025-01-01",
     date: "2025-01-01",
-    current: true,
+    current: false,
     changes: [
       { type: "added" as const, text: "Initial public API release with 40+ endpoints" },
       { type: "added" as const, text: "OpenAPI 3.1 specification with Scalar UI documentation" },

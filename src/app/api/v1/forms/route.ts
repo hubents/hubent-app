@@ -21,6 +21,8 @@ const createFormSchema = z.object({
   notify_email: z.string().email().optional(),
   gdpr_enabled: z.boolean().optional(),
   gdpr_text: z.string().optional(),
+  crm_create_contact: z.boolean().optional(),
+  crm_create_lead: z.boolean().optional(),
 });
 
 export const GET = withApiAuth(
@@ -58,6 +60,8 @@ export const GET = withApiAuth(
       notifyOnResponse: forms.notifyOnResponse,
       notifyEmail: forms.notifyEmail,
       gdprEnabled: forms.gdprEnabled,
+      crmCreateContact: forms.crmCreateContact,
+      crmCreateLead: forms.crmCreateLead,
       createdAt: forms.createdAt,
       updatedAt: forms.updatedAt,
     }).from(forms).where(whereClause).orderBy(desc(forms.createdAt)).limit(limit);
@@ -95,6 +99,8 @@ export const POST = withApiAuth(
       notifyOnResponse: d.notify_on_response,
       notifyEmail: d.notify_email,
       gdprEnabled: d.gdpr_enabled,
+      crmCreateContact: d.crm_create_contact,
+      crmCreateLead: d.crm_create_lead,
     }).returning();
 
     return { status: 201, data: { object: "form", ...form } };

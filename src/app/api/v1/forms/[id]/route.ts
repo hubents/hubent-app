@@ -38,6 +38,8 @@ export const PATCH = withApiAuth(
     if (body.notify_on_response !== undefined) updateData.notifyOnResponse = body.notify_on_response;
     if (body.notify_email !== undefined) updateData.notifyEmail = body.notify_email;
     if (body.gdpr_enabled !== undefined) updateData.gdprEnabled = body.gdpr_enabled;
+    if (body.crm_create_contact !== undefined) updateData.crmCreateContact = body.crm_create_contact;
+    if (body.crm_create_lead !== undefined) updateData.crmCreateLead = body.crm_create_lead;
 
     const [updated] = await db.update(forms).set(updateData)
       .where(and(eq(forms.id, id), eq(forms.organizationId, session.organizationId))).returning();
