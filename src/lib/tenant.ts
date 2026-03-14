@@ -442,6 +442,11 @@ export function canManageUsers(session: TenantSession): PermissionCheck {
     return { allowed: true };
   }
 
+  // Provider owners and admins can manage their team
+  if (session.role === "provider_owner" || session.role === "provider_admin") {
+    return { allowed: true };
+  }
+
   return {
     allowed: false,
     reason: "Only admins and planners can manage users",

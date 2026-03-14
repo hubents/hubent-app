@@ -101,7 +101,7 @@ export default function DeliveryNotesPage() {
   );
 }
 
-function DeliveryNotesContent() {
+export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-notes" }: { basePath?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { can } = useUserSession();
@@ -129,7 +129,7 @@ function DeliveryNotesContent() {
   useEffect(() => {
     if (searchParams.get("new") === "true") {
       openNewDrawer();
-      router.replace("/dashboard/finance/delivery-notes");
+      router.replace(basePath);
     }
   }, [searchParams]);
 

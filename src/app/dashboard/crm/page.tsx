@@ -126,7 +126,7 @@ export default function CRMPage() {
   );
 }
 
-function CRMPageContent() {
+export function CRMPageContent() {
   const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);

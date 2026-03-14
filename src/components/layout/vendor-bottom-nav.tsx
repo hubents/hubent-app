@@ -10,27 +10,38 @@ import {
   RiFileListLine,
   RiSettings4Line,
   RiMoreLine,
-  RiMoneyDollarCircleLine,
   RiProfileLine,
   RiTeamLine,
+  RiBankLine,
+  RiContactsBookLine,
+  RiKanbanView2,
+  RiSparklingLine,
+  RiSurveyLine,
 } from "@remixicon/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 const mainNav = [
   { name: "Dashboard", href: "/vendor", icon: RiDashboardLine, exact: true },
-  { name: "Calendario", href: "/vendor/calendar", icon: RiCalendar2Line },
+  { name: "Contactos", href: "/vendor/contacts", icon: RiContactsBookLine },
   { name: "Eventos", href: "/vendor/events", icon: RiCalendarEventLine },
-  { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine },
+  { name: "Finanzas", href: "/vendor/finance", icon: RiBankLine },
 ];
 
 const moreItems = [
-  { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine },
+  { name: "CRM", href: "/vendor/crm", icon: RiKanbanView2 },
+  { name: "Calendario", href: "/vendor/calendar", icon: RiCalendar2Line },
+  { name: "Tareas", href: "/vendor/tasks", icon: RiFileListLine },
+  { name: "Formularios", href: "/vendor/forms", icon: RiSurveyLine },
   { name: "Equipo", href: "/vendor/team", icon: RiTeamLine },
+  { name: "HubIA", href: "/vendor/ai", icon: RiSparklingLine },
+  { name: "separator", href: "", icon: RiMoreLine },
+  { name: "Mi Perfil", href: "/vendor/profile", icon: RiProfileLine },
   { name: "Configuración", href: "/vendor/settings", icon: RiSettings4Line },
 ];
 
@@ -70,14 +81,18 @@ export function VendorBottomNav() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="mb-2">
-            {moreItems.map((item) => (
-              <DropdownMenuItem key={item.name} asChild>
-                <Link href={item.href} className="flex items-center gap-2">
-                  <item.icon className="h-4 w-4" />
-                  {item.name}
-                </Link>
-              </DropdownMenuItem>
-            ))}
+            {moreItems.map((item, idx) =>
+              item.name === "separator" ? (
+                <DropdownMenuSeparator key={`sep-${idx}`} />
+              ) : (
+                <DropdownMenuItem key={item.name} asChild>
+                  <Link href={item.href} className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </Link>
+                </DropdownMenuItem>
+              )
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </nav>

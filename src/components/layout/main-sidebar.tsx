@@ -44,14 +44,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const navigationBeforeFinance = [
+const navigationDashboard = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine, permission: null },
-  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line, permission: null },
+];
+
+const navigationAfterContacts = [
   { name: "Eventos", href: "/dashboard/events", icon: RiCalendarEventLine, permission: "events:read" },
-  // Contactos is now a submenu, handled separately
   { name: "CRM", href: "/dashboard/crm", icon: RiUserLine, permission: "crm:read" },
-  { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine, permission: "tasks:read" },
-  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine, permission: "forms:read" },
 ];
 
 const contactsSubNav = [
@@ -63,21 +62,25 @@ const contactsSubNav = [
 
 const navigationAfterFinance = [
   { name: "Proveedores", href: "/dashboard/providers", icon: RiStoreLine, permission: "vendors:read" },
+];
+
+const productivitySubNav = [
+  { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line },
+  { name: "Tareas", href: "/dashboard/tasks", icon: RiFileListLine },
+  { name: "Formularios", href: "/dashboard/forms", icon: RiSurveyLine },
+  { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
+];
+
+const navigationAfterProductivity = [
   { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine, permission: "team:read" },
   { name: "HubIA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null },
 ];
 
-const moreSubNav = [
-  { name: "Menús", href: "/dashboard/menus", icon: RiRestaurantLine, comingSoon: true },
-  { name: "Documentos", href: "/dashboard/documents", icon: RiFolder3Line, comingSoon: true },
-];
-
 const financeSubNav = [
-  { name: "Panel de Control", href: "/dashboard/finance", icon: RiDashboardLine },
+  { name: "Dashboard", href: "/dashboard/finance", icon: RiDashboardLine },
   { name: "Presupuestos", href: "/dashboard/finance/quotes", icon: RiFileTextLine },
-  { name: "Proformas", href: "/dashboard/finance/proformas", icon: RiFileTextLine },
-  { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
   { name: "Facturas", href: "/dashboard/finance/invoices", icon: RiFileList2Line },
+  { name: "Albaranes", href: "/dashboard/finance/delivery-notes", icon: RiTruckLine },
   { name: "Pagos", href: "/dashboard/finance/payments", icon: RiMoneyDollarCircleLine },
   { name: "Configuración", href: "/dashboard/finance/settings", icon: RiSettings4Line },
 ];
@@ -96,11 +99,15 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const { isEventView } = useEvent();
   const { can, eventScoped, loading: sessionLoading } = useUserSession();
   const [financeExpanded, setFinanceExpanded] = useState(false);
-  const [moreExpanded, setMoreExpanded] = useState(false);
+  const [productivityExpanded, setProductivityExpanded] = useState(false);
   const [contactsExpanded, setContactsExpanded] = useState(false);
 
-  const filteredNavBefore = useMemo(() => {
-    const base = navigationBeforeFinance.filter((item) => !item.permission || can(item.permission));
+  const filteredDashboard = useMemo(() => {
+    if (eventScoped) return [];
+    return navigationDashboard.filter((item) => !item.permission || can(item.permission));
+  }, [can, eventScoped]);
+  const filteredAfterContacts = useMemo(() => {
+    const base = navigationAfterContacts.filter((item) => !item.permission || can(item.permission));
     if (eventScoped) return base.filter((item) => item.name === "Eventos");
     return base;
   }, [can, eventScoped]);
@@ -108,14 +115,20 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     if (eventScoped) return [];
     return navigationAfterFinance.filter((item) => !item.permission || can(item.permission));
   }, [can, eventScoped]);
+  const filteredNavAfterProductivity = useMemo(() => {
+    if (eventScoped) return [];
+    return navigationAfterProductivity.filter((item) => !item.permission || can(item.permission));
+  }, [can, eventScoped]);
   const showFinance = useMemo(() => !eventScoped && can("finance:read"), [can, eventScoped]);
   const showContacts = useMemo(() => !eventScoped && can("crm:read"), [can, eventScoped]);
   
   // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
   const isContactsPage = pathname.startsWith("/dashboard/contacts");
-  const isMorePage = pathname.startsWith("/dashboard/menus") ||
-                     pathname.startsWith("/dashboard/documents");
+  const isProductivityPage = pathname.startsWith("/dashboard/calendar") ||
+                             pathname.startsWith("/dashboard/tasks") ||
+                             pathname.startsWith("/dashboard/forms") ||
+                             pathname.startsWith("/dashboard/documents");
   
   useEffect(() => {
     if (isFinancePage) {
@@ -124,10 +137,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     if (isContactsPage) {
       setContactsExpanded(true);
     }
-    if (isMorePage) {
-      setMoreExpanded(true);
+    if (isProductivityPage) {
+      setProductivityExpanded(true);
     }
-  }, [isFinancePage, isContactsPage, isMorePage]);
+  }, [isFinancePage, isContactsPage, isProductivityPage]);
   
   // Auto-collapse when in event view on desktop
   const isCollapsed = collapsed || isEventView;
@@ -161,11 +174,9 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
-            {/* Items before Finance */}
-            {filteredNavBefore.map((item) => {
-              const isActive = item.href === "/dashboard" 
-                ? pathname === item.href 
-                : pathname === item.href || pathname.startsWith(item.href + "/");
+            {/* Dashboard */}
+            {filteredDashboard.map((item) => {
+              const isActive = pathname === item.href;
               
               if (isCollapsed) {
                 return (
@@ -207,7 +218,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               );
             })}
 
-            {/* Contactos Menu with Submenu */}
+            {/* Contactos Menu with Submenu (right after Dashboard) */}
             {showContacts && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -277,6 +288,50 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               </div>
             ))}
+
+            {/* Eventos + CRM (after Contactos) */}
+            {filteredAfterContacts.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              
+              if (isCollapsed) {
+                return (
+                  <Tooltip key={item.name}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                          isActive
+                            ? "bg-[var(--primary)] text-white"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {item.name}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
 
             {/* Finance Menu with Submenu */}
             {showFinance && (isCollapsed ? (
@@ -348,7 +403,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </div>
             ))}
 
-            {/* More Menu with Submenu */}
+            {/* Productividad Menu with Submenu */}
             {!eventScoped && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -356,7 +411,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     href="/dashboard/calendar"
                     className={cn(
                       "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
-                      isMorePage
+                      isProductivityPage
                         ? "bg-[var(--primary)] text-white"
                         : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                     )}
@@ -365,35 +420,35 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  Herramientas
+                  Productividad
                 </TooltipContent>
               </Tooltip>
             ) : (
               <div>
                 <button
-                  onClick={() => setMoreExpanded(!moreExpanded)}
+                  onClick={() => setProductivityExpanded(!productivityExpanded)}
                   className={cn(
                     "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
-                    isMorePage
+                    isProductivityPage
                       ? "bg-[var(--primary)]/10 text-[var(--primary)]"
                       : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                   )}
                 >
                   <div className="flex items-center gap-3">
                     <RiToolsLine className="h-5 w-5" />
-                    Herramientas
+                    Productividad
                   </div>
                   <RiArrowDownSLine 
                     className={cn(
                       "h-4 w-4 transition-transform",
-                      moreExpanded && "rotate-180"
+                      productivityExpanded && "rotate-180"
                     )} 
                   />
                 </button>
                 
-                {moreExpanded && (
-                  <div className="ml-4 mt-1 space-y-1 border-l border-[var(--border)] pl-3">
-                    {moreSubNav.map((subItem) => {
+                {productivityExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-border pl-3">
+                    {productivitySubNav.map((subItem) => {
                       const isSubActive = pathname === subItem.href || pathname.startsWith(subItem.href + "/");
                       
                       return (
@@ -411,7 +466,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                           <span className="flex-1">{subItem.name}</span>
                           {subItem.comingSoon && (
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              Soon
+                              Próx.
                             </Badge>
                           )}
                         </Link>
@@ -422,8 +477,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </div>
             ))}
 
-            {/* Items after Finance */}
-            {filteredNavAfter.map((item) => {
+            {/* Items after Productividad: Equipo + HubIA */}
+            {filteredNavAfterProductivity.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               
               if (isCollapsed) {

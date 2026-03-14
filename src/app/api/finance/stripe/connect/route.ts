@@ -26,10 +26,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate state for CSRF protection
+    // Generate state for CSRF protection (includes orgType for redirect)
     const state = Buffer.from(JSON.stringify({ 
       orgId, 
-      timestamp: Date.now() 
+      timestamp: Date.now(),
+      orgType: session.orgType || "tenant",
     })).toString("base64");
 
     // Build Stripe Connect OAuth URL

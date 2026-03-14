@@ -95,6 +95,10 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function RolesPage() {
+  return <RolesPageContent />;
+}
+
+export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPath?: string }) {
   const router = useRouter();
   const { can } = useUserSession();
   const canManageTeam = can("team:manage");
@@ -432,7 +436,7 @@ export default function RolesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/settings")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(backPath)}>
             <RiArrowLeftLine className="h-5 w-5" />
           </Button>
           <div>

@@ -10,24 +10,40 @@ export function VendorGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function checkOrgType() {
       try {
-        const res = await fetch("/api/user/organizations");
+        // Use /api/user/me which returns the ACTIVE org context (from cookie)
+        const res = await fetch("/api/user/me");
         const data = await res.json();
 
-        if (!data.success || !data.data?.length) {
+        if (!data.success || !data.data) {
           setStatus("redirect");
           return;
         }
 
-        // Check if any org is a provider
-        const hasProviderOrg = data.data.some(
-          (org: { orgType: string }) => org.orgType === "provider"
-        );
-
-        if (hasProviderOrg) {
+        // Check if the ACTIVE org is a provider (not just any org)
+        if (data.data.orgType === "provider") {
           setStatus("ok");
-        } else {
-          setStatus("redirect");
+          return;
         }
+
+        // Active org is not provider — try to find and switch to a provider org
+        const orgsRes = await fetch("/api/user/organizations");
+        const orgsData = await orgsRes.json();
+
+        if (orgsData.success && orgsData.data?.length) {
+          const providerOrg = orgsData.data.find(
+            (org: { orgType: string }) => org.orgType === "provider"
+          );
+
+          if (providerOrg) {
+            // Switch to provider org by setting the cookie
+            document.cookie = `hubents-org-id=${providerOrg.id};path=/;max-age=${30 * 24 * 60 * 60}`;
+            // Reload to apply the new org context
+            window.location.reload();
+            return;
+          }
+        }
+
+        setStatus("redirect");
       } catch {
         setStatus("redirect");
       }

@@ -18,6 +18,9 @@ import {
   RiLockLine,
   RiSaveLine,
   RiPlugLine,
+  RiBankCardLine,
+  RiLoader4Line,
+  RiExternalLinkLine,
 } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -203,6 +206,8 @@ export default function VendorSettingsPage() {
         </CardContent>
       </Card>
 
+      <BillingCard />
+
       <Card
         className="cursor-pointer hover:border-primary/50 transition-colors"
         onClick={() => router.push("/vendor/settings/integrations")}
@@ -263,5 +268,64 @@ export default function VendorSettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function BillingCard() {
+  const [loading, setLoading] = useState(false);
+  const [plan, setPlan] = useState<{ name: string; status: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchBilling() {
+      try {
+        const res = await fetch("/api/user/billing");
+        const data = await res.json();
+        if (data.success && data.data?.plan) {
+          setPlan({ name: data.data.plan.name, status: data.data.subscription?.status || "active" });
+        }
+      } catch { /* silent */ }
+    }
+    fetchBilling();
+  }, []);
+
+  const openPortal = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/subscriptions/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        window.location.href = data.data.url;
+      } else {
+        toast.error("No se pudo abrir el portal de facturación");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <RiBankCardLine className="h-5 w-5" />
+          Plan y Facturación
+        </CardTitle>
+        <CardDescription>
+          {plan ? `Plan actual: ${plan.name}` : "Gestiona tu suscripción y facturación"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" onClick={openPortal} disabled={loading}>
+          {loading ? (
+            <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RiExternalLinkLine className="h-4 w-4 mr-2" />
+          )}
+          {loading ? "Abriendo..." : "Gestionar Suscripción"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

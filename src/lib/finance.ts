@@ -15,7 +15,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
-import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment } from "@/lib/cross-org-finance";
+import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment, syncDocumentEdit } from "@/lib/cross-org-finance";
 import { linkDocumentToTask } from "@/lib/finance-task-link";
 
 // ============================================
@@ -734,6 +734,13 @@ export async function updateDocument(
       )
     )
     .returning();
+
+  // Cross-org sync: propagate edits to mirror/original document (non-blocking)
+  if (updated) {
+    syncDocumentEdit(documentId).catch((e) =>
+      console.error("Cross-org document edit sync failed:", e)
+    );
+  }
 
   return updated ? getDocument(session, documentId) : null;
 }

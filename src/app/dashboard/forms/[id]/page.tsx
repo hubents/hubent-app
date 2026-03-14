@@ -94,6 +94,10 @@ interface InstanceData {
 }
 
 export default function FormEditorPage() {
+  return <FormEditorContent />;
+}
+
+export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?: string }) {
   const params = useParams();
   const router = useRouter();
   const { can, loading: sessionLoading } = useUserSession();
@@ -244,7 +248,7 @@ export default function FormEditorPage() {
     return (
       <div className="p-6 text-center">
         <p className="text-muted-foreground">Formulario no encontrado</p>
-        <Button variant="ghost" className="mt-4" onClick={() => router.push("/dashboard/forms")}>
+        <Button variant="ghost" className="mt-4" onClick={() => router.push(backPath)}>
           <RiArrowLeftLine className="h-4 w-4 mr-2" /> Volver
         </Button>
       </div>
@@ -263,7 +267,7 @@ export default function FormEditorPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/forms")}>
+          <Button variant="ghost" size="icon" onClick={() => router.push(backPath)}>
             <RiArrowLeftLine className="h-5 w-5" />
           </Button>
           <div>

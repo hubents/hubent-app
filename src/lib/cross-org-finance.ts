@@ -346,6 +346,75 @@ export async function getLinkedDocument(documentId: number) {
   });
 }
 
+/**
+ * Sync document edits (fields + items) from one document to its linked mirror/original.
+ * Called after updateDocument() to keep both sides in sync.
+ */
+export async function syncDocumentEdit(documentId: number) {
+  const doc = await db.query.financialDocuments.findFirst({
+    where: eq(financialDocuments.id, documentId),
+  });
+  if (!doc) return;
+
+  let linkedDocId: number | null = null;
+
+  if (doc.sourceDocumentId) {
+    linkedDocId = doc.sourceDocumentId;
+  } else {
+    const mirror = await db.query.financialDocuments.findFirst({
+      where: eq(financialDocuments.sourceDocumentId, documentId),
+      columns: { id: true },
+    });
+    linkedDocId = mirror?.id ?? null;
+  }
+
+  if (!linkedDocId) return;
+
+  // Sync editable fields (not number, not organizationId, not direction)
+  await db.update(financialDocuments)
+    .set({
+      status: doc.status,
+      issueDate: doc.issueDate,
+      dueDate: doc.dueDate,
+      validUntil: doc.validUntil,
+      subtotal: doc.subtotal,
+      taxAmount: doc.taxAmount,
+      total: doc.total,
+      paidAmount: doc.paidAmount,
+      currency: doc.currency,
+      globalDiscount: doc.globalDiscount,
+      globalDiscountType: doc.globalDiscountType,
+      paymentMethod: doc.paymentMethod,
+      paymentTerms: doc.paymentTerms,
+      notes: doc.notes,
+      termsAndConditions: doc.termsAndConditions,
+      updatedAt: new Date(),
+    })
+    .where(eq(financialDocuments.id, linkedDocId));
+
+  // Sync items: delete old, copy new
+  await db.delete(documentItems).where(eq(documentItems.documentId, linkedDocId));
+
+  const items = await db.query.documentItems.findMany({
+    where: eq(documentItems.documentId, documentId),
+  });
+
+  for (const item of items) {
+    await db.insert(documentItems).values({
+      documentId: linkedDocId,
+      productId: null,
+      taxRateId: null,
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discount: item.discount,
+      taxRate: item.taxRate,
+      total: item.total,
+      sortOrder: item.sortOrder,
+    });
+  }
+}
+
 // Helper: generate document number for a specific org (not requiring a session)
 async function generateDocumentNumberForOrg(
   organizationId: number,

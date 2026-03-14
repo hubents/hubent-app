@@ -84,8 +84,8 @@ export function UserSessionProvider({ children }: { children: ReactNode }) {
     orgType: data?.orgType ?? "tenant",
     can,
     canAny,
-    isOwner: data?.role === "owner",
-    isAdmin: data?.role === "admin" || data?.role === "owner",
+    isOwner: data?.role === "owner" || data?.role === "provider_owner",
+    isAdmin: data?.role === "admin" || data?.role === "owner" || data?.role === "provider_admin" || data?.role === "provider_owner",
     refetch: fetchSession,
   }), [data, loading, can, canAny, fetchSession]);
 

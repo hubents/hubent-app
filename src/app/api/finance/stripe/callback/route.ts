@@ -12,7 +12,15 @@ export async function GET(request: NextRequest) {
   const errorDescription = searchParams.get("error_description");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const redirectUrl = `${appUrl}/dashboard/finance/settings?tab=payments`;
+
+  // Determine redirect base from state orgType (provider → /vendor, tenant → /dashboard)
+  function buildRedirectUrl(orgType?: string) {
+    const base = orgType === "provider" ? "/vendor/finance/settings" : "/dashboard/finance/settings";
+    return `${appUrl}${base}?tab=payments`;
+  }
+
+  // For early errors (no state yet), default to dashboard
+  let redirectUrl = buildRedirectUrl();
 
   // Handle errors from Stripe
   if (error) {
@@ -27,9 +35,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Decode state to get organization ID
+    // Decode state to get organization ID and orgType
     const stateData = JSON.parse(Buffer.from(state, "base64").toString());
-    const { orgId, timestamp } = stateData;
+    const { orgId, timestamp, orgType } = stateData;
+
+    // Now we know the orgType, rebuild redirect URL
+    redirectUrl = buildRedirectUrl(orgType);
 
     // Verify state is not too old (15 minutes)
     if (Date.now() - timestamp > 15 * 60 * 1000) {

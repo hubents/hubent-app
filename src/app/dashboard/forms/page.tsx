@@ -62,7 +62,7 @@ export default function FormsPage() {
   return <EventScopedGuard><FormsPageContent /></EventScopedGuard>;
 }
 
-function FormsPageContent() {
+export function FormsPageContent({ basePath = "/dashboard/forms" }: { basePath?: string }) {
   const router = useRouter();
   const { can, loading: sessionLoading } = useUserSession();
   const [forms, setForms] = useState<FormItem[]>([]);
@@ -116,7 +116,7 @@ function FormsPageContent() {
       });
       const data = await res.json();
       if (data.success) {
-        router.push(`/dashboard/forms/${data.data.id}`);
+        router.push(`${basePath}/${data.data.id}`);
       }
     } catch {
       // silent
@@ -210,7 +210,7 @@ function FormsPageContent() {
       </div>
 
       {viewMode === "responses" ? (
-        <AllSubmissionsView />
+        <AllSubmissionsView basePath={basePath} />
       ) : (
       <>
       {/* Filters */}
@@ -272,7 +272,7 @@ function FormsPageContent() {
             <div
               key={form.id}
               className="group relative rounded-xl border bg-card p-5 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => router.push(`/dashboard/forms/${form.id}`)}
+              onClick={() => router.push(`${basePath}/${form.id}`)}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -292,7 +292,7 @@ function FormsPageContent() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
+                      <DropdownMenuItem onClick={() => router.push(`${basePath}/${form.id}`)}>
                         <RiEditLine className="h-4 w-4 mr-2" />
                         {canUpdate ? "Editar" : "Ver"}
                       </DropdownMenuItem>
@@ -394,7 +394,7 @@ interface OrgSubmission {
 
 type ResponseFilter = "all" | "landing" | "task";
 
-function AllSubmissionsView() {
+function AllSubmissionsView({ basePath = "/dashboard/forms" }: { basePath?: string }) {
   const [subs, setSubs] = useState<OrgSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -491,7 +491,7 @@ function AllSubmissionsView() {
             {filteredSubs.map((sub) => (
               <tr key={sub.id} className="border-t hover:bg-muted/30">
                 <td className="px-4 py-2">
-                  <a href={`/dashboard/forms/${sub.formId}`} className="text-primary hover:underline font-medium">
+                  <a href={`${basePath}/${sub.formId}`} className="text-primary hover:underline font-medium">
                     {sub.formName}
                   </a>
                 </td>

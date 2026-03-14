@@ -35,8 +35,8 @@ const statusMap: Record<string, { label: string; color: string }> = {
 
 // Map sidebar items to event permission section keys
 const SECTION_MAP: Record<string, string> = {
-  "General": "general",
-  "Cronograma": "general",
+  "Dashboard": "general",
+  "Calendario": "general",
   "Tareas": "tasks",
   "Lista de Invitados": "guests",
   "RSVP": "rsvp",
@@ -88,13 +88,13 @@ export function EventSidebar() {
   const basePath = `/dashboard/events/${activeEvent.id}`;
 
   const allNavigation = [
-    { name: "General", href: basePath, icon: RiDashboardLine, exact: true },
-    { name: "Cronograma", href: `${basePath}/schedule`, icon: RiCalendarLine },
+    { name: "Dashboard", href: basePath, icon: RiDashboardLine, exact: true },
+    { name: "Calendario", href: `${basePath}/schedule`, icon: RiCalendarLine },
     { name: "Tareas", href: `${basePath}/tasks`, icon: RiFileListLine },
-    { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
-    { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
     { name: "Proveedores", href: `${basePath}/vendors`, icon: RiStore2Line },
     { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine, hasSubmenu: true },
+    { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
+    { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
     { name: "Orden del día", href: `${basePath}/run-sheet`, icon: RiListOrdered2 },
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];

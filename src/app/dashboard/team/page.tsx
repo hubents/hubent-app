@@ -65,7 +65,7 @@ export default function TeamPage() {
   return <EventScopedGuard><TeamPageContent /></EventScopedGuard>;
 }
 
-function TeamPageContent() {
+export function TeamPageContent({ rolesPath = "/dashboard/settings/roles" }: { rolesPath?: string }) {
   const router = useRouter();
   const { can } = useUserSession();
   const canManageTeam = can("team:manage");
@@ -173,7 +173,7 @@ function TeamPageContent() {
         </div>
         <div className="flex items-center gap-2">
           {canManageTeam && (
-            <Button variant="outline" onClick={() => router.push("/dashboard/settings/roles")}>
+            <Button variant="outline" onClick={() => router.push(rolesPath)}>
               <RiTeamLine className="h-4 w-4 mr-2" />
               Roles
             </Button>

@@ -109,7 +109,7 @@ const CURRENCIES = [
   { code: "PEN", name: "Sol peruano" },
 ];
 
-function FinanceSettingsContent() {
+export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings" }: { basePath?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { can } = useUserSession();
@@ -145,7 +145,7 @@ function FinanceSettingsContent() {
     if (stripeSuccess === "true") {
       toast.success("¡Stripe conectado correctamente! Ya puedes recibir pagos con tarjeta.");
       // Clean URL
-      router.replace("/dashboard/finance/settings?tab=payments");
+      router.replace(`${basePath}?tab=payments`);
     } else if (stripeError) {
       // Map error codes to user-friendly messages
       const errorMessages: Record<string, string> = {
@@ -160,7 +160,7 @@ function FinanceSettingsContent() {
       const message = errorMessages[stripeError] || `Error de Stripe: ${stripeError}`;
       toast.error(message);
       // Clean URL
-      router.replace("/dashboard/finance/settings?tab=payments");
+      router.replace(`${basePath}?tab=payments`);
     }
   }, [searchParams, router]);
 
