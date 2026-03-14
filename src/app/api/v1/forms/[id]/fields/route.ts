@@ -7,9 +7,10 @@ import { notFoundError, validationError } from "@/lib/api/api-errors";
 import { z } from "zod";
 
 async function verifyFormAccess(formId: number, orgId: number) {
-  const [form] = await db.select({ id: forms.id }).from(forms)
+  const [form] = await db.select({ id: forms.id, status: forms.status }).from(forms)
     .where(and(eq(forms.id, formId), eq(forms.organizationId, orgId))).limit(1);
   if (!form) throw notFoundError("Form", String(formId));
+  return form;
 }
 
 export const GET = withApiAuth(
@@ -42,7 +43,11 @@ export const PUT = withApiAuth(
   async (request: NextRequest, { session, params }) => {
     const formId = parseInt(params.id, 10);
     if (isNaN(formId)) throw validationError("Invalid form ID.", "id");
-    await verifyFormAccess(formId, session.organizationId);
+    const form = await verifyFormAccess(formId, session.organizationId);
+
+    if (form.status !== "draft") {
+      throw validationError("Cannot modify fields of an active or paused form.", "status");
+    }
 
     const body = await request.json();
     const fields = z.array(fieldSchema).safeParse(body.fields || body);

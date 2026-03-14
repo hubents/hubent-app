@@ -67,6 +67,13 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Formulario no encontrado" }, { status: 404 });
     }
 
+    if (form.status !== "draft") {
+      return NextResponse.json(
+        { success: false, error: "No se pueden modificar campos de un formulario activo o pausado" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const parsed = saveFieldsSchema.parse(body);
 
