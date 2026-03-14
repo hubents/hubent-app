@@ -299,12 +299,27 @@ function FieldRenderer({ field, value, onChange, primaryColor }: FieldRendererPr
       return <hr className="border-gray-200" />;
 
     case "name":
+    case "last_name":
     case "email":
     case "phone":
+    case "nie_cif":
+    case "address":
+    case "city":
+    case "postal_code":
+    case "state":
+    case "country":
+    case "trade_name":
+    case "website":
+    case "category":
     case "partner_name":
     case "partner_email":
     case "event_venue":
-    case "short_text":
+    case "short_text": {
+      const inputType =
+        field.type === "email" || field.type === "partner_email" ? "email"
+        : field.type === "phone" ? "tel"
+        : field.type === "website" ? "url"
+        : "text";
       return (
         <div className="space-y-1.5">
           <Label className="text-sm font-medium text-gray-700">
@@ -312,7 +327,7 @@ function FieldRenderer({ field, value, onChange, primaryColor }: FieldRendererPr
             {field.required && <span className="text-red-500 ml-0.5">*</span>}
           </Label>
           <Input
-            type={field.type === "email" || field.type === "partner_email" ? "email" : field.type === "phone" ? "tel" : "text"}
+            type={inputType}
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder || ""}
@@ -320,6 +335,7 @@ function FieldRenderer({ field, value, onChange, primaryColor }: FieldRendererPr
           />
         </div>
       );
+    }
 
     case "event_date":
       return (

@@ -22,7 +22,7 @@ import { FieldPalette, PALETTE_SECTIONS } from "./field-palette";
 import { FormCanvas } from "./form-canvas";
 import { FieldProperties } from "./field-properties";
 import { Button } from "@/components/ui/button";
-import { RiSaveLine, RiCheckLine, RiLoader4Line } from "@remixicon/react";
+import { RiSaveLine, RiCheckLine, RiLoader4Line, RiLock2Line } from "@remixicon/react";
 import { toast } from "sonner";
 
 export interface BuilderField {
@@ -42,11 +42,12 @@ interface FormBuilderProps {
   formId: number;
   initialFields: BuilderField[];
   onSave: (fields: BuilderField[]) => Promise<void>;
+  readOnly?: boolean;
 }
 
 let fieldCounter = 0;
 
-export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps) {
+export function FormBuilder({ formId, initialFields, onSave, readOnly }: FormBuilderProps) {
   const [fields, setFields] = useState<BuilderField[]>(initialFields);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -157,64 +158,86 @@ export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps)
 
   return (
     <div className="flex flex-col h-full">
-      {/* Save bar */}
-      <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
-        <p className="text-sm text-muted-foreground">
-          {fields.length} {fields.length === 1 ? "campo" : "campos"}
-        </p>
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
-          ) : saved ? (
-            <RiCheckLine className="h-4 w-4 mr-1" />
-          ) : (
-            <RiSaveLine className="h-4 w-4 mr-1" />
-          )}
-          {saving ? "Guardando..." : saved ? "Guardado" : "Guardar todo"}
-        </Button>
-      </div>
+      {/* Save bar / Locked banner */}
+      {readOnly ? (
+        <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-amber-50 text-amber-800">
+          <RiLock2Line className="h-4 w-4 shrink-0" />
+          <p className="text-sm">
+            Los campos no se pueden editar porque el formulario ya fue activado. Para modificar campos, creá un nuevo formulario.
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            {fields.length} {fields.length === 1 ? "campo" : "campos"}
+          </p>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
+            ) : saved ? (
+              <RiCheckLine className="h-4 w-4 mr-1" />
+            ) : (
+              <RiSaveLine className="h-4 w-4 mr-1" />
+            )}
+            {saving ? "Guardando..." : saved ? "Guardado" : "Guardar todo"}
+          </Button>
+        </div>
+      )}
 
       {/* 3-column layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Field Palette */}
-        <div className="w-64 border-r overflow-y-auto bg-muted/20">
-          <FieldPalette onAddField={addField} onAddAllCrm={addAllCrmFields} />
-        </div>
+        {!readOnly && (
+          <div className="w-64 border-r overflow-y-auto bg-muted/20">
+            <FieldPalette onAddField={addField} onAddAllCrm={addAllCrmFields} />
+          </div>
+        )}
 
         {/* Center: Canvas */}
         <div className="flex-1 overflow-y-auto p-6 bg-background">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-              <FormCanvas
-                fields={fields}
-                selectedFieldId={selectedFieldId}
-                onSelectField={setSelectedFieldId}
-                onRemoveField={removeField}
-              />
-            </SortableContext>
-            <DragOverlay>
-              {activeField ? (
-                <div className="rounded-lg border bg-card p-3 shadow-lg opacity-80">
-                  <span className="text-sm font-medium">{activeField.label}</span>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+          {readOnly ? (
+            <FormCanvas
+              fields={fields}
+              selectedFieldId={null}
+              onSelectField={() => {}}
+              onRemoveField={() => {}}
+            />
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                <FormCanvas
+                  fields={fields}
+                  selectedFieldId={selectedFieldId}
+                  onSelectField={setSelectedFieldId}
+                  onRemoveField={removeField}
+                />
+              </SortableContext>
+              <DragOverlay>
+                {activeField ? (
+                  <div className="rounded-lg border bg-card p-3 shadow-lg opacity-80">
+                    <span className="text-sm font-medium">{activeField.label}</span>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
         </div>
 
         {/* Right: Field Properties */}
-        <div className="w-80 border-l overflow-y-auto bg-muted/20">
-          <FieldProperties
-            field={selectedField}
-            onUpdate={(updates: Partial<BuilderField>) => selectedFieldId && updateField(selectedFieldId, updates)}
-            onClose={() => setSelectedFieldId(null)}
-          />
-        </div>
+        {!readOnly && (
+          <div className="w-80 border-l overflow-y-auto bg-muted/20">
+            <FieldProperties
+              field={selectedField}
+              onUpdate={(updates: Partial<BuilderField>) => selectedFieldId && updateField(selectedFieldId, updates)}
+              onClose={() => setSelectedFieldId(null)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

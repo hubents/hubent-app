@@ -39,6 +39,16 @@ import { useUserSession } from "@/hooks/use-user-session";
 import { FormBuilder, type BuilderField } from "@/components/forms/form-builder";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { ShareFormDialog } from "@/components/forms/share-form-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FormData {
   id: number;
@@ -114,6 +124,7 @@ export default function FormEditorPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [crmCreateContact, setCrmCreateContact] = useState(true);
   const [crmCreateLead, setCrmCreateLead] = useState(true);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
 
   const { upload: uploadCover, uploading: uploadingCover } = useFileUpload({
     folder: `forms/${formId}/cover`,
@@ -284,7 +295,7 @@ export default function FormEditorPage() {
 
         <div className="flex items-center gap-2">
           {canEdit && form.status === "draft" && (
-            <Button variant="outline" size="sm" onClick={() => handleStatusChange("active")}>
+            <Button variant="outline" size="sm" onClick={() => setActivateDialogOpen(true)}>
               <RiPlayLine className="h-4 w-4 mr-1" /> Activar
             </Button>
           )}
@@ -553,6 +564,7 @@ export default function FormEditorPage() {
         <TabsContent value="fields" className="flex-1 overflow-hidden">
           <FormBuilder
             formId={formId}
+            readOnly={form.status !== "draft"}
             initialFields={(form.fields || []).map((f, idx) => ({
               id: `db-${f.id}`,
               type: f.type,
@@ -843,6 +855,31 @@ export default function FormEditorPage() {
           />
         );
       })()}
+
+      <AlertDialog open={activateDialogOpen} onOpenChange={setActivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Activar formulario?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Una vez activado, <strong>no podrás modificar los campos</strong> del formulario para mantener la consistencia de las respuestas.
+              </span>
+              <span className="block">
+                Aún podrás editar el diseño, configuración, notificaciones y privacidad.
+              </span>
+              <span className="block text-amber-700 font-medium">
+                Asegurate de que los campos estén completos antes de continuar.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleStatusChange("active")}>
+              Activar formulario
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
