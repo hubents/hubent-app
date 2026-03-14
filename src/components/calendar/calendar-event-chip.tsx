@@ -70,7 +70,7 @@ export function CalendarEventChip({ item, compact, onNavigate }: CalendarEventCh
         )}
         {item.meta?.amount && (
           <p className="text-[10px] opacity-70">
-            {item.meta.currency || "€"}{" "}
+            {(item.meta.currency === "EUR" ? "€" : item.meta.currency || "€")}{" "}
             {item.meta.amount.toLocaleString("es-ES", { minimumFractionDigits: 2 })}
           </p>
         )}
