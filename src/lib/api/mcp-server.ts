@@ -4,6 +4,8 @@
 // Model Context Protocol server for AI assistant integration.
 // Exposes HubEnts API tools for use by Claude, GPT, and other AI models.
 
+import { CURRENT_API_VERSION } from "./api-versioning";
+
 export interface McpTool {
   name: string;
   description: string;
@@ -379,7 +381,7 @@ export function buildMcpToolCall(
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "X-HubEnts-Version": "2025-01-01",
+      "X-HubEnts-Version": CURRENT_API_VERSION,
     },
     body,
   };

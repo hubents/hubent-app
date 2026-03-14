@@ -122,7 +122,7 @@ export default function ChangelogPage() {
 
       <footer className="border-t py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto flex items-center justify-between text-sm text-muted-foreground">
-          <p>© 2025 HubEnts — API v2025-01-01</p>
+          <p>© 2025 HubEnts — API v2025-03-14</p>
           <div className="flex gap-4">
             <Link href="/developers" className="hover:text-foreground">Docs</Link>
             <a href="/api/v1/openapi" target="_blank" className="hover:text-foreground">OpenAPI</a>

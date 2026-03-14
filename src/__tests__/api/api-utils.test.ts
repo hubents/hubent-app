@@ -285,7 +285,7 @@ describe("apiHeaders", () => {
   it("returns standard headers", () => {
     const headers = apiHeaders("req_123");
     expect(headers["X-Request-Id"]).toBe("req_123");
-    expect(headers["X-HubEnts-Version"]).toBe("2025-01-01");
+    expect(headers["X-HubEnts-Version"]).toBe("2025-03-14");
     expect(headers["Cache-Control"]).toBe("no-store");
   });
 

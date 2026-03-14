@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import crypto from "crypto";
+import { CURRENT_API_VERSION } from "./api-versioning";
 
 // ============================================
 // Request ID
@@ -193,7 +194,7 @@ export function hashBody(body: unknown): string {
 export function apiHeaders(requestId: string, extra?: Record<string, string>): Record<string, string> {
   return {
     "X-Request-Id": requestId,
-    "X-HubEnts-Version": "2025-01-01",
+    "X-HubEnts-Version": CURRENT_API_VERSION,
     "Cache-Control": "no-store",
     ...extra,
   };

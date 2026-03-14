@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { withApiAuth } from "@/lib/api/api-wrapper";
 import { MCP_TOOL_MAPPINGS, MCP_TOOLS } from "@/lib/api/mcp-server";
 import { validationError } from "@/lib/api/api-errors";
+import { CURRENT_API_VERSION } from "@/lib/api/api-versioning";
 import { z } from "zod";
 
 const executeSchema = z.object({
@@ -60,7 +61,7 @@ export const POST = withApiAuth(
       headers: {
         "Authorization": authHeader,
         "Content-Type": "application/json",
-        "X-HubEnts-Version": "2025-01-01",
+        "X-HubEnts-Version": CURRENT_API_VERSION,
       },
       body: fetchBody,
     });
