@@ -64,7 +64,7 @@ export default function FormsPage() {
 
 function FormsPageContent() {
   const router = useRouter();
-  const { can } = useUserSession();
+  const { can, loading: sessionLoading } = useUserSession();
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -74,9 +74,9 @@ function FormsPageContent() {
   const [viewMode, setViewMode] = useState<ViewMode>("forms");
   const [shareSlug, setShareSlug] = useState<string | null>(null);
 
-  const canCreate = can("forms:create");
-  const canUpdate = can("forms:update");
-  const canDelete = can("forms:delete");
+  const canCreate = sessionLoading ? true : can("forms:create");
+  const canUpdate = sessionLoading ? true : can("forms:update");
+  const canDelete = sessionLoading ? true : can("forms:delete");
 
   const fetchForms = useCallback(async () => {
     try {

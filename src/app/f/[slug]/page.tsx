@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,18 @@ interface PublicFormData {
 type FormState = "loading" | "form" | "submitting" | "success" | "error";
 
 export default function PublicFormPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <RiLoader4Line className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    }>
+      <PublicFormPageInner />
+    </Suspense>
+  );
+}
+
+function PublicFormPageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;

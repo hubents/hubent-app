@@ -8,6 +8,18 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
   
+  async headers() {
+    return [
+      {
+        source: "/f/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "ALLOWALL" },
+          { key: "Content-Security-Policy", value: "frame-ancestors *" },
+        ],
+      },
+    ];
+  },
+
   // Expose env vars to serverless functions at runtime
   env: {
     R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,

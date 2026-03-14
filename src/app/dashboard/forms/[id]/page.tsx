@@ -302,7 +302,7 @@ export default function FormEditorPage() {
               ) : (
                 <RiSaveLine className="h-4 w-4 mr-1" />
               )}
-              {saving ? "Guardando..." : saved ? "Guardado" : "Guardar"}
+              {saving ? "Guardando..." : saved ? "Guardado" : "Guardar diseño"}
             </Button>
           )}
         </div>
@@ -603,6 +603,12 @@ export default function FormEditorPage() {
               if (fieldsData.success && formData.success) {
                 setForm((prev) => prev ? { ...prev, ...formData.data } : prev);
                 fetchForm();
+                toast.success("Formulario guardado");
+              } else {
+                const errors: string[] = [];
+                if (!fieldsData.success) errors.push(fieldsData.error || "Error al guardar campos");
+                if (!formData.success) errors.push(formData.error || "Error al guardar configuración");
+                toast.error(errors.join(". "));
               }
             }}
           />
@@ -912,6 +918,7 @@ interface InstanceData {
 }
 
 function InstancesSection({ formId, instances, onRefresh }: { formId: number; instances: InstanceData[]; onRefresh: () => void }) {
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
   const [creatingLanding, setCreatingLanding] = useState(false);
   const [showEventSelector, setShowEventSelector] = useState(false);
   const [events, setEvents] = useState<Array<{ id: number; name: string }>>([]);
@@ -1109,14 +1116,10 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
                   {inst.status === "active" ? "Activo" : inst.status}
                 </Badge>
                 {inst.slug && (
-                  <>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => copyLink(inst.slug!)} title="Copiar link">
-                      <RiFileCopyLine className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => window.open(`${window.location.origin}/f/${inst.slug}`, "_blank")} title="Abrir formulario">
-                      <RiExternalLinkLine className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
+                  <Button variant="ghost" size="sm" className="h-7 opacity-0 group-hover:opacity-100 gap-1 text-xs" onClick={() => setShareSlug(inst.slug!)} title="Compartir">
+                    <RiGlobeLine className="h-3.5 w-3.5" />
+                    Compartir
+                  </Button>
                 )}
                 <Button
                   variant="ghost"
@@ -1140,6 +1143,14 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
             Usa los botones de arriba para crear un link público o vincular a un evento/tarea.
           </p>
         </div>
+      )}
+
+      {shareSlug && (
+        <ShareFormDialog
+          slug={shareSlug}
+          open={!!shareSlug}
+          onOpenChange={(open) => { if (!open) setShareSlug(null); }}
+        />
       )}
     </div>
   );

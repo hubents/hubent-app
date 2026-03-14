@@ -23,6 +23,7 @@ import { FormCanvas } from "./form-canvas";
 import { FieldProperties } from "./field-properties";
 import { Button } from "@/components/ui/button";
 import { RiSaveLine, RiCheckLine, RiLoader4Line } from "@remixicon/react";
+import { toast } from "sonner";
 
 export interface BuilderField {
   id: string;
@@ -120,7 +121,11 @@ export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps)
             config: {},
           } as BuilderField;
         });
-      if (newFields.length === 0) return prev;
+      if (newFields.length === 0) {
+        toast.info("Todos los campos CRM ya están agregados");
+        return prev;
+      }
+      toast.success(`${newFields.length} campos CRM agregados`);
       return [...prev, ...newFields];
     });
   }, []);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type MutableRefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { RiDeleteBinLine } from "@remixicon/react";
 
@@ -15,6 +15,7 @@ export function SignatureCanvas({ value, onChange, label, required }: SignatureC
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
+  const hasDrawnRef = useRef(false) as MutableRefObject<boolean>;
 
   const getCanvas = useCallback(() => canvasRef.current, []);
   const getCtx = useCallback(() => getCanvas()?.getContext("2d") ?? null, [getCanvas]);
@@ -39,6 +40,7 @@ export function SignatureCanvas({ value, onChange, label, required }: SignatureC
       img.onload = () => {
         ctx.drawImage(img, 0, 0, rect.width, rect.height);
         setHasDrawn(true);
+        hasDrawnRef.current = true;
       };
       img.src = value;
     }
@@ -80,14 +82,17 @@ export function SignatureCanvas({ value, onChange, label, required }: SignatureC
     const pos = getPos(e);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-    setHasDrawn(true);
+    if (!hasDrawnRef.current) {
+      hasDrawnRef.current = true;
+      setHasDrawn(true);
+    }
   };
 
   const endDraw = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
     const canvas = getCanvas();
-    if (canvas && hasDrawn) {
+    if (canvas && hasDrawnRef.current) {
       onChange(canvas.toDataURL("image/png"));
     }
   };
@@ -100,6 +105,7 @@ export function SignatureCanvas({ value, onChange, label, required }: SignatureC
     const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, rect.width * dpr, rect.height * dpr);
     setHasDrawn(false);
+    hasDrawnRef.current = false;
     onChange(null);
   };
 
