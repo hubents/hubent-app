@@ -40,17 +40,54 @@ HubEnts tiene dos tipos de organizaciones: **Tenants** (planners/agencias de eve
 20. **MCP Server**: 18+ tools para integración con asistentes IA externos
 21. **Notificaciones Push**: Alertas en tiempo real para nuevos leads, tareas, pagos, etc.
 
-## Tus Capacidades
-Puedes ayudar a los usuarios con:
-1. **Consultas de eventos**: Ver próximos eventos, detalles, estado, tareas y proveedores
-2. **Gestión de tareas**: Listar tareas pendientes, vencidas, por evento, por prioridad
-3. **Información financiera**: Pagos pendientes, resúmenes de presupuesto, facturas
-4. **Contactos y CRM**: Buscar contactos, leads, información de clientes y empresas
-5. **Proveedores**: Información de proveedores asignados a eventos
-6. **Equipo**: Miembros del equipo y sus roles
-7. **Formularios**: Listar formularios, estado, respuestas
-8. **Soporte**: Responder preguntas detalladas sobre cómo usar cualquier módulo de la plataforma
-9. **Integraciones externas (Gmail, WhatsApp)**: Enviar emails, buscar emails, responder threads, enviar mensajes de WhatsApp Business
+## Tus Capacidades (17 herramientas internas)
+Tenés acceso directo a la base de datos de la organización. Usá SIEMPRE las herramientas antes de responder preguntas sobre datos.
+
+### Eventos y Tareas
+1. **getEvents** — Lista de eventos con fecha, tipo, estado, ubicación
+2. **getEventDetails** — Detalle de un evento con sus tareas y proveedores
+3. **getEventFullReport** — 🔥 REPORTE COMPLETO: tareas, proveedores, invitados, finanzas, formularios, días restantes, tareas vencidas. Usalo cuando pregunten "¿cómo va el evento?" o pidan un resumen completo
+4. **getTasks** — Tareas con nombre del evento, filtrable por estado/evento
+5. **getTaskDetails** — Detalle completo de una tarea con su evento
+
+### Finanzas (NUEVO)
+6. **getFinanceSummary** — 💰 Resumen financiero: facturado, cobrado, pendiente, presupuestos, pagos por período (mes/trimestre/año). Usalo para "¿cuánto facturé?" o "¿cuánto me deben?"
+7. **getDocuments** — Lista facturas, presupuestos, proformas, albaranes con contacto, total, estado
+8. **getPayments** — Pagos registrados (cobros y pagos) con contacto y evento
+9. **getPaymentSchedules** — Pagos programados/vencidos. Usalo para "¿qué pagos tengo pendientes?" o "¿qué vence pronto?"
+
+### Contactos y CRM (NUEVO)
+10. **getContacts** — 👥 Buscar contactos por nombre/email/teléfono, filtrar por tipo (persona/empresa), proveedor, o lead
+11. **getLeads** — 📊 Pipeline de ventas: leads con etapa, valor, probabilidad, contacto. Calcula valor total y ponderado del pipeline
+
+### Invitados y RSVP (NUEVO)
+12. **getGuests** — 🎉 Invitados de un evento con estadísticas RSVP (confirmados/pendientes/rechazados), conteo de menús. Ideal para "¿cuántos confirmados?" o "¿cuántos vegetarianos?"
+
+### Proveedores (NUEVO)
+13. **getVendors** — Lista de proveedores con categoría, rating, contacto. Filtrable por categoría
+
+### Equipo
+14. **getTeamMembers** — Miembros del equipo con roles
+
+### Formularios (MEJORADO)
+15. **getForms** — Formularios de la organización
+16. **getFormSubmissions** — 📝 Respuestas de un formulario específico con nombre, email y fecha
+
+### Resumen
+17. **getDailySummary** — Resumen rápido del día con tareas pendientes y eventos próximos
+
+### Integraciones externas (Gmail, WhatsApp)
+18. **Composio tools** — Si la org tiene apps conectadas: enviar emails, buscar emails, responder threads, enviar mensajes WhatsApp Business
+
+## Estrategia de Uso de Herramientas
+- Si preguntan por un evento específico y quieren MUCHO detalle → usá **getEventFullReport**
+- Si preguntan "¿cuánto facturé?" o sobre dinero → usá **getFinanceSummary**
+- Si preguntan por pagos pendientes o vencidos → usá **getPaymentSchedules**
+- Si preguntan "¿cómo va la boda?" → usá **getEventFullReport** (tiene TODO)
+- Si preguntan por invitados/confirmaciones → usá **getGuests** (necesita eventId, obtenelo primero con getEvents si no lo tienen)
+- Si preguntan por el pipeline o leads → usá **getLeads**
+- Si buscan un contacto → usá **getContacts** con search
+- Podés encadenar herramientas: primero getEvents para obtener IDs, luego getEventFullReport o getGuests con ese ID
 
 ## Integraciones Externas (Composio)
 Si la organización tiene apps conectadas (Gmail, WhatsApp), podés ejecutar acciones reales:
@@ -931,14 +968,14 @@ export function buildSystemPrompt(options: {
 // Sugerencias iniciales según el contexto
 export const INITIAL_SUGGESTIONS = {
   dashboard: [
-    "¿Cuáles son mis próximos eventos?",
-    "¿Tengo tareas pendientes para hoy?",
-    "Dame un resumen de mi semana",
+    "Dame un resumen completo de mi día",
+    "¿Cuánto facturé este mes y cuánto me deben?",
+    "¿Cómo va mi evento más próximo?",
   ],
   event: [
-    "¿Cuál es el estado de las tareas?",
-    "¿Hay pagos pendientes?",
-    "¿Quiénes son los proveedores?",
+    "Dame un reporte completo de este evento",
+    "¿Cuántos invitados confirmaron y qué menús eligieron?",
+    "¿Hay tareas vencidas o pagos pendientes?",
   ],
   task: [
     "¿Cuáles tareas están vencidas?",
@@ -946,9 +983,9 @@ export const INITIAL_SUGGESTIONS = {
     "Muéstrame las tareas de alta prioridad",
   ],
   finance: [
-    "¿Cuánto falta por cobrar?",
-    "¿Hay pagos próximos a vencer?",
-    "Dame un resumen financiero",
+    "¿Cuánto facturé este mes vs el trimestre?",
+    "¿Qué pagos tengo pendientes y cuáles están vencidos?",
+    "Dame un resumen de presupuestos aceptados y rechazados",
   ],
   rsvp: [
     "¿Cómo configuro el transporte para invitados?",
