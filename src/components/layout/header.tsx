@@ -15,14 +15,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export function Header() {
   const [isDark, setIsDark] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
+  const isVendor = pathname.startsWith("/vendor");
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -99,11 +101,11 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+            <DropdownMenuItem onClick={() => router.push(isVendor ? "/vendor/profile" : "/dashboard/settings")}>
               <RiUserLine className="mr-2 h-4 w-4" />
               Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+            <DropdownMenuItem onClick={() => router.push(isVendor ? "/vendor/settings" : "/dashboard/settings")}>
               <RiSettings4Line className="mr-2 h-4 w-4" />
               Configuración
             </DropdownMenuItem>

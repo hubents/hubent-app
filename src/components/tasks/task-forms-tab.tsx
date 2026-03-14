@@ -14,6 +14,7 @@ import {
   RiDownloadLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 
 interface TaskFormInstance {
@@ -34,6 +35,8 @@ interface Submission {
 }
 
 export function TaskFormsTab({ taskId }: { taskId: number }) {
+  const pathname = usePathname();
+  const formsBasePath = pathname.startsWith("/vendor") ? "/vendor/forms" : "/dashboard/forms";
   const [forms, setForms] = useState<TaskFormInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -110,7 +113,7 @@ export function TaskFormsTab({ taskId }: { taskId: number }) {
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">
           Vincula formularios a esta tarea desde el editor de formularios (Formularios → Configuración → Instancias).
         </p>
-        <Link href="/dashboard/forms" className="mt-4">
+        <Link href={formsBasePath} className="mt-4">
           <Button variant="outline" size="sm" className="gap-2">
             <RiExternalLinkLine className="h-3.5 w-3.5" />
             Ir a Formularios

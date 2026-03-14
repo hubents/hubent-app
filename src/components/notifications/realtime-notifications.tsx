@@ -22,7 +22,7 @@ import {
   RiMoneyDollarCircleLine,
   RiFileTextLine,
 } from "@remixicon/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface InAppNotification {
   type?: string;
@@ -40,6 +40,9 @@ interface InAppNotification {
 
 export function RealtimeNotifications() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isVendor = pathname.startsWith("/vendor");
+  const base = isVendor ? "/vendor" : "/dashboard";
 
   const handleNotification = useCallback((data: unknown) => {
     const n = data as InAppNotification;
@@ -55,58 +58,58 @@ export function RealtimeNotifications() {
         title = "Nueva tarea asignada";
         description = `${n.actorName} te asignó "${n.taskTitle}"`;
         icon = <RiUserAddLine className="h-4 w-4 text-blue-500" />;
-        link = `/dashboard/tasks?taskId=${n.taskId}`;
+        link = `${base}/tasks?taskId=${n.taskId}`;
         break;
       case "updated":
         title = "Tarea actualizada";
         description = `${n.actorName} actualizó "${n.taskTitle}"`;
         icon = <RiEditLine className="h-4 w-4 text-yellow-500" />;
-        link = `/dashboard/tasks?taskId=${n.taskId}`;
+        link = `${base}/tasks?taskId=${n.taskId}`;
         break;
       case "comment":
         title = "Nuevo comentario";
         description = `${n.actorName} comentó en "${n.taskTitle}"`;
         icon = <RiChat1Line className="h-4 w-4 text-green-500" />;
-        link = `/dashboard/tasks?taskId=${n.taskId}`;
+        link = `${base}/tasks?taskId=${n.taskId}`;
         break;
       case "rsvp_received":
         title = "RSVP recibido";
         description = n.body || "Un invitado respondió";
         icon = <RiCheckDoubleLine className="h-4 w-4 text-emerald-500" />;
-        link = n.link || (n.eventId ? `/dashboard/events/${n.eventId}/guests` : "");
+        link = n.link || (n.eventId ? `${base}/events/${n.eventId}/guests` : "");
         break;
       case "new_contact":
         title = "Nuevo contacto";
         description = n.body || "Contacto agregado al CRM";
         icon = <RiContactsLine className="h-4 w-4 text-blue-500" />;
-        link = "/dashboard/contacts";
+        link = `${base}/contacts`;
         break;
       case "lead_assigned":
       case "lead_stage_changed":
         title = n.title || "Lead actualizado";
         description = n.body || "Movimiento en el pipeline";
         icon = <RiTargetLine className="h-4 w-4 text-orange-500" />;
-        link = "/dashboard/crm";
+        link = `${base}/crm`;
         break;
       case "new_event":
         title = "Nuevo evento";
         description = n.body || `${n.eventName || "Evento"} creado`;
         icon = <RiCalendarEventLine className="h-4 w-4 text-violet-500" />;
-        link = n.eventId ? `/dashboard/events/${n.eventId}` : "";
+        link = n.eventId ? `${base}/events/${n.eventId}` : "";
         break;
       case "payment_registered":
       case "payment_received":
         title = n.title || "Pago registrado";
         description = n.body || "Nuevo movimiento financiero";
         icon = <RiMoneyDollarCircleLine className="h-4 w-4 text-green-600" />;
-        link = "/dashboard/finance/payments";
+        link = `${base}/finance/payments`;
         break;
       case "document_received":
       case "document_status_changed":
         title = n.title || "Documento recibido";
         description = n.body || "Nuevo documento financiero";
         icon = <RiFileTextLine className="h-4 w-4 text-amber-500" />;
-        link = "/dashboard/finance/invoices";
+        link = `${base}/finance/invoices`;
         break;
       default:
         title = n.title || "Notificación";
@@ -123,7 +126,7 @@ export function RealtimeNotifications() {
       } : undefined,
       duration: 5000,
     });
-  }, [router]);
+  }, [router, base]);
 
   // Subscribe to user notifications channel
   useUserNotifications(handleNotification);

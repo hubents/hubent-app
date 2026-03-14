@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   ThumbsUp,
@@ -61,7 +61,28 @@ const ROUTE_MAP: Record<string, RouteInfo> = {
   "/dashboard/settings": { icon: Settings, label: "Configuración" },
   "/dashboard/settings/roles": { icon: Settings, label: "Roles y Permisos" },
   "/dashboard/settings/billing": { icon: CreditCard, label: "Plan y Facturación" },
+  "/vendor": { icon: LayoutDashboard, label: "Dashboard" },
+  "/vendor/events": { icon: CalendarDays, label: "Eventos" },
+  "/vendor/tasks": { icon: ListChecks, label: "Tareas" },
+  "/vendor/calendar": { icon: CalendarDays, label: "Calendario" },
+  "/vendor/crm": { icon: ClipboardList, label: "CRM" },
+  "/vendor/contacts": { icon: Contact, label: "Contactos" },
+  "/vendor/finance": { icon: Receipt, label: "Finanzas" },
+  "/vendor/finance/invoices": { icon: Receipt, label: "Facturas" },
+  "/vendor/finance/quotes": { icon: Receipt, label: "Presupuestos" },
+  "/vendor/finance/reports": { icon: Receipt, label: "Reportes Contables" },
+  "/vendor/forms": { icon: FileText, label: "Formularios" },
+  "/vendor/team": { icon: Users, label: "Equipo" },
+  "/vendor/settings": { icon: Settings, label: "Configuración" },
+  "/vendor/settings/roles": { icon: Settings, label: "Roles y Permisos" },
 };
+
+function remapRouteForContext(href: string, isVendor: boolean): string {
+  if (isVendor && href.startsWith("/dashboard")) {
+    return href.replace(/^\/dashboard/, "/vendor");
+  }
+  return href;
+}
 
 function getRouteInfo(href: string): RouteInfo {
   if (ROUTE_MAP[href]) return ROUTE_MAP[href];
@@ -105,6 +126,8 @@ export function AIMessage({ role, content, isLoading, onFeedback }: AIMessagePro
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<number | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const isVendor = pathname.startsWith("/vendor");
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(content);
@@ -119,9 +142,9 @@ export function AIMessage({ role, content, isLoading, onFeedback }: AIMessagePro
 
   const handleNavigate = useCallback(
     (href: string) => {
-      router.push(href);
+      router.push(remapRouteForContext(href, isVendor));
     },
-    [router]
+    [router, isVendor]
   );
 
   const quickActions = useMemo(() => {
