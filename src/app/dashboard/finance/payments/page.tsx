@@ -59,6 +59,8 @@ interface Payment {
   documentNumber?: string | null;
   documentType?: string | null;
   contactName?: string | null;
+  eventName?: string | null;
+  taskTitle?: string | null;
   status?: string | null;
   attachmentUrl?: string | null;
   attachmentName?: string | null;
@@ -500,6 +502,7 @@ export default function PaymentsPage() {
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Contacto</TableHead>
+                <TableHead>Evento / Tarea</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Método</TableHead>
                 <TableHead>Conciliado con</TableHead>
@@ -512,7 +515,7 @@ export default function PaymentsPage() {
             <TableBody>
               {filteredPayments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No hay pagos registrados
                   </TableCell>
                 </TableRow>
@@ -526,6 +529,23 @@ export default function PaymentsPage() {
                     </TableCell>
                     <TableCell>
                       {payment.contactName || "-"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        {payment.eventName ? (
+                          <a href={`/dashboard/events/${payment.eventId}`} className="text-sm text-primary hover:underline truncate max-w-[150px]">
+                            {payment.eventName}
+                          </a>
+                        ) : null}
+                        {payment.taskTitle ? (
+                          <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                            {payment.taskTitle}
+                          </span>
+                        ) : null}
+                        {!payment.eventName && !payment.taskTitle ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge

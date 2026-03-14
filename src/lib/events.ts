@@ -16,6 +16,7 @@ import {
   leads,
   financialDocuments,
   paymentRecords,
+  formInstances,
 } from "@/db/schema";
 import { eq, and, desc, sql, asc } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
@@ -759,7 +760,51 @@ export async function duplicateEvent(
           });
         }
       }
+
+      // Duplicate task-level form instances
+      const taskForms = await db
+        .select()
+        .from(formInstances)
+        .where(and(eq(formInstances.taskId, task.id), eq(formInstances.type, "task")));
+
+      for (const tfi of taskForms) {
+        const taskFormSlug = tfi.slug
+          ? `${tfi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+          : null;
+        await db.insert(formInstances).values({
+          formId: tfi.formId,
+          organizationId: session.organizationId,
+          type: tfi.type,
+          slug: taskFormSlug,
+          eventId: newEvent.id,
+          taskId: newTask.id,
+          status: "active",
+          createdBy: session.user.userId,
+        });
+      }
     }
+  }
+
+  // Duplicate event-level form instances (exclude task-level forms already duplicated above)
+  const originalForms = await db
+    .select()
+    .from(formInstances)
+    .where(and(eq(formInstances.eventId, eventId), eq(formInstances.type, "landing")));
+
+  for (const fi of originalForms) {
+    const newSlug = fi.slug
+      ? `${fi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+      : null;
+    await db.insert(formInstances).values({
+      formId: fi.formId,
+      organizationId: session.organizationId,
+      type: fi.type,
+      slug: newSlug,
+      eventId: newEvent.id,
+      taskId: null,
+      status: "active",
+      createdBy: session.user.userId,
+    });
   }
 
   return newEvent;

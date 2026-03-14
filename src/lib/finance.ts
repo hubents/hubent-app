@@ -10,6 +10,7 @@ import {
   companies,
   people,
   events,
+  tasks,
   contacts,
   vendors,
 } from "@/db/schema";
@@ -1037,10 +1038,14 @@ export async function getPaymentRecords(
       documentType: financialDocuments.type,
       documentTotal: financialDocuments.total,
       contactName: contacts.name,
+      eventName: events.name,
+      taskTitle: tasks.title,
     })
     .from(paymentRecords)
     .leftJoin(financialDocuments, eq(paymentRecords.documentId, financialDocuments.id))
     .leftJoin(contacts, eq(paymentRecords.contactId, contacts.id))
+    .leftJoin(events, eq(paymentRecords.eventId, events.id))
+    .leftJoin(tasks, eq(paymentRecords.taskId, tasks.id))
     .where(whereClause)
     .orderBy(desc(paymentRecords.paymentDate))
     .limit(limit)

@@ -7,10 +7,13 @@ import {
   taskMeetings,
   paymentSchedules,
   taskPayments,
+  paymentRecords,
   financialDocuments,
   leads,
   eventScheduleItems,
   providerEventAccess,
+  contacts,
+  vendors,
 } from "@/db/schema";
 import { eq, and, gte, lte, isNotNull, inArray } from "drizzle-orm";
 import type { CalendarItem, CalendarItemType } from "@/lib/calendar";
@@ -137,6 +140,7 @@ export async function GET(request: NextRequest) {
       documentRows,
       leadRows,
       scheduleRows,
+      paymentRecordRows,
     ] = await Promise.all([
       // 1. Events — filter by allowedEventIds for eventScoped, and by filterEventId
       (allowedEventIds !== null && allowedEventIds.length === 0)
@@ -329,6 +333,38 @@ export async function GET(request: NextRequest) {
               ...(filterEventId !== null ? [eq(eventScheduleItems.eventId, filterEventId)] : [])
             )
           ),
+
+      // 9. Payment records (unified finance module) — filter by financeEventIds for eventScoped
+      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: paymentRecords.id,
+            amount: paymentRecords.amount,
+            currency: paymentRecords.currency,
+            direction: paymentRecords.direction,
+            paymentDate: paymentRecords.paymentDate,
+            paymentMethod: paymentRecords.paymentMethod,
+            reference: paymentRecords.reference,
+            notes: paymentRecords.notes,
+            status: paymentRecords.status,
+            eventId: paymentRecords.eventId,
+            contactName: contacts.name,
+            vendorName: vendors.name,
+          })
+          .from(paymentRecords)
+          .leftJoin(contacts, eq(paymentRecords.contactId, contacts.id))
+          .leftJoin(vendors, eq(paymentRecords.vendorId, vendors.id))
+          .where(
+            and(
+              ...(isVendor ? [] : [eq(paymentRecords.organizationId, orgId)]),
+              isNotNull(paymentRecords.paymentDate),
+              gte(paymentRecords.paymentDate, fromDate),
+              lte(paymentRecords.paymentDate, toDate),
+              ...(financeEventIds !== null ? [inArray(paymentRecords.eventId, financeEventIds)] : []),
+              ...(filterEventId !== null ? [eq(paymentRecords.eventId, filterEventId)] : [])
+            )
+          ),
     ]);
 
     const items: CalendarItem[] = [];
@@ -480,6 +516,30 @@ export async function GET(request: NextRequest) {
         color: CALENDAR_COLORS.schedule,
         href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/schedule`,
         meta: {},
+      });
+    }
+
+    // Map payment records (unified finance module)
+    for (const row of paymentRecordRows) {
+      if (!row.paymentDate) continue;
+      const who = row.vendorName || row.contactName || "";
+      const dirLabel = row.direction === "incoming" ? "Cobro" : "Pago";
+      const amt = row.amount ? parseFloat(row.amount) : 0;
+      const title = who
+        ? `${dirLabel}: ${who} (${amt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} ${row.currency || "EUR"})`
+        : `${dirLabel}: ${amt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} ${row.currency || "EUR"}`;
+      items.push({
+        id: `payment-record-${row.id}`,
+        type: "payment",
+        title,
+        date: row.paymentDate.toISOString().split("T")[0],
+        color: CALENDAR_COLORS.payment,
+        href: isVendor ? `/vendor/finance/payments` : `/dashboard/finance/payments`,
+        meta: {
+          status: row.status ?? undefined,
+          amount: amt || undefined,
+          currency: row.currency ?? "EUR",
+        },
       });
     }
 

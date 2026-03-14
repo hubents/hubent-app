@@ -80,7 +80,7 @@ export function createAITools(userContext: UserContext) {
     }),
 
     getTasks: tool({
-      description: "Obtiene las tareas de la organizacion. Puede filtrar por estado y/o por evento.",
+      description: "Obtiene las tareas de la organizacion con el nombre del evento asociado. Puede filtrar por estado y/o por evento.",
       inputSchema: z.object({
         status: z.enum(["pending", "in_progress", "completed", "cancelled"]).optional().describe("Filtrar por estado"),
         eventId: z.number().optional().describe("Filtrar por ID de evento"),
@@ -90,7 +90,10 @@ export function createAITools(userContext: UserContext) {
         let allTasks = await db.select({
           id: tasks.id, title: tasks.title, status: tasks.status,
           priority: tasks.priority, dueDate: tasks.dueDate, eventId: tasks.eventId,
-        }).from(tasks).where(eq(tasks.organizationId, organizationId)).orderBy(desc(tasks.dueDate)).limit(100);
+          eventName: events.name,
+        }).from(tasks)
+          .leftJoin(events, eq(tasks.eventId, events.id))
+          .where(eq(tasks.organizationId, organizationId)).orderBy(desc(tasks.dueDate)).limit(100);
         
         if (eventId) allTasks = allTasks.filter(t => t.eventId === eventId);
         if (status) allTasks = allTasks.filter(t => t.status === status);
