@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks, taskPayments, eventPayments, paymentRecords, financialDocuments } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { tasks, taskPayments, eventPayments, paymentRecords, financialDocuments, taskParticipants } from "@/db/schema";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
 import { createPaymentRecord } from "@/lib/finance";
+import { getEventParticipant } from "@/lib/event-permissions";
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,37 @@ export async function GET(
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
+
+    // For eventScoped users, determine if they have edit or view-only access
+    let financesLevel: "edit" | "view" = "edit";
+    if (session.eventScoped) {
+      const participant = await getEventParticipant(session.user.userId, eventIdNum);
+      const perms = (participant?.permissions as Record<string, string>) || {};
+      financesLevel = perms.finances === "edit" ? "edit" : "view";
+    }
+
+    // For view-only: get task IDs the user participates in (to filter payments)
+    let userTaskIds: number[] = [];
+    if (session.eventScoped && financesLevel === "view") {
+      const userTasks = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.eventId, eventIdNum),
+            sql`(
+              ${tasks.id} IN (
+                SELECT ${taskParticipants.taskId}
+                FROM ${taskParticipants}
+                WHERE ${taskParticipants.userId} = ${session.user.userId}
+              )
+              OR ${tasks.assignedTo} = ${session.user.userId}
+              OR ${tasks.createdBy} = ${session.user.userId}
+            )`
+          )
+        );
+      userTaskIds = userTasks.map((t) => t.id);
+    }
 
     const payments: Array<{
       id: number;
@@ -33,6 +65,22 @@ export async function GET(
     }> = [];
 
     // 1. Get unified paymentRecords for this event
+    let unifiedWhereClause = and(
+      eq(paymentRecords.organizationId, session.organizationId),
+      eq(paymentRecords.eventId, eventIdNum)
+    )!;
+
+    // For view-only eventScoped users: filter to payments related to their tasks or created by them
+    if (session.eventScoped && financesLevel === "view") {
+      unifiedWhereClause = and(
+        unifiedWhereClause,
+        sql`(
+          ${userTaskIds.length > 0 ? sql`${paymentRecords.taskId} IN (${sql.join(userTaskIds.map(id => sql`${id}`), sql`, `)})` : sql`FALSE`}
+          OR ${paymentRecords.createdBy} = ${session.user.userId}
+        )`
+      )!;
+    }
+
     const unifiedPayments = await db
       .select({
         id: paymentRecords.id,
@@ -50,12 +98,7 @@ export async function GET(
       })
       .from(paymentRecords)
       .leftJoin(financialDocuments, eq(paymentRecords.documentId, financialDocuments.id))
-      .where(
-        and(
-          eq(paymentRecords.organizationId, session.organizationId),
-          eq(paymentRecords.eventId, eventIdNum)
-        )
-      )
+      .where(unifiedWhereClause)
       .orderBy(desc(paymentRecords.paymentDate));
 
     for (const p of unifiedPayments) {
@@ -79,36 +122,46 @@ export async function GET(
     }
 
     // 2. Legacy: direct event payments (only if not yet migrated)
-    const directPayments = await db
-      .select()
-      .from(eventPayments)
-      .where(eq(eventPayments.eventId, eventIdNum));
+    // For view-only eventScoped users: skip legacy event payments (no task/user association)
+    if (!(session.eventScoped && financesLevel === "view")) {
+      const directPayments = await db
+        .select()
+        .from(eventPayments)
+        .where(eq(eventPayments.eventId, eventIdNum));
 
-    for (const payment of directPayments) {
-      payments.push({
-        id: payment.id + 200000,
-        description: payment.description,
-        amount: payment.amount,
-        status: payment.status || "pending",
-        dueDate: payment.dueDate,
-        paidDate: payment.paidDate,
-        paidTo: payment.paidTo,
-        paidBy: payment.paidBy,
-        vendorName: null,
-        taskTitle: null,
-        source: "legacy_event",
-        paymentMethod: null,
-        reference: null,
-        documentNumber: null,
-        attachmentUrl: null,
-      });
+      for (const payment of directPayments) {
+        payments.push({
+          id: payment.id + 200000,
+          description: payment.description,
+          amount: payment.amount,
+          status: payment.status || "pending",
+          dueDate: payment.dueDate,
+          paidDate: payment.paidDate,
+          paidTo: payment.paidTo,
+          paidBy: payment.paidBy,
+          vendorName: null,
+          taskTitle: null,
+          source: "legacy_event",
+          paymentMethod: null,
+          reference: null,
+          documentNumber: null,
+          attachmentUrl: null,
+        });
+      }
     }
 
     // 3. Legacy: task payments
-    const eventTasks = await db
-      .select({ id: tasks.id, title: tasks.title })
-      .from(tasks)
-      .where(eq(tasks.eventId, eventIdNum));
+    // For view-only eventScoped users: only show payments from their tasks
+    const taskFilter = (session.eventScoped && financesLevel === "view" && userTaskIds.length > 0)
+      ? and(eq(tasks.eventId, eventIdNum), inArray(tasks.id, userTaskIds))
+      : eq(tasks.eventId, eventIdNum);
+
+    const eventTasks = (session.eventScoped && financesLevel === "view" && userTaskIds.length === 0)
+      ? []
+      : await db
+          .select({ id: tasks.id, title: tasks.title })
+          .from(tasks)
+          .where(taskFilter!);
 
     for (const task of eventTasks) {
       const taskPaymentsData = await db

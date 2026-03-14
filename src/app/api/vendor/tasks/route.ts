@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, tasks, events, organizations } from "@/db/schema";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { providerEventAccess, tasks, events, organizations, taskParticipants, vendors, organizationMembers } from "@/db/schema";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 
 /**
  * GET /api/vendor/tasks
  * List tasks from events where the current provider has active access
+ * AND the vendor is a task_participant or the task was created by a user from the provider org
  */
 export async function GET() {
   try {
@@ -44,7 +45,15 @@ export async function GET() {
       });
     }
 
-    // Get tasks from those events
+    // Find vendor IDs linked to this provider org across planner orgs
+    const linkedVendors = await db
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.providerOrgId, session.organizationId));
+
+    const vendorIds = linkedVendors.map((v) => v.id);
+
+    // Get tasks from those events WHERE vendor is a participant or task was created by provider org user
     const taskList = await db
       .select({
         id: tasks.id,
@@ -61,7 +70,23 @@ export async function GET() {
       })
       .from(tasks)
       .innerJoin(events, eq(events.id, tasks.eventId))
-      .where(inArray(tasks.eventId, eventIds))
+      .where(
+        and(
+          inArray(tasks.eventId, eventIds),
+          sql`(
+            ${vendorIds.length > 0 ? sql`${tasks.id} IN (
+              SELECT ${taskParticipants.taskId}
+              FROM ${taskParticipants}
+              WHERE ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
+            )` : sql`FALSE`}
+            OR ${tasks.createdBy} IN (
+              SELECT ${organizationMembers.userId}
+              FROM ${organizationMembers}
+              WHERE ${organizationMembers.organizationId} = ${session.organizationId}
+            )
+          )`
+        )
+      )
       .orderBy(desc(tasks.dueDate));
 
     return NextResponse.json({

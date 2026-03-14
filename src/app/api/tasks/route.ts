@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, events, users, eventParticipants } from "@/db/schema";
+import { tasks, events, users, eventParticipants, taskParticipants } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
 
@@ -26,19 +26,26 @@ export const GET = withMonitoring(async (request: NextRequest) => {
       whereClause = and(whereClause, eq(tasks.status, status as "pending" | "in_progress" | "completed" | "cancelled"))!;
     }
 
-    // For eventScoped roles, only show tasks from events where user is a participant
-    // AND has tasks permission != "none" in their event_participants.permissions
+    // For eventScoped roles, apply participation-based filtering:
+    // - tasks:edit on event → see ALL tasks in that event
+    // - tasks:view on event → see ONLY tasks where user is task_participant, assignedTo, or createdBy
     if (session.eventScoped) {
       whereClause = and(
         whereClause,
-        sql`${tasks.eventId} IN (
-          SELECT ${eventParticipants.eventId}
-          FROM ${eventParticipants}
-          WHERE ${eventParticipants.userId} = ${session.user.userId}
-            AND (
-              ${eventParticipants.permissions}->>'tasks' IS NOT NULL
-              AND ${eventParticipants.permissions}->>'tasks' != 'none'
-            )
+        sql`(
+          ${tasks.eventId} IN (
+            SELECT ${eventParticipants.eventId}
+            FROM ${eventParticipants}
+            WHERE ${eventParticipants.userId} = ${session.user.userId}
+              AND ${eventParticipants.permissions}->>'tasks' = 'edit'
+          )
+          OR ${tasks.id} IN (
+            SELECT ${taskParticipants.taskId}
+            FROM ${taskParticipants}
+            WHERE ${taskParticipants.userId} = ${session.user.userId}
+          )
+          OR ${tasks.assignedTo} = ${session.user.userId}
+          OR ${tasks.createdBy} = ${session.user.userId}
         )`
       )!;
     }

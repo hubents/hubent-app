@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { tasks, taskPayments, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyPaymentRegistered } from "@/lib/push-notifications";
+import { canAccessTask } from "@/lib/tenant";
 
 // GET /api/tasks/[taskId]/payments - List payments for a task
 export async function GET(
@@ -31,6 +32,17 @@ export async function GET(
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    // For eventScoped roles, verify task-level access
+    if (session.eventScoped) {
+      const access = await canAccessTask(session, taskIdNum);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
+          { status: 403 }
+        );
+      }
     }
 
     const payments = await db
@@ -105,6 +117,17 @@ export async function POST(
       );
     }
 
+    // For eventScoped roles, verify task-level access
+    if (session.eventScoped) {
+      const access = await canAccessTask(session, taskIdNum);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
+          { status: 403 }
+        );
+      }
+    }
+
     const [payment] = await db
       .insert(taskPayments)
       .values({
@@ -175,6 +198,17 @@ export async function DELETE(
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    // For eventScoped roles, verify task-level access
+    if (session.eventScoped) {
+      const access = await canAccessTask(session, taskIdNum);
+      if (!access.allowed) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
+          { status: 403 }
+        );
+      }
     }
 
     await db

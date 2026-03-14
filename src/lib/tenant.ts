@@ -508,7 +508,9 @@ export async function canAccessEvent(
 /**
  * Check if user can access a specific task
  * Non-eventScoped roles bypass this check
- * eventScoped roles must be a task participant OR have tasks access on the event
+ * eventScoped roles:
+ *   - tasks:edit on event → full access to all event tasks
+ *   - tasks:view on event → only if user is task_participant, assignedTo, or createdBy
  */
 export async function canAccessTask(
   session: TenantSession,
@@ -530,17 +532,27 @@ export async function canAccessTask(
     return { allowed: true };
   }
 
-  // Check if user is a participant of the task's event with tasks permission
+  // Get task details to check assignedTo, createdBy, and event permissions
   const task = await db.query.tasks.findFirst({
     where: (t, { eq }) => eq(t.id, taskId),
-    columns: { eventId: true },
+    columns: { eventId: true, assignedTo: true, createdBy: true },
   });
 
-  if (task?.eventId) {
+  if (!task) {
+    return { allowed: false, reason: "Tarea no encontrada" };
+  }
+
+  // Direct assignment or creator
+  if (task.assignedTo === session.user.userId || task.createdBy === session.user.userId) {
+    return { allowed: true };
+  }
+
+  // Check event-level permission: only tasks:edit grants access to all event tasks
+  if (task.eventId) {
     const eventAccess = await getEventParticipant(session.user.userId, task.eventId);
     if (eventAccess) {
       const perms = (eventAccess.permissions as Record<string, string>) || {};
-      if (perms.tasks && perms.tasks !== "none") {
+      if (perms.tasks === "edit") {
         return { allowed: true };
       }
     }
