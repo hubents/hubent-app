@@ -14,7 +14,7 @@ describe("OpenAPI Spec", () => {
     expect(spec.openapi).toBe("3.1.0");
     expect(spec.info).toBeDefined();
     expect(spec.info.title).toBe("HubEnts Public API");
-    expect(spec.info.version).toBe("2025-03-14");
+    expect(spec.info.version).toBe("2026-03-14");
   });
 
   it("has servers defined", () => {
@@ -102,7 +102,7 @@ describe("OpenAPI Spec", () => {
 
 describe("API Versioning", () => {
   it("has current version set", () => {
-    expect(CURRENT_API_VERSION).toBe("2025-03-14");
+    expect(CURRENT_API_VERSION).toBe("2026-03-14");
   });
 
   it("has at least one supported version", () => {
@@ -118,7 +118,7 @@ describe("API Versioning", () => {
 
   it("resolves valid version", () => {
     expect(resolveApiVersion("2025-01-01")).toBe("2025-01-01");
-    expect(resolveApiVersion("2025-03-14")).toBe("2025-03-14");
+    expect(resolveApiVersion("2026-03-14")).toBe("2026-03-14");
   });
 
   it("resolves unknown version to current", () => {

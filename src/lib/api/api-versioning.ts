@@ -2,10 +2,10 @@
 // API Versioning
 // ============================================
 
-export const CURRENT_API_VERSION = "2025-03-14";
+export const CURRENT_API_VERSION = "2026-03-14";
 
 export const SUPPORTED_VERSIONS = [
-  "2025-03-14",
+  "2026-03-14",
   "2025-01-01",
 ] as const;
 

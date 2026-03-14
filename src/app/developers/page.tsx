@@ -204,7 +204,7 @@ export default function DeveloperPortalPage() {
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-1 rounded-full mb-4">
             <RiCodeSSlashLine className="h-4 w-4" />
-            <span>REST API v2025-03-14 · OpenAPI 3.1</span>
+            <span>REST API v2026-03-14 · OpenAPI 3.1</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">HubEnts Public API</h1>
           <p className="text-lg text-muted-foreground mb-8">
@@ -269,7 +269,7 @@ export default function DeveloperPortalPage() {
           <p className="text-zinc-500 mb-2"># Tu primer request</p>
           <p><span className="text-emerald-400">curl</span> https://app.hubents.com/api/v1/me \</p>
           <p className="pl-4">-H <span className="text-amber-300">&quot;Authorization: Bearer hb_live_abc123...&quot;</span> \</p>
-          <p className="pl-4">-H <span className="text-amber-300">&quot;X-HubEnts-Version: 2025-03-14&quot;</span></p>
+          <p className="pl-4">-H <span className="text-amber-300">&quot;X-HubEnts-Version: 2026-03-14&quot;</span></p>
           <p className="mt-3 text-zinc-500"># Respuesta</p>
           <p>{`{`}</p>
           <p className="pl-4"><span className="text-blue-300">&quot;object&quot;</span>: <span className="text-amber-300">&quot;organization&quot;</span>,</p>
@@ -325,7 +325,7 @@ export default function DeveloperPortalPage() {
                 <tbody>
                   <tr className="border-t"><td className="px-4 py-2 font-mono text-xs">Authorization</td><td className="px-4 py-2 text-xs">Bearer hb_live_...</td><td className="px-4 py-2 text-xs">Si</td></tr>
                   <tr className="border-t"><td className="px-4 py-2 font-mono text-xs">Content-Type</td><td className="px-4 py-2 text-xs">application/json</td><td className="px-4 py-2 text-xs">POST/PATCH</td></tr>
-                  <tr className="border-t"><td className="px-4 py-2 font-mono text-xs">X-HubEnts-Version</td><td className="px-4 py-2 text-xs">2025-03-14</td><td className="px-4 py-2 text-xs">No</td></tr>
+                  <tr className="border-t"><td className="px-4 py-2 font-mono text-xs">X-HubEnts-Version</td><td className="px-4 py-2 text-xs">2026-03-14</td><td className="px-4 py-2 text-xs">No</td></tr>
                   <tr className="border-t"><td className="px-4 py-2 font-mono text-xs">Idempotency-Key</td><td className="px-4 py-2 text-xs">UUID unico</td><td className="px-4 py-2 text-xs">Recomendado POST</td></tr>
                 </tbody>
               </table>
@@ -720,7 +720,7 @@ Retry-After: 42
       {/* Footer */}
       <footer className="border-t py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-muted-foreground">
-          <p>© 2025 HubEnts — API v2025-03-14</p>
+          <p>© 2025 HubEnts — API v2026-03-14</p>
           <div className="flex gap-4">
             <a href="/api/v1/openapi" target="_blank" className="hover:text-foreground">OpenAPI</a>
             <Link href="/developers/changelog" className="hover:text-foreground">Changelog</Link>

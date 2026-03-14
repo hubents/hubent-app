@@ -7,7 +7,7 @@ export function generateOpenApiSpec() {
     openapi: "3.1.0",
     info: {
       title: "HubEnts Public API",
-      version: "2025-03-14",
+      version: "2026-03-14",
       description: "API pública de HubEnts para gestión de eventos, contactos, finanzas, CRM, formularios y más. Compatible con CLI, MCP y AI integrations.",
       contact: {
         name: "HubEnts Developer Support",
