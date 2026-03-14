@@ -41,6 +41,9 @@ function formatFieldValue(field: SubmissionField): string {
   if (field.type === "image_select") {
     return escapeHtml(String(val));
   }
+  if (field.type === "signature" && typeof val === "string" && val.startsWith("data:image/")) {
+    return `<img src="${val}" alt="Firma" style="max-width: 300px; max-height: 120px; border: 1px solid #e5e7eb; border-radius: 4px;">`;
+  }
   if (field.type === "section_title" || field.type === "descriptive_text" || field.type === "separator") {
     return "";
   }

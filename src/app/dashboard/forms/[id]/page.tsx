@@ -32,11 +32,13 @@ import {
   RiCalendarEventLine,
   RiImageAddLine,
   RiCloseLine,
+  RiExternalLinkLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
 import { FormBuilder, type BuilderField } from "@/components/forms/form-builder";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { ShareFormDialog } from "@/components/forms/share-form-dialog";
 
 interface FormData {
   id: number;
@@ -84,8 +86,8 @@ interface InstanceData {
 export default function FormEditorPage() {
   const params = useParams();
   const router = useRouter();
-  const { can } = useUserSession();
-  const canEdit = can("forms:update");
+  const { can, loading: sessionLoading } = useUserSession();
+  const canEdit = sessionLoading ? true : can("forms:update");
   const formId = Number(params.id);
 
   const [form, setForm] = useState<FormData | null>(null);
@@ -93,6 +95,7 @@ export default function FormEditorPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState("design");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   // Editable fields
   const [name, setName] = useState("");
@@ -261,16 +264,11 @@ export default function FormEditorPage() {
                 if (!landingSlug) return null;
                 return (
                   <button
-                    onClick={() => {
-                      const url = `${window.location.origin}/f/${landingSlug}`;
-                      navigator.clipboard.writeText(url);
-                      toast.success("Link copiado");
-                    }}
+                    onClick={() => setShareDialogOpen(true)}
                     className="flex items-center gap-1 text-xs text-primary hover:underline ml-1"
-                    title={`${window.location.origin}/f/${landingSlug}`}
                   >
                     <RiGlobeLine className="h-3.5 w-3.5" />
-                    Copiar link
+                    Compartir
                   </button>
                 );
               })()}
@@ -562,24 +560,48 @@ export default function FormEditorPage() {
               dbId: f.id,
             }))}
             onSave={async (fields) => {
-              const res = await fetch(`/api/forms/${formId}/fields`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  fields: fields.map((f) => ({
-                    type: f.type,
-                    label: f.label,
-                    placeholder: f.placeholder || null,
-                    required: f.required,
-                    crmMapping: f.crmMapping,
-                    options: f.options,
-                    sortOrder: f.sortOrder,
-                    config: f.config,
-                  })),
+              const [fieldsRes, formRes] = await Promise.all([
+                fetch(`/api/forms/${formId}/fields`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    fields: fields.map((f) => ({
+                      type: f.type,
+                      label: f.label,
+                      placeholder: f.placeholder || null,
+                      required: f.required,
+                      crmMapping: f.crmMapping,
+                      options: f.options,
+                      sortOrder: f.sortOrder,
+                      config: f.config,
+                    })),
+                  }),
                 }),
-              });
-              const data = await res.json();
-              if (data.success) {
+                fetch(`/api/forms/${formId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name,
+                    description: description || null,
+                    logoUrl: logoUrl || null,
+                    coverImage: coverImage || null,
+                    primaryColor,
+                    submitButtonText,
+                    thankYouTitle,
+                    thankYouMessage,
+                    redirectUrl: redirectUrl || null,
+                    notifyOnResponse,
+                    notifyEmail: notifyEmail || null,
+                    gdprEnabled,
+                    gdprText,
+                    gdprLink: gdprLink || null,
+                  }),
+                }),
+              ]);
+              const fieldsData = await fieldsRes.json();
+              const formData = await formRes.json();
+              if (fieldsData.success && formData.success) {
+                setForm((prev) => prev ? { ...prev, ...formData.data } : prev);
                 fetchForm();
               }
             }}
@@ -657,6 +679,10 @@ export default function FormEditorPage() {
                                 <p className="text-xs font-medium p-1.5 text-center">{opt.label}</p>
                               </div>
                             ))}
+                          </div>
+                        ) : field.type === "signature" ? (
+                          <div className="w-full h-[100px] rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-sm text-gray-400">
+                            Firma digital
                           </div>
                         ) : field.type === "event_date" ? (
                           <div className="w-full h-10 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center text-sm text-gray-400">
@@ -766,6 +792,18 @@ export default function FormEditorPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {(() => {
+        const landingSlug = form.instances?.find((i) => i.type === "landing" && i.slug)?.slug;
+        if (!landingSlug) return null;
+        return (
+          <ShareFormDialog
+            slug={landingSlug}
+            open={shareDialogOpen}
+            onOpenChange={setShareDialogOpen}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -1071,9 +1109,14 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
                   {inst.status === "active" ? "Activo" : inst.status}
                 </Badge>
                 {inst.slug && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => copyLink(inst.slug!)} title="Copiar link">
-                    <RiFileCopyLine className="h-3.5 w-3.5" />
-                  </Button>
+                  <>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => copyLink(inst.slug!)} title="Copiar link">
+                      <RiFileCopyLine className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => window.open(`${window.location.origin}/f/${inst.slug}`, "_blank")} title="Abrir formulario">
+                      <RiExternalLinkLine className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="ghost"

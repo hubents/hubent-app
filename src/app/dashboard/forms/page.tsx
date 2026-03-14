@@ -20,9 +20,11 @@ import {
   RiGlobeLine,
   RiDownloadLine,
   RiLoader4Line,
+  RiExternalLinkLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
+import { ShareFormDialog } from "@/components/forms/share-form-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +72,7 @@ function FormsPageContent() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("forms");
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
 
   const canCreate = can("forms:create");
   const canUpdate = can("forms:update");
@@ -318,15 +321,13 @@ function FormsPageContent() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const url = `${window.location.origin}/f/${form.landingSlug}`;
-                      navigator.clipboard.writeText(url);
-                      toast.success("Link copiado");
+                      setShareSlug(form.landingSlug);
                     }}
                     className="flex items-center gap-1 text-primary hover:underline"
-                    title="Copiar link público"
+                    title="Compartir formulario"
                   >
-                    <RiLink className="h-3.5 w-3.5" />
-                    Copiar link
+                    <RiGlobeLine className="h-3.5 w-3.5" />
+                    Compartir
                   </button>
                 )}
                 {form.instanceCount > 0 && (
@@ -366,6 +367,14 @@ function FormsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
       </>
+      )}
+
+      {shareSlug && (
+        <ShareFormDialog
+          slug={shareSlug}
+          open={!!shareSlug}
+          onOpenChange={(open) => { if (!open) setShareSlug(null); }}
+        />
       )}
     </div>
   );

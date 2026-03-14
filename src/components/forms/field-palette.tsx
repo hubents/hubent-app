@@ -18,9 +18,11 @@ import {
   RiHeading,
   RiFileTextLine,
   RiHeartLine,
+  RiAddLine,
+  RiPenNibLine,
 } from "@remixicon/react";
 
-const PALETTE_SECTIONS = [
+export const PALETTE_SECTIONS = [
   {
     title: "Datos CRM",
     description: "Se mapean automáticamente al contacto/lead",
@@ -47,6 +49,7 @@ const PALETTE_SECTIONS = [
       { type: "multi_select", label: "Selección múltiple", icon: RiCheckboxLine, crmMapping: null },
       { type: "checkbox", label: "Casilla", icon: RiCheckboxLine, crmMapping: null },
       { type: "image_select", label: "Selector de imagen", icon: RiImageLine, crmMapping: null },
+      { type: "signature", label: "Firma digital", icon: RiPenNibLine, crmMapping: null },
     ],
   },
   {
@@ -62,18 +65,29 @@ const PALETTE_SECTIONS = [
 
 interface FieldPaletteProps {
   onAddField: (type: string, label: string, crmMapping: string | null) => void;
+  onAddAllCrm?: () => void;
 }
 
-export function FieldPalette({ onAddField }: FieldPaletteProps) {
+export function FieldPalette({ onAddField, onAddAllCrm }: FieldPaletteProps) {
   return (
     <div className="p-4 space-y-5">
       <h3 className="text-sm font-semibold text-foreground">Campos disponibles</h3>
       {PALETTE_SECTIONS.map((section) => (
         <div key={section.title} className="space-y-2">
-          <div>
+          <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {section.title}
             </p>
+            {section.title === "Datos CRM" && onAddAllCrm && (
+              <button
+                onClick={onAddAllCrm}
+                className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                title="Agregar todos los campos CRM"
+              >
+                <RiAddLine className="h-3 w-3" />
+                Todos
+              </button>
+            )}
           </div>
           <div className="space-y-1">
             {section.fields.map((field) => (

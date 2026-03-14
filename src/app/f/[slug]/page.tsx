@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import {
   RiErrorWarningLine,
   RiExternalLinkLine,
 } from "@remixicon/react";
+import { SignatureCanvas } from "@/components/forms/signature-canvas";
 
 interface FormField {
   id: number;
@@ -49,7 +50,9 @@ type FormState = "loading" | "form" | "submitting" | "success" | "error";
 
 export default function PublicFormPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
+  const isEmbed = searchParams.get("embed") === "true";
 
   const [formData, setFormData] = useState<PublicFormData | null>(null);
   const [state, setState] = useState<FormState>("loading");
@@ -145,7 +148,7 @@ export default function PublicFormPage() {
 
   if (state === "success") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <div className={`flex flex-col items-center justify-center bg-gray-50 ${isEmbed ? "min-h-0 py-8" : "min-h-screen"}`}>
         <div className="max-w-md text-center p-8 flex-1 flex flex-col items-center justify-center">
           {formData?.form.logoUrl && (
             <img src={formData.form.logoUrl} alt="" className="h-10 mx-auto mb-6 object-contain" />
@@ -165,11 +168,13 @@ export default function PublicFormPage() {
             </p>
           )}
         </div>
-        <div className="pb-6 flex items-center justify-center gap-1.5">
-          <span className="text-[11px] text-gray-400">Hecho con</span>
-          <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
-          <span className="text-[11px] font-medium text-gray-400">hubents</span>
-        </div>
+        {!isEmbed && (
+          <div className="pb-6 flex items-center justify-center gap-1.5">
+            <span className="text-[11px] text-gray-400">Hecho con</span>
+            <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+            <span className="text-[11px] font-medium text-gray-400">hubents</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -178,7 +183,7 @@ export default function PublicFormPage() {
   const { form } = formData;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className={`bg-gray-50 px-4 ${isEmbed ? "py-4" : "min-h-screen py-8"}`}>
       <div className="max-w-xl mx-auto">
         {/* Cover Image */}
         {form.coverImage && (
@@ -249,11 +254,13 @@ export default function PublicFormPage() {
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-center gap-1.5 mt-6">
-          <span className="text-[11px] text-gray-400">Hecho con</span>
-          <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
-          <span className="text-[11px] font-medium text-gray-400">hubents</span>
-        </div>
+        {!isEmbed && (
+          <div className="flex items-center justify-center gap-1.5 mt-6">
+            <span className="text-[11px] text-gray-400">Hecho con</span>
+            <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+            <span className="text-[11px] font-medium text-gray-400">hubents</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -478,6 +485,16 @@ function FieldRenderer({ field, value, onChange, primaryColor }: FieldRendererPr
         </div>
       );
     }
+
+    case "signature":
+      return (
+        <SignatureCanvas
+          value={(value as string) || null}
+          onChange={(dataUrl) => onChange(dataUrl)}
+          label={field.label}
+          required={field.required}
+        />
+      );
 
     default:
       return null;

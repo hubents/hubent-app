@@ -18,7 +18,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { FieldPalette } from "./field-palette";
+import { FieldPalette, PALETTE_SECTIONS } from "./field-palette";
 import { FormCanvas } from "./form-canvas";
 import { FieldProperties } from "./field-properties";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,32 @@ export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps)
     setSelectedFieldId(newField.id);
   }, [fields.length]);
 
+  const addAllCrmFields = useCallback(() => {
+    const crmSection = PALETTE_SECTIONS.find((s) => s.title === "Datos CRM");
+    if (!crmSection) return;
+    setFields((prev) => {
+      const existingTypes = new Set(prev.map((f) => f.type));
+      const newFields = crmSection.fields
+        .filter((f) => !existingTypes.has(f.type))
+        .map((f, idx) => {
+          fieldCounter++;
+          return {
+            id: `new-${fieldCounter}-${Date.now()}-${idx}`,
+            type: f.type,
+            label: f.label,
+            placeholder: "",
+            required: false,
+            crmMapping: f.crmMapping,
+            options: null,
+            sortOrder: prev.length + idx,
+            config: {},
+          } as BuilderField;
+        });
+      if (newFields.length === 0) return prev;
+      return [...prev, ...newFields];
+    });
+  }, []);
+
   const removeField = useCallback((fieldId: string) => {
     setFields((prev) => prev.filter((f) => f.id !== fieldId).map((f, idx) => ({ ...f, sortOrder: idx })));
     if (selectedFieldId === fieldId) setSelectedFieldId(null);
@@ -139,7 +165,7 @@ export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps)
           ) : (
             <RiSaveLine className="h-4 w-4 mr-1" />
           )}
-          {saving ? "Guardando..." : saved ? "Guardado" : "Guardar campos"}
+          {saving ? "Guardando..." : saved ? "Guardado" : "Guardar todo"}
         </Button>
       </div>
 
@@ -147,7 +173,7 @@ export function FormBuilder({ formId, initialFields, onSave }: FormBuilderProps)
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Field Palette */}
         <div className="w-64 border-r overflow-y-auto bg-muted/20">
-          <FieldPalette onAddField={addField} />
+          <FieldPalette onAddField={addField} onAddAllCrm={addAllCrmFields} />
         </div>
 
         {/* Center: Canvas */}
