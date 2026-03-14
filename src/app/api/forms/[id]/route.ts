@@ -21,6 +21,8 @@ const updateFormSchema = z.object({
   gdprEnabled: z.boolean().optional(),
   gdprText: z.string().max(500).optional(),
   gdprLink: z.string().nullable().optional(),
+  crmCreateContact: z.boolean().optional(),
+  crmCreateLead: z.boolean().optional(),
 });
 
 export async function GET(

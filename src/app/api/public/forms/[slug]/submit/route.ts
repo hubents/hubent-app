@@ -69,8 +69,12 @@ export async function POST(
       userAgent,
     });
 
-    // Create lead + contact in CRM (for landing instances)
-    if (instance.type === "landing" && (crmData.name || crmData.email)) {
+    // Create lead + contact in CRM based on form config
+    const hasCrmData = crmData.name || crmData.email;
+    const crmCreateLead = instance.form.crmCreateLead ?? true;
+    const crmCreateContact = instance.form.crmCreateContact ?? true;
+
+    if (hasCrmData && crmCreateLead) {
       try {
         const leadId = await createLeadFromSubmission(
           instance.organizationId,
@@ -81,7 +85,9 @@ export async function POST(
       } catch {
         // Don't fail the submission if lead creation fails
       }
+    }
 
+    if (hasCrmData && crmCreateContact) {
       try {
         const contactId = await createContactFromSubmission(
           instance.organizationId,

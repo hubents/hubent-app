@@ -112,6 +112,8 @@ export default function FormEditorPage() {
   const [gdprLink, setGdprLink] = useState("");
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [crmCreateContact, setCrmCreateContact] = useState(true);
+  const [crmCreateLead, setCrmCreateLead] = useState(true);
 
   const { upload: uploadCover, uploading: uploadingCover } = useFileUpload({
     folder: `forms/${formId}/cover`,
@@ -152,6 +154,8 @@ export default function FormEditorPage() {
         setGdprLink(f.gdprLink || "");
         setCoverImage(f.coverImage || null);
         setLogoUrl(f.logoUrl || null);
+        setCrmCreateContact(f.crmCreateContact ?? true);
+        setCrmCreateLead(f.crmCreateLead ?? true);
       }
     } catch {
       // silent
@@ -184,6 +188,8 @@ export default function FormEditorPage() {
           gdprEnabled,
           gdprText,
           gdprLink: gdprLink || null,
+          crmCreateContact,
+          crmCreateLead,
         }),
       });
       const data = await res.json();
@@ -595,6 +601,8 @@ export default function FormEditorPage() {
                     gdprEnabled,
                     gdprText,
                     gdprLink: gdprLink || null,
+                    crmCreateContact,
+                    crmCreateLead,
                   }),
                 }),
               ]);
@@ -758,6 +766,31 @@ export default function FormEditorPage() {
                     />
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* CRM Behavior */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Comportamiento CRM</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Crear contacto automáticamente</p>
+                    <p className="text-xs text-muted-foreground">
+                      Al recibir una respuesta, crea un contacto con los datos CRM del formulario
+                    </p>
+                  </div>
+                  <Switch checked={crmCreateContact} onCheckedChange={setCrmCreateContact} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Crear lead en pipeline</p>
+                    <p className="text-xs text-muted-foreground">
+                      Crea un lead en la primera etapa del CRM Kanban automáticamente
+                    </p>
+                  </div>
+                  <Switch checked={crmCreateLead} onCheckedChange={setCrmCreateLead} />
+                </div>
               </div>
             </section>
 

@@ -1915,6 +1915,8 @@ export const forms = pgTable("forms", {
   gdprEnabled: boolean("gdpr_enabled").default(false),
   gdprText: text("gdpr_text").default("Acepto la política de privacidad."),
   gdprLink: text("gdpr_link"),
+  crmCreateContact: boolean("crm_create_contact").default(true),
+  crmCreateLead: boolean("crm_create_lead").default(true),
   createdBy: text("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -142,8 +142,18 @@ export async function getSubmissionById(submissionId: number) {
 
 export interface CrmMappedData {
   name?: string;
+  lastName?: string;
   email?: string;
   phone?: string;
+  nieOrCif?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  state?: string;
+  country?: string;
+  tradeName?: string;
+  website?: string;
+  category?: string;
   partnerName?: string;
   partnerEmail?: string;
   eventDate?: string;
@@ -175,12 +185,21 @@ export async function createLeadFromSubmission(
   crmData: CrmMappedData,
   source: string
 ): Promise<number> {
+  const fullName = [crmData.name, crmData.lastName].filter(Boolean).join(" ");
   const parts: string[] = [];
-  if (crmData.name) parts.push(crmData.name);
+  if (fullName) parts.push(fullName);
   if (crmData.email) parts.push(`(${crmData.email})`);
 
   const description = [
     crmData.phone ? `Tel: ${crmData.phone}` : null,
+    crmData.address ? `Dirección: ${crmData.address}` : null,
+    [crmData.city, crmData.state, crmData.postalCode].filter(Boolean).length > 0
+      ? [crmData.city, crmData.state, crmData.postalCode].filter(Boolean).join(", ")
+      : null,
+    crmData.country ? `País: ${crmData.country}` : null,
+    crmData.tradeName ? `Empresa: ${crmData.tradeName}` : null,
+    crmData.nieOrCif ? `NIF/NIE: ${crmData.nieOrCif}` : null,
+    crmData.website ? `Web: ${crmData.website}` : null,
     crmData.partnerName ? `Pareja: ${crmData.partnerName}` : null,
     crmData.eventDate ? `Fecha evento: ${crmData.eventDate}` : null,
     crmData.venue ? `Lugar: ${crmData.venue}` : null,
@@ -221,13 +240,26 @@ export async function createContactFromSubmission(
   crmData: CrmMappedData,
   source: string
 ): Promise<number> {
+  const fullName = [crmData.name, crmData.lastName].filter(Boolean).join(" ") || "Sin nombre";
+
   const [contact] = await db
     .insert(contacts)
     .values({
       organizationId,
-      name: crmData.name || "Sin nombre",
+      name: fullName,
+      firstName: crmData.name || null,
+      lastName: crmData.lastName || null,
       email: crmData.email || null,
       phone: crmData.phone || null,
+      nieOrCif: crmData.nieOrCif || null,
+      address: crmData.address || null,
+      city: crmData.city || null,
+      postalCode: crmData.postalCode || null,
+      state: crmData.state || null,
+      country: crmData.country || null,
+      tradeName: crmData.tradeName || null,
+      website: crmData.website || null,
+      category: crmData.category || null,
       source: "website" as const,
       notes: crmData.notes ? `${source} — ${crmData.notes}` : source,
       eventDate: crmData.eventDate ? new Date(crmData.eventDate) : null,

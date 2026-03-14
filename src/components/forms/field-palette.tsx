@@ -20,6 +20,14 @@ import {
   RiHeartLine,
   RiAddLine,
   RiPenNibLine,
+  RiIdCardLine,
+  RiBuilding2Line,
+  RiHashtag,
+  RiMapPin2Line,
+  RiGlobeLine,
+  RiStore2Line,
+  RiGlobalLine,
+  RiPriceTag3Line,
 } from "@remixicon/react";
 
 export const PALETTE_SECTIONS = [
@@ -28,8 +36,18 @@ export const PALETTE_SECTIONS = [
     description: "Se mapean automáticamente al contacto/lead",
     fields: [
       { type: "name", label: "Nombre", icon: RiUserLine, crmMapping: "name" },
+      { type: "last_name", label: "Apellido", icon: RiUserLine, crmMapping: "lastName" },
       { type: "email", label: "Email", icon: RiMailLine, crmMapping: "email" },
       { type: "phone", label: "Teléfono", icon: RiPhoneLine, crmMapping: "phone" },
+      { type: "nie_cif", label: "NIF / NIE", icon: RiIdCardLine, crmMapping: "nieOrCif" },
+      { type: "address", label: "Dirección", icon: RiMapPinLine, crmMapping: "address" },
+      { type: "city", label: "Población", icon: RiBuilding2Line, crmMapping: "city" },
+      { type: "postal_code", label: "Código postal", icon: RiHashtag, crmMapping: "postalCode" },
+      { type: "state", label: "Provincia", icon: RiMapPin2Line, crmMapping: "state" },
+      { type: "country", label: "País", icon: RiGlobeLine, crmMapping: "country" },
+      { type: "trade_name", label: "Nombre comercial", icon: RiStore2Line, crmMapping: "tradeName" },
+      { type: "website", label: "Website", icon: RiGlobalLine, crmMapping: "website" },
+      { type: "category", label: "Categoría", icon: RiPriceTag3Line, crmMapping: "category" },
       { type: "partner_name", label: "Nombre pareja", icon: RiHeartLine, crmMapping: "partnerName" },
       { type: "partner_email", label: "Email pareja", icon: RiMailLine, crmMapping: "partnerEmail" },
       { type: "event_date", label: "Fecha del evento", icon: RiCalendarLine, crmMapping: "eventDate" },
