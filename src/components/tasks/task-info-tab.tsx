@@ -54,6 +54,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
+import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 
 interface TaskDetail {
   id: number;
@@ -217,6 +218,9 @@ export function TaskInfoTab({
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFiles, setPreviewFiles] = useState<TaskAttachment[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   const [newMeeting, setNewMeeting] = useState({ title: "", date: "", startTime: "", endTime: "", description: "" });
   const [addingMeeting, setAddingMeeting] = useState(false);
@@ -941,10 +945,11 @@ export function TaskInfoTab({
               </div>
             ) : (
               <div className="space-y-2">
-                {files.map((file) => (
+                {files.map((file, idx) => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border group"
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border group cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => { setPreviewFiles(files); setPreviewIndex(idx); setPreviewOpen(true); }}
                   >
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                       <RiFileTextLine className="h-5 w-5 text-primary" />
@@ -955,7 +960,7 @@ export function TaskInfoTab({
                         {formatFileSize(file.size)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                         <a href={file.url} target="_blank" rel="noopener noreferrer" download>
                           <RiDownloadLine className="h-4 w-4" />
@@ -985,17 +990,18 @@ export function TaskInfoTab({
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {images.map((image) => (
+                {images.map((image, idx) => (
                   <div
                     key={image.id}
-                    className="relative aspect-square rounded-lg overflow-hidden border border-border group"
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border group cursor-pointer"
+                    onClick={() => { setPreviewFiles(images); setPreviewIndex(idx); setPreviewOpen(true); }}
                   >
                     <img
                       src={image.thumbnail || image.url}
                       alt={image.name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button variant="secondary" size="icon" className="h-8 w-8" asChild>
                         <a href={image.url} target="_blank" rel="noopener noreferrer">
                           <RiDownloadLine className="h-4 w-4" />
@@ -1086,6 +1092,14 @@ export function TaskInfoTab({
           </TabsContent>
         </Tabs>
       </div>
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={previewFiles}
+        currentIndex={previewIndex}
+        onIndexChange={setPreviewIndex}
+      />
     </div>
   );
 }
