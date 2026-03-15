@@ -22,6 +22,7 @@ import {
   RiAttachmentLine,
   RiMoreLine,
   RiFileDownloadLine,
+  RiEyeLine,
 } from "@remixicon/react";
 import {
   DropdownMenu,
@@ -961,6 +962,15 @@ export function TaskInfoTab({
                       </p>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => { setPreviewFiles(files); setPreviewIndex(idx); setPreviewOpen(true); }}
+                        title="Vista previa"
+                      >
+                        <RiEyeLine className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
                         <a href={file.url} target="_blank" rel="noopener noreferrer" download>
                           <RiDownloadLine className="h-4 w-4" />
@@ -1001,9 +1011,17 @@ export function TaskInfoTab({
                       alt={image.name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="secondary" size="icon" className="h-8 w-8" asChild>
-                        <a href={image.url} target="_blank" rel="noopener noreferrer">
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); setPreviewFiles(images); setPreviewIndex(idx); setPreviewOpen(true); }}
+                      >
+                        <RiEyeLine className="h-4 w-4" />
+                      </Button>
+                      <Button variant="secondary" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()} asChild>
+                        <a href={image.url} target="_blank" rel="noopener noreferrer" download>
                           <RiDownloadLine className="h-4 w-4" />
                         </a>
                       </Button>
@@ -1012,7 +1030,7 @@ export function TaskInfoTab({
                         variant="destructive"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => onDeleteAttachment(image.id)}
+                        onClick={(e) => { e.stopPropagation(); onDeleteAttachment(image.id); }}
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
