@@ -243,7 +243,7 @@ export function TaskScheduleTab({
             onClick={() => setShowAddForm(!showAddForm)}
           >
             <RiAddLine className="h-4 w-4" />
-            Add Order
+            Agregar
           </Button>
           )}
         </div>
@@ -510,14 +510,14 @@ export function TaskScheduleTab({
               }
             }}
           >
-            Remove Order
+            Eliminar todo
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAddForm(true)}
           >
-            Add Order
+            Agregar
           </Button>
         </div>
       )}
