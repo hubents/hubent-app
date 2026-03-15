@@ -65,6 +65,7 @@ const updateSchema = z.object({
     timezone: z.string().optional(),
     currency: z.string().optional(),
     language: z.string().optional(),
+    dateFormat: z.string().optional(),
   }).optional(),
 });
 
@@ -112,7 +113,13 @@ export async function PATCH(request: NextRequest) {
     }
     if (data.providerCategory !== undefined) updates.providerCategory = data.providerCategory;
     if (data.serviceRadius !== undefined) updates.serviceRadius = data.serviceRadius;
-    if (data.settings !== undefined) updates.settings = data.settings;
+    if (data.settings !== undefined) {
+      const currentOrg = await db.query.organizations.findFirst({
+        where: eq(organizations.id, session.organizationId),
+        columns: { settings: true },
+      });
+      updates.settings = { ...(currentOrg?.settings || {}), ...data.settings };
+    }
 
     await db
       .update(organizations)

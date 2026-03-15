@@ -24,21 +24,14 @@ import {
 } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
-const TIMEZONES = [
-  "America/Argentina/Buenos_Aires",
-  "America/Sao_Paulo",
-  "America/Santiago",
-  "America/Bogota",
-  "America/Mexico_City",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Europe/Madrid",
-  "Europe/London",
-  "UTC",
-];
-
-const CURRENCIES = ["ARS", "USD", "EUR", "BRL", "CLP", "COP", "MXN", "GBP"];
+import {
+  TIMEZONES,
+  CURRENCIES,
+  LANGUAGES,
+  DATE_FORMATS,
+  DEFAULT_LOCALE_SETTINGS,
+} from "@/lib/constants/locale";
+import type { OrgLocaleSettings } from "@/lib/constants/locale";
 
 export default function VendorSettingsPage() {
   const router = useRouter();
@@ -47,10 +40,8 @@ export default function VendorSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [settings, setSettings] = useState({
-    timezone: "America/Argentina/Buenos_Aires",
-    currency: "ARS",
-    language: "es",
+  const [settings, setSettings] = useState<OrgLocaleSettings>({
+    ...DEFAULT_LOCALE_SETTINGS,
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -66,9 +57,10 @@ export default function VendorSettingsPage() {
         if (data.success && data.data) {
           const orgSettings = data.data.settings || {};
           setSettings({
-            timezone: orgSettings.timezone || "America/Argentina/Buenos_Aires",
-            currency: orgSettings.currency || "ARS",
-            language: orgSettings.language || "es",
+            timezone: orgSettings.timezone || DEFAULT_LOCALE_SETTINGS.timezone,
+            currency: orgSettings.currency || DEFAULT_LOCALE_SETTINGS.currency,
+            language: orgSettings.language || DEFAULT_LOCALE_SETTINGS.language,
+            dateFormat: orgSettings.dateFormat || DEFAULT_LOCALE_SETTINGS.dateFormat,
           });
         }
       } catch {
@@ -172,7 +164,9 @@ export default function VendorSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {TIMEZONES.map((tz) => (
-                    <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label} ({tz.offset})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -188,7 +182,47 @@ export default function VendorSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Idioma</label>
+              <Select
+                value={settings.language}
+                onValueChange={(v) => setSettings((p) => ({ ...p, language: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Formato de Fecha</label>
+              <Select
+                value={settings.dateFormat}
+                onValueChange={(v) => setSettings((p) => ({ ...p, dateFormat: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_FORMATS.map((fmt) => (
+                    <SelectItem key={fmt.value} value={fmt.value}>
+                      {fmt.label} — {fmt.example}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

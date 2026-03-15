@@ -334,6 +334,7 @@ export const organizations = pgTable("organizations", {
     timezone?: string;
     currency?: string;
     language?: string;
+    dateFormat?: string;
   }>(),
   ownerId: text("owner_id").references(() => users.id),
   // Provider-specific fields

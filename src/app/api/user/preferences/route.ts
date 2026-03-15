@@ -52,7 +52,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     language: "es",
     timezone: "America/Argentina/Buenos_Aires",
     dateFormat: "DD/MM/YYYY",
-    currency: "USD",
+    currency: "EUR",
   },
   privacy: {
     showProfile: true,
@@ -98,6 +98,7 @@ export async function GET() {
         timezone: orgSettings?.timezone || DEFAULT_PREFERENCES.locale.timezone,
         currency: orgSettings?.currency || DEFAULT_PREFERENCES.locale.currency,
         language: orgSettings?.language || DEFAULT_PREFERENCES.locale.language,
+        dateFormat: orgSettings?.dateFormat || DEFAULT_PREFERENCES.locale.dateFormat,
       },
     };
 
@@ -153,6 +154,7 @@ export async function PATCH(request: NextRequest) {
           timezone: data.timezone || currentSettings.timezone,
           currency: data.currency || currentSettings.currency,
           language: data.language || currentSettings.language,
+          dateFormat: data.dateFormat || currentSettings.dateFormat,
         };
 
         await db

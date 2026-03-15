@@ -23,11 +23,26 @@ import {
   RiImageLine,
   RiAlertLine,
 } from "@remixicon/react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useUserSession } from "@/hooks/use-user-session";
+import {
+  TIMEZONES,
+  CURRENCIES,
+  LANGUAGES,
+  DATE_FORMATS,
+  DEFAULT_LOCALE_SETTINGS,
+} from "@/lib/constants/locale";
+import type { OrgLocaleSettings } from "@/lib/constants/locale";
 
 interface ProfileData {
   user: {
@@ -606,12 +621,71 @@ function AppearanceSection() {
 
 // Language Section Component
 function LanguageSection() {
-  const [locale, setLocale] = useState({
-    language: "es",
-    timezone: "America/Argentina/Buenos_Aires",
-    dateFormat: "DD/MM/YYYY",
-    currency: "USD",
-  });
+  const { can } = useUserSession();
+  const canUpdateSettings = can("settings:update");
+  const [locale, setLocale] = useState<OrgLocaleSettings>({ ...DEFAULT_LOCALE_SETTINGS });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function fetchLocale() {
+      try {
+        const res = await fetch("/api/user/preferences");
+        const data = await res.json();
+        if (data.success && data.data?.locale) {
+          setLocale({
+            language: data.data.locale.language || DEFAULT_LOCALE_SETTINGS.language,
+            timezone: data.data.locale.timezone || DEFAULT_LOCALE_SETTINGS.timezone,
+            dateFormat: data.data.locale.dateFormat || DEFAULT_LOCALE_SETTINGS.dateFormat,
+            currency: data.data.locale.currency || DEFAULT_LOCALE_SETTINGS.currency,
+          });
+        }
+      } catch {
+        // Use defaults
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLocale();
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section: "locale", data: locale }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Preferencias regionales guardadas");
+      } else {
+        toast.error(data.error || "Error al guardar preferencias");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setSaving(false);
+    }
+  }, [locale]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Idioma y Región</CardTitle>
+          <CardDescription>Configura tu idioma y preferencias regionales</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -623,59 +697,84 @@ function LanguageSection() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">Idioma</label>
-            <select
-              className="w-full h-10 px-3 rounded-md border border-border bg-background"
+            <Select
               value={locale.language}
-              onChange={(e) => setLocale({ ...locale, language: e.target.value })}
+              onValueChange={(v) => setLocale((p) => ({ ...p, language: v }))}
             >
-              <option value="es">Español</option>
-              <option value="en">English</option>
-              <option value="pt">Português</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Zona Horaria</label>
-            <select
-              className="w-full h-10 px-3 rounded-md border border-border bg-background"
+            <Select
               value={locale.timezone}
-              onChange={(e) => setLocale({ ...locale, timezone: e.target.value })}
+              onValueChange={(v) => setLocale((p) => ({ ...p, timezone: v }))}
             >
-              <option value="America/Argentina/Buenos_Aires">Buenos Aires (GMT-3)</option>
-              <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>
-              <option value="America/Bogota">Bogotá (GMT-5)</option>
-              <option value="Europe/Madrid">Madrid (GMT+1)</option>
-              <option value="America/New_York">Nueva York (GMT-5)</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label} ({tz.offset})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">Formato de Fecha</label>
-            <select
-              className="w-full h-10 px-3 rounded-md border border-border bg-background"
+            <Select
               value={locale.dateFormat}
-              onChange={(e) => setLocale({ ...locale, dateFormat: e.target.value })}
+              onValueChange={(v) => setLocale((p) => ({ ...p, dateFormat: v }))}
             >
-              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATE_FORMATS.map((fmt) => (
+                  <SelectItem key={fmt.value} value={fmt.value}>
+                    {fmt.label} — {fmt.example}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Moneda</label>
-            <select
-              className="w-full h-10 px-3 rounded-md border border-border bg-background"
+            <Select
               value={locale.currency}
-              onChange={(e) => setLocale({ ...locale, currency: e.target.value })}
+              onValueChange={(v) => setLocale((p) => ({ ...p, currency: v }))}
             >
-              <option value="USD">USD - Dólar</option>
-              <option value="EUR">EUR - Euro</option>
-              <option value="ARS">ARS - Peso Argentino</option>
-              <option value="MXN">MXN - Peso Mexicano</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label} — {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        <Button>Guardar Preferencias</Button>
+        {canUpdateSettings && (
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar Preferencias"}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
