@@ -1001,7 +1001,7 @@ export function TaskInfoTab({
                       alt={image.name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button variant="secondary" size="icon" className="h-8 w-8" asChild>
                         <a href={image.url} target="_blank" rel="noopener noreferrer">
                           <RiDownloadLine className="h-4 w-4" />
