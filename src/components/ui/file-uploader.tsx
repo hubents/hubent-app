@@ -9,15 +9,33 @@ import {
   RiVideoLine,
   RiFileTextLine,
   RiCloseLine,
+  RiCheckLine,
 } from "@remixicon/react";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { cn } from "@/lib/utils";
+
+const BLOCKED_VIDEO_TYPES = [
+  "video/mp4", "video/mpeg", "video/webm", "video/ogg",
+  "video/quicktime", "video/x-msvideo", "video/x-matroska",
+  "video/3gpp", "video/x-flv", "video/x-ms-wmv",
+];
+
+const ALLOWED_EXTENSIONS = [
+  // Images
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico",
+  // Documents
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+  ".txt", ".csv", ".rtf", ".odt", ".ods", ".odp",
+  // Archives
+  ".zip", ".rar", ".7z",
+];
 
 interface FileUploaderProps {
   folder?: string;
   accept?: string;
   maxSize?: number;
   multiple?: boolean;
+  blockVideos?: boolean;
   onUpload: (result: { url: string; name: string; type: string; size: number }) => void;
   onError?: (error: string) => void;
   className?: string;
@@ -29,15 +47,18 @@ export function FileUploader({
   accept,
   maxSize = 10 * 1024 * 1024, // 10MB default (Cloudflare R2)
   multiple = false,
+  blockVideos = true,
   onUpload,
   onError,
   className,
   variant = "default",
 }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [typeError, setTypeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { upload, uploading, progress, error } = useFileUpload({
+  const { upload, uploading, progress, error: uploadError } = useFileUpload({
     folder,
     maxSize,
     onSuccess: (result) => {
@@ -51,15 +72,42 @@ export function FileUploader({
     onError,
   });
 
+  const validateFileType = useCallback((file: File): string | null => {
+    if (blockVideos && (file.type.startsWith("video/") || BLOCKED_VIDEO_TYPES.includes(file.type))) {
+      return "No se permiten videos. Solo podés subir imágenes, PDFs y documentos.";
+    }
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (ext && ALLOWED_EXTENSIONS.length > 0 && !accept) {
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      const isDoc = file.type.startsWith("application/") || file.type.startsWith("text/");
+      if (!isImage && !isPdf && !isDoc && !ALLOWED_EXTENSIONS.includes(ext)) {
+        return "Tipo de archivo no soportado. Solo se permiten imágenes, PDFs y documentos.";
+      }
+    }
+    return null;
+  }, [blockVideos, accept]);
+
   const handleFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     const filesToUpload = multiple ? Array.from(files) : [files[0]];
     
     for (const file of filesToUpload) {
-      await upload(file);
+      const validationError = validateFileType(file);
+      if (validationError) {
+        setTypeError(validationError);
+        onError?.(validationError);
+        return;
+      }
+      setTypeError(null);
+      const result = await upload(file);
+      if (result) {
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 2000);
+      }
     }
-  }, [upload, multiple]);
+  }, [upload, multiple, validateFileType, onError]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -125,7 +173,7 @@ export function FileUploader({
           <RiUploadCloud2Line className="h-4 w-4" />
           {uploading ? `Subiendo... ${progress}%` : "Subir archivo"}
         </Button>
-        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+        {(typeError || uploadError) && <p className="text-xs text-destructive mt-1">{typeError || uploadError}</p>}
       </div>
     );
   }
@@ -154,24 +202,35 @@ export function FileUploader({
         )}
       >
         <div className="flex flex-col items-center justify-center gap-2 text-center">
-          <div className={cn(
-            "rounded-full p-3 bg-muted",
-            isDragging && "bg-primary/20 text-primary"
-          )}>
-            {getIcon()}
-          </div>
-          <div>
-            <p className="text-sm font-medium">
-              {isDragging ? "Suelta aquí" : "Arrastra y suelta"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              o haz clic para seleccionar {getAcceptLabel()}
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <p>Máximo <span className="font-medium">{(maxSize / (1024 * 1024)).toFixed(0)}MB</span></p>
-            <p className="text-[10px]">Imágenes, PDFs y documentos</p>
-          </div>
+          {uploadSuccess ? (
+            <>
+              <div className="rounded-full p-3 bg-green-100 text-green-600">
+                <RiCheckLine className="h-8 w-8" />
+              </div>
+              <p className="text-sm font-medium text-green-600">Archivo subido correctamente</p>
+            </>
+          ) : (
+            <>
+              <div className={cn(
+                "rounded-full p-3 bg-muted",
+                isDragging && "bg-primary/20 text-primary"
+              )}>
+                {getIcon()}
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {isDragging ? "Suelta aquí" : "Arrastra y suelta"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  o haz clic para seleccionar {getAcceptLabel()}
+                </p>
+              </div>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p>Máximo <span className="font-medium">{(maxSize / (1024 * 1024)).toFixed(0)}MB</span></p>
+                <p className="text-[10px]">Imágenes, PDFs y documentos</p>
+              </div>
+            </>
+          )}
         </div>
 
         {uploading && (
@@ -186,10 +245,10 @@ export function FileUploader({
         )}
       </div>
 
-      {error && (
+      {(typeError || uploadError) && (
         <div className="flex items-center gap-2 mt-2 text-destructive text-sm">
           <RiCloseLine className="h-4 w-4" />
-          {error}
+          {typeError || uploadError}
         </div>
       )}
     </div>

@@ -862,49 +862,57 @@ export function TaskInfoTab({
               <SheetHeader>
                 <SheetTitle>Subir Archivo</SheetTitle>
               </SheetHeader>
-              <div className="space-y-4 px-4 py-4">
-                <FileUploader
-                  folder="task-attachments"
-                  onUpload={async (result) => {
-                    await onAddAttachment({
-                      name: result.name,
-                      url: result.url,
-                      type: result.type,
-                    });
-                    setShowFileDialog(false);
-                  }}
-                />
+              <div className="space-y-5 px-4 py-4">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    El archivo se guarda automáticamente al subirlo.
+                  </p>
+                  <FileUploader
+                    folder="task-attachments"
+                    onUpload={async (result) => {
+                      await onAddAttachment({
+                        name: result.name,
+                        url: result.url,
+                        type: result.type,
+                      });
+                      toast.success("Archivo guardado correctamente");
+                      setShowFileDialog(false);
+                    }}
+                  />
+                </div>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
+                    <span className="bg-background px-2 text-muted-foreground">o pega un enlace externo</span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Nombre</Label>
-                  <Input
-                    placeholder="Ej: Contrato firmado.pdf"
-                    value={newFile.name}
-                    onChange={(e) => setNewFile({ ...newFile, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>URL del archivo</Label>
-                  <Input
-                    placeholder="https://..."
-                    value={newFile.url}
-                    onChange={(e) => setNewFile({ ...newFile, url: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowFileDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleAddFile} disabled={addingFile || !newFile.name || !newFile.url}>
-                    {addingFile ? "Guardando..." : "Guardar enlace"}
-                  </Button>
+                <div className="rounded-lg border border-dashed p-4 space-y-3">
+                  <div className="space-y-2">
+                    <Label>Nombre del enlace</Label>
+                    <Input
+                      placeholder="Ej: Contrato firmado.pdf"
+                      value={newFile.name}
+                      onChange={(e) => setNewFile({ ...newFile, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>URL</Label>
+                    <Input
+                      placeholder="https://drive.google.com/..."
+                      value={newFile.url}
+                      onChange={(e) => setNewFile({ ...newFile, url: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setShowFileDialog(false); setNewFile({ name: "", url: "", type: "link" }); }}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleAddFile} disabled={addingFile || !newFile.name || !newFile.url}>
+                      {addingFile ? "Guardando..." : "Guardar enlace"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </SheetContent>
