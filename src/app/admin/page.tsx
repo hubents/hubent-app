@@ -1,171 +1,409 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Building2, 
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Building2,
   Store,
-  Users, 
-  DollarSign, 
+  Users,
+  DollarSign,
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Activity,
+  AlertTriangle,
+  ExternalLink,
+  RefreshCw,
+  Wallet,
+  ScrollText,
+  Globe,
+  Settings,
 } from "lucide-react";
-import { db } from "@/db";
-import { organizations, users, subscriptions, invoices } from "@/db/schema";
-import { count, sum, eq, ne } from "drizzle-orm";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
-export const dynamic = 'force-dynamic';
-
-async function getStats() {
-  const [tenantsCount] = await db.select({ count: count() }).from(organizations).where(ne(organizations.orgType, "provider"));
-  const [providersCount] = await db.select({ count: count() }).from(organizations).where(eq(organizations.orgType, "provider"));
-  const [usersCount] = await db.select({ count: count() }).from(users);
-  const [activeSubscriptions] = await db
-    .select({ count: count() })
-    .from(subscriptions)
-    .where(eq(subscriptions.status, "active"));
-  const [revenue] = await db
-    .select({ total: sum(invoices.amount) })
-    .from(invoices)
-    .where(eq(invoices.status, "paid"));
-
-  return {
-    tenants: tenantsCount?.count || 0,
-    providers: providersCount?.count || 0,
-    users: usersCount?.count || 0,
-    activeSubscriptions: activeSubscriptions?.count || 0,
-    mrr: Number(revenue?.total || 0),
+interface DashboardData {
+  kpis: {
+    tenants: { value: number; delta: number };
+    providers: { value: number };
+    users: { value: number; delta: number };
+    activeSubscriptions: { value: number; delta: number };
+    mrr: { value: number };
+    arr: { value: number };
   };
+  health: {
+    overall: "operational" | "degraded" | "down";
+    services: {
+      name: string;
+      status: "operational" | "degraded" | "down";
+      latencyMs: number;
+      error?: string;
+    }[];
+  };
+  recentTenants: {
+    id: number;
+    name: string;
+    slug: string;
+    orgType: string;
+    status: string | null;
+    createdAt: string | null;
+  }[];
+  dailySignups: { date: string; count: number }[];
+  planDistribution: { name: string; slug: string; count: number; mrr: number }[];
+  recentErrors: {
+    timestamp: string;
+    level: string;
+    message: string;
+    path?: string;
+    statusCode?: number;
+  }[];
 }
 
-async function getRecentTenants() {
-  return await db
-    .select()
-    .from(organizations)
-    .orderBy(organizations.createdAt)
-    .limit(5);
-}
+const SERVICE_LABELS: Record<string, string> = {
+  database: "Database",
+  stripe_platform: "Stripe",
+  r2_storage: "R2 Storage",
+  pusher: "Pusher",
+  resend_email: "Resend",
+};
 
-export default async function AdminDashboardPage() {
-  const stats = await getStats();
-  const recentTenants = await getRecentTenants();
+const PIE_COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
 
-  const statCards = [
+export default function AdminDashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/dashboard");
+      const json = await res.json();
+      if (json.success) setData(json.data);
+    } catch {
+      console.error("Failed to fetch dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="p-8 space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-16" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-72" />
+          <Skeleton className="h-72" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-8 text-center">
+        <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+        <p className="font-medium">Error al cargar el dashboard</p>
+        <Button variant="outline" className="mt-4" onClick={fetchData}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  const kpiCards = [
     {
-      title: "Total Tenants",
-      value: stats.tenants,
-      change: "+12%",
-      trend: "up",
+      title: "Tenants",
+      value: data.kpis.tenants.value,
+      delta: data.kpis.tenants.delta,
       icon: Building2,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
     },
     {
       title: "Proveedores",
-      value: stats.providers,
-      change: "",
-      trend: "up",
+      value: data.kpis.providers.value,
       icon: Store,
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
     },
     {
-      title: "Total Usuarios",
-      value: stats.users,
-      change: "+8%",
-      trend: "up",
+      title: "Usuarios",
+      value: data.kpis.users.value,
+      delta: data.kpis.users.delta,
       icon: Users,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
     },
     {
-      title: "Suscripciones Activas",
-      value: stats.activeSubscriptions,
-      change: "+5%",
-      trend: "up",
+      title: "Suscripciones",
+      value: data.kpis.activeSubscriptions.value,
+      delta: data.kpis.activeSubscriptions.delta,
       icon: TrendingUp,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-500/10",
     },
     {
       title: "MRR",
-      value: `$${stats.mrr.toLocaleString()}`,
-      change: "+15%",
-      trend: "up",
+      value: `€${data.kpis.mrr.value.toLocaleString()}`,
       icon: DollarSign,
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/10",
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-500/10",
+    },
+    {
+      title: "ARR",
+      value: `€${data.kpis.arr.value.toLocaleString()}`,
+      icon: Wallet,
+      color: "text-amber-500",
+      bgColor: "bg-amber-500/10",
     },
   ];
 
   return (
-    <div className="p-8">
+    <div className="p-8 space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Platform Overview</h1>
-        <p className="text-[var(--muted-foreground)]">
-          Métricas y estadísticas de la plataforma HubEnts
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Platform Overview</h1>
+          <p className="text-muted-foreground">
+            Métricas y estado de la plataforma HubEnts
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchData}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Actualizar
+        </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+      {/* KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        {kpiCards.map((kpi) => (
+          <Card key={kpi.title}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`p-2 rounded-lg ${kpi.bgColor}`}>
+                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
                 </div>
-                <div className={`flex items-center gap-1 text-sm ${
-                  stat.trend === "up" ? "text-green-500" : "text-red-500"
-                }`}>
-                  {stat.change}
-                  {stat.trend === "up" ? (
-                    <ArrowUpRight className="h-4 w-4" />
-                  ) : (
-                    <ArrowDownRight className="h-4 w-4" />
-                  )}
-                </div>
+                {"delta" in kpi && kpi.delta !== undefined && (
+                  <span
+                    className={cn(
+                      "flex items-center gap-0.5 text-xs font-medium",
+                      kpi.delta >= 0 ? "text-green-600" : "text-red-500"
+                    )}
+                  >
+                    {kpi.delta >= 0 ? (
+                      <ArrowUpRight className="h-3 w-3" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3" />
+                    )}
+                    {Math.abs(kpi.delta)}%
+                  </span>
+                )}
               </div>
-              <div className="mt-4">
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-sm text-[var(--muted-foreground)]">{stat.title}</p>
-              </div>
+              <p className="text-xl font-bold">{kpi.value}</p>
+              <p className="text-xs text-muted-foreground">{kpi.title}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Recent Tenants */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Tenants Recientes</CardTitle>
+      {/* Health Strip */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-wrap min-w-0">
+              <div className="flex items-center gap-2 shrink-0">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Estado de Servicios</span>
+              </div>
+              {data.health.services.map((svc) => (
+                <div key={svc.name} className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      svc.status === "operational" && "bg-green-500",
+                      svc.status === "degraded" && "bg-yellow-500",
+                      svc.status === "down" && "bg-red-500"
+                    )}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {SERVICE_LABELS[svc.name] || svc.name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {svc.latencyMs}ms
+                  </span>
+                </div>
+              ))}
+            </div>
+            <Link href="/admin/status">
+              <Button variant="ghost" size="sm" className="text-xs">
+                Ver detalle
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Signups Area Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Registros últimos 30 días
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {recentTenants.length === 0 ? (
-              <p className="text-[var(--muted-foreground)] text-sm">
-                No hay tenants registrados aún
+            {data.dailySignups.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                Sin datos de registros
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={data.dailySignups}>
+                  <defs>
+                    <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => new Date(v).toLocaleDateString("es", { day: "2-digit", month: "short" })}
+                  />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip
+                    labelFormatter={(v) => new Date(v).toLocaleDateString("es", { day: "2-digit", month: "long" })}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#6366f1"
+                    fill="url(#signupGrad)"
+                    strokeWidth={2}
+                    name="Registros"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Plan Distribution Pie */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Distribución de Planes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.planDistribution.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
+                Sin suscripciones activas
+              </div>
+            ) : (
+              <div className="flex flex-col items-center">
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={data.planDistribution}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={65}
+                      paddingAngle={3}
+                    >
+                      {data.planDistribution.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-3 mt-2 justify-center">
+                  {data.planDistribution.map((plan, i) => (
+                    <div key={plan.slug} className="flex items-center gap-1.5 text-xs">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                      />
+                      {plan.name} ({plan.count})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Row: Tenants + Errors + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Tenants */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Tenants Recientes</CardTitle>
+            <Link href="/admin/tenants">
+              <Button variant="ghost" size="sm" className="text-xs h-7">Ver todos</Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {data.recentTenants.length === 0 ? (
+              <p className="text-muted-foreground text-sm py-4 text-center">
+                No hay tenants registrados
               </p>
             ) : (
-              <div className="space-y-4">
-                {recentTenants.map((tenant) => (
+              <div className="space-y-2">
+                {data.recentTenants.map((tenant) => (
                   <div
                     key={tenant.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[var(--muted)]"
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-[var(--primary)]" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Building2 className="h-4 w-4 text-primary" />
                       </div>
-                      <div>
-                        <p className="font-medium">{tenant.name}</p>
-                        <p className="text-sm text-[var(--muted-foreground)]">
-                          {tenant.slug}
-                        </p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{tenant.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{tenant.slug}</p>
                       </div>
                     </div>
-                    <Badge variant={tenant.status === "active" ? "default" : "secondary"}>
+                    <Badge
+                      variant={tenant.status === "active" ? "default" : "secondary"}
+                      className="text-[10px] shrink-0"
+                    >
                       {tenant.status}
                     </Badge>
                   </div>
@@ -175,32 +413,76 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Recent Errors */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Errores Recientes</CardTitle>
+            <Link href="/admin/audit">
+              <Button variant="ghost" size="sm" className="text-xs h-7">Ver logs</Button>
+            </Link>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <a
-              href="/admin/tenants"
-              className="flex items-center gap-3 p-3 rounded-lg bg-[var(--muted)] hover:bg-[var(--muted)]/80 transition-colors"
-            >
-              <Building2 className="h-5 w-5 text-[var(--primary)]" />
-              <span>Ver todos los tenants</span>
-            </a>
-            <a
-              href="/admin/users"
-              className="flex items-center gap-3 p-3 rounded-lg bg-[var(--muted)] hover:bg-[var(--muted)]/80 transition-colors"
-            >
-              <Users className="h-5 w-5 text-[var(--primary)]" />
-              <span>Gestionar usuarios</span>
-            </a>
-            <a
-              href="/admin/plans"
-              className="flex items-center gap-3 p-3 rounded-lg bg-[var(--muted)] hover:bg-[var(--muted)]/80 transition-colors"
-            >
-              <DollarSign className="h-5 w-5 text-[var(--primary)]" />
-              <span>Configurar planes</span>
-            </a>
+          <CardContent>
+            {data.recentErrors.length === 0 ? (
+              <div className="py-4 text-center">
+                <div className="inline-flex items-center gap-2 text-green-600 text-sm">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  Sin errores recientes
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {data.recentErrors.map((err, i) => (
+                  <div
+                    key={i}
+                    className="p-2.5 rounded-lg bg-red-500/5 border border-red-500/10"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge
+                        variant="destructive"
+                        className="text-[10px] h-4 px-1.5"
+                      >
+                        {err.statusCode || err.level}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(err.timestamp).toLocaleTimeString("es")}
+                      </span>
+                    </div>
+                    <p className="text-xs truncate text-muted-foreground">
+                      {err.path && <span className="font-mono">{err.path} — </span>}
+                      {err.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Acciones Rápidas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { href: "/admin/status", label: "Health Check", desc: "Estado de servicios", icon: Activity, color: "text-green-500", bg: "bg-green-500/10" },
+              { href: "/admin/billing", label: "Billing", desc: "Revenue y suscripciones", icon: Wallet, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+              { href: "/admin/api-platform", label: "API Platform", desc: "Requests y API keys", icon: Globe, color: "text-blue-500", bg: "bg-blue-500/10" },
+              { href: "/admin/audit", label: "Auditoría", desc: "Logs de actividad", icon: ScrollText, color: "text-orange-500", bg: "bg-orange-500/10" },
+              { href: "/admin/settings", label: "Configuración", desc: "Ajustes de plataforma", icon: Settings, color: "text-slate-500", bg: "bg-slate-500/10" },
+            ].map((action) => (
+              <Link key={action.href} href={action.href}>
+                <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className={`p-2 rounded-lg ${action.bg}`}>
+                    <action.icon className={`h-4 w-4 ${action.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{action.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{action.desc}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </CardContent>
         </Card>
       </div>

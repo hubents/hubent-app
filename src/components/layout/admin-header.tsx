@@ -11,14 +11,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export function AdminHeader() {
   const [isDark, setIsDark] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<"operational" | "degraded" | "down" | "loading">("loading");
   const { data: session } = useSession();
   const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/admin/monitoring")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setHealthStatus(d.data.health.overall);
+        else setHealthStatus("down");
+      })
+      .catch(() => setHealthStatus("down"));
+  }, []);
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -48,6 +61,28 @@ export function AdminHeader() {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-end border-b border-[var(--border)] bg-[var(--card)] px-6">
       {/* Right side */}
       <div className="flex items-center gap-4">
+        {/* Health indicator */}
+        <Link
+          href="/admin/status"
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-[var(--muted)] transition-colors"
+          title={`Platform: ${healthStatus}`}
+        >
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              healthStatus === "operational" && "bg-green-500 animate-pulse",
+              healthStatus === "degraded" && "bg-yellow-500 animate-pulse",
+              healthStatus === "down" && "bg-red-500 animate-pulse",
+              healthStatus === "loading" && "bg-gray-400 animate-pulse"
+            )}
+          />
+          <span className="hidden md:inline text-[var(--muted-foreground)]">
+            {healthStatus === "operational" ? "Operativo" :
+             healthStatus === "degraded" ? "Degradado" :
+             healthStatus === "down" ? "Ca\u00eddo" : "..."}
+          </span>
+        </Link>
+
         {/* Theme toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {isDark ? (

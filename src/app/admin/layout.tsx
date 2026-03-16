@@ -14,24 +14,53 @@ import {
   Megaphone,
   LogOut,
   Bot,
-  Plug
+  Activity,
+  Globe,
+  Wallet,
+  Link2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminHeader } from "@/components/layout/admin-header";
 
-const sidebarItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/tenants", label: "Tenants", icon: Building2 },
-  { href: "/admin/providers", label: "Proveedores", icon: Store },
-  { href: "/admin/users", label: "Usuarios", icon: Users },
-  { href: "/admin/plans", label: "Planes", icon: CreditCard },
-  { href: "/admin/billing", label: "Billing", icon: CreditCard },
-  { href: "/admin/ai", label: "Asistente IA", icon: Bot },
-  { href: "/admin/api-platform", label: "API Platform", icon: Plug },
-  { href: "/admin/integrations", label: "Integraciones", icon: Plug },
-  { href: "/admin/audit", label: "Auditoría", icon: ScrollText },
-  { href: "/admin/announcements", label: "Anuncios", icon: Megaphone },
-  { href: "/admin/settings", label: "Configuración", icon: Settings },
+interface SidebarGroup {
+  label: string;
+  items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
+}
+
+const sidebarGroups: SidebarGroup[] = [
+  {
+    label: "PRINCIPAL",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/status", label: "Estado", icon: Activity },
+    ],
+  },
+  {
+    label: "GESTIÓN",
+    items: [
+      { href: "/admin/tenants", label: "Tenants", icon: Building2 },
+      { href: "/admin/providers", label: "Proveedores", icon: Store },
+      { href: "/admin/users", label: "Usuarios", icon: Users },
+      { href: "/admin/plans", label: "Planes", icon: CreditCard },
+    ],
+  },
+  {
+    label: "PLATAFORMA",
+    items: [
+      { href: "/admin/billing", label: "Billing", icon: Wallet },
+      { href: "/admin/api-platform", label: "API Platform", icon: Globe },
+      { href: "/admin/integrations", label: "Integraciones", icon: Link2 },
+      { href: "/admin/ai", label: "Asistente IA", icon: Bot },
+    ],
+  },
+  {
+    label: "SISTEMA",
+    items: [
+      { href: "/admin/audit", label: "Auditoría", icon: ScrollText },
+      { href: "/admin/announcements", label: "Anuncios", icon: Megaphone },
+      { href: "/admin/settings", label: "Configuración", icon: Settings },
+    ],
+  },
 ];
 
 // Pages that should NOT have the admin sidebar
@@ -62,27 +91,36 @@ export default function AdminLayout({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
-          {sidebarItems.map((item) => {
-            const isActive = pathname === item.href || 
-              (item.href !== "/admin" && pathname.startsWith(item.href));
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                  isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+          {sidebarGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 mb-1 text-[10px] font-semibold tracking-wider text-[var(--muted-foreground)]/60 uppercase">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href ||
+                    (item.href !== "/admin" && pathname.startsWith(item.href));
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                        isActive
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}

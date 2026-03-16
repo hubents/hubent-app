@@ -1,0 +1,73 @@
+import { NextResponse } from "next/server";
+import { requirePlatformAdmin } from "@/lib/session";
+import { runHealthChecks } from "@/lib/monitoring/health-checks";
+import { logger } from "@/lib/monitoring/logger";
+
+export const dynamic = "force-dynamic";
+
+const REQUIRED_ENV_VARS = [
+  { key: "DATABASE_URL", label: "Database URL", category: "core" },
+  { key: "NEXTAUTH_SECRET", label: "NextAuth Secret", category: "core" },
+  { key: "NEXTAUTH_URL", label: "NextAuth URL", category: "core" },
+  { key: "STRIPE_PLATFORM_SECRET_KEY", label: "Stripe Secret Key", category: "payments" },
+  { key: "NEXT_PUBLIC_STRIPE_PLATFORM_KEY", label: "Stripe Public Key", category: "payments" },
+  { key: "STRIPE_PLATFORM_WEBHOOK_SECRET", label: "Stripe Webhook Secret", category: "payments" },
+  { key: "RESEND_API_KEY", label: "Resend API Key", category: "email" },
+  { key: "R2_ACCOUNT_ID", label: "R2 Account ID", category: "storage" },
+  { key: "R2_ACCESS_KEY_ID", label: "R2 Access Key", category: "storage" },
+  { key: "R2_SECRET_ACCESS_KEY", label: "R2 Secret Key", category: "storage" },
+  { key: "R2_BUCKET_NAME", label: "R2 Bucket Name", category: "storage" },
+  { key: "R2_PUBLIC_URL", label: "R2 Public URL", category: "storage" },
+  { key: "PUSHER_APP_ID", label: "Pusher App ID", category: "realtime" },
+  { key: "PUSHER_KEY", label: "Pusher Key", category: "realtime" },
+  { key: "PUSHER_SECRET", label: "Pusher Secret", category: "realtime" },
+  { key: "PUSHER_CLUSTER", label: "Pusher Cluster", category: "realtime" },
+  { key: "COMPOSIO_API_KEY", label: "Composio API Key", category: "integrations" },
+  { key: "CRON_SECRET", label: "Cron Secret", category: "system" },
+  { key: "GOOGLE_GENERATIVE_AI_API_KEY", label: "Google AI Key", category: "ai" },
+];
+
+export async function GET() {
+  try {
+    await requirePlatformAdmin();
+
+    const [health, recentErrors] = await Promise.all([
+      runHealthChecks(),
+      Promise.resolve(logger.getErrorLogs(20)),
+    ]);
+
+    const envStatus = REQUIRED_ENV_VARS.map((v) => ({
+      key: v.key,
+      label: v.label,
+      category: v.category,
+      configured: !!process.env[v.key],
+    }));
+
+    const configuredCount = envStatus.filter((e) => e.configured).length;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        health,
+        envStatus,
+        envSummary: {
+          total: envStatus.length,
+          configured: configuredCount,
+          missing: envStatus.length - configuredCount,
+        },
+        recentErrors: recentErrors.map((e) => ({
+          timestamp: e.timestamp,
+          level: e.level,
+          message: e.message,
+          path: e.context.path,
+          method: e.context.method,
+          statusCode: e.context.statusCode,
+        })),
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get status";
+    const status = message.includes("Unauthorized") || message.includes("Platform admin") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
+  }
+}

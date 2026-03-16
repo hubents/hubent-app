@@ -118,7 +118,7 @@ export default function AdminIntegrationsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <RiPlugLine className="w-6 h-6" />
@@ -131,13 +131,13 @@ export default function AdminIntegrationsPage() {
 
       {/* Stats Cards */}
       {loading ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
