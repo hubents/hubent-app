@@ -5,10 +5,14 @@ import { logger } from "@/lib/monitoring/logger";
 
 export const dynamic = "force-dynamic";
 
-const REQUIRED_ENV_VARS = [
+const REQUIRED_ENV_VARS: {
+  key: string;
+  fallback?: string;
+  label: string;
+  category: string;
+}[] = [
   { key: "DATABASE_URL", label: "Database URL", category: "core" },
-  { key: "NEXTAUTH_SECRET", label: "NextAuth Secret", category: "core" },
-  { key: "NEXTAUTH_URL", label: "NextAuth URL", category: "core" },
+  { key: "AUTH_SECRET", fallback: "NEXTAUTH_SECRET", label: "Auth Secret", category: "core" },
   { key: "STRIPE_PLATFORM_SECRET_KEY", label: "Stripe Secret Key", category: "payments" },
   { key: "NEXT_PUBLIC_STRIPE_PLATFORM_KEY", label: "Stripe Public Key", category: "payments" },
   { key: "STRIPE_PLATFORM_WEBHOOK_SECRET", label: "Stripe Webhook Secret", category: "payments" },
@@ -24,7 +28,6 @@ const REQUIRED_ENV_VARS = [
   { key: "PUSHER_CLUSTER", label: "Pusher Cluster", category: "realtime" },
   { key: "COMPOSIO_API_KEY", label: "Composio API Key", category: "integrations" },
   { key: "CRON_SECRET", label: "Cron Secret", category: "system" },
-  { key: "GOOGLE_GENERATIVE_AI_API_KEY", label: "Google AI Key", category: "ai" },
 ];
 
 export async function GET() {
@@ -40,7 +43,7 @@ export async function GET() {
       key: v.key,
       label: v.label,
       category: v.category,
-      configured: !!process.env[v.key],
+      configured: !!(process.env[v.key] || (v.fallback && process.env[v.fallback])),
     }));
 
     const configuredCount = envStatus.filter((e) => e.configured).length;
