@@ -307,20 +307,26 @@ export default function VendorSettingsPage() {
 
 function BillingCard() {
   const [loading, setLoading] = useState(false);
-  const [plan, setPlan] = useState<{ name: string; status: string } | null>(null);
+  const [billingData, setBillingData] = useState<{
+    plan?: { name: string; slug: string };
+    subscription?: { status: string; stripeCustomerId?: string | null };
+    availablePlans?: Array<{ id: number; name: string; slug: string; priceMonthly: string }>;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchBilling() {
       try {
         const res = await fetch("/api/user/billing");
         const data = await res.json();
-        if (data.success && data.data?.plan) {
-          setPlan({ name: data.data.plan.name, status: data.data.subscription?.status || "active" });
+        if (data.success && data.data) {
+          setBillingData(data.data);
         }
       } catch { /* silent */ }
     }
     fetchBilling();
   }, []);
+
+  const isFreePlan = billingData?.plan?.slug === "provider-free";
 
   const openPortal = async () => {
     setLoading(true);
@@ -339,6 +345,32 @@ function BillingCard() {
     }
   };
 
+  const handleUpgrade = async () => {
+    setLoading(true);
+    try {
+      const proPlan = billingData?.availablePlans?.find(p => p.slug === "provider-pro");
+      if (!proPlan) {
+        toast.error("No hay planes de upgrade disponibles");
+        return;
+      }
+      const res = await fetch("/api/subscriptions/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: proPlan.id, interval: "month" }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        window.location.href = data.data.url;
+      } else {
+        toast.error(data.error || "Error al iniciar el checkout");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -347,18 +379,36 @@ function BillingCard() {
           Plan y Facturación
         </CardTitle>
         <CardDescription>
-          {plan ? `Plan actual: ${plan.name}` : "Gestiona tu suscripción y facturación"}
+          {billingData?.plan ? `Plan actual: ${billingData.plan.name}` : "Gestiona tu suscripción y facturación"}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Button variant="outline" onClick={openPortal} disabled={loading}>
-          {loading ? (
-            <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+      <CardContent className="space-y-3">
+        {isFreePlan && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
+            Estás en el plan gratuito. Actualiza a <strong>Pro</strong> para desbloquear bloqueo inteligente de fechas, visibilidad premium y más.
+          </div>
+        )}
+        <div className="flex gap-2">
+          {isFreePlan ? (
+            <Button onClick={handleUpgrade} disabled={loading}>
+              {loading ? (
+                <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RiExternalLinkLine className="h-4 w-4 mr-2" />
+              )}
+              {loading ? "Procesando..." : "Actualizar a Pro"}
+            </Button>
           ) : (
-            <RiExternalLinkLine className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={openPortal} disabled={loading}>
+              {loading ? (
+                <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RiExternalLinkLine className="h-4 w-4 mr-2" />
+              )}
+              {loading ? "Abriendo..." : "Gestionar Suscripción"}
+            </Button>
           )}
-          {loading ? "Abriendo..." : "Gestionar Suscripción"}
-        </Button>
+        </div>
       </CardContent>
     </Card>
   );

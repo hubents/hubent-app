@@ -122,14 +122,14 @@ describe("Provider RBAC: Wrapper enforcement logic", () => {
 // Feature flags for provider plans
 // ============================================
 describe("Provider RBAC: Feature flags", () => {
-  it("provider_free plan exists in feature flag system", async () => {
+  it("provider-free plan exists in feature flag system", async () => {
     const { isFeatureAvailable } = await import("@/lib/api/api-feature-flags");
-    expect(typeof isFeatureAvailable("provider_free", "api_access")).toBe("boolean");
+    expect(typeof isFeatureAvailable("provider-free", "api_access")).toBe("boolean");
   });
 
-  it("provider_pro plan exists in feature flag system", async () => {
+  it("provider-pro plan exists in feature flag system", async () => {
     const { isFeatureAvailable } = await import("@/lib/api/api-feature-flags");
-    expect(typeof isFeatureAvailable("provider_pro", "api_access")).toBe("boolean");
+    expect(typeof isFeatureAvailable("provider-pro", "api_access")).toBe("boolean");
   });
 
   it("ApiError class has correct toResponse method", async () => {

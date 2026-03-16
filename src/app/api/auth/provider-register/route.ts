@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { companyName, email, password, instagram, category, phone, serviceRadius } = parsed.data;
+    const { companyName, password, instagram, category, phone, serviceRadius } = parsed.data;
+    const email = parsed.data.email.toLowerCase();
 
     // Check if email already exists
     const existingUser = await db.query.users.findFirst({
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         email,
         name: companyName,
         passwordHash: hashedPassword,
+        emailVerified: new Date(),
       })
       .returning();
 
@@ -127,7 +129,7 @@ export async function POST(request: NextRequest) {
     // Auto-assign provider-free plan
     try {
       const freePlan = await db.query.subscriptionPlans.findFirst({
-        where: eq(subscriptionPlans.slug, "provider_free"),
+        where: eq(subscriptionPlans.slug, "provider-free"),
       });
       if (freePlan) {
         await db.insert(subscriptions).values({

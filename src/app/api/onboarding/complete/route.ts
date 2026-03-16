@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, organizations, events, invitations, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { sendOrganizationInviteEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,15 +80,26 @@ export async function POST(request: NextRequest) {
 
         for (const email of teamEmails) {
           if (email && email.includes("@")) {
+            const token = crypto.randomUUID();
             await db.insert(invitations).values({
               organizationId: userOrgs.id,
               email: email.toLowerCase().trim(),
               roleId: memberRole.id,
-              token: crypto.randomUUID(),
+              token,
               status: "pending",
               invitedBy: session.user!.id!,
               expiresAt,
             });
+
+            // Send invitation email (fire-and-forget)
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            sendOrganizationInviteEmail(
+              email.toLowerCase().trim(),
+              userOrgs.name,
+              memberRole.name,
+              session.user?.name || null,
+              `${appUrl}/invite/${token}`
+            ).catch((err) => console.error("Failed to send invite email:", err));
           }
         }
       }

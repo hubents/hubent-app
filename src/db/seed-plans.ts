@@ -61,7 +61,7 @@ const plans = [
   // Provider plans
   {
     name: "Gratis",
-    slug: "provider_free",
+    slug: "provider-free",
     description: "Empieza a colaborar con planners sin coste ni compromiso.",
     orgType: "provider" as const,
     priceMonthly: "0",
@@ -78,7 +78,7 @@ const plans = [
   },
   {
     name: "Pro",
-    slug: "provider_pro",
+    slug: "provider-pro",
     description: "Accede a funciones avanzadas y destaca en el ecosistema Hubents.",
     orgType: "provider" as const,
     priceMonthly: "14.50",
@@ -106,11 +106,11 @@ const featureFlagDefs = [
   { key: "rsvp",              name: "Web evento con RSVP",           description: "Página pública del evento con confirmación de asistencia",     planSlugs: ["estandar", "agencia"] },
   { key: "auto_processes",    name: "Creación procesos automático",  description: "Crear tareas automáticamente desde plantillas",                 planSlugs: ["estandar", "agencia"] },
   { key: "guest_lists",       name: "Listas de invitados",           description: "Gestión completa de listas de invitados y mesas",               planSlugs: ["estandar", "agencia"] },
-  { key: "auto_agenda",       name: "Orden del día automático",      description: "Generar automáticamente el cronograma del evento",              planSlugs: ["agencia", "provider_free", "provider_pro"] },
-  { key: "custom_roles",      name: "Roles de usuarios",             description: "Crear y gestionar roles personalizados con permisos granulares", planSlugs: ["agencia", "provider_pro"] },
+  { key: "auto_agenda",       name: "Orden del día automático",      description: "Generar automáticamente el cronograma del evento",              planSlugs: ["agencia", "provider-free", "provider-pro"] },
+  { key: "custom_roles",      name: "Roles de usuarios",             description: "Crear y gestionar roles personalizados con permisos granulares", planSlugs: ["agencia", "provider-pro"] },
   // Provider-gated features
-  { key: "smart_date_block",  name: "Bloqueo inteligente de fechas", description: "Bloquear fechas automáticamente al aceptar eventos",            planSlugs: ["provider_pro"] },
-  { key: "recommended",       name: "Recomendado por planners",      description: "Aparecer como proveedor recomendado en búsquedas",              planSlugs: ["provider_pro"] },
+  { key: "smart_date_block",  name: "Bloqueo inteligente de fechas", description: "Bloquear fechas automáticamente al aceptar eventos",            planSlugs: ["provider-pro"] },
+  { key: "recommended",       name: "Recomendado por planners",      description: "Aparecer como proveedor recomendado en búsquedas",              planSlugs: ["provider-pro"] },
 ];
 
 // ============================================

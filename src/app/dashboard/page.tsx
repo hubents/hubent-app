@@ -78,7 +78,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-[var(--gap-cards)] md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-[var(--gap-cards)] md:grid-cols-2">
         <div className="animate-slide-in-bottom stagger-1">
           <StatsCard
             title="Eventos Activos"
@@ -93,22 +93,6 @@ export default function DashboardPage() {
             value={loading ? "-" : stats?.pendingTasks || 0}
             description={stats?.pendingTasks === 0 ? "Sin tareas pendientes" : "Por completar"}
             icon={RiFileListLine}
-          />
-        </div>
-        <div className="animate-slide-in-bottom stagger-3">
-          <StatsCard
-            title="Pagos Pendientes"
-            value={loading ? "-" : stats?.pendingPayments || 0}
-            description="Por cobrar"
-            icon={RiMoneyDollarCircleLine}
-          />
-        </div>
-        <div className="animate-slide-in-bottom stagger-4">
-          <StatsCard
-            title="Leads Activos"
-            value={loading ? "-" : stats?.activeLeads || 0}
-            description="En seguimiento"
-            icon={RiUserAddLine}
           />
         </div>
       </div>

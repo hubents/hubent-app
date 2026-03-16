@@ -92,31 +92,48 @@ export function withMonitoring(handler: RouteHandler, options: MonitorOptions): 
       return response;
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      const level = options.critical ? "critical" : "error";
 
-      // Report the unhandled error
-      reportError(level, `Unhandled exception in ${options.name}`, {
-        requestId,
-        userId,
-        orgId,
-        path,
-        method,
-        statusCode: 500,
-        durationMs,
-        error,
-      }).catch(() => {});
-
-      // Return a structured error response
       const message = error instanceof Error ? error.message : "Internal server error";
       const isAuthError = message.includes("Unauthorized") || message.includes("Not authenticated");
-      const statusCode = isAuthError ? 401 : 500;
+      const isForbidden = message.includes("Forbidden") || message.includes("Missing permission");
+      const isSubscriptionError = message.includes("SubscriptionInactive");
+      const isLimitError = message.includes("LimitExceeded");
+
+      let statusCode = 500;
+      let errorCode = "INTERNAL_ERROR";
+      let userMessage = "An unexpected error occurred";
+
+      if (isAuthError) {
+        statusCode = 401; errorCode = "UNAUTHORIZED"; userMessage = message;
+      } else if (isForbidden) {
+        statusCode = 403; errorCode = "FORBIDDEN"; userMessage = message;
+      } else if (isSubscriptionError) {
+        statusCode = 403; errorCode = "SUBSCRIPTION_INACTIVE"; userMessage = message;
+      } else if (isLimitError) {
+        statusCode = 403; errorCode = "LIMIT_EXCEEDED"; userMessage = message;
+      }
+
+      // Only report real server errors (500) — skip expected business errors
+      if (statusCode === 500) {
+        const level = options.critical ? "critical" : "error";
+        reportError(level, `Unhandled exception in ${options.name}`, {
+          requestId,
+          userId,
+          orgId,
+          path,
+          method,
+          statusCode,
+          durationMs,
+          error,
+        }).catch(() => {});
+      }
 
       const response = NextResponse.json(
         {
           success: false,
           error: {
-            code: isAuthError ? "UNAUTHORIZED" : "INTERNAL_ERROR",
-            message: isAuthError ? message : "An unexpected error occurred",
+            code: errorCode,
+            message: userMessage,
             requestId,
           },
         },

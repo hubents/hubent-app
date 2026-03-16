@@ -70,13 +70,13 @@ describe("Feature Flags - Plan Hierarchy", () => {
   });
 
   it("API key limits scale with plan", () => {
-    expect(getApiKeyLimit("provider_free")).toBeLessThan(getApiKeyLimit("starter"));
+    expect(getApiKeyLimit("provider-free")).toBeLessThan(getApiKeyLimit("starter"));
     expect(getApiKeyLimit("starter")).toBeLessThan(getApiKeyLimit("standard"));
     expect(getApiKeyLimit("standard")).toBeLessThan(getApiKeyLimit("agency"));
   });
 
   it("rate limits scale with plan", () => {
-    expect(getDefaultRateLimit("provider_free")).toBeLessThan(getDefaultRateLimit("starter"));
+    expect(getDefaultRateLimit("provider-free")).toBeLessThan(getDefaultRateLimit("starter"));
     expect(getDefaultRateLimit("starter")).toBeLessThan(getDefaultRateLimit("standard"));
     expect(getDefaultRateLimit("standard")).toBeLessThan(getDefaultRateLimit("agency"));
   });

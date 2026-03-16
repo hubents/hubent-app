@@ -52,7 +52,7 @@ describe("isFeatureAvailable", () => {
   });
 
   it("agency has all features", () => {
-    for (const flag of API_FEATURE_FLAGS.filter((f) => f.requiredPlan !== "provider_pro")) {
+    for (const flag of API_FEATURE_FLAGS.filter((f) => f.requiredPlan !== "provider-pro")) {
       expect(isFeatureAvailable("agency", flag.key)).toBe(true);
     }
   });
@@ -61,13 +61,13 @@ describe("isFeatureAvailable", () => {
     expect(isFeatureAvailable("agency", "nonexistent")).toBe(false);
   });
 
-  it("provider_free has minimal features", () => {
-    const features = getAvailableFeatures("provider_free");
+  it("provider-free has minimal features", () => {
+    const features = getAvailableFeatures("provider-free");
     expect(features.length).toBeLessThan(API_FEATURE_FLAGS.length);
   });
 
-  it("provider_pro has provider_api", () => {
-    expect(isFeatureAvailable("provider_pro", "provider_api")).toBe(true);
+  it("provider-pro has provider_api", () => {
+    expect(isFeatureAvailable("provider-pro", "provider_api")).toBe(true);
   });
 });
 
@@ -84,8 +84,8 @@ describe("getApiKeyLimit", () => {
     expect(getApiKeyLimit("agency")).toBe(20);
   });
 
-  it("provider_free gets 1 key", () => {
-    expect(getApiKeyLimit("provider_free")).toBe(1);
+  it("provider-free gets 1 key", () => {
+    expect(getApiKeyLimit("provider-free")).toBe(1);
   });
 
   it("unknown plan gets default 2", () => {
@@ -106,12 +106,12 @@ describe("getDefaultRateLimit", () => {
     expect(getDefaultRateLimit("agency")).toBe(500);
   });
 
-  it("provider_free gets 50/min", () => {
-    expect(getDefaultRateLimit("provider_free")).toBe(50);
+  it("provider-free gets 50/min", () => {
+    expect(getDefaultRateLimit("provider-free")).toBe(50);
   });
 
   it("rate limits increase with plan tier", () => {
-    const free = getDefaultRateLimit("provider_free");
+    const free = getDefaultRateLimit("provider-free");
     const starter = getDefaultRateLimit("starter");
     const standard = getDefaultRateLimit("standard");
     const agency = getDefaultRateLimit("agency");

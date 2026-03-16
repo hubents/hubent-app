@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
+import { subscriptions, organizations } from "@/db/schema";
 import { requireAuth } from "@/lib/session";
 import { getStripePlatform } from "@/lib/stripe-platform";
 import { eq } from "drizzle-orm";
@@ -23,12 +23,19 @@ export async function POST() {
       );
     }
 
+    // Determine return URL based on org type
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.organizationId),
+      columns: { orgType: true },
+    });
+    const settingsPath = org?.orgType === "provider" ? "vendor" : "dashboard";
+
     const stripe = getStripePlatform();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: sub.stripeCustomerId,
-      return_url: `${appUrl}/dashboard/settings`,
+      return_url: `${appUrl}/${settingsPath}/settings`,
     });
 
     return NextResponse.json({

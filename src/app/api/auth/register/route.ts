@@ -35,8 +35,22 @@ export const POST = withMonitoring(async (request: NextRequest) => {
 
     const passwordHash = await hashPassword(password);
 
+    // Find starter plan (must be seeded via scripts/seed-plans.ts before first registration)
+    const starterPlan = await db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.slug, "starter"),
+    });
+
+    if (!starterPlan) {
+      console.error("POST /api/auth/register: starter plan not found in DB. Run scripts/seed-plans.ts");
+      return NextResponse.json(
+        { error: "El sistema no está configurado correctamente. Contacte al administrador." },
+        { status: 500 }
+      );
+    }
+
+    const trialDays = (starterPlan as Record<string, unknown>).trialDays as number || 14;
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
     // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
     // Create user first
@@ -50,29 +64,6 @@ export const POST = withMonitoring(async (request: NextRequest) => {
         onboardingCompleted: false,
       })
       .returning();
-
-    // Find or create starter plan
-    let starterPlan = await db.query.subscriptionPlans.findFirst({
-      where: eq(subscriptionPlans.slug, "starter"),
-    });
-
-    if (!starterPlan) {
-      const [createdPlan] = await db
-        .insert(subscriptionPlans)
-        .values({
-          name: "Starter",
-          slug: "starter",
-          description: "Plan de prueba gratuito",
-          priceMonthly: "0",
-          priceYearly: "0",
-          features: ["1 evento activo", "2 usuarios", "50 invitados RSVP", "500MB almacenamiento"],
-          limits: { maxUsers: 2, maxEvents: 1, maxStorage: 500 },
-          isActive: true,
-          sortOrder: 0,
-        })
-        .returning();
-      starterPlan = createdPlan;
-    }
 
     // Generate unique slug for organization
     const slug = companyName

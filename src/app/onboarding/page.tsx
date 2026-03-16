@@ -88,7 +88,7 @@ function OnboardingContent() {
     setLoading(true);
     
     try {
-      await fetch("/api/onboarding/complete", {
+      const res = await fetch("/api/onboarding/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -98,10 +98,17 @@ function OnboardingContent() {
           teamEmails: team.emails ? team.emails.split(",").map(e => e.trim()) : [],
         }),
       });
+
+      if (!res.ok) {
+        const { toast } = await import("sonner");
+        toast.error("Hubo un error al guardar. Puedes completar los datos desde Configuración.");
+      }
       
       router.push("/dashboard");
     } catch (error) {
       console.error("Onboarding error:", error);
+      const { toast } = await import("sonner");
+      toast.error("Error de conexión. Puedes completar los datos desde Configuración.");
       router.push("/dashboard");
     }
   };

@@ -7,7 +7,7 @@ export interface ApiFeatureFlag {
   key: string;
   name: string;
   description: string;
-  requiredPlan: "starter" | "standard" | "agency" | "provider_free" | "provider_pro";
+  requiredPlan: "starter" | "standard" | "agency" | "provider-free" | "provider-pro";
 }
 
 export const API_FEATURE_FLAGS: ApiFeatureFlag[] = [
@@ -51,14 +51,14 @@ export const API_FEATURE_FLAGS: ApiFeatureFlag[] = [
     key: "provider_api",
     name: "Provider API",
     description: "Provider-specific API endpoints for vendor integrations",
-    requiredPlan: "provider_pro",
+    requiredPlan: "provider-pro",
   },
 ];
 
 const PLAN_HIERARCHY: Record<string, number> = {
-  provider_free: 0,
+  "provider-free": 0,
   starter: 1,
-  provider_pro: 2,
+  "provider-pro": 2,
   standard: 2,
   agency: 3,
 };
@@ -83,9 +83,9 @@ export function getApiKeyLimit(planSlug: string): number {
   switch (planSlug) {
     case "agency": return 20;
     case "standard": return 5;
-    case "provider_pro": return 5;
+    case "provider-pro": return 5;
     case "starter": return 2;
-    case "provider_free": return 1;
+    case "provider-free": return 1;
     default: return 2;
   }
 }
@@ -94,9 +94,9 @@ export function getDefaultRateLimit(planSlug: string): number {
   switch (planSlug) {
     case "agency": return 500;
     case "standard": return 200;
-    case "provider_pro": return 200;
+    case "provider-pro": return 200;
     case "starter": return 100;
-    case "provider_free": return 50;
+    case "provider-free": return 50;
     default: return 100;
   }
 }

@@ -121,11 +121,6 @@ export default auth((req) => {
       }
     }
 
-    // Log for debugging API routes
-    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-      console.log(`[Middleware] API route: ${pathname}, userId: ${req.auth.user.id}, orgId: ${orgId || 'NOT SET'}`);
-    }
-
     return response;
   }
 

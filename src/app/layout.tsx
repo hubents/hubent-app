@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SessionProvider } from "@/components/providers/session-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -34,6 +35,7 @@ export default function RootLayout({
         <SessionProvider>
           {children}
         </SessionProvider>
+        <Toaster position="top-right" />
         <Analytics />
       </body>
     </html>

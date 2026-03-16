@@ -82,7 +82,20 @@ export default function RegisterPage() {
         throw new Error(data.error || "Error al registrar");
       }
 
-      router.push("/onboarding?welcome=true");
+      // Auto-login after successful registration
+      const { signIn } = await import("next-auth/react");
+      const loginResult = await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (loginResult?.ok) {
+        router.push("/onboarding?welcome=true");
+      } else {
+        // Fallback: redirect to login if auto-login fails
+        router.push("/auth/login");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al registrar");
     } finally {
@@ -235,7 +248,7 @@ export default function RegisterPage() {
             <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
               <div className="flex items-center gap-2 text-green-600 font-medium">
                 <CheckCircle2 className="h-5 w-5" />
-                <span>7 días de prueba gratis</span>
+                <span>14 días de prueba gratis</span>
               </div>
               <ul className="text-sm text-[var(--muted-foreground)] space-y-1 ml-7">
                 <li>• Acceso completo a todas las funciones</li>
