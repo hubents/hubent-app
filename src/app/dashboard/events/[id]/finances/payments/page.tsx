@@ -127,10 +127,16 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     async function fetchData() {
       try {
-        const settingsRes = await fetch("/api/finance/settings");
-        const settingsData = await settingsRes.json();
-        if (settingsData.success && settingsData.data?.defaultCurrency) {
-          setCurrency(settingsData.data.defaultCurrency);
+        try {
+          const settingsRes = await fetch("/api/finance/settings");
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            if (settingsData.success && settingsData.data?.defaultCurrency) {
+              setCurrency(settingsData.data.defaultCurrency);
+            }
+          }
+        } catch {
+          // eventScoped users may not have finance:read — use default EUR
         }
 
         const eventRes = await fetch(`/api/events/${eventId}`);
@@ -307,6 +313,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                             {formatCurrency(parseFloat(payment.amount))}
                           </td>
                           <td className="p-4">
+                            {(canEditFinances || payment.attachmentUrl) ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -339,6 +346,7 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                                   )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                            ) : null}
                           </td>
                         </tr>
                       );

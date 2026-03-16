@@ -52,9 +52,12 @@ export async function GET() {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch settings";
+    const isForbidden = message.includes("Forbidden") || message.includes("Missing permission");
+    const isAuth = message.includes("Unauthorized");
+    const status = isAuth ? 401 : isForbidden ? 403 : 500;
     return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
+      { success: false, error: { code: isForbidden ? "FORBIDDEN" : "FETCH_ERROR", message } },
+      { status }
     );
   }
 }

@@ -64,10 +64,16 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     async function fetchData() {
       try {
-        const settingsRes = await fetch("/api/finance/settings");
-        const settingsData = await settingsRes.json();
-        if (settingsData.success && settingsData.data?.defaultCurrency) {
-          setCurrency(settingsData.data.defaultCurrency);
+        try {
+          const settingsRes = await fetch("/api/finance/settings");
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            if (settingsData.success && settingsData.data?.defaultCurrency) {
+              setCurrency(settingsData.data.defaultCurrency);
+            }
+          }
+        } catch {
+          // eventScoped users may not have finance:read — use default EUR
         }
 
         const eventRes = await fetch(`/api/events/${eventId}`);
@@ -95,23 +101,31 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
           setSummary((prev) => ({ ...prev, totalPaid: paid, totalPending: pending, totalOverdue: overdue }));
         }
 
-        // Fetch quotes count
-        const quotesRes = await fetch(`/api/finance/documents?type=quote&eventId=${eventId}&limit=100`);
-        const quotesData = await quotesRes.json();
-        if (quotesData.success) {
-          const docs: FinDoc[] = quotesData.data || [];
-          setQuotesCount(docs.length);
-          setQuotesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
-        }
+        // Fetch quotes count (may fail for eventScoped users without finance:read)
+        try {
+          const quotesRes = await fetch(`/api/finance/documents?type=quote&eventId=${eventId}&limit=100`);
+          if (quotesRes.ok) {
+            const quotesData = await quotesRes.json();
+            if (quotesData.success) {
+              const docs: FinDoc[] = quotesData.data || [];
+              setQuotesCount(docs.length);
+              setQuotesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
+            }
+          }
+        } catch { /* eventScoped users — skip */ }
 
-        // Fetch invoices count
-        const invoicesRes = await fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`);
-        const invoicesData = await invoicesRes.json();
-        if (invoicesData.success) {
-          const docs: FinDoc[] = invoicesData.data || [];
-          setInvoicesCount(docs.length);
-          setInvoicesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
-        }
+        // Fetch invoices count (may fail for eventScoped users without finance:read)
+        try {
+          const invoicesRes = await fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`);
+          if (invoicesRes.ok) {
+            const invoicesData = await invoicesRes.json();
+            if (invoicesData.success) {
+              const docs: FinDoc[] = invoicesData.data || [];
+              setInvoicesCount(docs.length);
+              setInvoicesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
+            }
+          }
+        } catch { /* eventScoped users — skip */ }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {

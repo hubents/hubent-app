@@ -18,10 +18,16 @@
 - **Provider**: auto-assign provider_free (id=8) + active → `src/app/api/auth/provider-register/route.ts`
 - Siempre crear subscription + actualizar org.planId
 
-## Planes activos
-- Tenant: Starter(5), Standard(6), Agency(7)
-- Provider: Free(8), Pro(9)
+## Planes activos (sincronizados con Stripe live Mar 2026)
+| Plan | ID | Slug | Tipo | €/mes | Stripe Product |
+|------|----|------|------|-------|----------------|
+| Starter | 5 | starter | tenant | 14.50 | prod_Tzqnggm0AsrDRW |
+| Standard | 6 | standard | tenant | 29.50 | prod_TzqnKhKhzr5KLH |
+| Agency | 7 | agency | tenant | 49.50 | prod_TzqnVMhGDgZo9Z |
+| Free | 8 | provider-free | provider | 0 | N/A (sin Stripe) |
+| Pro | 9 | provider-pro | provider | 14.50 | prod_TzqnzSySCfPiog |
 - Planes 1-4 desactivados (legacy)
+- Script sync: `scripts/sync-stripe-products.ts` (maneja live↔test mode switches)
 
 ## Webhooks - Buenas prácticas
 - Idempotency: siempre verificar si el invoice/payment ya fue procesado antes de insertar

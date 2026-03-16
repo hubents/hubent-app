@@ -596,6 +596,7 @@ export default function PaymentsPage() {
                       </span>
                     </TableCell>
                     <TableCell>
+                      {can("finance:create") ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -614,6 +615,7 @@ export default function PaymentsPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))
