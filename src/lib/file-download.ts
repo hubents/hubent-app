@@ -14,7 +14,8 @@ export async function downloadFile(
   const toastId = toast.loading("Descargando...");
 
   try {
-    const res = await fetch(url);
+    const proxyUrl = `/api/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(filename)}`;
+    const res = await fetch(proxyUrl);
     if (!res.ok) throw new Error("Error al descargar el archivo");
 
     const blob = await res.blob();
