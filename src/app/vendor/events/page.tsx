@@ -28,6 +28,8 @@ interface VendorEvent {
   eventLocation: string | null;
   plannerOrgName: string;
   plannerOrgLogo: string | null;
+  taskCount: number;
+  pendingTaskCount: number;
 }
 
 const ACCESS_STATUS: Record<string, { label: string; variant: "success" | "warning" | "secondary" | "destructive" }> = {
@@ -153,6 +155,13 @@ export default function VendorEventsPage() {
                             <RiMapPinLine className="h-3.5 w-3.5" />
                             {event.eventLocation}
                           </span>
+                        )}
+                        {event.taskCount > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {event.pendingTaskCount > 0
+                              ? `${event.pendingTaskCount} tarea${event.pendingTaskCount !== 1 ? "s" : ""} pendiente${event.pendingTaskCount !== 1 ? "s" : ""}`
+                              : `${event.taskCount} tarea${event.taskCount !== 1 ? "s" : ""}`}
+                          </Badge>
                         )}
                       </div>
                     </div>

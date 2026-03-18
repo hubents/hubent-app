@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TasksPageContent } from "@/components/tasks/tasks-page-content";
+import { VendorTasksContent } from "@/components/vendor/vendor-tasks-content";
 
 export default function VendorTasksPage() {
   return (
@@ -17,7 +17,7 @@ export default function VendorTasksPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     }>
-      <TasksPageContent />
+      <VendorTasksContent />
     </Suspense>
   );
 }

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { vendors, organizations, eventVendors, providerEventAccess } from "@/db/schema";
+import { vendors, organizations, eventVendors, providerEventAccess, tasks, taskParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 /**
@@ -124,4 +124,50 @@ export async function getProviderAccessForOrg(providerOrgId: number) {
     .select()
     .from(providerEventAccess)
     .where(eq(providerEventAccess.providerOrgId, providerOrgId));
+}
+
+/**
+ * Auto-link a vendor to all existing tasks in an event as task_participant.
+ * Skips tasks where the vendor is already a participant.
+ * Returns counts for logging.
+ */
+export async function autoLinkVendorToEventTasks(
+  eventId: number,
+  vendorId: number,
+  addedBy: string
+): Promise<{ linked: number; skipped: number }> {
+  const eventTasks = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(eq(tasks.eventId, eventId));
+
+  let linked = 0;
+  let skipped = 0;
+
+  for (const task of eventTasks) {
+    const existing = await db.query.taskParticipants.findFirst({
+      where: and(
+        eq(taskParticipants.taskId, task.id),
+        eq(taskParticipants.vendorId, vendorId)
+      ),
+    });
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    await db.insert(taskParticipants).values({
+      taskId: task.id,
+      vendorId,
+      type: "vendor",
+      canEdit: false,
+      canComment: true,
+      addedBy,
+    });
+    linked++;
+  }
+
+  console.log(`[autoLinkVendor] eventId=${eventId} vendorId=${vendorId}: linked=${linked} skipped=${skipped}`);
+  return { linked, skipped };
 }

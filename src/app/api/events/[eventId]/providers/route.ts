@@ -5,7 +5,7 @@ import { providerEventAccess, organizations, events, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
-import { ensureVendorForProviderOrg, ensureEventVendor } from "@/lib/cross-org";
+import { ensureVendorForProviderOrg, ensureEventVendor, autoLinkVendorToEventTasks } from "@/lib/cross-org";
 import { notifyProviderInvited } from "@/lib/push-notifications";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -139,21 +139,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Auto-link: ensure a local vendor record exists for this provider org
+    // Auto-link: ensure a local vendor record exists for this provider org (BLOCKING)
     let finalVendorId = vendorId || null;
-    try {
-      const linkedVendorId = await ensureVendorForProviderOrg(
-        session.organizationId,
-        finalProviderOrgId,
-        session.user.userId
-      );
-      finalVendorId = finalVendorId || linkedVendorId;
+    const linkedVendorId = await ensureVendorForProviderOrg(
+      session.organizationId,
+      finalProviderOrgId,
+      session.user.userId
+    );
+    finalVendorId = finalVendorId || linkedVendorId;
 
-      // Ensure eventVendors record exists
-      await ensureEventVendor(eid, finalVendorId, providerOrg.providerCategory);
-    } catch (linkError) {
-      console.error("Auto-link vendor failed (non-blocking):", linkError);
-    }
+    // Ensure eventVendors record exists
+    await ensureEventVendor(eid, finalVendorId, providerOrg.providerCategory);
 
     const [newAccess] = await db
       .insert(providerEventAccess)
@@ -194,6 +190,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       plannerOrg?.name || "Un organizador",
       newAccess.id
     ).catch((e) => console.error("Push notify provider invited failed:", e));
+
+    // Auto-link vendor to existing tasks in this event (non-blocking)
+    autoLinkVendorToEventTasks(eid, finalVendorId, session.user.userId)
+      .then((result) => {
+        console.log(`[inviteProvider] eventId=${eid} providerOrgId=${finalProviderOrgId} vendorId=${finalVendorId} tasksLinked=${result.linked}`);
+      })
+      .catch((err) => console.error("[inviteProvider] autoLinkVendorToEventTasks failed:", err));
 
     return NextResponse.json({ success: true, data: newAccess }, { status: 201 });
   } catch (error) {

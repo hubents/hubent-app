@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { organizations, providerEventAccess, tasks, events, financialDocuments, organizationFinanceSettings } from "@/db/schema";
+import { organizations, providerEventAccess, tasks, events, financialDocuments, organizationFinanceSettings, vendors, taskParticipants } from "@/db/schema";
 import { eq, and, count, sum, sql, inArray } from "drizzle-orm";
 
 /**
@@ -53,18 +53,27 @@ export async function GET() {
       );
     const activeEventIds = activeAccess.map((a) => a.eventId);
 
+    // Get vendor IDs linked to this provider org
+    const linkedVendors = await db
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.providerOrgId, session.organizationId));
+    const vendorIds = linkedVendors.map((v) => v.id);
+
     let taskCountValue = 0;
-    if (activeEventIds.length > 0) {
+    if (activeEventIds.length > 0 && vendorIds.length > 0) {
       const [taskCount] = await db
-        .select({ count: count() })
+        .select({ count: sql<number>`COUNT(DISTINCT ${tasks.id})` })
         .from(tasks)
+        .innerJoin(taskParticipants, eq(taskParticipants.taskId, tasks.id))
         .where(
           and(
             inArray(tasks.eventId, activeEventIds),
+            inArray(taskParticipants.vendorId, vendorIds),
             sql`${tasks.status} NOT IN ('completed', 'cancelled')`
           )
         );
-      taskCountValue = taskCount?.count ?? 0;
+      taskCountValue = Number(taskCount?.count ?? 0);
     }
 
     // Revenue from paid invoices (exclude mirrors)

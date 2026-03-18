@@ -4,7 +4,8 @@ import {
   taskAttachments,
   taskParticipants,
   tasks,
-  users
+  users,
+  vendors
 } from "@/db/schema";
 import { eq, and, desc, isNull, or, sql } from "drizzle-orm";
 import type { TenantSession } from "@/types";
@@ -47,7 +48,22 @@ export async function canAccessTaskChat(
     )
     .limit(1);
 
-  return !!participant;
+  if (participant) return true;
+
+  // Fallback: check if user's provider org has a vendor that is task participant (cross-org)
+  const [vendorParticipant] = await db
+    .select({ id: taskParticipants.id })
+    .from(taskParticipants)
+    .innerJoin(vendors, eq(vendors.id, taskParticipants.vendorId))
+    .where(
+      and(
+        eq(taskParticipants.taskId, taskId),
+        eq(vendors.providerOrgId, session.organizationId)
+      )
+    )
+    .limit(1);
+
+  return !!vendorParticipant;
 }
 
 /**
@@ -180,8 +196,23 @@ export async function canCommentOnTask(
     )
     .limit(1);
 
-  if (!participant) return false;
-  return participant.canComment !== false;
+  if (participant) return participant.canComment !== false;
+
+  // Fallback: check if user's provider org has a vendor that is task participant (cross-org)
+  const [vendorParticipant] = await db
+    .select({ canComment: taskParticipants.canComment })
+    .from(taskParticipants)
+    .innerJoin(vendors, eq(vendors.id, taskParticipants.vendorId))
+    .where(
+      and(
+        eq(taskParticipants.taskId, taskId),
+        eq(vendors.providerOrgId, session.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!vendorParticipant) return false;
+  return vendorParticipant.canComment !== false;
 }
 
 /**
@@ -203,20 +234,9 @@ export async function sendTaskMessage(
     throw new Error("You don't have access to this task");
   }
 
-  // Check if user can comment
-  const [participant] = await db
-    .select()
-    .from(taskParticipants)
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(taskParticipants.userId, session.user.userId)
-      )
-    )
-    .limit(1);
-
-  // If participant exists but can't comment, deny
-  if (participant && !participant.canComment) {
+  // Check if user can comment (includes vendorId fallback for cross-org)
+  const canComment = await canCommentOnTask(session, taskId);
+  if (!canComment) {
     throw new Error("You don't have permission to comment on this task");
   }
 
@@ -390,7 +410,7 @@ export async function deleteTaskAttachment(
 
 /**
  * Get all user IDs that should receive notifications for a task
- * Includes: assignee + all participants with userId
+ * Includes: assignee + all participants with userId + users from vendor provider orgs
  */
 export async function getTaskParticipantUserIds(taskId: number): Promise<string[]> {
   const task = await db.query.tasks.findFirst({
@@ -399,7 +419,7 @@ export async function getTaskParticipantUserIds(taskId: number): Promise<string[
   });
 
   const participants = await db
-    .select({ userId: taskParticipants.userId })
+    .select({ userId: taskParticipants.userId, vendorId: taskParticipants.vendorId })
     .from(taskParticipants)
     .where(eq(taskParticipants.taskId, taskId));
 
@@ -414,6 +434,30 @@ export async function getTaskParticipantUserIds(taskId: number): Promise<string[
   for (const p of participants) {
     if (p.userId) {
       userIds.add(p.userId);
+    }
+  }
+
+  // Add users from provider orgs linked to vendor participants
+  const vendorIdsWithoutUser = participants
+    .filter((p) => p.vendorId && !p.userId)
+    .map((p) => p.vendorId!);
+
+  if (vendorIdsWithoutUser.length > 0) {
+    const { organizationMembers } = await import("@/db/schema");
+    for (const vendorId of vendorIdsWithoutUser) {
+      const vendor = await db.query.vendors.findFirst({
+        where: eq(vendors.id, vendorId),
+        columns: { providerOrgId: true },
+      });
+      if (vendor?.providerOrgId) {
+        const members = await db
+          .select({ userId: organizationMembers.userId })
+          .from(organizationMembers)
+          .where(eq(organizationMembers.organizationId, vendor.providerOrgId));
+        for (const m of members) {
+          userIds.add(m.userId);
+        }
+      }
     }
   }
 

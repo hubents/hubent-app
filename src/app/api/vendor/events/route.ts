@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, events, organizations } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { providerEventAccess, events, organizations, tasks, taskParticipants, vendors } from "@/db/schema";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 /**
  * GET /api/vendor/events
@@ -24,6 +24,13 @@ export async function GET() {
       );
     }
 
+    // Get vendor IDs linked to this provider org for task count subqueries
+    const linkedVendors = await db
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.providerOrgId, session.organizationId));
+    const vendorIds = linkedVendors.map((v) => v.id);
+
     const accessList = await db
       .select({
         accessId: providerEventAccess.id,
@@ -38,6 +45,25 @@ export async function GET() {
         eventLocation: events.location,
         plannerOrgName: organizations.name,
         plannerOrgLogo: organizations.logo,
+        taskCount: vendorIds.length > 0
+          ? sql<number>`(
+              SELECT COUNT(DISTINCT ${tasks.id})
+              FROM ${tasks}
+              INNER JOIN ${taskParticipants} ON ${taskParticipants.taskId} = ${tasks.id}
+              WHERE ${tasks.eventId} = ${events.id}
+                AND ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
+            )`.as("task_count")
+          : sql<number>`0`.as("task_count"),
+        pendingTaskCount: vendorIds.length > 0
+          ? sql<number>`(
+              SELECT COUNT(DISTINCT ${tasks.id})
+              FROM ${tasks}
+              INNER JOIN ${taskParticipants} ON ${taskParticipants.taskId} = ${tasks.id}
+              WHERE ${tasks.eventId} = ${events.id}
+                AND ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
+                AND ${tasks.status} NOT IN ('completed', 'cancelled')
+            )`.as("pending_task_count")
+          : sql<number>`0`.as("pending_task_count"),
       })
       .from(providerEventAccess)
       .innerJoin(events, eq(events.id, providerEventAccess.eventId))

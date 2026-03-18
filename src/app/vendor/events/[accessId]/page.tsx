@@ -37,6 +37,14 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { VendorTaskSheet } from "@/components/vendor/vendor-task-sheet";
 
 type TabKey = "documents" | "payments" | "tasks" | "runsheet" | "forms";
 
@@ -175,6 +183,7 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   const [eventTasks, setEventTasks] = useState<Task[]>([]);
   const [runSheetItems, setRunSheetItems] = useState<RunSheetItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -422,6 +431,7 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
       )}
 
       {activeTab === "tasks" && (
+        <>
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -443,10 +453,13 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
                   </TableRow>
                 ) : (
                   eventTasks.map((task) => {
-                    const st = taskStatusConfig[task.status || "pending"] || taskStatusConfig.pending;
                     const pr = priorityConfig[task.priority || "medium"] || priorityConfig.medium;
                     return (
-                      <TableRow key={task.id}>
+                      <TableRow
+                        key={task.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setSelectedTaskId(task.id)}
+                      >
                         <TableCell>
                           <div>
                             <p className="font-medium text-sm">{task.title}</p>
@@ -466,8 +479,41 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
                             ? format(new Date(task.dueDate), "dd MMM yyyy", { locale: es })
                             : "-"}
                         </TableCell>
-                        <TableCell>
-                          <Badge className={st.color}>{st.label}</Badge>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={task.status || "pending"}
+                            onValueChange={async (newStatus) => {
+                              try {
+                                const res = await fetch(`/api/vendor/tasks/${task.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ status: newStatus }),
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  setEventTasks((prev) =>
+                                    prev.map((t) => t.id === task.id ? { ...t, status: newStatus } : t)
+                                  );
+                                  toast.success("Estado actualizado");
+                                } else {
+                                  toast.error(data.error?.message || "Error");
+                                }
+                              } catch {
+                                toast.error("Error al actualizar estado");
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-7 w-32 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(taskStatusConfig).map(([value, cfg]) => (
+                                <SelectItem key={value} value={value}>
+                                  <span className={`text-xs ${cfg.color} px-1.5 py-0.5 rounded`}>{cfg.label}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                       </TableRow>
                     );
@@ -477,6 +523,17 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
             </Table>
           </CardContent>
         </Card>
+        <VendorTaskSheet
+          taskId={selectedTaskId}
+          open={!!selectedTaskId}
+          onOpenChange={(open) => { if (!open) setSelectedTaskId(null); }}
+          onStatusUpdated={() => {
+            fetch(`/api/vendor/events/${accessId}/tasks`)
+              .then((r) => r.json())
+              .then((d) => { if (d.success) setEventTasks(d.data); });
+          }}
+        />
+        </>
       )}
 
       {activeTab === "forms" && (

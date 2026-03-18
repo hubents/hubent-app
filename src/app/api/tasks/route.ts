@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, events, users, eventParticipants, taskParticipants } from "@/db/schema";
+import { tasks, events, users, eventParticipants, taskParticipants, providerEventAccess } from "@/db/schema";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
 
@@ -123,6 +123,49 @@ export const POST = withMonitoring(async (request: NextRequest) => {
       createdBy: session.user.userId,
       sortOrder: nextSortOrder,
     }).returning();
+
+    // Auto-add vendor participants for active providers in this event (non-blocking)
+    if (eventId) {
+      (async () => {
+        try {
+          const activeProviders = await db
+            .select({ vendorId: providerEventAccess.vendorId })
+            .from(providerEventAccess)
+            .where(
+              and(
+                eq(providerEventAccess.eventId, eventId),
+                eq(providerEventAccess.status, "active")
+              )
+            );
+
+          let vendorsLinked = 0;
+          for (const p of activeProviders) {
+            if (!p.vendorId) continue;
+            const exists = await db.query.taskParticipants.findFirst({
+              where: and(
+                eq(taskParticipants.taskId, task.id),
+                eq(taskParticipants.vendorId, p.vendorId)
+              ),
+            });
+            if (exists) continue;
+            await db.insert(taskParticipants).values({
+              taskId: task.id,
+              vendorId: p.vendorId,
+              type: "vendor",
+              canEdit: false,
+              canComment: true,
+              addedBy: session.user.userId,
+            });
+            vendorsLinked++;
+          }
+          if (vendorsLinked > 0) {
+            console.log(`[createTask] taskId=${task.id} eventId=${eventId} vendorsLinked=${vendorsLinked}`);
+          }
+        } catch (err) {
+          console.error("[createTask] auto-add vendor participants failed:", err);
+        }
+      })();
+    }
 
   return NextResponse.json({
     success: true,
