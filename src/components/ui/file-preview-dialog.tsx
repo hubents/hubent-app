@@ -11,6 +11,7 @@ import {
 } from "@remixicon/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { downloadFile } from "@/lib/file-download";
 
 interface PreviewFile {
   id: number;
@@ -143,11 +144,9 @@ export function FilePreviewDialog({
             variant="ghost"
             size="icon"
             className="h-9 w-9 text-white/70 hover:text-white hover:bg-white/10"
-            asChild
+            onClick={() => downloadFile(file.url, file.name)}
           >
-            <a href={file.url} download={file.name}>
-              <RiDownloadLine className="h-5 w-5" />
-            </a>
+            <RiDownloadLine className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
@@ -215,11 +214,9 @@ export function FilePreviewDialog({
                     Abrir
                   </a>
                 </Button>
-                <Button variant="secondary" size="sm" asChild>
-                  <a href={file.url} download={file.name}>
-                    <RiDownloadLine className="h-4 w-4 mr-2" />
-                    Descargar
-                  </a>
+                <Button variant="secondary" size="sm" onClick={() => downloadFile(file.url, file.name)}>
+                  <RiDownloadLine className="h-4 w-4 mr-2" />
+                  Descargar
                 </Button>
               </div>
             </div>

@@ -13,6 +13,7 @@ import {
   RiFileWordLine,
   RiFileExcelLine,
 } from "@remixicon/react";
+import { downloadFile } from "@/lib/file-download";
 import { TaskEmailBubble } from "./task-email-bubble";
 import { TaskWhatsAppBubble } from "./task-whatsapp-bubble";
 
@@ -204,17 +205,10 @@ export function TaskChatMessage({ message, isOwnMessage = false, onDelete, onEma
                       variant="outline"
                       size="sm"
                       className="shrink-0"
-                      asChild
+                      onClick={() => downloadFile(attachment.url, attachment.name)}
                     >
-                      <a
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                      >
-                        <RiDownloadLine className="h-4 w-4 mr-1" />
-                        Descargar
-                      </a>
+                      <RiDownloadLine className="h-4 w-4 mr-1" />
+                      Descargar
                     </Button>
                   </div>
                 );

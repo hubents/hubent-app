@@ -34,6 +34,7 @@ import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
 import { useEvent } from "@/contexts/event-context";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { downloadFile } from "@/lib/file-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -937,16 +938,14 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             {documents.length > 0 ? (
               <div className="space-y-2">
                 {documents.map((doc) => (
-                  <a
+                  <button
                     key={doc.id}
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors"
+                    onClick={() => downloadFile(doc.url, doc.name)}
+                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors w-full text-left"
                   >
                     <RiFileTextLine className="h-4 w-4 text-primary" />
                     <span className="font-medium">{doc.name}</span>
-                  </a>
+                  </button>
                 ))}
               </div>
             ) : (

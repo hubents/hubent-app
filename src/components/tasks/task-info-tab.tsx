@@ -24,6 +24,7 @@ import {
   RiFileDownloadLine,
   RiEyeLine,
 } from "@remixicon/react";
+import { downloadFile } from "@/lib/file-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -618,10 +619,8 @@ export function TaskInfoTab({
                   </span>
                   <div className="flex items-center gap-1 justify-end">
                     {payment.attachmentUrl && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                        <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                          <RiFileDownloadLine className="h-3.5 w-3.5" />
-                        </a>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(payment.attachmentUrl!, payment.attachmentName || "comprobante")}>
+                        <RiFileDownloadLine className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {!readOnly && (
@@ -971,10 +970,8 @@ export function TaskInfoTab({
                       >
                         <RiEyeLine className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" download>
-                          <RiDownloadLine className="h-4 w-4" />
-                        </a>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => downloadFile(file.url, file.name)}>
+                        <RiDownloadLine className="h-4 w-4" />
                       </Button>
                       {!readOnly && (
                       <Button
@@ -1020,10 +1017,8 @@ export function TaskInfoTab({
                       >
                         <RiEyeLine className="h-4 w-4" />
                       </Button>
-                      <Button variant="secondary" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()} asChild>
-                        <a href={image.url} target="_blank" rel="noopener noreferrer" download>
-                          <RiDownloadLine className="h-4 w-4" />
-                        </a>
+                      <Button variant="secondary" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); downloadFile(image.url, image.name); }}>
+                        <RiDownloadLine className="h-4 w-4" />
                       </Button>
                       {!readOnly && (
                       <Button

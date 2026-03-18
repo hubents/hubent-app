@@ -33,6 +33,7 @@ import { PaymentDrawer, type EditPaymentData, type ConciliableDocument } from "@
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
+import { downloadFile } from "@/lib/file-download";
 
 interface Payment {
   id: number;
@@ -50,6 +51,7 @@ interface Payment {
   reference?: string | null;
   documentNumber?: string | null;
   attachmentUrl?: string | null;
+  attachmentName?: string | null;
 }
 
 interface EventDocument {
@@ -328,11 +330,9 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
                                   </DropdownMenuItem>
                                   )}
                                   {payment.attachmentUrl && (
-                                    <DropdownMenuItem asChild>
-                                      <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                                        <RiFileDownloadLine className="mr-2 h-4 w-4" />
-                                        Ver comprobante
-                                      </a>
+                                    <DropdownMenuItem onClick={() => downloadFile(payment.attachmentUrl!, payment.attachmentName || "comprobante")}>
+                                      <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                                      Descargar comprobante
                                     </DropdownMenuItem>
                                   )}
                                   {canEditFinances && (

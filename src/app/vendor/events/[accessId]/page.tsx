@@ -32,6 +32,7 @@ import {
   RiSurveyLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { downloadFile } from "@/lib/file-download";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -542,10 +543,10 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
                       </TableCell>
                       <TableCell>
                         {payment.attachmentUrl ? (
-                          <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm flex items-center gap-1">
+                          <button onClick={() => downloadFile(payment.attachmentUrl!, payment.attachmentName || "comprobante")} className="text-primary hover:underline text-sm flex items-center gap-1">
                             <RiFileDownloadLine className="h-3.5 w-3.5" />
-                            {payment.attachmentName || "Ver"}
-                          </a>
+                            {payment.attachmentName || "Descargar"}
+                          </button>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}

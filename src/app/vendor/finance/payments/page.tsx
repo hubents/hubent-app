@@ -34,6 +34,7 @@ import {
 } from "@remixicon/react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { downloadFile } from "@/lib/file-download";
 import { PaymentDrawer, type EditPaymentData, type ConciliableDocument } from "@/components/finance/payment-drawer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -356,10 +357,10 @@ export default function VendorPaymentsPage() {
                     </TableCell>
                     <TableCell>
                       {p.attachmentUrl ? (
-                        <a href={p.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-sm flex items-center gap-1">
+                        <button onClick={() => downloadFile(p.attachmentUrl!, p.attachmentName || "comprobante")} className="text-primary hover:underline text-sm flex items-center gap-1">
                           <RiFileDownloadLine className="h-3.5 w-3.5" />
-                          {p.attachmentName || "Ver"}
-                        </a>
+                          {p.attachmentName || "Descargar"}
+                        </button>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
@@ -380,11 +381,9 @@ export default function VendorPaymentsPage() {
                           </DropdownMenuItem>
                           )}
                           {p.attachmentUrl && (
-                            <DropdownMenuItem asChild>
-                              <a href={p.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                                <RiFileDownloadLine className="mr-2 h-4 w-4" />
-                                Ver comprobante
-                              </a>
+                            <DropdownMenuItem onClick={() => downloadFile(p.attachmentUrl!, p.attachmentName || "comprobante")}>
+                              <RiFileDownloadLine className="mr-2 h-4 w-4" />
+                              Descargar comprobante
                             </DropdownMenuItem>
                           )}
                           {canCreate && (

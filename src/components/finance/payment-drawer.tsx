@@ -31,6 +31,7 @@ import {
   RiFileTextLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
+import { downloadFile } from "@/lib/file-download";
 import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
 
 export interface ConciliableDocument {
@@ -523,14 +524,12 @@ export function PaymentDrawer({
             {form.attachmentUrl ? (
               <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/50">
                 <RiFileDownloadLine className="h-4 w-4 text-muted-foreground shrink-0" />
-                <a
-                  href={form.attachmentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline truncate flex-1"
+                <button
+                  onClick={() => downloadFile(form.attachmentUrl!, form.attachmentName || "Comprobante")}
+                  className="text-sm text-primary hover:underline truncate flex-1 text-left"
                 >
                   {form.attachmentName || "Comprobante"}
-                </a>
+                </button>
                 <Button
                   type="button"
                   variant="ghost"

@@ -14,6 +14,7 @@ import {
   RiFileExcelLine,
   RiImageLine,
 } from "@remixicon/react";
+import { downloadFile } from "@/lib/file-download";
 
 interface ContactDocument {
   id: number;
@@ -147,11 +148,9 @@ export function ContactDocsTab({
                   <Button
                     variant="ghost"
                     size="icon"
-                    asChild
+                    onClick={() => downloadFile(doc.url, doc.name)}
                   >
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                      <RiDownloadLine className="h-4 w-4" />
-                    </a>
+                    <RiDownloadLine className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
