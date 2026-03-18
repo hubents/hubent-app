@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 /**
  * fix-provider-task-participants.ts
  * 
