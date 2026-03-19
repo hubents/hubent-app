@@ -33,7 +33,8 @@ export async function canAccessTaskChat(
           eq(t.organizationId, session.organizationId)
         ),
     });
-    return !!task;
+    if (task) return true;
+    // For provider roles, fall through to vendorId check (cross-org tasks)
   }
 
   // For others, must be a direct task participant
