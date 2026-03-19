@@ -360,7 +360,7 @@ function BillingCard() {
     }
   }, [searchParams]);
 
-  const isFreePlan = billingData?.plan?.slug === "provider-free";
+  const isFreePlan = !billingData?.plan || billingData.plan.slug === "provider-free";
   const hasStripe = billingData?.subscription?.hasStripeSubscription === true;
   const status = billingData?.subscription?.status;
 

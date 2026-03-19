@@ -419,6 +419,12 @@ describe("Subscription Logic", () => {
   });
 
   describe("Vendor upgrade button visibility", () => {
+    it("should show upgrade button when no plan assigned (null)", () => {
+      const billingData: { plan: { slug: string } | null } = { plan: null };
+      const isFreePlan = !billingData.plan || billingData.plan.slug === "provider-free";
+      expect(isFreePlan).toBe(true);
+    });
+
     it("should show upgrade button only on free plan", () => {
       const scenarios = [
         { slug: "provider-free", expected: true },
@@ -426,7 +432,9 @@ describe("Subscription Logic", () => {
         { slug: "starter", expected: false },
       ];
       scenarios.forEach(({ slug, expected }) => {
-        expect(slug === "provider-free").toBe(expected);
+        const plan = { slug };
+        const isFreePlan = !plan || plan.slug === "provider-free";
+        expect(isFreePlan).toBe(expected);
       });
     });
 
