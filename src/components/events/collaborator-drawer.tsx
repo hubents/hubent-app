@@ -285,24 +285,13 @@ export function CollaboratorDrawer({
       const data = await res.json();
 
       if (data.success) {
-        const freshVendors = await fetchData(search);
-        const vendorId = data.data?.vendorId;
-        if (vendorId) {
-          selectVendor(vendorId);
-        } else {
-          const found = freshVendors.find(v => v.providerOrgId === providerOrgId);
-          if (found) selectVendor(found.id);
-        }
-        setDirectorySearch("");
-        setDirectoryProviders([]);
-        toast.success("Proveedor invitado al evento");
+        toast.success("Proveedor invitado al evento y agregado como colaborador");
+        onOpenChange(false);
+        onSuccess();
       } else if (data.error?.code === "DUPLICATE") {
-        const freshVendors = await fetchData(search);
-        const found = freshVendors.find(v => v.providerOrgId === providerOrgId);
-        if (found) {
-          selectVendor(found.id);
-        }
         toast.info("Este proveedor ya está asignado al evento");
+        onOpenChange(false);
+        onSuccess();
       } else {
         toast.error(data.error?.message || "Error al invitar proveedor");
       }

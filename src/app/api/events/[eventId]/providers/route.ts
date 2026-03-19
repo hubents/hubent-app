@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, organizations, events, users } from "@/db/schema";
+import { providerEventAccess, organizations, events, users, eventParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
@@ -191,6 +191,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       newAccess.id
     ).catch((e) => console.error("Push notify provider invited failed:", e));
 
+    // Auto-create event_participant for the vendor (BLOCKING — needed for collaborator list)
+    const [existingParticipant] = await db
+      .select({ id: eventParticipants.id })
+      .from(eventParticipants)
+      .where(and(
+        eq(eventParticipants.eventId, eid),
+        eq(eventParticipants.vendorId, finalVendorId)
+      ))
+      .limit(1);
+
+    if (!existingParticipant) {
+      await db.insert(eventParticipants).values({
+        eventId: eid,
+        vendorId: finalVendorId,
+        type: "vendor",
+        role: "vendor",
+        permissions: {
+          general: "view",
+          tasks: "view",
+          guests: "none",
+          rsvp: "none",
+          vendors: "view",
+          finances: "none",
+          settings: "none",
+        },
+        invitedBy: session.user.userId,
+      });
+    }
+
     // Auto-link vendor to existing tasks in this event (non-blocking)
     autoLinkVendorToEventTasks(eid, finalVendorId, session.user.userId)
       .then((result) => {
@@ -198,7 +227,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .catch((err) => console.error("[inviteProvider] autoLinkVendorToEventTasks failed:", err));
 
-    return NextResponse.json({ success: true, data: newAccess }, { status: 201 });
+    return NextResponse.json({ success: true, data: { ...newAccess, vendorId: finalVendorId } }, { status: 201 });
   } catch (error) {
     console.error("POST /api/events/[eventId]/providers error:", error);
     const message = error instanceof Error ? error.message : "Failed to invite";
