@@ -1,26 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   RiAddLine,
   RiCalendarEventLine,
@@ -28,12 +14,35 @@ import {
   RiLoader4Line,
   RiTimeLine,
   RiFileListLine,
+  RiSearchLine,
+  RiLayoutGridLine,
+  RiListUnordered,
+  RiDraggable,
 } from "@remixicon/react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import { VendorTaskSheet } from "@/components/vendor/vendor-task-sheet";
+import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  pointerWithin,
+  useDroppable,
+} from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface UnifiedTask {
   id: number;
@@ -59,26 +68,236 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
 };
 
-const priorityConfig: Record<string, { label: string; color: string }> = {
-  low: { label: "Baja", color: "bg-gray-100 text-gray-600" },
-  medium: { label: "Media", color: "bg-yellow-100 text-yellow-700" },
-  high: { label: "Alta", color: "bg-orange-100 text-orange-700" },
-  urgent: { label: "Urgente", color: "bg-red-100 text-red-700" },
+const priorityColors: Record<string, string> = {
+  high: "bg-red-100 text-red-700 border-red-200",
+  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  low: "bg-green-100 text-green-700 border-green-200",
+  urgent: "bg-red-100 text-red-700 border-red-200",
 };
+
+const priorityLabels: Record<string, string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+  urgent: "Urgente",
+};
+
+const columns = [
+  { id: "pending", title: "Por hacer", color: "bg-gray-100" },
+  { id: "in_progress", title: "En progreso", color: "bg-blue-100" },
+  { id: "completed", title: "Finalizado", color: "bg-green-100" },
+];
+
+// Sortable Task Card
+function VendorSortableTaskCard({
+  task,
+  onClick,
+}: {
+  task: UnifiedTask;
+  onClick: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `${task.source}-${task.id}`,
+    data: { task, type: "task" },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const pr = task.priority || "medium";
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "cursor-grab active:cursor-grabbing transition-shadow",
+        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md"
+      )}
+      {...listeners}
+      {...attributes}
+    >
+      <CardContent className="p-3" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+          <RiDraggable className="h-4 w-4 text-muted-foreground shrink-0" />
+        </div>
+        {task.eventName && (
+          <p className="text-xs text-muted-foreground mt-1 truncate flex items-center gap-1">
+            <RiCalendarEventLine className="h-3 w-3" />
+            {task.eventName}
+          </p>
+        )}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <span className={cn("px-2 py-0.5 rounded text-xs font-medium border", priorityColors[pr])}>
+            {priorityLabels[pr] || pr}
+          </span>
+          <Badge
+            variant={task.source === "own" ? "secondary" : "outline"}
+            className="text-[10px]"
+          >
+            {task.source === "own" ? "Propia" : "Invitado"}
+          </Badge>
+          {task.dueDate && (
+            <span className="text-xs text-muted-foreground">
+              {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Sortable Column with Quick Add
+function VendorSortableColumn({
+  id,
+  title,
+  color,
+  tasks,
+  onTaskClick,
+  onQuickAdd,
+  showQuickAdd,
+}: {
+  id: string;
+  title: string;
+  color: string;
+  tasks: UnifiedTask[];
+  onTaskClick: (task: UnifiedTask) => void;
+  onQuickAdd: (title: string, status: string) => Promise<void>;
+  showQuickAdd: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
+
+  const handleQuickAdd = async () => {
+    if (!quickAddTitle.trim()) return;
+    setIsCreating(true);
+    try {
+      await onQuickAdd(quickAddTitle.trim(), id);
+      setQuickAddTitle("");
+      setIsQuickAddOpen(false);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const openQuickAdd = () => {
+    setIsQuickAddOpen(true);
+    setTimeout(() => quickAddInputRef.current?.focus(), 50);
+  };
+
+  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
+  const taskIds = sortedTasks.map((t) => `${t.source}-${t.id}`);
+
+  return (
+    <div className="flex flex-col">
+      <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <Badge variant="secondary">{tasks.length}</Badge>
+        </div>
+        {showQuickAdd && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-white/50"
+            onClick={openQuickAdd}
+            title={`Agregar tarea en ${title}`}
+          >
+            <RiAddLine className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
+          isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
+        )}
+      >
+        {isQuickAddOpen && (
+          <Card className="border-primary border-2">
+            <CardContent className="p-2">
+              <Input
+                ref={quickAddInputRef}
+                value={quickAddTitle}
+                onChange={(e) => setQuickAddTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && quickAddTitle.trim()) handleQuickAdd();
+                  else if (e.key === "Escape") { setIsQuickAddOpen(false); setQuickAddTitle(""); }
+                }}
+                placeholder="Título de la tarea..."
+                className="h-8 text-sm"
+                disabled={isCreating}
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" className="h-7 text-xs flex-1" onClick={handleQuickAdd} disabled={!quickAddTitle.trim() || isCreating}>
+                  {isCreating ? "Creando..." : "Crear"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setIsQuickAddOpen(false); setQuickAddTitle(""); }} disabled={isCreating}>
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          {sortedTasks.map((task) => (
+            <VendorSortableTaskCard
+              key={`${task.source}-${task.id}`}
+              task={task}
+              onClick={() => onTaskClick(task)}
+            />
+          ))}
+        </SortableContext>
+        {tasks.length === 0 && !isQuickAddOpen && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {isOver ? "Soltar aquí" : "No hay tareas"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function VendorTasksContent() {
   const [ownTasks, setOwnTasks] = useState<UnifiedTask[]>([]);
   const [invitedTasks, setInvitedTasks] = useState<UnifiedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "own" | "invited">("all");
-  const [quickAddTitle, setQuickAddTitle] = useState("");
-  const [addingTask, setAddingTask] = useState(false);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTask, setActiveTask] = useState<UnifiedTask | null>(null);
 
   // Drawer state
   const [selectedOwnTaskId, setSelectedOwnTaskId] = useState<number | null>(null);
   const [ownDrawerOpen, setOwnDrawerOpen] = useState(false);
   const [selectedInvitedTaskId, setSelectedInvitedTaskId] = useState<number | null>(null);
   const [invitedSheetOpen, setInvitedSheetOpen] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const kanbanCollisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return closestCorners(args);
+  };
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -113,24 +332,16 @@ export function VendorTasksContent() {
     fetchTasks();
   }, [fetchTasks]);
 
-  const allTasks = useMemo(() => {
+  const displayTasks = useMemo(() => {
     let tasks: UnifiedTask[] = [];
-    if (filter === "all" || filter === "own") {
-      tasks = [...tasks, ...ownTasks];
+    if (filter === "all" || filter === "own") tasks = [...tasks, ...ownTasks];
+    if (filter === "all" || filter === "invited") tasks = [...tasks, ...invitedTasks];
+    if (searchTerm) {
+      tasks = tasks.filter((t) => t.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-    if (filter === "all" || filter === "invited") {
-      tasks = [...tasks, ...invitedTasks];
-    }
-    // Sort by dueDate desc, nulls last
-    return tasks.sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
-    });
-  }, [ownTasks, invitedTasks, filter]);
+    return tasks;
+  }, [ownTasks, invitedTasks, filter, searchTerm]);
 
-  // Stats
   const stats = useMemo(() => {
     const all = [...ownTasks, ...invitedTasks];
     return {
@@ -141,48 +352,21 @@ export function VendorTasksContent() {
     };
   }, [ownTasks, invitedTasks]);
 
-  const handleQuickAdd = async () => {
-    if (!quickAddTitle.trim()) return;
-    setAddingTask(true);
+  const showQuickAdd = filter !== "invited";
+
+  const handleQuickAdd = async (title: string, status: string) => {
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: quickAddTitle.trim(), priority: "medium" }),
+        body: JSON.stringify({ title, status, priority: "medium" }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setQuickAddTitle("");
+      if (res.ok) {
         toast.success("Tarea creada");
         fetchTasks();
-      } else {
-        toast.error(data.error?.message || "Error al crear tarea");
       }
     } catch {
       toast.error("Error al crear tarea");
-    } finally {
-      setAddingTask(false);
-    }
-  };
-
-  const handleInvitedStatusChange = async (taskId: number, newStatus: string) => {
-    try {
-      const res = await fetch(`/api/vendor/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setInvitedTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-        );
-        toast.success("Estado actualizado");
-      } else {
-        toast.error(data.error?.message || "Error al actualizar");
-      }
-    } catch {
-      toast.error("Error al actualizar estado");
     }
   };
 
@@ -193,6 +377,84 @@ export function VendorTasksContent() {
     } else {
       setSelectedInvitedTaskId(task.id);
       setInvitedSheetOpen(true);
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const taskData = active.data.current?.task as UnifiedTask | undefined;
+    if (taskData) setActiveTask(taskData);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    if (!over) return;
+
+    const taskData = active.data.current?.task as UnifiedTask | undefined;
+    if (!taskData) return;
+
+    const overId = over.id as string;
+    const isColumn = columns.some((c) => c.id === overId);
+    const overTaskData = over.data.current?.task as UnifiedTask | undefined;
+
+    // Determine new status
+    let newStatus: string | null = null;
+    if (isColumn) {
+      newStatus = overId;
+    } else if (overTaskData) {
+      newStatus = overTaskData.status;
+    }
+
+    if (!newStatus || taskData.status === newStatus) {
+      // Same column reorder for own tasks
+      if (overTaskData && taskData.source === "own" && overTaskData.source === "own" && taskData.status === overTaskData.status) {
+        const colTasks = (filter === "invited" ? [] : ownTasks)
+          .filter((t) => t.status === taskData.status)
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
+        const oldIndex = colTasks.findIndex((t) => t.id === taskData.id);
+        const newIndex = colTasks.findIndex((t) => t.id === overTaskData.id);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const reordered = arrayMove(colTasks, oldIndex, newIndex);
+          const items = reordered.map((t, idx) => ({ taskId: t.id, sortOrder: idx }));
+          setOwnTasks((prev) => {
+            const other = prev.filter((t) => t.status !== taskData.status);
+            return [...other, ...reordered.map((t, idx) => ({ ...t, sortOrder: idx }))];
+          });
+          try {
+            await fetch("/api/tasks/reorder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items, eventId: taskData.eventId ?? null }),
+            });
+          } catch { fetchTasks(); }
+        }
+      }
+      return;
+    }
+
+    // Status change
+    if (taskData.source === "own") {
+      setOwnTasks((prev) => prev.map((t) => t.id === taskData.id ? { ...t, status: newStatus } : t));
+      try {
+        const res = await fetch(`/api/tasks/${taskData.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (!res.ok) throw new Error();
+      } catch { fetchTasks(); }
+    } else {
+      setInvitedTasks((prev) => prev.map((t) => t.id === taskData.id ? { ...t, status: newStatus } : t));
+      try {
+        const res = await fetch(`/api/vendor/tasks/${taskData.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        if (!res.ok) throw new Error();
+        else toast.success("Estado actualizado");
+      } catch { fetchTasks(); }
     }
   };
 
@@ -254,8 +516,8 @@ export function VendorTasksContent() {
         </Card>
       </div>
 
-      {/* Filters + Quick Add */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* Filters + View Toggle */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
           <TabsList>
             <TabsTrigger value="all">Todas ({ownTasks.length + invitedTasks.length})</TabsTrigger>
@@ -264,137 +526,131 @@ export function VendorTasksContent() {
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Nueva tarea propia..."
-            value={quickAddTitle}
-            onChange={(e) => setQuickAddTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
-            className="w-64"
-            disabled={addingTask}
-          />
-          <Button size="sm" onClick={handleQuickAdd} disabled={addingTask || !quickAddTitle.trim()}>
-            <RiAddLine className="h-4 w-4 mr-1" />
-            Agregar
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-48"
+            />
+          </div>
+          <div className="flex items-center gap-1 border rounded-lg p-1">
+            <Button variant={viewMode === "kanban" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("kanban")}>
+              <RiLayoutGridLine className="h-4 w-4" />
+            </Button>
+            <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("list")}>
+              <RiListUnordered className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Tasks Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tarea</TableHead>
-                <TableHead>Evento</TableHead>
-                <TableHead>Origen</TableHead>
-                <TableHead>Prioridad</TableHead>
-                <TableHead>Vencimiento</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+      {/* Kanban View */}
+      {viewMode === "kanban" ? (
+        loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (<Skeleton key={i} className="h-96" />))}
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={kanbanCollisionDetection}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {columns.map((column) => (
+                <VendorSortableColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  color={column.color}
+                  tasks={displayTasks.filter((t) => t.status === column.id)}
+                  onTaskClick={handleTaskClick}
+                  onQuickAdd={handleQuickAdd}
+                  showQuickAdd={showQuickAdd}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeTask ? (
+                <Card className="shadow-xl rotate-3 cursor-grabbing">
+                  <CardContent className="p-3">
+                    <h4 className="font-medium text-sm">{activeTask.title}</h4>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={cn("px-2 py-0.5 rounded text-xs font-medium border", priorityColors[activeTask.priority || "medium"])}>
+                        {priorityLabels[activeTask.priority || "medium"]}
+                      </span>
+                      <Badge variant={activeTask.source === "own" ? "secondary" : "outline"} className="text-[10px]">
+                        {activeTask.source === "own" ? "Propia" : "Invitado"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )
+      ) : (
+        /* List View */
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={6} className="h-12">
-                      <div className="h-4 bg-muted rounded animate-pulse" />
-                    </TableCell>
-                  </TableRow>
+                  <div key={i} className="p-4"><Skeleton className="h-10 w-full" /></div>
                 ))
-              ) : allTasks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    <RiFileListLine className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">Sin tareas</p>
-                    <p className="text-sm mt-1">
-                      {filter === "invited"
-                        ? "No ten\u00e9s tareas asignadas de eventos"
-                        : "Cre\u00e1 una tarea con el campo de arriba"}
-                    </p>
-                  </TableCell>
-                </TableRow>
+              ) : displayTasks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <RiFileListLine className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">Sin tareas</p>
+                </div>
               ) : (
-                allTasks.map((task) => {
+                displayTasks.map((task) => {
                   const st = statusConfig[task.status || "pending"] || statusConfig.pending;
-                  const pr = priorityConfig[task.priority || "medium"] || priorityConfig.medium;
-
                   return (
-                    <TableRow
+                    <div
                       key={`${task.source}-${task.id}`}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => handleTaskClick(task)}
                     >
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-sm">{task.title}</p>
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {task.description}
-                            </p>
+                      <div className="flex-1 min-w-0">
+                        <h4 className={cn("font-medium", task.status === "completed" && "line-through text-muted-foreground")}>
+                          {task.title}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                          {task.eventName && (
+                            <span className="flex items-center gap-1">
+                              <RiCalendarEventLine className="h-3.5 w-3.5" />
+                              {task.eventName}
+                            </span>
+                          )}
+                          {task.dueDate && (
+                            <span>
+                              {new Date(task.dueDate).toLocaleDateString("es-ES")}
+                            </span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {task.eventName ? (
-                          <span className="flex items-center gap-1">
-                            <RiCalendarEventLine className="h-3.5 w-3.5 text-muted-foreground" />
-                            {task.eventName}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">General</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={task.source === "own" ? "secondary" : "outline"}
-                          className="text-[10px]"
-                        >
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={cn("px-2 py-0.5 rounded text-xs font-medium border", priorityColors[task.priority || "medium"])}>
+                          {priorityLabels[task.priority || "medium"]}
+                        </span>
+                        <Badge variant={task.source === "own" ? "secondary" : "outline"} className="text-[10px]">
                           {task.source === "own" ? "Propia" : "Invitado"}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${pr.color} text-xs`}>{pr.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {task.dueDate
-                          ? format(new Date(task.dueDate), "dd MMM yyyy", { locale: es })
-                          : "-"}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        {task.source === "invited" ? (
-                          <Select
-                            value={task.status || "pending"}
-                            onValueChange={(v) => handleInvitedStatusChange(task.id, v)}
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(statusConfig)
-                                .filter(([k]) => k !== "cancelled")
-                                .map(([value, cfg]) => (
-                                  <SelectItem key={value} value={value}>
-                                    <span className={`text-xs ${cfg.color} px-1.5 py-0.5 rounded`}>
-                                      {cfg.label}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge className={`${st.color} text-xs`}>{st.label}</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                        <Badge className={`${st.color} text-xs`}>{st.label}</Badge>
+                      </div>
+                    </div>
                   );
                 })
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Own Task Drawer (full edit) */}
       <TaskDrawer

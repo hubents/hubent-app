@@ -37,14 +37,26 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { VendorTaskSheet } from "@/components/vendor/vendor-task-sheet";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  pointerWithin,
+  useDroppable,
+} from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type TabKey = "documents" | "payments" | "tasks" | "runsheet" | "forms";
 
@@ -96,6 +108,96 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
   high: { label: "Alta", color: "bg-orange-100 text-orange-600" },
   urgent: { label: "Urgente", color: "bg-red-100 text-red-600" },
 };
+
+const priorityBorderColors: Record<string, string> = {
+  high: "bg-red-100 text-red-700 border-red-200",
+  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  low: "bg-green-100 text-green-700 border-green-200",
+  urgent: "bg-red-100 text-red-700 border-red-200",
+};
+
+const taskKanbanColumns = [
+  { id: "pending", title: "Por hacer", color: "bg-gray-100" },
+  { id: "in_progress", title: "En progreso", color: "bg-blue-100" },
+  { id: "completed", title: "Finalizado", color: "bg-green-100" },
+];
+
+function EventTaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: task.id.toString(), data: { task, type: "task" } });
+
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const pr = task.priority || "medium";
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "cursor-grab active:cursor-grabbing transition-shadow",
+        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md"
+      )}
+      {...listeners}
+      {...attributes}
+    >
+      <CardContent className="p-3" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+        <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <span className={cn("px-2 py-0.5 rounded text-xs font-medium border", priorityBorderColors[pr])}>
+            {priorityConfig[pr]?.label || pr}
+          </span>
+          {task.dueDate && (
+            <span className="text-xs text-muted-foreground">
+              {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+            </span>
+          )}
+          {task.category && (
+            <span className="inline-block px-2 py-0.5 rounded text-xs bg-accent text-accent-foreground">
+              {task.category}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EventTaskColumn({ id, title, color, tasks, onTaskClick }: {
+  id: string; title: string; color: string; tasks: Task[]; onTaskClick: (task: Task) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  const taskIds = tasks.map((t) => t.id.toString());
+
+  return (
+    <div className="flex flex-col">
+      <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
+        <div className="flex items-center gap-2">
+          <span>{title}</span>
+          <Badge variant="secondary">{tasks.length}</Badge>
+        </div>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
+          isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
+        )}
+      >
+        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+          {tasks.map((task) => (
+            <EventTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+          ))}
+        </SortableContext>
+        {tasks.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {isOver ? "Soltar aquí" : "No hay tareas"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface EventDetail {
   accessId: number;
@@ -184,6 +286,65 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   const [runSheetItems, setRunSheetItems] = useState<RunSheetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
+
+  const taskSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const taskCollisionDetection: CollisionDetection = (args) => {
+    const pc = pointerWithin(args);
+    if (pc.length > 0) return pc;
+    return closestCorners(args);
+  };
+
+  const handleTaskDragStart = (event: DragStartEvent) => {
+    const t = event.active.data.current?.task as Task | undefined;
+    if (t) setActiveDragTask(t);
+  };
+
+  const handleTaskDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragTask(null);
+    if (!over) return;
+
+    const taskData = active.data.current?.task as Task | undefined;
+    if (!taskData) return;
+
+    const overId = over.id as string;
+    const isCol = taskKanbanColumns.some((c) => c.id === overId);
+    const overTask = over.data.current?.task as Task | undefined;
+
+    let newStatus: string | null = null;
+    if (isCol) newStatus = overId;
+    else if (overTask) newStatus = overTask.status;
+
+    if (!newStatus || taskData.status === newStatus) return;
+
+    // Optimistic update
+    setEventTasks((prev) => prev.map((t) => t.id === taskData.id ? { ...t, status: newStatus } : t));
+
+    try {
+      const res = await fetch(`/api/vendor/tasks/${taskData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Estado actualizado");
+      } else {
+        // Revert
+        fetch(`/api/vendor/events/${accessId}/tasks`)
+          .then((r) => r.json())
+          .then((d) => { if (d.success) setEventTasks(d.data); });
+      }
+    } catch {
+      fetch(`/api/vendor/events/${accessId}/tasks`)
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setEventTasks(d.data); });
+    }
+  };
 
   useEffect(() => {
     loadAll();
@@ -432,97 +593,37 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
 
       {activeTab === "tasks" && (
         <>
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tarea</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead>Vencimiento</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {eventTasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No tenés tareas asignadas en este evento
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  eventTasks.map((task) => {
-                    const pr = priorityConfig[task.priority || "medium"] || priorityConfig.medium;
-                    return (
-                      <TableRow
-                        key={task.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedTaskId(task.id)}
-                      >
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-sm">{task.title}</p>
-                            {task.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="capitalize text-sm">
-                          {task.category || "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={pr.color}>{pr.label}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {task.dueDate
-                            ? format(new Date(task.dueDate), "dd MMM yyyy", { locale: es })
-                            : "-"}
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Select
-                            value={task.status || "pending"}
-                            onValueChange={async (newStatus) => {
-                              try {
-                                const res = await fetch(`/api/vendor/tasks/${task.id}`, {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ status: newStatus }),
-                                });
-                                const data = await res.json();
-                                if (data.success) {
-                                  setEventTasks((prev) =>
-                                    prev.map((t) => t.id === task.id ? { ...t, status: newStatus } : t)
-                                  );
-                                  toast.success("Estado actualizado");
-                                } else {
-                                  toast.error(data.error?.message || "Error");
-                                }
-                              } catch {
-                                toast.error("Error al actualizar estado");
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="h-7 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(taskStatusConfig).map(([value, cfg]) => (
-                                <SelectItem key={value} value={value}>
-                                  <span className={`text-xs ${cfg.color} px-1.5 py-0.5 rounded`}>{cfg.label}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <DndContext
+          sensors={taskSensors}
+          collisionDetection={taskCollisionDetection}
+          onDragStart={handleTaskDragStart}
+          onDragEnd={handleTaskDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {taskKanbanColumns.map((column) => (
+              <EventTaskColumn
+                key={column.id}
+                id={column.id}
+                title={column.title}
+                color={column.color}
+                tasks={eventTasks.filter((t) => t.status === column.id)}
+                onTaskClick={(task) => setSelectedTaskId(task.id)}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeDragTask ? (
+              <Card className="shadow-xl rotate-3 cursor-grabbing">
+                <CardContent className="p-3">
+                  <h4 className="font-medium text-sm">{activeDragTask.title}</h4>
+                  <span className={cn("inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium border", priorityBorderColors[activeDragTask.priority || "medium"])}>
+                    {priorityConfig[activeDragTask.priority || "medium"]?.label}
+                  </span>
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
         <VendorTaskSheet
           taskId={selectedTaskId}
           open={!!selectedTaskId}
