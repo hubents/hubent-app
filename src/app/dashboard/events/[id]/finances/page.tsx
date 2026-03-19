@@ -101,9 +101,9 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
           setSummary((prev) => ({ ...prev, totalPaid: paid, totalPending: pending, totalOverdue: overdue }));
         }
 
-        // Fetch quotes count (may fail for eventScoped users without finance:read)
+        // Fetch quotes count
         try {
-          const quotesRes = await fetch(`/api/finance/documents?type=quote&eventId=${eventId}&limit=100`);
+          const quotesRes = await fetch(`/api/events/${eventId}/documents/finance?type=quote&limit=100`);
           if (quotesRes.ok) {
             const quotesData = await quotesRes.json();
             if (quotesData.success) {
@@ -112,11 +112,11 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
               setQuotesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
             }
           }
-        } catch { /* eventScoped users — skip */ }
+        } catch { /* skip on error */ }
 
-        // Fetch invoices count (may fail for eventScoped users without finance:read)
+        // Fetch invoices count
         try {
-          const invoicesRes = await fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`);
+          const invoicesRes = await fetch(`/api/events/${eventId}/documents/finance?type=invoice&limit=100`);
           if (invoicesRes.ok) {
             const invoicesData = await invoicesRes.json();
             if (invoicesData.success) {
@@ -125,7 +125,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
               setInvoicesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
             }
           }
-        } catch { /* eventScoped users — skip */ }
+        } catch { /* skip on error */ }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {

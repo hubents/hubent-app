@@ -104,8 +104,8 @@ export default function EventPaymentsPage({ params }: { params: Promise<{ id: st
   const fetchEventDocs = useCallback(async () => {
     try {
       const [invRes, quoteRes] = await Promise.all([
-        fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`),
-        fetch(`/api/finance/documents?type=quote&eventId=${eventId}&limit=100`),
+        fetch(`/api/events/${eventId}/documents/finance?type=invoice&limit=100`),
+        fetch(`/api/events/${eventId}/documents/finance?type=quote&limit=100`),
       ]);
       const docs: EventDocument[] = [];
       if (invRes.ok) {

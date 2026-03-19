@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { downloadDocumentPDF, downloadPDFFromHTML } from "@/lib/pdf-download";
 import { LiveDocumentPreview, type OrganizationPreviewData, type PreviewData } from "./live-document-preview";
 import {
   RiEditLine,
@@ -84,6 +84,8 @@ interface DocumentPreviewProps {
   onEdit?: () => void;
   onStatusChange?: (status: string) => void;
   onRefresh?: () => void;
+  readOnly?: boolean;
+  pdfUrl?: string;
 }
 
 const typeLabels: Record<string, string> = {
@@ -115,6 +117,8 @@ export function DocumentPreview({
   onEdit,
   onStatusChange,
   onRefresh,
+  readOnly,
+  pdfUrl,
 }: DocumentPreviewProps) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -227,7 +231,11 @@ export function DocumentPreview({
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
     try {
-      await downloadDocumentPDF(document.id, `${document.type}-${document.number}.pdf`);
+      if (pdfUrl) {
+        await downloadPDFFromHTML(pdfUrl, `${document.type}-${document.number}.pdf`);
+      } else {
+        await downloadDocumentPDF(document.id, `${document.type}-${document.number}.pdf`);
+      }
     } finally {
       setPdfLoading(false);
     }
@@ -492,12 +500,14 @@ export function DocumentPreview({
             )}
             PDF
           </Button>
+          {!readOnly && (
           <Button variant="outline" size="sm" onClick={() => setSendDialogOpen(true)}>
             <RiMailLine className="h-4 w-4 mr-1" />
             Enviar
           </Button>
+          )}
           {/* Stripe Payment Link */}
-          {(document.type === "invoice" || document.type === "proforma") && 
+          {!readOnly && (document.type === "invoice" || document.type === "proforma") && 
            document.status !== "paid" && 
            document.status !== "cancelled" && 
            pendingAmount > 0 && (
@@ -525,7 +535,7 @@ export function DocumentPreview({
         </div>
 
         {/* Status Change */}
-        {availableStatuses.length > 0 && (
+        {!readOnly && availableStatuses.length > 0 && (
           <div className="flex items-center gap-2 mt-4 p-3 bg-muted/50 rounded-lg">
             <span className="text-sm text-muted-foreground">Cambiar estado:</span>
             {availableStatuses.map((status) => (
@@ -542,7 +552,7 @@ export function DocumentPreview({
         )}
 
         {/* Payment Section — ABOVE document preview for visibility */}
-        {(document.type === "invoice" || document.type === "proforma" || 
+        {!readOnly && (document.type === "invoice" || document.type === "proforma" || 
           (document.type === "quote" && ["payment_promise", "partial", "paid"].includes(document.status))) && (
           <div className="mt-4 p-4 border rounded-lg space-y-3">
             <div className="flex justify-between text-sm">

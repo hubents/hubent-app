@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { downloadPDFFromHTML } from "@/lib/pdf-download";
 import {
   Table,
   TableBody,
@@ -125,7 +125,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
 
   const fetchDocuments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/finance/documents?type=invoice&eventId=${eventId}&limit=100`);
+      const res = await fetch(`/api/events/${eventId}/documents/finance?type=invoice&limit=100`);
       const data = await res.json();
       if (data.success) {
         setInvoices(data.data || []);
@@ -169,7 +169,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
 
   async function openPreview(docId: number) {
     try {
-      const res = await fetch(`/api/finance/documents/${docId}`);
+      const res = await fetch(`/api/events/${eventId}/documents/finance/${docId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
@@ -219,7 +219,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
 
   async function fetchDocAndConvert(docId: number, targetType: "quote" | "invoice" | "delivery_note") {
     try {
-      const res = await fetch(`/api/finance/documents/${docId}`);
+      const res = await fetch(`/api/events/${eventId}/documents/finance/${docId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
@@ -320,7 +320,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                     <TableRow
                       key={doc.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => doc.status === "paid" || doc.status === "partial" ? openPreview(doc.id) : openEditDoc(doc.id)}
+                      onClick={() => !canEditFinances || doc.status === "paid" || doc.status === "partial" ? openPreview(doc.id) : openEditDoc(doc.id)}
                     >
                       <TableCell className="text-sm">
                         {doc.issueDate
@@ -363,7 +363,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
                             <DropdownMenuItem onClick={() => openPreview(doc.id)}>
                               <RiEyeLine className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `invoice-${doc.number}.pdf`)}>
+                            <DropdownMenuItem onClick={() => downloadPDFFromHTML(`/api/events/${eventId}/documents/finance/${doc.id}/pdf?format=html`, `invoice-${doc.number}.pdf`)}>
                               <RiFileDownloadLine className="mr-2 h-4 w-4" /> Descargar PDF
                             </DropdownMenuItem>
                             {canEditFinances && doc.status !== "paid" && doc.status !== "partial" && (
@@ -436,11 +436,13 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         document={previewDoc}
-        onEdit={() => {
+        onEdit={canEditFinances ? () => {
           setPreviewOpen(false);
           if (previewDoc) openEditDoc(previewDoc.id);
-        }}
+        } : undefined}
         onRefresh={() => fetchDocuments()}
+        readOnly={!canEditFinances}
+        pdfUrl={previewDoc ? `/api/events/${eventId}/documents/finance/${previewDoc.id}/pdf?format=html` : undefined}
       />
     </div>
     </EventSectionGuard>
