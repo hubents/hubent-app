@@ -242,6 +242,8 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
               showFaqs: rsvpData.data.settings.showFaqs ?? true,
               showTransport: rsvpData.data.settings.showTransport ?? false,
             });
+          } else {
+            initialSettingsRef.current = JSON.stringify(settings);
           }
           setItinerary(rsvpData.data.itinerary || []);
           setHotels(rsvpData.data.hotels || []);
