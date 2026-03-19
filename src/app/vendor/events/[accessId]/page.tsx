@@ -39,6 +39,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 import { VendorTaskSheet } from "@/components/vendor/vendor-task-sheet";
+import { DocumentDrawer } from "@/components/finance/document-drawer";
 import {
   DndContext,
   DragEndEvent,
@@ -292,6 +293,8 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
+  const [docDrawerOpen, setDocDrawerOpen] = useState(false);
+  const [docDrawerType, setDocDrawerType] = useState<"quote" | "invoice">("quote");
 
   const taskSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -402,26 +405,9 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
     }
   }
 
-  async function createQuickDocument(type: "quote" | "invoice") {
-    try {
-      const res = await fetch(`/api/vendor/events/${accessId}/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          items: [{ description: "Servicio", quantity: 1, unitPrice: 0, taxRate: 21 }],
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`${type === "quote" ? "Presupuesto" : "Factura"} creado`);
-        loadAll();
-      } else {
-        toast.error(data.error?.message || "Error al crear documento");
-      }
-    } catch {
-      toast.error("Error al crear documento");
-    }
+  function openDocDrawer(type: "quote" | "invoice") {
+    setDocDrawerType(type);
+    setDocDrawerOpen(true);
   }
 
   const formatCurrency = (amount: string, currency = "EUR") =>
@@ -541,11 +527,11 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
         <>
         {canCreateDocs && (
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => createQuickDocument("quote")}>
+          <Button size="sm" onClick={() => openDocDrawer("quote")}>
             <RiAddLine className="h-4 w-4 mr-1" />
             Nuevo Presupuesto
           </Button>
-          <Button size="sm" variant="outline" onClick={() => createQuickDocument("invoice")}>
+          <Button size="sm" variant="outline" onClick={() => openDocDrawer("invoice")}>
             <RiAddLine className="h-4 w-4 mr-1" />
             Nueva Factura
           </Button>
@@ -605,6 +591,17 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
             </Table>
           </CardContent>
         </Card>
+        <DocumentDrawer
+          open={docDrawerOpen}
+          onOpenChange={(open) => { setDocDrawerOpen(open); }}
+          type={docDrawerType}
+          initialData={{ eventId: eventDetail?.eventId }}
+          saveEndpoint={`/api/vendor/events/${accessId}/documents`}
+          onSuccess={() => {
+            setDocDrawerOpen(false);
+            loadAll();
+          }}
+        />
         </>
       )}
 

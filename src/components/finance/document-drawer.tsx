@@ -103,6 +103,7 @@ interface DocumentDrawerProps {
   onSuccess?: () => void;
   onDuplicate?: () => void;
   onConvert?: (targetType: string) => void;
+  saveEndpoint?: string;
 }
 
 const typeLabels: Record<DocumentType, string> = {
@@ -130,6 +131,7 @@ export function DocumentDrawer({
   onSuccess,
   onDuplicate,
   onConvert,
+  saveEndpoint,
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -441,7 +443,7 @@ export function DocumentDrawer({
 
       const url = documentId
         ? `/api/finance/documents/${documentId}`
-        : "/api/finance/documents";
+        : (saveEndpoint || "/api/finance/documents");
       const method = documentId ? "PATCH" : "POST";
 
       const res = await fetch(url, {
