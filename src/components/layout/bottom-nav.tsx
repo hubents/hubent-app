@@ -33,7 +33,7 @@ const generalNavigation = [
 ];
 
 const generalMoreItems = [
-  { name: "Proveedores", href: "/dashboard/contacts?segment=vendors", icon: RiStore2Line },
+  { name: "Proveedores", href: "/dashboard/providers", icon: RiStore2Line },
   { name: "Pagos", href: "/dashboard/payments", icon: RiMoneyDollarCircleLine },
   { name: "Configuración", href: "/dashboard/settings", icon: RiSettings4Line },
 ];

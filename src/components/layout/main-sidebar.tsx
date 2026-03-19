@@ -403,6 +403,50 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </div>
             ))}
 
+            {/* Items after Finance: Proveedores directory */}
+            {filteredNavAfter.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              
+              if (isCollapsed) {
+                return (
+                  <Tooltip key={item.name}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                          isActive
+                            ? "bg-[var(--primary)] text-white"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {item.name}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+
             {/* Productividad Menu with Submenu */}
             {!eventScoped && (isCollapsed ? (
               <Tooltip>

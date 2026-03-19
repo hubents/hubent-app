@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RiUserAddLine, RiTeamLine, RiContactsLine, RiStore2Line } from "@remixicon/react";
+import { RiUserAddLine, RiTeamLine, RiContactsLine, RiStore2Line, RiSearchLine, RiVerifiedBadgeFill, RiLoader4Line } from "@remixicon/react";
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -42,6 +42,14 @@ interface VendorItem {
   id: number;
   name: string;
   category: string | null;
+  providerOrgId: number | null;
+}
+
+interface DirectoryProvider {
+  id: number;
+  name: string;
+  slug: string;
+  providerCategory: string | null;
 }
 
 type SourceTab = "members" | "contacts" | "vendors";
@@ -140,6 +148,11 @@ export function CollaboratorDrawer({
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
 
+  const [directoryProviders, setDirectoryProviders] = useState<DirectoryProvider[]>([]);
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [invitingProviderId, setInvitingProviderId] = useState<number | null>(null);
+
   const [role, setRole] = useState<string>("");
   const [roleError, setRoleError] = useState(false);
   const roleRef = useRef<HTMLDivElement>(null);
@@ -157,7 +170,7 @@ export function CollaboratorDrawer({
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = useCallback(async (searchTerm: string = "") => {
+  const fetchData = useCallback(async (searchTerm: string = ""): Promise<VendorItem[]> => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "20" });
@@ -175,9 +188,12 @@ export function CollaboratorDrawer({
       ]);
       if (teamData.success) setMembers(teamData.data?.members || []);
       if (contactsData.success) setContactsList(contactsData.data || []);
-      if (vendorsData.success) setVendorsList(vendorsData.data || []);
+      const freshVendors: VendorItem[] = vendorsData.success ? vendorsData.data || [] : [];
+      setVendorsList(freshVendors);
+      return freshVendors;
     } catch {
       console.error("Error fetching collaborator sources");
+      return [];
     } finally {
       setLoading(false);
     }
@@ -215,10 +231,87 @@ export function CollaboratorDrawer({
       setRole("");
       setRoleError(false);
       setSearch("");
+      setDirectorySearch("");
+      setDirectoryProviders([]);
       setPermissions(DEFAULT_PERMISSIONS);
       setActiveTab("members");
     }
   }, [editingParticipant, open]);
+
+  const directoryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!open || isEditing || activeTab !== "vendors") return;
+    if (directorySearch.length < 2) {
+      setDirectoryProviders([]);
+      return;
+    }
+    if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
+    directoryDebounceRef.current = setTimeout(async () => {
+      setDirectoryLoading(true);
+      try {
+        const params = new URLSearchParams({ search: directorySearch, limit: "10" });
+        const res = await fetch(`/api/providers?${params}`);
+        const data = await res.json();
+        if (data.success) setDirectoryProviders(data.data || []);
+      } catch {
+        console.error("Error fetching directory providers");
+      } finally {
+        setDirectoryLoading(false);
+      }
+    }, 400);
+    return () => {
+      if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
+    };
+  }, [directorySearch, open, isEditing, activeTab]);
+
+  const linkedProviderOrgIds = useMemo(
+    () => new Set(vendorsList.filter(v => v.providerOrgId).map(v => v.providerOrgId!)),
+    [vendorsList]
+  );
+
+  const filteredDirectoryProviders = useMemo(
+    () => directoryProviders.filter(p => !linkedProviderOrgIds.has(p.id)),
+    [directoryProviders, linkedProviderOrgIds]
+  );
+
+  async function handleInviteProvider(providerOrgId: number) {
+    setInvitingProviderId(providerOrgId);
+    try {
+      const res = await fetch(`/api/events/${eventId}/providers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerOrgId }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const freshVendors = await fetchData(search);
+        const vendorId = data.data?.vendorId;
+        if (vendorId) {
+          selectVendor(vendorId);
+        } else {
+          const found = freshVendors.find(v => v.providerOrgId === providerOrgId);
+          if (found) selectVendor(found.id);
+        }
+        setDirectorySearch("");
+        setDirectoryProviders([]);
+        toast.success("Proveedor invitado al evento");
+      } else if (data.error?.code === "DUPLICATE") {
+        const freshVendors = await fetchData(search);
+        const found = freshVendors.find(v => v.providerOrgId === providerOrgId);
+        if (found) {
+          selectVendor(found.id);
+        }
+        toast.info("Este proveedor ya está asignado al evento");
+      } else {
+        toast.error(data.error?.message || "Error al invitar proveedor");
+      }
+    } catch {
+      toast.error("Error de conexión al invitar proveedor");
+    } finally {
+      setInvitingProviderId(null);
+    }
+  }
 
   function clearSelection() {
     setSelectedUserId("");
@@ -439,27 +532,101 @@ export function CollaboratorDrawer({
                     </button>
                   ))}
 
-                  {activeTab === "vendors" && filteredVendors.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => selectVendor(v.id)}
-                      className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
-                        selectedVendorId === v.id ? "bg-primary/10" : "hover:bg-muted"
-                      }`}
-                    >
-                      <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center text-xs font-medium text-orange-700 shrink-0">
-                        {v.name.charAt(0).toUpperCase()}
+                  {activeTab === "vendors" && (
+                    <>
+                      {filteredVendors.length > 0 && (
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40">
+                          Mis Proveedores
+                        </div>
+                      )}
+                      {filteredVendors.map((v) => (
+                        <button
+                          key={v.id}
+                          onClick={() => selectVendor(v.id)}
+                          className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
+                            selectedVendorId === v.id ? "bg-primary/10" : "hover:bg-muted"
+                          }`}
+                        >
+                          <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center text-xs font-medium text-orange-700 shrink-0">
+                            {v.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                              {v.name}
+                              {v.providerOrgId && (
+                                <RiVerifiedBadgeFill className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                              )}
+                            </p>
+                            {v.category && <p className="text-xs text-muted-foreground truncate">{v.category}</p>}
+                          </div>
+                        </button>
+                      ))}
+
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 flex items-center gap-1.5">
+                        Directorio HubEnts
+                        <RiVerifiedBadgeFill className="h-3 w-3 text-blue-500" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{v.name}</p>
-                        {v.category && <p className="text-xs text-muted-foreground truncate">{v.category}</p>}
+                      <div className="px-3 py-2">
+                        <div className="relative">
+                          <RiSearchLine className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar en directorio..."
+                            value={directorySearch}
+                            onChange={(e) => setDirectorySearch(e.target.value)}
+                            className="h-8 pl-8 text-xs"
+                          />
+                          {directoryLoading && (
+                            <RiLoader4Line className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin" />
+                          )}
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                      {directorySearch.length < 2 && (
+                        <p className="text-xs text-muted-foreground text-center py-2 px-3">
+                          Escribí al menos 2 caracteres para buscar
+                        </p>
+                      )}
+                      {directorySearch.length >= 2 && !directoryLoading && filteredDirectoryProviders.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2 px-3">
+                          No se encontraron proveedores en el directorio
+                        </p>
+                      )}
+                      {filteredDirectoryProviders.map((p) => (
+                        <div
+                          key={p.id}
+                          className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors"
+                        >
+                          <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700 shrink-0">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                              {p.name}
+                              <RiVerifiedBadgeFill className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                            </p>
+                            {p.providerCategory && <p className="text-xs text-muted-foreground truncate">{p.providerCategory}</p>}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs shrink-0"
+                            disabled={invitingProviderId !== null}
+                            onClick={() => handleInviteProvider(p.id)}
+                          >
+                            {invitingProviderId === p.id ? "..." : "Invitar"}
+                          </Button>
+                        </div>
+                      ))}
+
+                      {filteredVendors.length === 0 && directorySearch.length < 2 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          No tenés proveedores locales
+                        </p>
+                      )}
+                    </>
+                  )}
 
                   {((activeTab === "members" && filteredMembers.length === 0) ||
-                    (activeTab === "contacts" && filteredContacts.length === 0) ||
-                    (activeTab === "vendors" && filteredVendors.length === 0)) && (
+                    (activeTab === "contacts" && filteredContacts.length === 0)) && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No se encontraron resultados
                     </p>
