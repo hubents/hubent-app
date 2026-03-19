@@ -104,6 +104,10 @@ interface DocumentDrawerProps {
   onDuplicate?: () => void;
   onConvert?: (targetType: string) => void;
   saveEndpoint?: string;
+  lockedEvent?: { id: number; name: string };
+  lockedClientLabel?: string;
+  eventsEndpoint?: string;
+  vendorsEndpoint?: string;
 }
 
 const typeLabels: Record<DocumentType, string> = {
@@ -132,6 +136,10 @@ export function DocumentDrawer({
   onDuplicate,
   onConvert,
   saveEndpoint,
+  lockedEvent,
+  lockedClientLabel,
+  eventsEndpoint,
+  vendorsEndpoint,
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -163,10 +171,14 @@ export function DocumentDrawer({
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [defaultTaxRate, setDefaultTaxRate] = useState(21);
   const [orgData, setOrgData] = useState<OrganizationPreviewData | undefined>();
+  const [preloadedVendors, setPreloadedVendors] = useState<Array<{ id: number; type: "vendor"; name: string; email: string | null; category?: string | null }> | undefined>();
 
   useEffect(() => {
     if (open) {
       fetchReferenceData();
+      if (lockedEvent) {
+        setEventId(lockedEvent.id.toString());
+      }
       if (documentId) {
         fetchDocument();
       } else if (initialData) {
@@ -175,7 +187,9 @@ export function DocumentDrawer({
         } else if (initialData.vendorId) {
           setContactValue({ type: "vendor", id: initialData.vendorId });
         }
-        setEventId(initialData.eventId?.toString() || "");
+        if (!lockedEvent) {
+          setEventId(initialData.eventId?.toString() || "");
+        }
         setNotes(initialData.notes || "");
         setTermsAndConditions(initialData.termsAndConditions || "");
         if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
@@ -190,6 +204,9 @@ export function DocumentDrawer({
         }
       } else {
         resetForm();
+        if (lockedEvent) {
+          setEventId(lockedEvent.id.toString());
+        }
       }
     }
   }, [open, documentId, initialData]);
@@ -214,14 +231,14 @@ export function DocumentDrawer({
   async function fetchReferenceData() {
     try {
       const [eventsRes, taxRatesRes, settingsRes, bankAccountsRes] = await Promise.all([
-        fetch("/api/events?limit=100"),
+        lockedEvent ? Promise.resolve(null) : fetch(eventsEndpoint || "/api/events?limit=100"),
         fetch("/api/finance/tax-rates"),
         fetch("/api/finance/settings"),
         fetch("/api/finance/bank-accounts"),
       ]);
 
-      if (eventsRes.ok) {
-        const data = await eventsRes.json();
+      if (eventsRes?.ok) {
+        const data = await (eventsRes as Response).json();
         setEvents(data.data || []);
       }
 
@@ -253,6 +270,25 @@ export function DocumentDrawer({
           if (data.data?.defaultPaymentMethod) setPaymentMethod(data.data.defaultPaymentMethod);
           if (data.data?.defaultBankAccountId) setBankAccountId(data.data.defaultBankAccountId.toString());
         }
+      }
+
+      // Fetch custom vendors for providers (planner orgs)
+      if (vendorsEndpoint) {
+        try {
+          const vendorsRes = await fetch(vendorsEndpoint);
+          if (vendorsRes.ok) {
+            const vData = await vendorsRes.json();
+            setPreloadedVendors(
+              (vData.data || []).map((v: any) => ({
+                id: v.id,
+                type: "vendor" as const,
+                name: v.name,
+                email: v.email || null,
+                category: v.category || null,
+              }))
+            );
+          }
+        } catch {}
       }
 
       // Fetch organization data for preview (fiscal + logo)
@@ -557,29 +593,42 @@ export function DocumentDrawer({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Cliente / Proveedor</Label>
-                <ContactSelector
-                  value={contactValue}
-                  onChange={setContactValue}
-                />
+                {lockedClientLabel ? (
+                  <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm">
+                    {lockedClientLabel}
+                  </div>
+                ) : (
+                  <ContactSelector
+                    value={contactValue}
+                    onChange={setContactValue}
+                    vendors={preloadedVendors}
+                  />
+                )}
               </div>
               <div className="space-y-2">
-                <Label>Evento (opcional)</Label>
-                <Select
-                  value={eventId || "none"}
-                  onValueChange={(v) => setEventId(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Vincular a evento..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin evento</SelectItem>
-                    {events.map((event) => (
-                      <SelectItem key={event.id} value={event.id.toString()}>
-                        {event.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Evento {lockedEvent ? "" : "(opcional)"}</Label>
+                {lockedEvent ? (
+                  <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm font-medium">
+                    {lockedEvent.name}
+                  </div>
+                ) : (
+                  <Select
+                    value={eventId || "none"}
+                    onValueChange={(v) => setEventId(v === "none" ? "" : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vincular a evento..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin evento</SelectItem>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id.toString()}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 

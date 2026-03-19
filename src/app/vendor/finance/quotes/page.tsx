@@ -511,6 +511,8 @@ export default function VendorQuotesPage() {
         type={drawerType}
         documentId={editingDocId}
         initialData={drawerInitialData}
+        eventsEndpoint="/api/vendor/accessible-events"
+        vendorsEndpoint="/api/vendor/planner-orgs"
         onSuccess={() => {
           setDrawerOpen(false);
           fetchQuotes();

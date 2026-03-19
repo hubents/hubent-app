@@ -595,7 +595,8 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
           open={docDrawerOpen}
           onOpenChange={(open) => { setDocDrawerOpen(open); }}
           type={docDrawerType}
-          initialData={{ eventId: eventDetail?.eventId }}
+          lockedEvent={eventDetail ? { id: eventDetail.eventId, name: eventDetail.eventName } : undefined}
+          lockedClientLabel={eventDetail?.plannerOrgName ? `Para: ${eventDetail.plannerOrgName}` : undefined}
           saveEndpoint={`/api/vendor/events/${accessId}/documents`}
           onSuccess={() => {
             setDocDrawerOpen(false);

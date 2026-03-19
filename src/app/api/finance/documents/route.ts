@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getDocuments, createDocument } from "@/lib/finance";
 import { withMonitoring } from "@/lib/monitoring";
+import { createMirrorDocument } from "@/lib/cross-org-finance";
+import { getVendorForProviderOrg, getProviderOrgForVendor } from "@/lib/cross-org";
+import { db } from "@/db";
+import { organizations, providerEventAccess } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 // GET /api/finance/documents - List documents
 export const GET = withMonitoring(async (request: NextRequest) => {
@@ -61,8 +66,65 @@ export const POST = withMonitoring(async (request: NextRequest) => {
       items,
     });
 
+    // Auto-mirror: detect cross-org scenarios (non-blocking)
+    if (document && body.eventId) {
+      autoCreateMirror(session.organizationId, document.id, body.eventId, body.vendorId).catch((e) =>
+        console.error("Auto-mirror creation failed:", e)
+      );
+    }
+
   return NextResponse.json({
     success: true,
     data: document,
   });
 }, { name: "POST /api/finance/documents" });
+
+/**
+ * Auto-create mirror document when cross-org relationship is detected.
+ * Scenario A: Provider creates doc with eventId → mirror in planner's org
+ * Scenario B: Planner creates doc with vendorId linked to provider org → mirror in provider's org
+ */
+async function autoCreateMirror(
+  orgId: number,
+  documentId: number,
+  eventId: number,
+  vendorId?: number
+) {
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, orgId),
+    columns: { orgType: true },
+  });
+  if (!org) return;
+
+  if (org.orgType === "provider") {
+    // Scenario A: Provider → find planner org via providerEventAccess
+    const access = await db.query.providerEventAccess.findFirst({
+      where: and(
+        eq(providerEventAccess.providerOrgId, orgId),
+        eq(providerEventAccess.eventId, eventId),
+        eq(providerEventAccess.status, "active")
+      ),
+      columns: { plannerOrgId: true },
+    });
+    if (!access) return;
+
+    const localVendorId = await getVendorForProviderOrg(access.plannerOrgId, orgId);
+    await createMirrorDocument(documentId, access.plannerOrgId, eventId, localVendorId);
+  } else if (org.orgType === "tenant" && vendorId) {
+    // Scenario B: Planner → check if vendor is linked to a provider org
+    const providerOrgId = await getProviderOrgForVendor(vendorId);
+    if (!providerOrgId) return;
+
+    // Verify the provider has access to this event
+    const access = await db.query.providerEventAccess.findFirst({
+      where: and(
+        eq(providerEventAccess.providerOrgId, providerOrgId),
+        eq(providerEventAccess.eventId, eventId),
+        eq(providerEventAccess.status, "active")
+      ),
+    });
+    if (!access) return;
+
+    await createMirrorDocument(documentId, providerOrgId, eventId, null);
+  }
+}

@@ -392,6 +392,8 @@ export default function VendorInvoicesPage() {
         type="invoice"
         documentId={editingDocId}
         initialData={drawerInitialData}
+        eventsEndpoint="/api/vendor/accessible-events"
+        vendorsEndpoint="/api/vendor/planner-orgs"
         onSuccess={() => {
           setDrawerOpen(false);
           fetchInvoices();
