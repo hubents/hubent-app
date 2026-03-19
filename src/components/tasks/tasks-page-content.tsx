@@ -44,6 +44,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useTaskRefresh } from "@/hooks/use-task-refresh";
 
 const priorityConfig = {
   high: { label: "Alta", variant: "destructive" as const, color: "text-red-500" },
@@ -285,6 +286,8 @@ export function TasksPageContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
+
+  useTaskRefresh(refetch);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

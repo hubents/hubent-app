@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import { useEvent } from "@/contexts/event-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTaskRefresh } from "@/hooks/use-task-refresh";
 
 interface Task {
   id: number;
@@ -264,6 +265,18 @@ export default function EventTasksPage({ params }: { params: Promise<{ id: strin
       setLoading(false);
     }
   };
+
+  const silentRefreshTasks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tasks?eventId=${eventId}`);
+      const data = await res.json();
+      if (data.success) setTasks(data.data || []);
+    } catch {
+      // Silent
+    }
+  }, [eventId]);
+
+  useTaskRefresh(silentRefreshTasks);
 
   useEffect(() => {
     fetchTasks();

@@ -43,6 +43,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTaskRefresh } from "@/hooks/use-task-refresh";
 
 interface UnifiedTask {
   id: number;
@@ -149,10 +150,15 @@ function VendorSortableTaskCard({
           </Badge>
           {task.dueDate && (
             <span className="text-xs text-muted-foreground">
-              {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+              📅 {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
             </span>
           )}
         </div>
+        {task.category && (
+          <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs bg-accent text-accent-foreground">
+            {task.category}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
@@ -327,6 +333,31 @@ export function VendorTasksContent() {
       setLoading(false);
     }
   }, []);
+
+  const silentRefresh = useCallback(async () => {
+    try {
+      const [ownRes, invitedRes] = await Promise.all([
+        fetch("/api/tasks"),
+        fetch("/api/vendor/tasks"),
+      ]);
+      const ownData = await ownRes.json();
+      const invitedData = await invitedRes.json();
+      if (ownData.success) {
+        setOwnTasks(
+          (ownData.data || []).map((t: UnifiedTask) => ({ ...t, source: "own" as const }))
+        );
+      }
+      if (invitedData.success) {
+        setInvitedTasks(
+          (invitedData.data || []).map((t: UnifiedTask) => ({ ...t, source: "invited" as const }))
+        );
+      }
+    } catch {
+      // Silent — don't show error for background refreshes
+    }
+  }, []);
+
+  useTaskRefresh(silentRefresh);
 
   useEffect(() => {
     fetchTasks();

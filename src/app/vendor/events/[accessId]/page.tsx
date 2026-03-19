@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useUserSession } from "@/hooks/use-user-session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import {
   RiListOrdered2,
   RiInformationLine,
   RiSurveyLine,
+  RiDraggable,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { downloadFile } from "@/lib/file-download";
@@ -57,6 +58,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTaskRefresh } from "@/hooks/use-task-refresh";
 
 type TabKey = "documents" | "payments" | "tasks" | "runsheet" | "forms";
 
@@ -142,22 +144,25 @@ function EventTaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       {...attributes}
     >
       <CardContent className="p-3" onClick={(e) => { e.stopPropagation(); onClick(); }}>
-        <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+          <RiDraggable className="h-4 w-4 text-muted-foreground shrink-0" />
+        </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className={cn("px-2 py-0.5 rounded text-xs font-medium border", priorityBorderColors[pr])}>
             {priorityConfig[pr]?.label || pr}
           </span>
           {task.dueDate && (
             <span className="text-xs text-muted-foreground">
-              {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
-            </span>
-          )}
-          {task.category && (
-            <span className="inline-block px-2 py-0.5 rounded text-xs bg-accent text-accent-foreground">
-              {task.category}
+              📅 {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
             </span>
           )}
         </div>
+        {task.category && (
+          <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs bg-accent text-accent-foreground">
+            {task.category}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
@@ -345,6 +350,18 @@ export default function VendorEventDetailPage({ params }: { params: Promise<{ ac
         .then((d) => { if (d.success) setEventTasks(d.data); });
     }
   };
+
+  const silentRefreshTasks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/vendor/events/${accessId}/tasks`);
+      const data = await res.json();
+      if (data.success) setEventTasks(data.data || []);
+    } catch {
+      // Silent — don't show error for background refreshes
+    }
+  }, [accessId]);
+
+  useTaskRefresh(silentRefreshTasks);
 
   useEffect(() => {
     loadAll();
