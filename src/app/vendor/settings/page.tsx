@@ -20,8 +20,6 @@ import {
   RiSaveLine,
   RiPlugLine,
   RiBankCardLine,
-  RiLoader4Line,
-  RiExternalLinkLine,
   RiAlertLine,
   RiCheckLine,
   RiFileList3Line,
@@ -314,7 +312,7 @@ function BillingCard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [billingData, setBillingData] = useState<{
-    plan?: { name: string; slug: string; priceMonthly: string; priceYearly: string; features: string[] };
+    plan?: { id: number; name: string; slug: string; priceMonthly: string; priceYearly: string; features: string[] };
     subscription?: {
       status: string;
       hasStripeSubscription: boolean;
@@ -322,7 +320,12 @@ function BillingCard() {
       currentPeriodEnd: string | null;
       cancelAt: string | null;
     };
-    availablePlans?: Array<{ id: number; name: string; slug: string; priceMonthly: string }>;
+    availablePlans?: Array<{
+      id: number; name: string; slug: string; description?: string;
+      priceMonthly: string; priceYearly: string; currency?: string;
+      features?: string[]; highlighted?: boolean;
+      stripePriceIdMonthly?: string; stripePriceIdYearly?: string;
+    }>;
     invoices?: Array<{
       id: number;
       amount: string;
@@ -336,6 +339,9 @@ function BillingCard() {
       createdAt: string | null;
     }>;
   } | null>(null);
+  const [showPlans, setShowPlans] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  const [checkoutLoading, setCheckoutLoading] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchBilling() {
@@ -401,30 +407,24 @@ function BillingCard() {
     }
   };
 
-  const handleUpgrade = async () => {
-    setActionLoading(true);
+  const handleCheckout = async (planId: number) => {
+    setCheckoutLoading(planId);
     try {
-      const proPlan = billingData?.availablePlans?.find(p => p.slug === "provider-pro");
-      if (!proPlan) {
-        toast.error("No hay planes de upgrade disponibles");
-        setActionLoading(false);
-        return;
-      }
       const res = await fetch("/api/subscriptions/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: proPlan.id, interval: "month" }),
+        body: JSON.stringify({ planId, interval: billingInterval }),
       });
       const data = await res.json();
       if (data.success && data.data?.url) {
         window.location.href = data.data.url;
       } else {
-        toast.error(data.error || "Error al iniciar el checkout");
+        toast.error(data.error || "Error al crear checkout");
       }
     } catch {
       toast.error("Error de conexión");
     } finally {
-      setActionLoading(false);
+      setCheckoutLoading(null);
     }
   };
 
@@ -441,6 +441,7 @@ function BillingCard() {
   const trialDays = getTrialDaysLeft();
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -448,7 +449,7 @@ function BillingCard() {
           Plan y Facturación
         </CardTitle>
         <CardDescription>
-          Gestiona tu suscripción y facturación
+          Gestiona tu suscripción · Precios en EUR · Tu moneda local se aplica al pagar
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -460,9 +461,9 @@ function BillingCard() {
               </h3>
               {status && getStatusBadge(status)}
             </div>
-            {billingData?.plan && !isFreePlan && (
+            {billingData?.plan && (
               <p className="text-sm text-muted-foreground">
-                €{billingData.plan.priceMonthly}/mes
+                €{billingData.plan.priceMonthly}/mes · €{billingData.plan.priceYearly}/año
               </p>
             )}
             {trialDays !== null && trialDays > 0 && (
@@ -491,16 +492,9 @@ function BillingCard() {
                 {actionLoading ? "Cargando..." : "Gestionar"}
               </Button>
             )}
-            {isFreePlan && (
-              <Button onClick={handleUpgrade} disabled={actionLoading}>
-                {actionLoading ? (
-                  <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RiExternalLinkLine className="h-4 w-4 mr-2" />
-                )}
-                Actualizar a Pro
-              </Button>
-            )}
+            <Button onClick={() => setShowPlans(true)}>
+              Cambiar Plan
+            </Button>
           </div>
         </div>
 
@@ -522,12 +516,6 @@ function BillingCard() {
           <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground flex items-start gap-2">
             <RiAlertLine className="h-4 w-4 mt-0.5 shrink-0" />
             <span>Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas.</span>
-          </div>
-        )}
-
-        {isFreePlan && (
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm text-muted-foreground">
-            Estás en el plan gratuito. Actualiza a <strong>Pro</strong> para desbloquear bloqueo inteligente de fechas, visibilidad premium y más.
           </div>
         )}
 
@@ -577,5 +565,99 @@ function BillingCard() {
         )}
       </CardContent>
     </Card>
+
+    {showPlans && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-background rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold">Elige tu plan</h2>
+              <p className="text-sm text-muted-foreground">
+                El precio se mostrará en tu moneda local al pagar
+              </p>
+            </div>
+            <button onClick={() => setShowPlans(false)} className="text-muted-foreground hover:text-foreground">
+              ✕
+            </button>
+          </div>
+
+          <div className="flex justify-center mb-6">
+            <div className="flex gap-1 p-1 bg-muted/50 rounded-lg">
+              <button
+                onClick={() => setBillingInterval("month")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  billingInterval === "month" ? "bg-background shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                Mensual
+              </button>
+              <button
+                onClick={() => setBillingInterval("year")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  billingInterval === "year" ? "bg-background shadow-sm" : "text-muted-foreground"
+                }`}
+              >
+                Anual <span className="text-green-600 text-xs ml-1">Ahorra 2 meses</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {billingData?.availablePlans?.map((plan) => {
+              const isCurrent = plan.id === billingData?.plan?.id;
+              const price = billingInterval === "month" ? plan.priceMonthly : plan.priceYearly;
+              const hasPriceId = billingInterval === "month" ? plan.stripePriceIdMonthly : plan.stripePriceIdYearly;
+              const isFree = Number(plan.priceMonthly) === 0;
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`rounded-lg border p-4 space-y-4 ${
+                    plan.highlighted ? "border-primary ring-1 ring-primary" : "border-border"
+                  } ${isCurrent ? "bg-muted/30" : ""}`}
+                >
+                  {plan.highlighted && (
+                    <Badge className="w-fit">POPULAR</Badge>
+                  )}
+                  <div>
+                    <h3 className="font-semibold text-lg">{plan.name}</h3>
+                    {plan.description && (
+                      <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-3xl font-bold">€{price}</span>
+                    <span className="text-muted-foreground">/{billingInterval === "month" ? "mes" : "año"}</span>
+                  </div>
+                  {plan.features?.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <RiCheckLine className="h-4 w-4 text-green-500 shrink-0" />
+                      {f}
+                    </div>
+                  ))}
+                  <Button
+                    className="w-full"
+                    variant={isCurrent ? "outline" : "default"}
+                    disabled={isCurrent || !hasPriceId || checkoutLoading === plan.id || isFree}
+                    onClick={() => handleCheckout(plan.id)}
+                  >
+                    {checkoutLoading === plan.id
+                      ? "Redirigiendo..."
+                      : isCurrent
+                      ? "Tu plan actual"
+                      : isFree
+                      ? "Plan gratuito"
+                      : !hasPriceId
+                      ? "No disponible"
+                      : "Suscribirse"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
