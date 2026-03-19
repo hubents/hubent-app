@@ -286,6 +286,87 @@ export async function syncPaymentCrossOrg(paymentRecordId: number) {
 }
 
 /**
+ * Sync payment edits to the mirror payment when a payment is updated.
+ * Called after updatePaymentRecord() if the document is linked cross-org.
+ */
+export async function syncPaymentEdit(paymentRecordId: number) {
+  const payment = await db.query.paymentRecords.findFirst({
+    where: eq(paymentRecords.id, paymentRecordId),
+  });
+  if (!payment) return;
+
+  // Find the mirror payment
+  const mirror = await db.query.paymentRecords.findFirst({
+    where: eq(paymentRecords.sourcePaymentId, paymentRecordId),
+    columns: { id: true, documentId: true },
+  });
+
+  if (!mirror) {
+    // Maybe this IS the mirror — find the original's mirror of us
+    if (!payment.sourcePaymentId) return;
+    // This payment is a mirror; sync back to source
+    const source = await db.query.paymentRecords.findFirst({
+      where: eq(paymentRecords.id, payment.sourcePaymentId),
+      columns: { id: true, documentId: true },
+    });
+    if (!source) return;
+
+    await db.update(paymentRecords)
+      .set({
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        paymentDate: payment.paymentDate,
+        reference: payment.reference,
+        notes: payment.notes,
+        status: payment.status,
+      })
+      .where(eq(paymentRecords.id, source.id));
+
+    // Recalculate source document paidAmount
+    if (source.documentId) {
+      const payments = await db
+        .select({ amount: paymentRecords.amount })
+        .from(paymentRecords)
+        .where(eq(paymentRecords.documentId, source.documentId));
+      const total = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      await db.update(financialDocuments)
+        .set({ paidAmount: total.toString(), updatedAt: new Date() })
+        .where(eq(financialDocuments.id, source.documentId));
+    }
+    return;
+  }
+
+  // Update the mirror payment with the new data
+  await db.update(paymentRecords)
+    .set({
+      amount: payment.amount,
+      paymentMethod: payment.paymentMethod,
+      paymentDate: payment.paymentDate,
+      reference: payment.reference,
+      notes: payment.notes,
+      status: payment.status,
+    })
+    .where(eq(paymentRecords.id, mirror.id));
+
+  // Recalculate mirror document paidAmount
+  if (mirror.documentId) {
+    const payments = await db
+      .select({ amount: paymentRecords.amount })
+      .from(paymentRecords)
+      .where(eq(paymentRecords.documentId, mirror.documentId));
+    const total = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    await db.update(financialDocuments)
+      .set({ paidAmount: total.toString(), updatedAt: new Date() })
+      .where(eq(financialDocuments.id, mirror.documentId));
+  }
+
+  // Sync document status
+  if (payment.documentId) {
+    await syncDocumentStatus(payment.documentId);
+  }
+}
+
+/**
  * Delete a mirror payment when the original is deleted.
  */
 export async function deleteMirrorPayment(paymentRecordId: number) {

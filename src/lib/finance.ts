@@ -16,7 +16,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
-import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment, syncDocumentEdit } from "@/lib/cross-org-finance";
+import { syncDocumentStatus, syncPaymentCrossOrg, deleteMirrorPayment, syncDocumentEdit, syncPaymentEdit, createMirrorDocument } from "@/lib/cross-org-finance";
 import { linkDocumentToTask } from "@/lib/finance-task-link";
 
 // ============================================
@@ -878,6 +878,42 @@ export async function convertDocument(
     }
   }
 
+  // Cross-org: if original doc has a mirror, create mirror for converted doc too (non-blocking)
+  if (newDoc) {
+    const originalDoc = await db.query.financialDocuments.findFirst({
+      where: eq(financialDocuments.id, documentId),
+      columns: { sourceDocumentId: true },
+    });
+    // Check if original is a source (has a mirror pointing to it)
+    const existingMirror = await db.query.financialDocuments.findFirst({
+      where: eq(financialDocuments.sourceDocumentId, documentId),
+      columns: { organizationId: true, eventId: true, vendorId: true },
+    });
+    if (existingMirror) {
+      createMirrorDocument(
+        newDoc.id,
+        existingMirror.organizationId,
+        existingMirror.eventId,
+        existingMirror.vendorId
+      ).catch((e) => console.error("Cross-org convert mirror failed:", e));
+    }
+    // Or if original IS a mirror (has sourceDocumentId), create mirror in source org
+    if (originalDoc?.sourceDocumentId) {
+      const sourceDoc = await db.query.financialDocuments.findFirst({
+        where: eq(financialDocuments.id, originalDoc.sourceDocumentId),
+        columns: { organizationId: true, eventId: true, vendorId: true },
+      });
+      if (sourceDoc) {
+        createMirrorDocument(
+          newDoc.id,
+          sourceDoc.organizationId,
+          sourceDoc.eventId,
+          sourceDoc.vendorId
+        ).catch((e) => console.error("Cross-org convert mirror (reverse) failed:", e));
+      }
+    }
+  }
+
   return newDoc;
 }
 
@@ -960,6 +996,40 @@ export async function createCreditNote(
       total: item.total.toString(),
       sortOrder: item.sortOrder,
     });
+  }
+
+  // Cross-org: if original invoice is cross-org linked, mirror the credit note too (non-blocking)
+  const originalDocRow = await db.query.financialDocuments.findFirst({
+    where: eq(financialDocuments.id, originalInvoiceId),
+    columns: { sourceDocumentId: true, sourceOrgId: true },
+  });
+  // Case A: original invoice has a mirror pointing to it
+  const invoiceMirror = await db.query.financialDocuments.findFirst({
+    where: eq(financialDocuments.sourceDocumentId, originalInvoiceId),
+    columns: { organizationId: true, eventId: true, vendorId: true },
+  });
+  if (invoiceMirror) {
+    createMirrorDocument(
+      doc.id,
+      invoiceMirror.organizationId,
+      invoiceMirror.eventId,
+      invoiceMirror.vendorId
+    ).catch((e) => console.error("Cross-org credit note mirror failed:", e));
+  }
+  // Case B: original invoice IS a mirror — mirror credit note to source org
+  if (!invoiceMirror && originalDocRow?.sourceDocumentId) {
+    const sourceDoc = await db.query.financialDocuments.findFirst({
+      where: eq(financialDocuments.id, originalDocRow.sourceDocumentId),
+      columns: { organizationId: true, eventId: true, vendorId: true },
+    });
+    if (sourceDoc) {
+      createMirrorDocument(
+        doc.id,
+        sourceDoc.organizationId,
+        sourceDoc.eventId,
+        sourceDoc.vendorId
+      ).catch((e) => console.error("Cross-org credit note mirror (reverse) failed:", e));
+    }
   }
 
   return getDocument(session, doc.id);
@@ -1222,6 +1292,13 @@ export async function updatePaymentRecord(
   // Recalculate document totals if linked
   if (existing.documentId) {
     await recalculateDocumentPayments(session, existing.documentId);
+  }
+
+  // Cross-org sync: propagate payment edits to mirror (non-blocking)
+  if (existing.documentId) {
+    syncPaymentEdit(paymentId).catch((e) =>
+      console.error("Cross-org payment edit sync failed:", e)
+    );
   }
 
   return updated;
