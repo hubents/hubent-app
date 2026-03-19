@@ -391,6 +391,17 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
           </CardContent>
         </Card>
 
+        {/* Custom Message */}
+        {event?.settings?.customMessage && (
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <p className="text-muted-foreground whitespace-pre-line">
+                {event.settings.customMessage}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* RSVP Form */}
         <Card>
           <CardHeader>
