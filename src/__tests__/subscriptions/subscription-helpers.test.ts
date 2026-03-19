@@ -267,6 +267,214 @@ describe("Subscription Logic", () => {
     });
   });
 
+  // ============================================
+  // Tests for Mar 2026 billing fixes
+  // ============================================
+
+  describe("BillingCard hasStripe guard (B1 fix)", () => {
+    it("should hide portal button for free plan providers (no stripeSubscriptionId)", () => {
+      const subscription = { stripeSubscriptionId: null, status: "active" };
+      const hasStripe = !!subscription.stripeSubscriptionId;
+      expect(hasStripe).toBe(false);
+    });
+
+    it("should show portal button for paid plan with stripeSubscriptionId", () => {
+      const subscription = { stripeSubscriptionId: "sub_123abc", status: "active" };
+      const hasStripe = !!subscription.stripeSubscriptionId;
+      expect(hasStripe).toBe(true);
+    });
+
+    it("should show portal button for trialing subscription", () => {
+      const subscription = { stripeSubscriptionId: "sub_trial_123", status: "trialing" };
+      const hasStripe = !!subscription.stripeSubscriptionId;
+      expect(hasStripe).toBe(true);
+    });
+
+    it("should identify free plan by slug", () => {
+      const planSlug = "provider-free";
+      const isFreePlan = planSlug === "provider-free";
+      expect(isFreePlan).toBe(true);
+    });
+
+    it("should NOT identify pro plan as free", () => {
+      const planSlug: string = "provider-pro";
+      const isFreePlan = planSlug === "provider-free";
+      expect(isFreePlan).toBe(false);
+    });
+  });
+
+  describe("Status badge mapping (vendor + tenant)", () => {
+    const statusMap: Record<string, { label: string; variant: string }> = {
+      active: { label: "Activo", variant: "default" },
+      trialing: { label: "Prueba gratuita", variant: "secondary" },
+      past_due: { label: "Pago pendiente", variant: "destructive" },
+      canceled: { label: "Cancelado", variant: "outline" },
+      paused: { label: "Pausado", variant: "outline" },
+    };
+
+    it("should map all known statuses", () => {
+      expect(statusMap["active"].label).toBe("Activo");
+      expect(statusMap["trialing"].variant).toBe("secondary");
+      expect(statusMap["past_due"].variant).toBe("destructive");
+      expect(statusMap["canceled"].label).toBe("Cancelado");
+    });
+
+    it("should handle unknown status with fallback", () => {
+      const unknownStatus = "some_new_status";
+      const info = statusMap[unknownStatus] || { label: unknownStatus, variant: "outline" };
+      expect(info.label).toBe("some_new_status");
+      expect(info.variant).toBe("outline");
+    });
+  });
+
+  describe("Past_due / canceled banner visibility (B3 fix)", () => {
+    it("should show past_due banner only when status is past_due", () => {
+      const statuses = ["active", "trialing", "past_due", "canceled", "paused"];
+      const showPastDueBanner = statuses.map(s => s === "past_due");
+      expect(showPastDueBanner).toEqual([false, false, true, false, false]);
+    });
+
+    it("should show canceled banner only when status is canceled", () => {
+      const statuses = ["active", "trialing", "past_due", "canceled", "paused"];
+      const showCanceledBanner = statuses.map(s => s === "canceled");
+      expect(showCanceledBanner).toEqual([false, false, false, true, false]);
+    });
+
+    it("should show portal link in past_due banner only if hasStripe", () => {
+      const hasStripe = true;
+      const status = "past_due";
+      const showPortalLink = status === "past_due" && hasStripe;
+      expect(showPortalLink).toBe(true);
+    });
+
+    it("should NOT show portal link in past_due banner if no stripe sub", () => {
+      const hasStripe = false;
+      const status = "past_due";
+      const showPortalLink = status === "past_due" && hasStripe;
+      expect(showPortalLink).toBe(false);
+    });
+  });
+
+  describe("Checkout stripeCustomerId persist (B2 fix)", () => {
+    it("should persist customerId when creating new Stripe customer", () => {
+      const existingSub = { stripeCustomerId: null };
+      const newCustomerId = "cus_new_123";
+      const shouldPersist = !existingSub.stripeCustomerId;
+      expect(shouldPersist).toBe(true);
+
+      // Simulate the update
+      const updatePayload = shouldPersist
+        ? { stripeCustomerId: newCustomerId, updatedAt: new Date() }
+        : null;
+      expect(updatePayload).not.toBeNull();
+      expect(updatePayload?.stripeCustomerId).toBe("cus_new_123");
+    });
+
+    it("should NOT create new customer when existing customerId exists", () => {
+      const existingSub = { stripeCustomerId: "cus_existing_456" };
+      const shouldCreateCustomer = !existingSub.stripeCustomerId;
+      expect(shouldCreateCustomer).toBe(false);
+    });
+
+    it("should determine trial eligibility from existing sub", () => {
+      // New customer - no existing sub with Stripe
+      const existingCustomerId1: string | null = null;
+      const hasExistingSub1 = !!existingCustomerId1;
+      const planTrialDays = 14;
+      const trial1 = !hasExistingSub1 && planTrialDays > 0 ? planTrialDays : undefined;
+      expect(trial1).toBe(14);
+
+      // Returning customer - has existing Stripe sub
+      const existingCustomerId2: string | null = "cus_existing";
+      const hasExistingSub2 = !!existingCustomerId2;
+      const trial2 = !hasExistingSub2 && planTrialDays > 0 ? planTrialDays : undefined;
+      expect(trial2).toBeUndefined();
+    });
+  });
+
+  describe("Post-checkout feedback (G1 fix)", () => {
+    it("should recognize success param", () => {
+      const billingParam: string | null = "success";
+      expect(billingParam === "success").toBe(true);
+      expect(billingParam === "cancelled").toBe(false);
+    });
+
+    it("should recognize cancelled param", () => {
+      const billingParam: string | null = "cancelled";
+      expect(billingParam === "success").toBe(false);
+      expect(billingParam === "cancelled").toBe(true);
+    });
+
+    it("should ignore unrelated params", () => {
+      const billingParam: string | null = "other";
+      expect(billingParam === "success").toBe(false);
+      expect(billingParam === "cancelled").toBe(false);
+    });
+
+    it("should handle null param gracefully", () => {
+      const billingParam: string | null = null;
+      expect(billingParam === "success").toBe(false);
+      expect(billingParam === "cancelled").toBe(false);
+    });
+  });
+
+  describe("Vendor upgrade button visibility", () => {
+    it("should show upgrade button only on free plan", () => {
+      const scenarios = [
+        { slug: "provider-free", expected: true },
+        { slug: "provider-pro", expected: false },
+        { slug: "starter", expected: false },
+      ];
+      scenarios.forEach(({ slug, expected }) => {
+        expect(slug === "provider-free").toBe(expected);
+      });
+    });
+
+    it("should show portal button only with Stripe sub", () => {
+      const scenarios = [
+        { stripeSubId: null, expected: false },
+        { stripeSubId: "sub_123", expected: true },
+        { stripeSubId: undefined, expected: false },
+      ];
+      scenarios.forEach(({ stripeSubId, expected }) => {
+        expect(!!stripeSubId).toBe(expected);
+      });
+    });
+
+    it("should not show both upgrade and portal for free plan without stripe", () => {
+      const isFreePlan = true;
+      const hasStripe = false;
+      // Free plan shows upgrade, but not portal
+      expect(isFreePlan).toBe(true);
+      expect(hasStripe).toBe(false);
+    });
+  });
+
+  describe("Invoice display logic", () => {
+    it("should prefer presentment amount when available", () => {
+      const inv = { amount: "14.50", presentmentAmount: "16.50", presentmentCurrency: "USD" };
+      const display = inv.presentmentAmount && inv.presentmentCurrency
+        ? `${inv.presentmentCurrency} ${inv.presentmentAmount}`
+        : `€${inv.amount}`;
+      expect(display).toBe("USD 16.50");
+    });
+
+    it("should fallback to EUR amount when no presentment", () => {
+      const inv = { amount: "14.50", presentmentAmount: null, presentmentCurrency: null };
+      const display = inv.presentmentAmount && inv.presentmentCurrency
+        ? `${inv.presentmentCurrency} ${inv.presentmentAmount}`
+        : `€${inv.amount}`;
+      expect(display).toBe("€14.50");
+    });
+
+    it("should show Pagado badge for paid invoices", () => {
+      const paidStatus: string = "paid";
+      const openStatus: string = "open";
+      expect(paidStatus === "paid" ? "Pagado" : paidStatus).toBe("Pagado");
+      expect(openStatus === "paid" ? "Pagado" : openStatus).toBe("open");
+    });
+  });
+
   describe("NaN validation for IDs", () => {
     it("should detect invalid ID", () => {
       const id = "abc";

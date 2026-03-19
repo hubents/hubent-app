@@ -84,6 +84,12 @@ export const POST = withMonitoring(async (request: NextRequest) => {
         },
       });
       customerId = customer.id;
+
+      // Persist stripeCustomerId immediately so portal works even if webhook is delayed
+      await db
+        .update(subscriptions)
+        .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+        .where(eq(subscriptions.organizationId, session.organizationId));
     }
 
     // Determine app URL for redirects

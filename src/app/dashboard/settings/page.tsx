@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUserSession } from "@/hooks/use-user-session";
 import {
   TIMEZONES,
@@ -783,6 +783,7 @@ function LanguageSection() {
 // Billing Section Component
 function BillingSection() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [billing, setBilling] = useState<{
     plan: {
       id: number;
@@ -854,6 +855,15 @@ function BillingSection() {
     }
     loadBilling();
   }, []);
+
+  useEffect(() => {
+    const billingParam = searchParams.get("billing");
+    if (billingParam === "success") {
+      toast.success("Suscripción activada correctamente");
+    } else if (billingParam === "cancelled") {
+      toast.info("Checkout cancelado");
+    }
+  }, [searchParams]);
 
   async function handleCheckout(planId: number) {
     setCheckoutLoading(planId);
@@ -984,6 +994,27 @@ function BillingSection() {
               </Button>
             </div>
           </div>
+
+          {billing?.subscription?.status === "past_due" && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive flex items-start gap-2">
+              <RiAlertLine className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                <strong>Pago pendiente.</strong> No pudimos procesar tu último pago. Actualiza tu método de pago para evitar la suspensión del servicio.
+                {billing?.subscription?.hasStripeSubscription && (
+                  <Button variant="link" className="h-auto p-0 ml-1 text-destructive underline" onClick={handlePortal}>
+                    Actualizar pago
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {billing?.subscription?.status === "canceled" && (
+            <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground flex items-start gap-2">
+              <RiAlertLine className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas.</span>
+            </div>
+          )}
 
           {/* Features */}
           {billing?.plan?.features && billing.plan.features.length > 0 && (
