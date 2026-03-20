@@ -8,6 +8,7 @@ import {
   paymentSchedules,
   taskPayments,
   paymentRecords,
+  eventPayments,
   financialDocuments,
   leads,
   eventScheduleItems,
@@ -15,7 +16,7 @@ import {
   contacts,
   vendors,
 } from "@/db/schema";
-import { eq, and, gte, lte, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, isNotNull, inArray, sql } from "drizzle-orm";
 import type { CalendarItem, CalendarItemType } from "@/lib/calendar";
 import { CALENDAR_COLORS } from "@/lib/calendar";
 import { getUserEventAccess } from "@/lib/event-permissions";
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
       leadRows,
       scheduleRows,
       paymentRecordRows,
+      eventPaymentRows,
     ] = await Promise.all([
       // 1. Events — filter by allowedEventIds for eventScoped, and by filterEventId
       (allowedEventIds !== null && allowedEventIds.length === 0)
@@ -366,6 +368,32 @@ export async function GET(request: NextRequest) {
               ...(filterEventId !== null ? [eq(paymentRecords.eventId, filterEventId)] : [])
             )
           ),
+
+      // 10. Legacy event payments (direct payments, not from tasks) — filter like paymentSchedules
+      (!hasFinanceAccess || (financeEventIds !== null && financeEventIds.length === 0))
+        ? Promise.resolve([])
+        : db
+          .select({
+            id: eventPayments.id,
+            description: eventPayments.description,
+            amount: eventPayments.amount,
+            status: eventPayments.status,
+            dueDate: eventPayments.dueDate,
+            paidDate: eventPayments.paidDate,
+            eventId: eventPayments.eventId,
+          })
+          .from(eventPayments)
+          .innerJoin(events, eq(eventPayments.eventId, events.id))
+          .where(
+            and(
+              ...(isVendor ? [] : [eq(events.organizationId, orgId)]),
+              sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate}) IS NOT NULL`,
+              gte(sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate})`, fromDate),
+              lte(sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate})`, toDate),
+              ...(financeEventIds !== null ? [inArray(eventPayments.eventId, financeEventIds)] : []),
+              ...(filterEventId !== null ? [eq(eventPayments.eventId, filterEventId)] : [])
+            )
+          ),
     ]);
 
     const items: CalendarItem[] = [];
@@ -540,6 +568,25 @@ export async function GET(request: NextRequest) {
           status: row.status ?? undefined,
           amount: amt || undefined,
           currency: row.currency ?? "EUR",
+        },
+      });
+    }
+
+    // Map legacy event payments
+    for (const row of eventPaymentRows) {
+      const dateVal = row.dueDate || row.paidDate;
+      if (!dateVal) continue;
+      const amt = row.amount ? parseFloat(row.amount) : 0;
+      items.push({
+        id: `event-payment-${row.id}`,
+        type: "payment",
+        title: row.description || `Pago (${amt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)`,
+        date: dateVal.toISOString().split("T")[0],
+        color: CALENDAR_COLORS.payment,
+        href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/finances/payments`,
+        meta: {
+          status: row.status ?? undefined,
+          amount: amt || undefined,
         },
       });
     }
