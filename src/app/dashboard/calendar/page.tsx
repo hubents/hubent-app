@@ -29,7 +29,7 @@ function CalendarPageContent() {
     goToPrevMonth,
     goToNextMonth,
     goToToday,
-  } = useCalendar({ visibleTypes: ["event", "task", "meeting", "payment", "task_payment", "document", "lead"], filterKey: "hubents-calendar-filters-general" });
+  } = useCalendar({ visibleTypes: ["event", "task", "meeting", "payment", "task_payment", "document", "lead", "schedule"], filterKey: "hubents-calendar-filters-general" });
 
   return (
     <div className="space-y-6">

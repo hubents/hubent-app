@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
       financeEventIds = [...allowedEventIds];
 
       vendorAccess.forEach((a) => { accessIdMap[a.eventId] = a.accessId; });
+      scheduleEventFilter = [...allowedEventIds];
 
       // Vendors never see leads
       const leadIdx = allowedTypes.indexOf("lead");

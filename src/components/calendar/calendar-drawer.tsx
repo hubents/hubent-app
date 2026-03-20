@@ -36,7 +36,12 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
     goToPrevMonth,
     goToNextMonth,
     goToToday,
-  } = useCalendar({ visibleTypes: ["event", "task", "meeting", "payment", "task_payment", "document", "lead"], filterKey: "hubents-calendar-filters-general" });
+  } = useCalendar({
+    visibleTypes: orgType === "provider"
+      ? ["event", "task", "meeting", "payment", "task_payment", "document", "schedule"]
+      : ["event", "task", "meeting", "payment", "task_payment", "document", "lead", "schedule"],
+    filterKey: "hubents-calendar-filters-general",
+  });
 
   const handleNavigate = () => {
     onOpenChange(false);
