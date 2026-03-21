@@ -255,6 +255,8 @@ const SECTION_ORG_PERMISSION: Record<keyof EventSectionPermissions, { view: stri
   rsvp:     { view: "events:read",  edit: "events:update" },
   vendors:  { view: "vendors:read", edit: "vendors:read" },
   finances: { view: "finance:read", edit: "finance:read" },
+  runsheet: { view: "events:read",  edit: "events:update" },
+  calendar: { view: "events:read",  edit: "events:update" },
   settings: { view: "events:read",  edit: "events:update" },
 };
 

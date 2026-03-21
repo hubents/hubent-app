@@ -138,6 +138,8 @@ function defaultFullPermissions(): EventSectionPermissions {
     rsvp: "none",
     vendors: "none",
     finances: "none",
+    runsheet: "none",
+    calendar: "none",
     settings: "none",
   };
 }
@@ -152,6 +154,8 @@ export const EVENT_SECTION_LABELS: Record<keyof EventSectionPermissions, string>
   rsvp: "RSVP",
   vendors: "Proveedores",
   finances: "Finanzas",
+  runsheet: "Orden del día",
+  calendar: "Calendario",
   settings: "Configuración",
 };
 
@@ -165,5 +169,7 @@ export const EVENT_SECTION_LEVELS: Record<keyof EventSectionPermissions, EventSe
   rsvp: ["none", "view", "edit"],
   vendors: ["none", "view"],
   finances: ["none", "view"],
+  runsheet: ["none", "view", "edit"],
+  calendar: ["none", "view", "edit"],
   settings: ["none"],
 };

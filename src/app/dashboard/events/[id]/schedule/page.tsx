@@ -125,7 +125,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <EventSectionGuard eventId={eventId} section="general">
+    <EventSectionGuard eventId={eventId} section="calendar">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -138,7 +138,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
             Calendario del evento
           </p>
         </div>
-        {canEdit("general") && (
+        {canEdit("calendar") && (
           <Button className="gap-1" onClick={() => setShowAddForm(!showAddForm)}>
             <RiAddLine className="h-4 w-4" />
             Agregar Item
@@ -392,7 +392,7 @@ export default function EventSchedulePage({ params }: { params: Promise<{ id: st
                         )}
                       </div>
                     </div>
-                    {isEventItem && canEdit("general") && (
+                    {isEventItem && canEdit("calendar") && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"

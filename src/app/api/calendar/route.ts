@@ -70,10 +70,13 @@ export async function GET(request: NextRequest) {
         .filter((a) => a.permissions.finances && a.permissions.finances !== "none")
         .map((a) => a.eventId);
       hasFinanceAccess = financeEventIds.length > 0;
-      const generalEventIds = access
-        .filter((a) => a.permissions.general && a.permissions.general !== "none")
+      const scheduleEventIds = access
+        .filter((a) =>
+          (a.permissions.calendar && a.permissions.calendar !== "none") ||
+          (a.permissions.runsheet && a.permissions.runsheet !== "none")
+        )
         .map((a) => a.eventId);
-      scheduleEventFilter = generalEventIds;
+      scheduleEventFilter = scheduleEventIds;
 
       // Remove types that eventScoped can't access
       if (!hasFinanceAccess) {

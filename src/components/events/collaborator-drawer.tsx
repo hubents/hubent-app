@@ -88,6 +88,8 @@ const SECTIONS = [
   { key: "rsvp", label: "RSVP", levels: ["none", "view", "edit"] },
   { key: "vendors", label: "Proveedores", levels: ["none", "view"] },
   { key: "finances", label: "Finanzas", levels: ["none", "view"] },
+  { key: "runsheet", label: "Orden del d\u00eda", levels: ["none", "view", "edit"] },
+  { key: "calendar", label: "Calendario", levels: ["none", "view", "edit"] },
 ] as const;
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -99,9 +101,9 @@ const LEVEL_LABELS: Record<string, string> = {
 const BYPASS_ROLES = ["owner", "admin", "provider_owner"];
 
 const PRESETS = [
-  { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", vendors: "view", finances: "view", settings: "none" } },
-  { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", vendors: "view", finances: "view", settings: "none" } },
-  { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", vendors: "none", finances: "none", settings: "none" } },
+  { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", vendors: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },
+  { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", vendors: "view", finances: "view", runsheet: "view", calendar: "view", settings: "none" } },
+  { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", vendors: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, string> = {
@@ -111,6 +113,8 @@ const DEFAULT_PERMISSIONS: Record<string, string> = {
   rsvp: "view",
   vendors: "none",
   finances: "view",
+  runsheet: "view",
+  calendar: "view",
   settings: "none",
 };
 

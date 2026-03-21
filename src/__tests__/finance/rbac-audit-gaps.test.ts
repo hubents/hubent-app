@@ -33,6 +33,8 @@ interface EventSectionPermissions {
   rsvp?: EventSectionLevel;
   vendors?: EventSectionLevel;
   finances?: EventSectionLevel;
+  runsheet?: EventSectionLevel;
+  calendar?: EventSectionLevel;
   settings?: EventSectionLevel;
 }
 

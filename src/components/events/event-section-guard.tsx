@@ -13,6 +13,8 @@ const SECTION_LABELS: Record<string, string> = {
   rsvp: "RSVP",
   vendors: "Proveedores",
   finances: "Finanzas",
+  runsheet: "Orden del día",
+  calendar: "Calendario",
   settings: "Configuración",
 };
 

@@ -36,13 +36,13 @@ const statusMap: Record<string, { label: string; color: string }> = {
 // Map sidebar items to event permission section keys
 const SECTION_MAP: Record<string, string> = {
   "Dashboard": "general",
-  "Calendario": "general",
+  "Calendario": "calendar",
   "Tareas": "tasks",
   "Lista de Invitados": "guests",
   "RSVP": "rsvp",
   "Proveedores": "vendors",
   "Finanzas": "finances",
-  "Orden del día": "general",
+  "Orden del día": "runsheet",
   "Configuración": "settings",
 };
 

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { success: false, error: "Invalid eventId" },
         { status: 400 }
       );
-    const session = await requireEventSectionAccess(eventId, "general", "view");
+    const session = await requireEventSectionAccess(eventId, "runsheet", "view");
 
     const { searchParams } = new URL(request.url);
     const filterTaskId = searchParams.get("taskId");

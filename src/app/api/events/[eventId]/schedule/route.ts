@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
+import { checkEventSectionAccess } from "@/lib/event-permissions";
+import type { TenantSession } from "@/types";
 import { db } from "@/db";
 import { eventScheduleItems, tasks, taskScheduleItems, vendors } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
@@ -37,13 +39,24 @@ function parseEventId(str: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+async function requireScheduleAccess(
+  eventId: number,
+  level: "view" | "edit" = "view"
+): Promise<TenantSession> {
+  try {
+    return await requireEventSectionAccess(eventId, "calendar", level);
+  } catch {
+    return await requireEventSectionAccess(eventId, "runsheet", level);
+  }
+}
+
 // GET /api/events/[eventId]/schedule - List event schedule items + task schedule items
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
     if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
-    const session = await requireEventSectionAccess(eventId, "general", "view");
+    const session = await requireScheduleAccess(eventId, "view");
 
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get("limit");
@@ -130,7 +143,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
     if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
-    const session = await requireEventSectionAccess(eventId, "general", "edit");
+    const session = await requireScheduleAccess(eventId, "edit");
 
     const body = await request.json();
     const parsed = createSchema.safeParse(body);
@@ -174,7 +187,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
     if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
-    await requireEventSectionAccess(eventId, "general", "edit");
+    await requireScheduleAccess(eventId, "edit");
 
     const body = await request.json();
     const parsed = updateSchema.safeParse(body);
@@ -231,7 +244,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
     if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
-    await requireEventSectionAccess(eventId, "general", "edit");
+    await requireScheduleAccess(eventId, "edit");
 
     const { searchParams } = new URL(request.url);
     const scheduleItemIdStr = searchParams.get("scheduleItemId");

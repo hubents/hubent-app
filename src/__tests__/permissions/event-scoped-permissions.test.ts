@@ -21,6 +21,8 @@ interface EventSectionPermissions {
   rsvp?: EventSectionLevel;
   vendors?: EventSectionLevel;
   finances?: EventSectionLevel;
+  runsheet?: EventSectionLevel;
+  calendar?: EventSectionLevel;
   settings?: EventSectionLevel;
 }
 
@@ -312,7 +314,10 @@ describe("N1: Calendar — schedule items filtered by general permission", () =>
 
   function computeScheduleEventFilter(access: EventAccess[]): number[] {
     return access
-      .filter((a) => a.permissions.general && a.permissions.general !== "none")
+      .filter((a) =>
+        (a.permissions.calendar && a.permissions.calendar !== "none") ||
+        (a.permissions.runsheet && a.permissions.runsheet !== "none")
+      )
       .map((a) => a.eventId);
   }
 
@@ -329,9 +334,9 @@ describe("N1: Calendar — schedule items filtered by general permission", () =>
   }
 
   const access: EventAccess[] = [
-    { eventId: 1, permissions: { general: "edit", tasks: "edit", finances: "view" } },
-    { eventId: 2, permissions: { general: "view", tasks: "none", finances: "none" } },
-    { eventId: 3, permissions: { general: "none", tasks: "view", finances: "none" } },
+    { eventId: 1, permissions: { general: "edit", tasks: "edit", finances: "view", calendar: "edit", runsheet: "edit" } },
+    { eventId: 2, permissions: { general: "view", tasks: "none", finances: "none", calendar: "view", runsheet: "view" } },
+    { eventId: 3, permissions: { general: "none", tasks: "view", finances: "none", calendar: "none", runsheet: "none" } },
   ];
 
   it("schedule filter includes events with general:edit and general:view", () => {
@@ -358,12 +363,12 @@ describe("N1: Calendar — schedule items filtered by general permission", () =>
     expect(computeScheduleEventFilter([])).toEqual([]);
   });
 
-  it("all general:none → empty schedule filter", () => {
-    const noGeneral: EventAccess[] = [
-      { eventId: 1, permissions: { general: "none" } },
-      { eventId: 2, permissions: { general: "none" } },
+  it("all calendar/runsheet:none → empty schedule filter", () => {
+    const noSchedule: EventAccess[] = [
+      { eventId: 1, permissions: { general: "view", calendar: "none", runsheet: "none" } },
+      { eventId: 2, permissions: { general: "view", calendar: "none", runsheet: "none" } },
     ];
-    expect(computeScheduleEventFilter(noGeneral)).toEqual([]);
+    expect(computeScheduleEventFilter(noSchedule)).toEqual([]);
   });
 });
 
@@ -372,13 +377,13 @@ describe("N1: Calendar — schedule items filtered by general permission", () =>
 describe("N4: EventSectionGuard — section access logic", () => {
   const SECTION_MAP: Record<string, string> = {
     "General": "general",
-    "Cronograma": "general",
+    "Cronograma": "calendar",
     "Tareas": "tasks",
     "Lista de Invitados": "guests",
     "RSVP": "rsvp",
     "Proveedores": "vendors",
     "Finanzas": "finances",
-    "Orden del día": "general",
+    "Orden del día": "runsheet",
     "Configuración": "settings",
   };
 
@@ -408,7 +413,8 @@ describe("N4: EventSectionGuard — section access logic", () => {
   it("eventScoped with all edit → sees all items", () => {
     const perms: EventSectionPermissions = {
       general: "edit", tasks: "edit", guests: "edit",
-      rsvp: "edit", vendors: "edit", finances: "edit", settings: "edit",
+      rsvp: "edit", vendors: "edit", finances: "edit",
+      calendar: "edit", runsheet: "edit", settings: "edit",
     };
     const result = filterNavigation(allNavItems, perms, true);
     expect(result).toEqual(allNavItems);
@@ -417,7 +423,8 @@ describe("N4: EventSectionGuard — section access logic", () => {
   it("eventScoped with finances:none → hides Finanzas", () => {
     const perms: EventSectionPermissions = {
       general: "edit", tasks: "edit", guests: "edit",
-      rsvp: "edit", vendors: "edit", finances: "none", settings: "none",
+      rsvp: "edit", vendors: "edit", finances: "none",
+      calendar: "edit", runsheet: "edit", settings: "none",
     };
     const result = filterNavigation(allNavItems, perms, true);
     expect(result).not.toContain("Finanzas");
@@ -429,7 +436,8 @@ describe("N4: EventSectionGuard — section access logic", () => {
   it("eventScoped with tasks:none → hides Tareas only", () => {
     const perms: EventSectionPermissions = {
       general: "edit", tasks: "none", guests: "view",
-      rsvp: "view", vendors: "view", finances: "none", settings: "none",
+      rsvp: "view", vendors: "view", finances: "none",
+      calendar: "view", runsheet: "view", settings: "none",
     };
     const result = filterNavigation(allNavItems, perms, true);
     expect(result).not.toContain("Tareas");
@@ -437,22 +445,35 @@ describe("N4: EventSectionGuard — section access logic", () => {
     expect(result).toContain("Cronograma");
   });
 
-  it("Cronograma and Orden del día map to general section", () => {
-    expect(SECTION_MAP["Cronograma"]).toBe("general");
-    expect(SECTION_MAP["Orden del día"]).toBe("general");
+  it("Cronograma maps to calendar, Orden del día maps to runsheet", () => {
+    expect(SECTION_MAP["Cronograma"]).toBe("calendar");
+    expect(SECTION_MAP["Orden del día"]).toBe("runsheet");
   });
 
-  it("eventScoped with general:none → hides General, Cronograma, Orden del día", () => {
+  it("eventScoped with general:none → hides General but not Cronograma/Orden del día (separate sections)", () => {
     const perms: EventSectionPermissions = {
       general: "none", tasks: "edit", guests: "edit",
-      rsvp: "edit", vendors: "edit", finances: "edit", settings: "none",
+      rsvp: "edit", vendors: "edit", finances: "edit",
+      calendar: "edit", runsheet: "edit", settings: "none",
     };
     const result = filterNavigation(allNavItems, perms, true);
     expect(result).not.toContain("General");
-    expect(result).not.toContain("Cronograma");
-    expect(result).not.toContain("Orden del día");
+    expect(result).toContain("Cronograma");
+    expect(result).toContain("Orden del día");
     expect(result).toContain("Tareas");
     expect(result).toContain("Finanzas");
+  });
+
+  it("eventScoped with calendar:none + runsheet:none → hides Cronograma and Orden del día", () => {
+    const perms: EventSectionPermissions = {
+      general: "edit", tasks: "edit", guests: "edit",
+      rsvp: "edit", vendors: "edit", finances: "edit",
+      calendar: "none", runsheet: "none", settings: "none",
+    };
+    const result = filterNavigation(allNavItems, perms, true);
+    expect(result).toContain("General");
+    expect(result).not.toContain("Cronograma");
+    expect(result).not.toContain("Orden del día");
   });
 
   it("guard: canView returns false for none → shows access denied", () => {

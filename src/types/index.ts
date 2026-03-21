@@ -153,6 +153,8 @@ export interface EventSectionPermissions {
   rsvp?: EventSectionLevel;
   vendors?: "view" | "none";
   finances?: "view" | "none";
+  runsheet?: EventSectionLevel;
+  calendar?: EventSectionLevel;
   settings?: "none";
 }
 
@@ -165,6 +167,8 @@ export const EVENT_PERMISSION_PRESETS = {
     rsvp: "edit" as const,
     vendors: "view" as const,
     finances: "view" as const,
+    runsheet: "edit" as const,
+    calendar: "edit" as const,
     settings: "none" as const,
   },
   readonly: {
@@ -174,6 +178,8 @@ export const EVENT_PERMISSION_PRESETS = {
     rsvp: "view" as const,
     vendors: "view" as const,
     finances: "view" as const,
+    runsheet: "view" as const,
+    calendar: "view" as const,
     settings: "none" as const,
   },
   rsvpOnly: {
@@ -183,6 +189,8 @@ export const EVENT_PERMISSION_PRESETS = {
     rsvp: "view" as const,
     vendors: "none" as const,
     finances: "none" as const,
+    runsheet: "none" as const,
+    calendar: "none" as const,
     settings: "none" as const,
   },
 };
