@@ -1,0 +1,42 @@
+---
+description: API changelog entries must use real current date (Argentina UTC-03) and sync api-versioning.ts
+globs: src/app/developers/changelog/**/*.tsx
+alwaysApply: false
+---
+
+# API Changelog — Fechas
+
+## Regla obligatoria
+
+Cada vez que se agregue una entrada al API Changelog (`src/app/developers/changelog/page.tsx`), la fecha y versión **DEBEN** usar la fecha y hora real del día actual (UTC-03:00, Argentina).
+
+### Formato
+
+- **version**: `YYYY-MM-DD` (fecha del día actual)
+- **date**: `YYYY-MM-DD` (misma fecha)
+
+### Ejemplo
+
+Si hoy es 14 de Marzo de 2026:
+
+```typescript
+{
+  version: "2026-03-14",
+  date: "2026-03-14",
+  current: true,
+  changes: [...]
+}
+```
+
+### Recordatorios
+
+- **NUNCA** hardcodear una fecha inventada o basada en versiones anteriores.
+- **SIEMPRE** verificar el año actual desde el metadata del sistema antes de escribir la fecha.
+- La versión anterior debe cambiar a `current: false`.
+- La constante `CURRENT_API_VERSION` en `src/lib/api/api-versioning.ts` debe actualizarse con la misma fecha.
+- La versión anterior debe permanecer en `SUPPORTED_VERSIONS`.
+
+## Related
+
+- Rule: `hubents-api-changelog.mdc`
+- Skill: `hubents-api-changelog-update`

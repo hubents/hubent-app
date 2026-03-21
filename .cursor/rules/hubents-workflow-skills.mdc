@@ -1,0 +1,33 @@
+---
+description: For deploy, DB migration, or public API changelog updates, use the HubEnts workflow project skills under .cursor/skills/
+alwaysApply: true
+---
+
+# HubEnts workflow skills (Cursor)
+
+When the user asks to **deploy**, **release**, **ship to production**, **run pre-deploy checks**, **push to main**, or **Vercel**: follow the project skill **`hubents-deploy`** (`.cursor/skills/hubents-deploy/SKILL.md`).
+
+When they need **database migrations**, **Drizzle/Neon schema changes**, **new migration SQL**: follow **`hubents-database-migration`**.
+
+When they change **`/api/v1`**, **OpenAPI**, **MCP tools**, **webhook event types**, **API scopes**, or **developers changelog**: follow **`hubents-api-changelog-update`** before release.
+
+## Suggested order for complex releases
+
+1. Schema changes → **`hubents-database-migration`** first
+2. Public API surface changes → **`hubents-api-changelog-update`**
+3. Production release → **`hubents-deploy`**
+
+## Related rules
+
+- `.cursor/rules/hubents-saas-billing.mdc` — Stripe dual keys, plans
+- `.cursor/rules/hubents-api-changelog.mdc` — what to document
+- `.cursor/rules/hubents-api-changelog-dates.mdc` — date/version rules
+
+## Domain skills (examples)
+
+- **`create-drawer`** — new Sheet/drawer UI
+- **`provider-portal`** — vendor/provider flows
+- **`pdf-download`** — client-side PDF pattern
+- **`clickup-integration`** — ClickUp comments (use env vars; never commit secrets)
+
+See **`AGENTS.md`** at repo root for the full map.

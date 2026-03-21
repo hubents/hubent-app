@@ -1,6 +1,11 @@
 // Auto-creates ClickUp tickets and sends notifications when errors are detected
 // Deduplication: won't create duplicate tickets for same path+error within 24h
 
+import {
+  createClickUpTask,
+  getDefaultMonitoringListId,
+  isClickUpConfigured,
+} from "@/lib/clickup";
 import { logger, type LogLevel, type LogContext } from "./logger";
 
 interface ClickUpTicket {
@@ -14,13 +19,6 @@ interface ClickUpTicket {
 // Track recently reported errors to avoid duplicates (path:errorMsg -> timestamp)
 const recentReports = new Map<string, number>();
 const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function getClickUpConfig() {
-  return {
-    token: process.env.CLICKUP_API_TOKEN || "",
-    listId: process.env.CLICKUP_MONITORING_LIST_ID || "901322179370",
-  };
-}
 
 function severityToPriority(level: LogLevel): number {
   switch (level) {
@@ -58,52 +56,38 @@ function cleanupOldReports() {
   }
 }
 
-async function createClickUpTicket(ticket: ClickUpTicket): Promise<string | null> {
-  const config = getClickUpConfig();
-  if (!config.token) {
+async function createClickUpTicket(
+  ticket: ClickUpTicket,
+): Promise<string | null> {
+  if (!isClickUpConfigured()) {
     logger.warn("ClickUp token not configured, skipping ticket creation");
     return null;
   }
 
   try {
-    const response = await fetch(
-      `https://api.clickup.com/api/v2/list/${config.listId}/task`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: config.token,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: ticket.name,
-          description: ticket.description,
-          status: ticket.status,
-          priority: ticket.priority,
-          tags: ticket.tags,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      logger.error("Failed to create ClickUp ticket", {
-        meta: { status: response.status, body: text },
-      });
-      return null;
-    }
-
-    const data = await response.json();
+    const listId = getDefaultMonitoringListId();
+    const data = await createClickUpTask(listId, {
+      name: ticket.name,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      tags: ticket.tags,
+    });
     logger.info(`ClickUp ticket created: ${data.id}`, {
       meta: { ticketId: data.id, ticketUrl: data.url },
     });
-    return data.id;
+    return String(data.id);
   } catch (err) {
     logger.error("ClickUp API call failed", { error: err });
     return null;
   }
 }
 
-function buildTicketDescription(context: LogContext, errorMessage: string, stack?: string): string {
+function buildTicketDescription(
+  context: LogContext,
+  errorMessage: string,
+  stack?: string,
+): string {
   const sections: string[] = [];
 
   sections.push(`## Error Details`);
@@ -152,7 +136,7 @@ function buildTicketDescription(context: LogContext, errorMessage: string, stack
 export async function reportError(
   level: LogLevel,
   message: string,
-  context: LogContext = {}
+  context: LogContext = {},
 ): Promise<string | null> {
   // Log first
   const entry = logger[level](message, context);
@@ -164,7 +148,8 @@ export async function reportError(
 
   // Deduplication
   const path = context.path || "unknown";
-  const errorMsg = context.error instanceof Error ? context.error.message : message;
+  const errorMsg =
+    context.error instanceof Error ? context.error.message : message;
   const dedupeKey = buildDedupeKey(path, errorMsg);
 
   if (isDuplicate(dedupeKey)) {
@@ -181,8 +166,13 @@ export async function reportError(
   recentReports.set(dedupeKey, Date.now());
 
   // Build ticket
-  const ticketName = `[AUTO] ${context.statusCode || "ERR"} en ${context.method || ""} ${path}`.trim();
-  const description = buildTicketDescription(context, entry.message, entry.stack);
+  const ticketName =
+    `[AUTO] ${context.statusCode || "ERR"} en ${context.method || ""} ${path}`.trim();
+  const description = buildTicketDescription(
+    context,
+    entry.message,
+    entry.stack,
+  );
 
   const ticketId = await createClickUpTicket({
     name: ticketName.slice(0, 200),
@@ -198,7 +188,7 @@ export async function reportError(
 export async function reportHealthCheckFailure(
   serviceName: string,
   error: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
 ): Promise<string | null> {
   const dedupeKey = `health::${serviceName}::${error.slice(0, 50)}`;
 
@@ -212,7 +202,7 @@ export async function reportHealthCheckFailure(
     name: `[HEALTH] ${serviceName} - ${error}`.slice(0, 200),
     description: buildTicketDescription(
       { meta: details },
-      `Health check failed for ${serviceName}: ${error}`
+      `Health check failed for ${serviceName}: ${error}`,
     ),
     status: "to do",
     priority: 1, // Health failures are always urgent
