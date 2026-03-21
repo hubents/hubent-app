@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +13,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Copy, Loader2 } from "lucide-react";
+import {
+  Copy,
+  Loader2,
+  ListChecks,
+  FileText,
+  ClipboardList,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface DuplicateEventDrawerProps {
@@ -22,6 +28,13 @@ interface DuplicateEventDrawerProps {
   eventId: number;
   eventName: string;
   onDuplicated?: (newEventId: number) => void;
+}
+
+interface EventDuplicateStats {
+  taskCount: number;
+  checklistCount: number;
+  taskFormCount: number;
+  landingFormCount: number;
 }
 
 export function DuplicateEventDrawer({
@@ -36,6 +49,38 @@ export function DuplicateEventDrawer({
   const [newDate, setNewDate] = useState("");
   const [includeTasks, setIncludeTasks] = useState(true);
   const [includeChecklists, setIncludeChecklists] = useState(true);
+  const [includeForms, setIncludeForms] = useState(true);
+  const [includeLandingForms, setIncludeLandingForms] = useState(true);
+  const [stats, setStats] = useState<EventDuplicateStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    setLoadingStats(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/duplicate/stats`);
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+      }
+    } catch {
+      // Stats are non-critical, silently fail
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (open) {
+      setNewName(`${eventName} (copia)`);
+      setNewDate("");
+      setIncludeTasks(true);
+      setIncludeChecklists(true);
+      setIncludeForms(true);
+      setIncludeLandingForms(true);
+      setStats(null);
+      fetchStats();
+    }
+  }, [open, eventName, fetchStats]);
 
   const handleDuplicate = async () => {
     setLoading(true);
@@ -48,6 +93,8 @@ export function DuplicateEventDrawer({
           newDate: newDate || undefined,
           includeTasks,
           includeChecklists,
+          includeForms,
+          includeLandingForms,
         }),
       });
 
@@ -68,6 +115,9 @@ export function DuplicateEventDrawer({
     }
   };
 
+  const hasTaskForms = stats ? stats.taskFormCount > 0 : false;
+  const hasLandingForms = stats ? stats.landingFormCount > 0 : false;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-2xl overflow-y-auto">
@@ -77,7 +127,8 @@ export function DuplicateEventDrawer({
             Duplicar Evento
           </SheetTitle>
           <SheetDescription>
-            Crea una copia de &quot;{eventName}&quot; con todas sus tareas y configuración.
+            Crea una copia de &quot;{eventName}&quot; con todas sus tareas y
+            configuración.
           </SheetDescription>
         </SheetHeader>
 
@@ -107,15 +158,24 @@ export function DuplicateEventDrawer({
 
           <div className="space-y-3 pt-2">
             <Label>Incluir en la copia:</Label>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="includeTasks"
                 checked={includeTasks}
                 onCheckedChange={(checked) => setIncludeTasks(checked === true)}
               />
-              <Label htmlFor="includeTasks" className="font-normal cursor-pointer">
+              <Label
+                htmlFor="includeTasks"
+                className="font-normal cursor-pointer flex items-center gap-1.5"
+              >
+                <ListChecks className="h-4 w-4 text-muted-foreground" />
                 Tareas del evento
+                {stats && (
+                  <span className="text-xs text-muted-foreground">
+                    ({stats.taskCount})
+                  </span>
+                )}
               </Label>
             </div>
 
@@ -124,13 +184,74 @@ export function DuplicateEventDrawer({
                 id="includeChecklists"
                 checked={includeChecklists}
                 disabled={!includeTasks}
-                onCheckedChange={(checked) => setIncludeChecklists(checked === true)}
+                onCheckedChange={(checked) =>
+                  setIncludeChecklists(checked === true)
+                }
               />
-              <Label 
-                htmlFor="includeChecklists" 
-                className={`font-normal cursor-pointer ${!includeTasks ? "text-muted-foreground" : ""}`}
+              <Label
+                htmlFor="includeChecklists"
+                className={`font-normal cursor-pointer flex items-center gap-1.5 ${!includeTasks ? "text-muted-foreground" : ""}`}
               >
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
                 Checklists de las tareas
+                {stats && stats.checklistCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({stats.checklistCount})
+                  </span>
+                )}
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2 ml-6">
+              <Checkbox
+                id="includeForms"
+                checked={includeForms}
+                disabled={!includeTasks}
+                onCheckedChange={(checked) => setIncludeForms(checked === true)}
+              />
+              <Label
+                htmlFor="includeForms"
+                className={`font-normal cursor-pointer flex items-center gap-1.5 ${!includeTasks ? "text-muted-foreground" : ""}`}
+              >
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Formularios de las tareas
+                {stats && stats.taskFormCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({stats.taskFormCount})
+                  </span>
+                )}
+                {stats && !hasTaskForms && !loadingStats && (
+                  <span className="text-xs text-muted-foreground italic">
+                    (sin formularios)
+                  </span>
+                )}
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="includeLandingForms"
+                checked={includeLandingForms}
+                onCheckedChange={(checked) =>
+                  setIncludeLandingForms(checked === true)
+                }
+              />
+              <Label
+                htmlFor="includeLandingForms"
+                className="font-normal cursor-pointer flex items-center gap-1.5"
+              >
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Formularios del evento
+                {stats && stats.landingFormCount > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({stats.landingFormCount})
+                  </span>
+                )}
+                {stats && !hasLandingForms && !loadingStats && (
+                  <span className="text-xs text-muted-foreground italic">
+                    (sin formularios)
+                  </span>
+                )}
               </Label>
             </div>
           </div>
@@ -140,7 +261,10 @@ export function DuplicateEventDrawer({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleDuplicate} disabled={loading || !newName.trim()}>
+          <Button
+            onClick={handleDuplicate}
+            disabled={loading || !newName.trim()}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

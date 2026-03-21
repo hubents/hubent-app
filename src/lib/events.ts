@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { 
-  events, 
+import {
+  events,
   eventTemplates,
   taskTemplates,
   taskTemplateChecklists,
+  taskTemplateForms,
   eventParticipants,
   tasks,
   taskChecklistItems,
@@ -18,7 +19,7 @@ import {
   paymentRecords,
   formInstances,
 } from "@/db/schema";
-import { eq, and, desc, sql, asc } from "drizzle-orm";
+import { eq, and, ne, desc, sql, asc } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 // ============================================
@@ -27,7 +28,8 @@ import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 export async function getEvents(
   session: TenantSession,
-  params: PaginationParams & FilterParams & { status?: string; type?: string } = {}
+  params: PaginationParams &
+    FilterParams & { status?: string; type?: string } = {},
 ) {
   const { page = 1, limit = 50, status, type } = params;
   const offset = (page - 1) * limit;
@@ -50,7 +52,7 @@ export async function getEvents(
         SELECT ${eventParticipants.eventId} 
         FROM ${eventParticipants} 
         WHERE ${eventParticipants.userId} = ${session.user.userId}
-      )`
+      )`,
     )!;
   }
 
@@ -69,9 +71,18 @@ export async function getEvents(
       clientId: events.clientId,
       createdAt: events.createdAt,
       clientName: clients.name,
-      totalTasks: sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id}), 0)`.as("total_tasks"),
-      completedTasks: sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id} AND ${tasks.status} = 'completed'), 0)`.as("completed_tasks"),
-      participantCount: sql<number>`COALESCE((SELECT count(*) FROM ${eventParticipants} WHERE ${eventParticipants.eventId} = ${events.id}), 0)`.as("participant_count"),
+      totalTasks:
+        sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id}), 0)`.as(
+          "total_tasks",
+        ),
+      completedTasks:
+        sql<number>`COALESCE((SELECT count(*) FROM ${tasks} WHERE ${tasks.eventId} = ${events.id} AND ${tasks.status} = 'completed'), 0)`.as(
+          "completed_tasks",
+        ),
+      participantCount:
+        sql<number>`COALESCE((SELECT count(*) FROM ${eventParticipants} WHERE ${eventParticipants.eventId} = ${events.id}), 0)`.as(
+          "participant_count",
+        ),
     })
     .from(events)
     .leftJoin(clients, eq(events.clientId, clients.id))
@@ -81,8 +92,11 @@ export async function getEvents(
     .offset(offset);
 
   // Fetch top 4 participants per event for avatar display
-  const eventIds = results.map(e => e.id);
-  let participantsMap: Record<number, { userId: string; userName: string | null; userImage: string | null }[]> = {};
+  const eventIds = results.map((e) => e.id);
+  let participantsMap: Record<
+    number,
+    { userId: string; userName: string | null; userImage: string | null }[]
+  > = {};
   if (eventIds.length > 0) {
     const participantsRaw = await db
       .select({
@@ -93,7 +107,12 @@ export async function getEvents(
       })
       .from(eventParticipants)
       .leftJoin(users, eq(eventParticipants.userId, users.id))
-      .where(sql`${eventParticipants.eventId} IN (${sql.join(eventIds.map(id => sql`${id}`), sql`, `)})`)
+      .where(
+        sql`${eventParticipants.eventId} IN (${sql.join(
+          eventIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      )
       .limit(eventIds.length * 5);
 
     for (const p of participantsRaw) {
@@ -114,13 +133,16 @@ export async function getEvents(
     .from(events)
     .where(whereClause);
 
-  const data = results.map(event => ({
+  const data = results.map((event) => ({
     ...event,
     totalTasks: Number(event.totalTasks),
     completedTasks: Number(event.completedTasks),
-    progress: Number(event.totalTasks) > 0
-      ? Math.round((Number(event.completedTasks) / Number(event.totalTasks)) * 100)
-      : 0,
+    progress:
+      Number(event.totalTasks) > 0
+        ? Math.round(
+            (Number(event.completedTasks) / Number(event.totalTasks)) * 100,
+          )
+        : 0,
     participantCount: Number(event.participantCount),
     participants: participantsMap[event.id] || [],
   }));
@@ -138,11 +160,8 @@ export async function getEvents(
 
 export async function getEvent(session: TenantSession, eventId: number) {
   const event = await db.query.events.findFirst({
-    where: (e, { eq, and }) => 
-      and(
-        eq(e.id, eventId),
-        eq(e.organizationId, session.organizationId)
-      ),
+    where: (e, { eq, and }) =>
+      and(eq(e.id, eventId), eq(e.organizationId, session.organizationId)),
   });
 
   if (!event) return null;
@@ -155,8 +174,8 @@ export async function getEvent(session: TenantSession, eventId: number) {
       .where(
         and(
           eq(eventParticipants.eventId, eventId),
-          eq(eventParticipants.userId, session.user.userId)
-        )
+          eq(eventParticipants.userId, session.user.userId),
+        ),
       )
       .limit(1);
     if (!isParticipant) return null;
@@ -190,7 +209,9 @@ export async function getEvent(session: TenantSession, eventId: number) {
 
   // Get client
   const client = event.clientId
-    ? await db.query.clients.findFirst({ where: (c, { eq }) => eq(c.id, event.clientId!) })
+    ? await db.query.clients.findFirst({
+        where: (c, { eq }) => eq(c.id, event.clientId!),
+      })
     : null;
 
   return {
@@ -205,7 +226,14 @@ export async function createEvent(
   session: TenantSession,
   data: {
     name: string;
-    type?: "wedding" | "pre_wedding" | "post_wedding" | "birthday" | "corporate" | "social" | "other";
+    type?:
+      | "wedding"
+      | "pre_wedding"
+      | "post_wedding"
+      | "birthday"
+      | "corporate"
+      | "social"
+      | "other";
     date?: Date;
     endDate?: Date;
     location?: string;
@@ -214,26 +242,34 @@ export async function createEvent(
     description?: string;
     clientId?: number;
     templateId?: number;
-  }
+  },
 ) {
-  const [event] = await db.insert(events).values({
-    organizationId: session.organizationId,
-    name: data.name,
-    type: data.type || "wedding",
-    status: "draft",
-    date: data.date,
-    endDate: data.endDate,
-    location: data.location,
-    guestCount: data.guestCount || 0,
-    budget: data.budget?.toString(),
-    description: data.description,
-    clientId: data.clientId,
-    createdBy: session.user.userId,
-  }).returning();
+  const [event] = await db
+    .insert(events)
+    .values({
+      organizationId: session.organizationId,
+      name: data.name,
+      type: data.type || "wedding",
+      status: "draft",
+      date: data.date,
+      endDate: data.endDate,
+      location: data.location,
+      guestCount: data.guestCount || 0,
+      budget: data.budget?.toString(),
+      description: data.description,
+      clientId: data.clientId,
+      createdBy: session.user.userId,
+    })
+    .returning();
 
   // If template provided, create tasks from template
   if (data.templateId) {
-    await createTasksFromTemplate(session, event.id, data.templateId, data.date);
+    await createTasksFromTemplate(
+      session,
+      event.id,
+      data.templateId,
+      data.date,
+    );
   }
 
   return event;
@@ -253,29 +289,41 @@ export async function updateEvent(
     budget: number;
     description: string;
     clientId: number;
-  }>
+  }>,
 ) {
-  const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
-  
+  const updateData: Record<string, unknown> = {
+    ...data,
+    updatedAt: new Date(),
+  };
+
   // Handle date conversion - accept string, Date, or null
   if (data.date !== undefined) {
-    updateData.date = data.date ? (typeof data.date === 'string' ? new Date(data.date) : data.date) : null;
+    updateData.date = data.date
+      ? typeof data.date === "string"
+        ? new Date(data.date)
+        : data.date
+      : null;
   }
   if (data.endDate !== undefined) {
-    updateData.endDate = data.endDate ? (typeof data.endDate === 'string' ? new Date(data.endDate) : data.endDate) : null;
+    updateData.endDate = data.endDate
+      ? typeof data.endDate === "string"
+        ? new Date(data.endDate)
+        : data.endDate
+      : null;
   }
-  
+
   if (data.budget !== undefined) {
     updateData.budget = data.budget?.toString() || null;
   }
 
-  const [updated] = await db.update(events)
+  const [updated] = await db
+    .update(events)
     .set(updateData)
     .where(
       and(
         eq(events.id, eventId),
-        eq(events.organizationId, session.organizationId)
-      )
+        eq(events.organizationId, session.organizationId),
+      ),
     )
     .returning();
 
@@ -284,18 +332,34 @@ export async function updateEvent(
 
 export async function deleteEvent(session: TenantSession, eventId: number) {
   // Nullify FK references in tables without onDelete cascade
-  await db.update(tasks).set({ eventId: null }).where(eq(tasks.eventId, eventId));
-  await db.update(payments).set({ eventId: null }).where(eq(payments.eventId, eventId));
-  await db.update(leads).set({ eventId: null }).where(eq(leads.eventId, eventId));
-  await db.update(financialDocuments).set({ eventId: null }).where(eq(financialDocuments.eventId, eventId));
-  await db.update(paymentRecords).set({ eventId: null }).where(eq(paymentRecords.eventId, eventId));
+  await db
+    .update(tasks)
+    .set({ eventId: null })
+    .where(eq(tasks.eventId, eventId));
+  await db
+    .update(payments)
+    .set({ eventId: null })
+    .where(eq(payments.eventId, eventId));
+  await db
+    .update(leads)
+    .set({ eventId: null })
+    .where(eq(leads.eventId, eventId));
+  await db
+    .update(financialDocuments)
+    .set({ eventId: null })
+    .where(eq(financialDocuments.eventId, eventId));
+  await db
+    .update(paymentRecords)
+    .set({ eventId: null })
+    .where(eq(paymentRecords.eventId, eventId));
 
-  await db.delete(events)
+  await db
+    .delete(events)
     .where(
       and(
         eq(events.id, eventId),
-        eq(events.organizationId, session.organizationId)
-      )
+        eq(events.organizationId, session.organizationId),
+      ),
     );
 }
 
@@ -307,19 +371,21 @@ export async function cancelEvent(session: TenantSession, eventId: number) {
     .where(eq(tasks.eventId, eventId));
 
   // Update event status to cancelled
-  const [updated] = await db.update(events)
+  const [updated] = await db
+    .update(events)
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(
       and(
         eq(events.id, eventId),
-        eq(events.organizationId, session.organizationId)
-      )
+        eq(events.organizationId, session.organizationId),
+      ),
     )
     .returning();
 
   // Also cancel all associated tasks
   if (Number(taskCount) > 0) {
-    await db.update(tasks)
+    await db
+      .update(tasks)
       .set({ status: "cancelled" })
       .where(eq(tasks.eventId, eventId));
   }
@@ -337,14 +403,14 @@ export async function cancelEvent(session: TenantSession, eventId: number) {
 export async function getEventTemplates(session: TenantSession) {
   // Get org-specific and global templates
   const templates = await db.query.eventTemplates.findMany({
-    where: (t, { eq, or, and, isNull }) => 
+    where: (t, { eq, or, and, isNull }) =>
       and(
         eq(t.isActive, true),
         or(
           eq(t.organizationId, session.organizationId),
           eq(t.isGlobal, true),
-          isNull(t.organizationId)
-        )
+          isNull(t.organizationId),
+        ),
       ),
     orderBy: (t, { asc }) => [asc(t.name)],
   });
@@ -352,7 +418,10 @@ export async function getEventTemplates(session: TenantSession) {
   return templates;
 }
 
-export async function getEventTemplate(session: TenantSession, templateId: number) {
+export async function getEventTemplate(
+  session: TenantSession,
+  templateId: number,
+) {
   const template = await db.query.eventTemplates.findFirst({
     where: (t, { eq }) => eq(t.id, templateId),
   });
@@ -366,21 +435,27 @@ export async function getEventTemplate(session: TenantSession, templateId: numbe
     .where(eq(taskTemplates.eventTemplateId, templateId))
     .orderBy(asc(taskTemplates.sortOrder));
 
-  // Get checklists for each task template
-  const tasksWithChecklists = await Promise.all(
+  const tasksWithDetails = await Promise.all(
     taskTpls.map(async (task) => {
       const checklists = await db
         .select()
         .from(taskTemplateChecklists)
         .where(eq(taskTemplateChecklists.taskTemplateId, task.id))
         .orderBy(asc(taskTemplateChecklists.sortOrder));
-      return { ...task, checklists };
-    })
+
+      const tplForms = await db
+        .select()
+        .from(taskTemplateForms)
+        .where(eq(taskTemplateForms.taskTemplateId, task.id))
+        .orderBy(asc(taskTemplateForms.sortOrder));
+
+      return { ...task, checklists, forms: tplForms };
+    }),
   );
 
   return {
     ...template,
-    tasks: tasksWithChecklists,
+    tasks: tasksWithDetails,
   };
 }
 
@@ -388,7 +463,14 @@ export async function createEventTemplate(
   session: TenantSession,
   data: {
     name: string;
-    eventType?: "wedding" | "pre_wedding" | "post_wedding" | "birthday" | "corporate" | "social" | "other";
+    eventType?:
+      | "wedding"
+      | "pre_wedding"
+      | "post_wedding"
+      | "birthday"
+      | "corporate"
+      | "social"
+      | "other";
     description?: string;
     defaultBudget?: number;
     isGlobal?: boolean;
@@ -404,34 +486,40 @@ export async function createEventTemplate(
       estimatedHours?: number;
       checklists?: string[];
     }>;
-  }
+  },
 ) {
-  const [template] = await db.insert(eventTemplates).values({
-    organizationId: data.isGlobal ? null : session.organizationId,
-    name: data.name,
-    eventType: data.eventType,
-    description: data.description,
-    defaultBudget: data.defaultBudget?.toString(),
-    isGlobal: data.isGlobal || false,
-  }).returning();
+  const [template] = await db
+    .insert(eventTemplates)
+    .values({
+      organizationId: data.isGlobal ? null : session.organizationId,
+      name: data.name,
+      eventType: data.eventType,
+      description: data.description,
+      defaultBudget: data.defaultBudget?.toString(),
+      isGlobal: data.isGlobal || false,
+    })
+    .returning();
 
   // Create task templates with checklists
   if (data.tasks && data.tasks.length > 0) {
     for (let i = 0; i < data.tasks.length; i++) {
       const task = data.tasks[i];
-      const [taskTpl] = await db.insert(taskTemplates).values({
-        eventTemplateId: template.id,
-        title: task.title,
-        description: task.description,
-        htmlContent: task.htmlContent,
-        category: task.category,
-        daysBeforeEvent: task.daysBeforeEvent,
-        daysAfterEvent: task.daysAfterEvent,
-        assignToRole: task.assignToRole,
-        priority: task.priority || "medium",
-        estimatedHours: task.estimatedHours?.toString(),
-        sortOrder: i,
-      }).returning();
+      const [taskTpl] = await db
+        .insert(taskTemplates)
+        .values({
+          eventTemplateId: template.id,
+          title: task.title,
+          description: task.description,
+          htmlContent: task.htmlContent,
+          category: task.category,
+          daysBeforeEvent: task.daysBeforeEvent,
+          daysAfterEvent: task.daysAfterEvent,
+          assignToRole: task.assignToRole,
+          priority: task.priority || "medium",
+          estimatedHours: task.estimatedHours?.toString(),
+          sortOrder: i,
+        })
+        .returning();
 
       // Create checklist items for this task template
       if (task.checklists && task.checklists.length > 0) {
@@ -458,17 +546,19 @@ export async function updateEventTemplate(
     description?: string;
     defaultBudget?: number;
     isActive?: boolean;
-  }
+  },
 ) {
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
-  
+
   if (data.name !== undefined) updateData.name = data.name;
   if (data.eventType !== undefined) updateData.eventType = data.eventType;
   if (data.description !== undefined) updateData.description = data.description;
-  if (data.defaultBudget !== undefined) updateData.defaultBudget = data.defaultBudget?.toString();
+  if (data.defaultBudget !== undefined)
+    updateData.defaultBudget = data.defaultBudget?.toString();
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-  const [updated] = await db.update(eventTemplates)
+  const [updated] = await db
+    .update(eventTemplates)
     .set(updateData)
     .where(eq(eventTemplates.id, templateId))
     .returning();
@@ -491,7 +581,7 @@ export async function addTaskToTemplate(
     daysAfterEvent?: number;
     priority?: string;
     checklists?: string[];
-  }
+  },
 ) {
   // Get max sort order
   const existingTasks = await db
@@ -503,17 +593,20 @@ export async function addTaskToTemplate(
 
   const newSortOrder = (existingTasks[0]?.sortOrder || 0) + 1;
 
-  const [taskTpl] = await db.insert(taskTemplates).values({
-    eventTemplateId: templateId,
-    title: data.title,
-    description: data.description,
-    htmlContent: data.htmlContent,
-    category: data.category,
-    daysBeforeEvent: data.daysBeforeEvent,
-    daysAfterEvent: data.daysAfterEvent,
-    priority: data.priority || "medium",
-    sortOrder: newSortOrder,
-  }).returning();
+  const [taskTpl] = await db
+    .insert(taskTemplates)
+    .values({
+      eventTemplateId: templateId,
+      title: data.title,
+      description: data.description,
+      htmlContent: data.htmlContent,
+      category: data.category,
+      daysBeforeEvent: data.daysBeforeEvent,
+      daysAfterEvent: data.daysAfterEvent,
+      priority: data.priority || "medium",
+      sortOrder: newSortOrder,
+    })
+    .returning();
 
   // Create checklist items
   if (data.checklists && data.checklists.length > 0) {
@@ -540,20 +633,23 @@ export async function updateTaskTemplate(
     daysAfterEvent?: number;
     priority?: string;
     sortOrder?: number;
-  }
+  },
 ) {
   const updateData: Record<string, unknown> = {};
-  
+
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.htmlContent !== undefined) updateData.htmlContent = data.htmlContent;
   if (data.category !== undefined) updateData.category = data.category;
-  if (data.daysBeforeEvent !== undefined) updateData.daysBeforeEvent = data.daysBeforeEvent;
-  if (data.daysAfterEvent !== undefined) updateData.daysAfterEvent = data.daysAfterEvent;
+  if (data.daysBeforeEvent !== undefined)
+    updateData.daysBeforeEvent = data.daysBeforeEvent;
+  if (data.daysAfterEvent !== undefined)
+    updateData.daysAfterEvent = data.daysAfterEvent;
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
-  const [updated] = await db.update(taskTemplates)
+  const [updated] = await db
+    .update(taskTemplates)
     .set(updateData)
     .where(eq(taskTemplates.id, taskTemplateId))
     .returning();
@@ -565,7 +661,10 @@ export async function deleteTaskTemplate(taskTemplateId: number) {
   await db.delete(taskTemplates).where(eq(taskTemplates.id, taskTemplateId));
 }
 
-export async function addChecklistToTaskTemplate(taskTemplateId: number, title: string) {
+export async function addChecklistToTaskTemplate(
+  taskTemplateId: number,
+  title: string,
+) {
   const existing = await db
     .select({ sortOrder: taskTemplateChecklists.sortOrder })
     .from(taskTemplateChecklists)
@@ -575,17 +674,22 @@ export async function addChecklistToTaskTemplate(taskTemplateId: number, title: 
 
   const newSortOrder = (existing[0]?.sortOrder || 0) + 1;
 
-  const [item] = await db.insert(taskTemplateChecklists).values({
-    taskTemplateId,
-    title,
-    sortOrder: newSortOrder,
-  }).returning();
+  const [item] = await db
+    .insert(taskTemplateChecklists)
+    .values({
+      taskTemplateId,
+      title,
+      sortOrder: newSortOrder,
+    })
+    .returning();
 
   return item;
 }
 
 export async function deleteChecklistFromTaskTemplate(checklistId: number) {
-  await db.delete(taskTemplateChecklists).where(eq(taskTemplateChecklists.id, checklistId));
+  await db
+    .delete(taskTemplateChecklists)
+    .where(eq(taskTemplateChecklists.id, checklistId));
 }
 
 // ============================================
@@ -596,7 +700,7 @@ async function createTasksFromTemplate(
   session: TenantSession,
   eventId: number,
   templateId: number,
-  eventDate?: Date
+  eventDate?: Date,
 ) {
   const template = await getEventTemplate(session, templateId);
   if (!template || !template.tasks) return;
@@ -607,7 +711,7 @@ async function createTasksFromTemplate(
     const taskTpl = template.tasks[i];
     // Calculate due date based on days before/after event
     let dueDate: Date | undefined;
-    
+
     if (taskTpl.daysBeforeEvent) {
       dueDate = new Date(baseDate);
       dueDate.setDate(dueDate.getDate() - taskTpl.daysBeforeEvent);
@@ -616,18 +720,21 @@ async function createTasksFromTemplate(
       dueDate.setDate(dueDate.getDate() + taskTpl.daysAfterEvent);
     }
 
-    const [newTask] = await db.insert(tasks).values({
-      organizationId: session.organizationId,
-      title: taskTpl.title,
-      description: taskTpl.description,
-      category: taskTpl.category,
-      status: "pending",
-      priority: taskTpl.priority || "medium",
-      dueDate,
-      eventId,
-      createdBy: session.user.userId,
-      sortOrder: i,
-    }).returning();
+    const [newTask] = await db
+      .insert(tasks)
+      .values({
+        organizationId: session.organizationId,
+        title: taskTpl.title,
+        description: taskTpl.description,
+        category: taskTpl.category,
+        status: "pending",
+        priority: taskTpl.priority || "medium",
+        dueDate,
+        eventId,
+        createdBy: session.user.userId,
+        sortOrder: i,
+      })
+      .returning();
 
     // Create HTML content if exists
     if (taskTpl.htmlContent) {
@@ -640,11 +747,27 @@ async function createTasksFromTemplate(
 
     // Create checklist items from template
     if (taskTpl.checklists && taskTpl.checklists.length > 0) {
-      for (let i = 0; i < taskTpl.checklists.length; i++) {
+      for (let j = 0; j < taskTpl.checklists.length; j++) {
         await db.insert(taskChecklistItems).values({
           taskId: newTask.id,
-          title: taskTpl.checklists[i].title,
-          sortOrder: i,
+          title: taskTpl.checklists[j].title,
+          sortOrder: j,
+          createdBy: session.user.userId,
+        });
+      }
+    }
+
+    if (taskTpl.forms && taskTpl.forms.length > 0) {
+      for (const tf of taskTpl.forms) {
+        const slug = `form-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        await db.insert(formInstances).values({
+          formId: tf.formId,
+          organizationId: session.organizationId,
+          type: "task",
+          slug,
+          eventId,
+          taskId: newTask.id,
+          status: "active",
           createdBy: session.user.userId,
         });
       }
@@ -664,13 +787,17 @@ export async function duplicateEvent(
     newDate?: Date;
     includeTasks?: boolean;
     includeChecklists?: boolean;
-  } = {}
+    includeForms?: boolean;
+    includeLandingForms?: boolean;
+  } = {},
 ) {
-  const { 
-    newName, 
-    newDate, 
-    includeTasks = true, 
-    includeChecklists = true 
+  const {
+    newName,
+    newDate,
+    includeTasks = true,
+    includeChecklists = true,
+    includeForms = true,
+    includeLandingForms = true,
   } = options;
 
   // Get original event
@@ -680,20 +807,23 @@ export async function duplicateEvent(
   }
 
   // Create new event
-  const [newEvent] = await db.insert(events).values({
-    organizationId: session.organizationId,
-    name: newName || `${originalEvent.name} (copia)`,
-    type: originalEvent.type,
-    status: "draft",
-    date: newDate || null,
-    endDate: null,
-    location: originalEvent.location,
-    guestCount: originalEvent.guestCount,
-    budget: originalEvent.budget,
-    description: originalEvent.description,
-    clientId: originalEvent.clientId,
-    createdBy: session.user.userId,
-  }).returning();
+  const [newEvent] = await db
+    .insert(events)
+    .values({
+      organizationId: session.organizationId,
+      name: newName || `${originalEvent.name} (copia)`,
+      type: originalEvent.type,
+      status: "draft",
+      date: newDate || null,
+      endDate: null,
+      location: originalEvent.location,
+      guestCount: originalEvent.guestCount,
+      budget: originalEvent.budget,
+      description: originalEvent.description,
+      clientId: originalEvent.clientId,
+      createdBy: session.user.userId,
+    })
+    .returning();
 
   // Duplicate tasks if requested
   if (includeTasks) {
@@ -708,24 +838,28 @@ export async function duplicateEvent(
       let newDueDate: Date | null = null;
       if (newDate && originalEvent.date && task.dueDate) {
         const daysDiff = Math.floor(
-          (task.dueDate.getTime() - originalEvent.date.getTime()) / (1000 * 60 * 60 * 24)
+          (task.dueDate.getTime() - originalEvent.date.getTime()) /
+            (1000 * 60 * 60 * 24),
         );
         newDueDate = new Date(newDate);
         newDueDate.setDate(newDueDate.getDate() + daysDiff);
       }
 
-      const [newTask] = await db.insert(tasks).values({
-        organizationId: session.organizationId,
-        title: task.title,
-        description: task.description,
-        category: task.category,
-        status: "pending",
-        priority: task.priority,
-        dueDate: newDueDate,
-        eventId: newEvent.id,
-        createdBy: session.user.userId,
-        sortOrder: task.sortOrder,
-      }).returning();
+      const [newTask] = await db
+        .insert(tasks)
+        .values({
+          organizationId: session.organizationId,
+          title: task.title,
+          description: task.description,
+          category: task.category,
+          status: "pending",
+          priority: task.priority,
+          dueDate: newDueDate,
+          eventId: newEvent.id,
+          createdBy: session.user.userId,
+          sortOrder: task.sortOrder,
+        })
+        .returning();
 
       // Duplicate HTML content
       const [htmlContent] = await db
@@ -761,50 +895,59 @@ export async function duplicateEvent(
         }
       }
 
-      // Duplicate task-level form instances
-      const taskForms = await db
-        .select()
-        .from(formInstances)
-        .where(and(eq(formInstances.taskId, task.id), eq(formInstances.type, "task")));
+      if (includeForms) {
+        const taskForms = await db
+          .select()
+          .from(formInstances)
+          .where(
+            and(
+              eq(formInstances.taskId, task.id),
+              eq(formInstances.type, "task"),
+            ),
+          );
 
-      for (const tfi of taskForms) {
-        const taskFormSlug = tfi.slug
-          ? `${tfi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-          : null;
-        await db.insert(formInstances).values({
-          formId: tfi.formId,
-          organizationId: session.organizationId,
-          type: tfi.type,
-          slug: taskFormSlug,
-          eventId: newEvent.id,
-          taskId: newTask.id,
-          status: "active",
-          createdBy: session.user.userId,
-        });
+        for (const tfi of taskForms) {
+          const taskFormSlug = tfi.slug
+            ? `${tfi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+            : null;
+          await db.insert(formInstances).values({
+            formId: tfi.formId,
+            organizationId: session.organizationId,
+            type: tfi.type,
+            slug: taskFormSlug,
+            eventId: newEvent.id,
+            taskId: newTask.id,
+            status: "active",
+            createdBy: session.user.userId,
+          });
+        }
       }
     }
   }
 
-  // Duplicate event-level form instances (exclude task-level forms already duplicated above)
-  const originalForms = await db
-    .select()
-    .from(formInstances)
-    .where(and(eq(formInstances.eventId, eventId), eq(formInstances.type, "landing")));
+  if (includeLandingForms) {
+    const originalForms = await db
+      .select()
+      .from(formInstances)
+      .where(
+        and(eq(formInstances.eventId, eventId), ne(formInstances.type, "task")),
+      );
 
-  for (const fi of originalForms) {
-    const newSlug = fi.slug
-      ? `${fi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-      : null;
-    await db.insert(formInstances).values({
-      formId: fi.formId,
-      organizationId: session.organizationId,
-      type: fi.type,
-      slug: newSlug,
-      eventId: newEvent.id,
-      taskId: null,
-      status: "active",
-      createdBy: session.user.userId,
-    });
+    for (const fi of originalForms) {
+      const newSlug = fi.slug
+        ? `${fi.slug}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+        : null;
+      await db.insert(formInstances).values({
+        formId: fi.formId,
+        organizationId: session.organizationId,
+        type: fi.type,
+        slug: newSlug,
+        eventId: newEvent.id,
+        taskId: null,
+        status: "active",
+        createdBy: session.user.userId,
+      });
+    }
   }
 
   return newEvent;
@@ -821,7 +964,7 @@ export async function saveEventAsTemplate(
     templateName: string;
     description?: string;
     isGlobal?: boolean;
-  }
+  },
 ) {
   const event = await getEvent(session, eventId);
   if (!event) {
@@ -829,14 +972,17 @@ export async function saveEventAsTemplate(
   }
 
   // Create event template
-  const [template] = await db.insert(eventTemplates).values({
-    organizationId: options.isGlobal ? null : session.organizationId,
-    name: options.templateName,
-    eventType: event.type,
-    description: options.description || event.description,
-    defaultBudget: event.budget,
-    isGlobal: options.isGlobal || false,
-  }).returning();
+  const [template] = await db
+    .insert(eventTemplates)
+    .values({
+      organizationId: options.isGlobal ? null : session.organizationId,
+      name: options.templateName,
+      eventType: event.type,
+      description: options.description || event.description,
+      defaultBudget: event.budget,
+      isGlobal: options.isGlobal || false,
+    })
+    .returning();
 
   // Get tasks for this event
   const eventTasks = await db
@@ -853,7 +999,7 @@ export async function saveEventAsTemplate(
     let daysBeforeEvent: number | null = null;
     if (event.date && task.dueDate) {
       daysBeforeEvent = Math.floor(
-        (event.date.getTime() - task.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+        (event.date.getTime() - task.dueDate.getTime()) / (1000 * 60 * 60 * 24),
       );
     }
 
@@ -864,17 +1010,24 @@ export async function saveEventAsTemplate(
       .where(eq(taskHtmlContent.taskId, task.id))
       .limit(1);
 
-    const [taskTpl] = await db.insert(taskTemplates).values({
-      eventTemplateId: template.id,
-      title: task.title,
-      description: task.description,
-      htmlContent: htmlContent?.content,
-      category: task.category,
-      daysBeforeEvent: daysBeforeEvent && daysBeforeEvent > 0 ? daysBeforeEvent : null,
-      daysAfterEvent: daysBeforeEvent && daysBeforeEvent < 0 ? Math.abs(daysBeforeEvent) : null,
-      priority: task.priority,
-      sortOrder: i,
-    }).returning();
+    const [taskTpl] = await db
+      .insert(taskTemplates)
+      .values({
+        eventTemplateId: template.id,
+        title: task.title,
+        description: task.description,
+        htmlContent: htmlContent?.content,
+        category: task.category,
+        daysBeforeEvent:
+          daysBeforeEvent && daysBeforeEvent > 0 ? daysBeforeEvent : null,
+        daysAfterEvent:
+          daysBeforeEvent && daysBeforeEvent < 0
+            ? Math.abs(daysBeforeEvent)
+            : null,
+        priority: task.priority,
+        sortOrder: i,
+      })
+      .returning();
 
     // Get checklists and create template checklists
     const checklists = await db
@@ -887,6 +1040,21 @@ export async function saveEventAsTemplate(
       await db.insert(taskTemplateChecklists).values({
         taskTemplateId: taskTpl.id,
         title: checklists[j].title,
+        sortOrder: j,
+      });
+    }
+
+    const taskForms = await db
+      .select()
+      .from(formInstances)
+      .where(
+        and(eq(formInstances.taskId, task.id), eq(formInstances.type, "task")),
+      );
+
+    for (let j = 0; j < taskForms.length; j++) {
+      await db.insert(taskTemplateForms).values({
+        taskTemplateId: taskTpl.id,
+        formId: taskForms[j].formId,
         sortOrder: j,
       });
     }
@@ -938,16 +1106,22 @@ export async function addEventParticipant(
     type: "planner" | "vendor" | "client" | "assistant" | "guest" | "contact";
     role?: string;
     permissions?: Record<string, string>;
-  }
+  },
 ) {
   // Check for existing participant by userId
   if (data.userId) {
     const [existing] = await db
       .select({ id: eventParticipants.id })
       .from(eventParticipants)
-      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.userId, data.userId)))
+      .where(
+        and(
+          eq(eventParticipants.eventId, eventId),
+          eq(eventParticipants.userId, data.userId),
+        ),
+      )
       .limit(1);
-    if (existing) throw new Error("El usuario ya es colaborador de este evento");
+    if (existing)
+      throw new Error("El usuario ya es colaborador de este evento");
   }
 
   // Check for existing participant by contactId
@@ -955,9 +1129,15 @@ export async function addEventParticipant(
     const [existing] = await db
       .select({ id: eventParticipants.id })
       .from(eventParticipants)
-      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.contactId, data.contactId)))
+      .where(
+        and(
+          eq(eventParticipants.eventId, eventId),
+          eq(eventParticipants.contactId, data.contactId),
+        ),
+      )
       .limit(1);
-    if (existing) throw new Error("El contacto ya es colaborador de este evento");
+    if (existing)
+      throw new Error("El contacto ya es colaborador de este evento");
   }
 
   // Check for existing participant by vendorId
@@ -965,22 +1145,31 @@ export async function addEventParticipant(
     const [existing] = await db
       .select({ id: eventParticipants.id })
       .from(eventParticipants)
-      .where(and(eq(eventParticipants.eventId, eventId), eq(eventParticipants.vendorId, data.vendorId)))
+      .where(
+        and(
+          eq(eventParticipants.eventId, eventId),
+          eq(eventParticipants.vendorId, data.vendorId),
+        ),
+      )
       .limit(1);
-    if (existing) throw new Error("El proveedor ya es colaborador de este evento");
+    if (existing)
+      throw new Error("El proveedor ya es colaborador de este evento");
   }
 
-  const [participant] = await db.insert(eventParticipants).values({
-    eventId,
-    userId: data.userId,
-    vendorId: data.vendorId,
-    clientId: data.clientId,
-    contactId: data.contactId,
-    type: data.type,
-    role: data.role,
-    permissions: data.permissions || null,
-    invitedBy: session.user.userId,
-  }).returning();
+  const [participant] = await db
+    .insert(eventParticipants)
+    .values({
+      eventId,
+      userId: data.userId,
+      vendorId: data.vendorId,
+      clientId: data.clientId,
+      contactId: data.contactId,
+      type: data.type,
+      role: data.role,
+      permissions: data.permissions || null,
+      invitedBy: session.user.userId,
+    })
+    .returning();
 
   return participant;
 }
@@ -991,7 +1180,7 @@ export async function updateEventParticipant(
   data: {
     permissions?: Record<string, string>;
     role?: string;
-  }
+  },
 ) {
   const updateData: Record<string, unknown> = {};
   if (data.permissions !== undefined) updateData.permissions = data.permissions;
@@ -999,30 +1188,34 @@ export async function updateEventParticipant(
 
   if (Object.keys(updateData).length === 0) return null;
 
-  const [updated] = await db.update(eventParticipants)
+  const [updated] = await db
+    .update(eventParticipants)
     .set(updateData)
     .where(
       and(
         eq(eventParticipants.id, participantId),
-        eq(eventParticipants.eventId, eventId)
-      )
+        eq(eventParticipants.eventId, eventId),
+      ),
     )
     .returning();
 
   return updated;
 }
 
-export async function removeEventParticipant(participantId: number, eventId?: number) {
+export async function removeEventParticipant(
+  participantId: number,
+  eventId?: number,
+) {
   const conditions = [eq(eventParticipants.id, participantId)];
   if (eventId !== undefined) {
     conditions.push(eq(eventParticipants.eventId, eventId));
   }
-  await db.delete(eventParticipants)
-    .where(and(...conditions));
+  await db.delete(eventParticipants).where(and(...conditions));
 }
 
 export async function acceptEventInvitation(participantId: number) {
-  const [updated] = await db.update(eventParticipants)
+  const [updated] = await db
+    .update(eventParticipants)
     .set({ acceptedAt: new Date() })
     .where(eq(eventParticipants.id, participantId))
     .returning();
