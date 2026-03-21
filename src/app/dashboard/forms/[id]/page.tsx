@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +130,10 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
   const [crmCreateLead, setCrmCreateLead] = useState(true);
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);
 
+  // Builder fields state (lifted from FormBuilder to prevent data loss on tab switch)
+  const [builderFields, setBuilderFields] = useState<BuilderField[]>([]);
+  const lastSavedRef = useRef<string>("");
+
   const { upload: uploadCover, uploading: uploadingCover } = useFileUpload({
     folder: `forms/${formId}/cover`,
     allowedTypes: ["image/*"],
@@ -147,6 +151,21 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
       toast.success("Logo subido");
     },
   });
+
+  const mapFieldsToBuilder = useCallback((fields: FieldData[]): BuilderField[] => {
+    return (fields || []).map((f, idx) => ({
+      id: `db-${f.id}`,
+      type: f.type,
+      label: f.label,
+      placeholder: f.placeholder || "",
+      required: f.required ?? false,
+      crmMapping: f.crmMapping,
+      options: f.options,
+      sortOrder: f.sortOrder ?? idx,
+      config: (f.config as Record<string, unknown>) || {},
+      dbId: f.id,
+    }));
+  }, []);
 
   const fetchForm = useCallback(async () => {
     try {
@@ -171,50 +190,97 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
         setLogoUrl(f.logoUrl || null);
         setCrmCreateContact(f.crmCreateContact ?? true);
         setCrmCreateLead(f.crmCreateLead ?? true);
+        const mapped = mapFieldsToBuilder(f.fields);
+        setBuilderFields(mapped);
+        lastSavedRef.current = JSON.stringify({ meta: { name: f.name, description: f.description || "", primaryColor: f.primaryColor || "#111827", submitButtonText: f.submitButtonText || "Enviar", thankYouTitle: f.thankYouTitle || "", thankYouMessage: f.thankYouMessage || "", redirectUrl: f.redirectUrl || "", notifyOnResponse: f.notifyOnResponse ?? true, notifyEmail: f.notifyEmail || "", gdprEnabled: f.gdprEnabled ?? false, gdprText: f.gdprText || "", gdprLink: f.gdprLink || "", coverImage: f.coverImage || null, logoUrl: f.logoUrl || null, crmCreateContact: f.crmCreateContact ?? true, crmCreateLead: f.crmCreateLead ?? true }, fields: mapped.map(({ id, dbId, ...rest }) => rest) });
       }
     } catch {
       // silent
     } finally {
       setLoading(false);
     }
-  }, [formId]);
+  }, [formId, mapFieldsToBuilder]);
 
   useEffect(() => { fetchForm(); }, [fetchForm]);
+
+  const currentSnapshot = useMemo(() => JSON.stringify({
+    meta: { name, description, primaryColor, submitButtonText, thankYouTitle, thankYouMessage, redirectUrl, notifyOnResponse, notifyEmail, gdprEnabled, gdprText, gdprLink, coverImage, logoUrl, crmCreateContact, crmCreateLead },
+    fields: builderFields.map(({ id, dbId, ...rest }) => rest),
+  }), [name, description, primaryColor, submitButtonText, thankYouTitle, thankYouMessage, redirectUrl, notifyOnResponse, notifyEmail, gdprEnabled, gdprText, gdprLink, coverImage, logoUrl, crmCreateContact, crmCreateLead, builderFields]);
+
+  const hasUnsavedChanges = lastSavedRef.current !== "" && currentSnapshot !== lastSavedRef.current;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
 
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch(`/api/forms/${formId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description: description || null,
-          logoUrl: logoUrl || null,
-          coverImage: coverImage || null,
-          primaryColor,
-          submitButtonText,
-          thankYouTitle,
-          thankYouMessage,
-          redirectUrl: redirectUrl || null,
-          notifyOnResponse,
-          notifyEmail: notifyEmail || null,
-          gdprEnabled,
-          gdprText,
-          gdprLink: gdprLink || null,
-          crmCreateContact,
-          crmCreateLead,
+      const metaPayload = {
+        name,
+        description: description || null,
+        logoUrl: logoUrl || null,
+        coverImage: coverImage || null,
+        primaryColor,
+        submitButtonText,
+        thankYouTitle,
+        thankYouMessage,
+        redirectUrl: redirectUrl || null,
+        notifyOnResponse,
+        notifyEmail: notifyEmail || null,
+        gdprEnabled,
+        gdprText,
+        gdprLink: gdprLink || null,
+        crmCreateContact,
+        crmCreateLead,
+      };
+      const fieldsPayload = {
+        fields: builderFields.map((f) => ({
+          type: f.type,
+          label: f.label,
+          placeholder: f.placeholder || null,
+          required: f.required,
+          crmMapping: f.crmMapping,
+          options: f.options,
+          sortOrder: f.sortOrder,
+          config: f.config,
+        })),
+      };
+      const [metaRes, fieldsRes] = await Promise.all([
+        fetch(`/api/forms/${formId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(metaPayload),
         }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setForm((prev) => prev ? { ...prev, ...data.data } : prev);
+        fetch(`/api/forms/${formId}/fields`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fieldsPayload),
+        }),
+      ]);
+      const metaData = await metaRes.json();
+      const fieldsData = await fieldsRes.json();
+      if (metaData.success && fieldsData.success) {
+        setForm((prev) => prev ? { ...prev, ...metaData.data } : prev);
+        const mapped = mapFieldsToBuilder(fieldsData.data || []);
+        setBuilderFields(mapped);
+        lastSavedRef.current = currentSnapshot;
         setSaved(true);
+        toast.success("Formulario guardado");
         setTimeout(() => setSaved(false), 2000);
+      } else {
+        const errors: string[] = [];
+        if (!metaData.success) errors.push(metaData.error || "Error al guardar configuración");
+        if (!fieldsData.success) errors.push(fieldsData.error || "Error al guardar campos");
+        toast.error(errors.join(". "));
       }
     } catch {
-      // silent
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -315,7 +381,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
           )}
 
           {canEdit && (
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving} className="relative">
               {saving ? (
                 <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
               ) : saved ? (
@@ -323,7 +389,10 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
               ) : (
                 <RiSaveLine className="h-4 w-4 mr-1" />
               )}
-              {saving ? "Guardando..." : saved ? "Guardado" : "Guardar diseño"}
+              {saving ? "Guardando..." : saved ? "Guardado" : "Guardar formulario"}
+              {hasUnsavedChanges && !saving && !saved && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
+              )}
             </Button>
           )}
         </div>
@@ -550,7 +619,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Campos</h2>
-                <Badge variant="secondary">{form.fields?.length || 0} campos</Badge>
+                <Badge variant="secondary">{builderFields.length} campos</Badge>
               </div>
               <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
                 <p className="text-sm">
@@ -569,72 +638,8 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
           <FormBuilder
             formId={formId}
             readOnly={form.status !== "draft"}
-            initialFields={(form.fields || []).map((f, idx) => ({
-              id: `db-${f.id}`,
-              type: f.type,
-              label: f.label,
-              placeholder: f.placeholder || "",
-              required: f.required ?? false,
-              crmMapping: f.crmMapping,
-              options: f.options,
-              sortOrder: f.sortOrder ?? idx,
-              config: (f.config as Record<string, unknown>) || {},
-              dbId: f.id,
-            }))}
-            onSave={async (fields) => {
-              const [fieldsRes, formRes] = await Promise.all([
-                fetch(`/api/forms/${formId}/fields`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    fields: fields.map((f) => ({
-                      type: f.type,
-                      label: f.label,
-                      placeholder: f.placeholder || null,
-                      required: f.required,
-                      crmMapping: f.crmMapping,
-                      options: f.options,
-                      sortOrder: f.sortOrder,
-                      config: f.config,
-                    })),
-                  }),
-                }),
-                fetch(`/api/forms/${formId}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    name,
-                    description: description || null,
-                    logoUrl: logoUrl || null,
-                    coverImage: coverImage || null,
-                    primaryColor,
-                    submitButtonText,
-                    thankYouTitle,
-                    thankYouMessage,
-                    redirectUrl: redirectUrl || null,
-                    notifyOnResponse,
-                    notifyEmail: notifyEmail || null,
-                    gdprEnabled,
-                    gdprText,
-                    gdprLink: gdprLink || null,
-                    crmCreateContact,
-                    crmCreateLead,
-                  }),
-                }),
-              ]);
-              const fieldsData = await fieldsRes.json();
-              const formData = await formRes.json();
-              if (fieldsData.success && formData.success) {
-                setForm((prev) => prev ? { ...prev, ...formData.data } : prev);
-                fetchForm();
-                toast.success("Formulario guardado");
-              } else {
-                const errors: string[] = [];
-                if (!fieldsData.success) errors.push(fieldsData.error || "Error al guardar campos");
-                if (!formData.success) errors.push(formData.error || "Error al guardar configuración");
-                toast.error(errors.join(". "));
-              }
-            }}
+            fields={builderFields}
+            onFieldsChange={setBuilderFields}
           />
         </TabsContent>
 
@@ -665,7 +670,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                 </div>
 
                 {/* Fields preview */}
-                {(form.fields || []).map((field) => (
+                {builderFields.map((field) => (
                   <div key={field.id} className="space-y-1.5">
                     {field.type === "section_title" ? (
                       <h2 className="text-lg font-semibold text-gray-900 pt-2">{field.label}</h2>

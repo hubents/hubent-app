@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -21,8 +21,7 @@ import {
 import { FieldPalette, PALETTE_SECTIONS } from "./field-palette";
 import { FormCanvas } from "./form-canvas";
 import { FieldProperties } from "./field-properties";
-import { Button } from "@/components/ui/button";
-import { RiSaveLine, RiCheckLine, RiLoader4Line, RiLock2Line } from "@remixicon/react";
+import { RiLock2Line } from "@remixicon/react";
 import { toast } from "sonner";
 
 export interface BuilderField {
@@ -40,19 +39,24 @@ export interface BuilderField {
 
 interface FormBuilderProps {
   formId: number;
-  initialFields: BuilderField[];
-  onSave: (fields: BuilderField[]) => Promise<void>;
+  fields: BuilderField[];
+  onFieldsChange: (fields: BuilderField[]) => void;
   readOnly?: boolean;
 }
 
 let fieldCounter = 0;
 
-export function FormBuilder({ formId, initialFields, onSave, readOnly }: FormBuilderProps) {
-  const [fields, setFields] = useState<BuilderField[]>(initialFields);
+export function FormBuilder({ formId, fields, onFieldsChange, readOnly }: FormBuilderProps) {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  const setFields = useCallback((updater: BuilderField[] | ((prev: BuilderField[]) => BuilderField[])) => {
+    if (typeof updater === "function") {
+      onFieldsChange(updater(fields));
+    } else {
+      onFieldsChange(updater);
+    }
+  }, [fields, onFieldsChange]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -140,25 +144,11 @@ export function FormBuilder({ formId, initialFields, onSave, readOnly }: FormBui
     setFields((prev) => prev.map((f) => f.id === fieldId ? { ...f, ...updates } : f));
   }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaved(false);
-    try {
-      await onSave(fields);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {
-      // silent
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const activeField = fields.find((f) => f.id === activeId);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Save bar / Locked banner */}
+      {/* Locked banner */}
       {readOnly ? (
         <div className="flex items-center gap-2 border-b px-4 py-2.5 bg-amber-50 text-amber-800">
           <RiLock2Line className="h-4 w-4 shrink-0" />
@@ -167,20 +157,10 @@ export function FormBuilder({ formId, initialFields, onSave, readOnly }: FormBui
           </p>
         </div>
       ) : (
-        <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
+        <div className="flex items-center border-b px-4 py-2 bg-muted/30">
           <p className="text-sm text-muted-foreground">
             {fields.length} {fields.length === 1 ? "campo" : "campos"}
           </p>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
-            ) : saved ? (
-              <RiCheckLine className="h-4 w-4 mr-1" />
-            ) : (
-              <RiSaveLine className="h-4 w-4 mr-1" />
-            )}
-            {saving ? "Guardando..." : saved ? "Guardado" : "Guardar todo"}
-          </Button>
         </div>
       )}
 

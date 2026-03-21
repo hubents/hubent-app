@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   RiUserLine,
   RiMailLine,
@@ -28,12 +29,26 @@ import {
   RiStore2Line,
   RiGlobalLine,
   RiPriceTag3Line,
+  RiContactsBookLine,
+  RiQuillPenLine,
+  RiPaletteLine,
+  RiArrowDownSLine,
 } from "@remixicon/react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { type RemixiconComponentType } from "@remixicon/react";
 
-export const PALETTE_SECTIONS = [
+export const PALETTE_SECTIONS: {
+  title: string;
+  description: string;
+  icon: RemixiconComponentType;
+  defaultOpen: boolean;
+  fields: { type: string; label: string; icon: RemixiconComponentType; crmMapping: string | null }[];
+}[] = [
   {
     title: "Datos CRM",
-    description: "Se mapean automáticamente al contacto/lead",
+    description: "Se guardan automáticamente en el CRM. Ej: leads de landing pages",
+    icon: RiContactsBookLine,
+    defaultOpen: true,
     fields: [
       { type: "name", label: "Nombre", icon: RiUserLine, crmMapping: "name" },
       { type: "last_name", label: "Apellido", icon: RiUserLine, crmMapping: "lastName" },
@@ -59,7 +74,9 @@ export const PALETTE_SECTIONS = [
   },
   {
     title: "Campos adicionales",
-    description: "Campos personalizados",
+    description: "Información extra para eventos y tareas. Ej: cuestionarios, contratos",
+    icon: RiQuillPenLine,
+    defaultOpen: false,
     fields: [
       { type: "short_text", label: "Texto corto", icon: RiInputMethodLine, crmMapping: null },
       { type: "long_text", label: "Texto largo", icon: RiTextBlock, crmMapping: null },
@@ -72,7 +89,9 @@ export const PALETTE_SECTIONS = [
   },
   {
     title: "Diseño",
-    description: "Elementos visuales",
+    description: "Elementos visuales para organizar el formulario",
+    icon: RiPaletteLine,
+    defaultOpen: false,
     fields: [
       { type: "section_title", label: "Título de sección", icon: RiHeading, crmMapping: null },
       { type: "descriptive_text", label: "Texto descriptivo", icon: RiFileTextLine, crmMapping: null },
@@ -87,40 +106,70 @@ interface FieldPaletteProps {
 }
 
 export function FieldPalette({ onAddField, onAddAllCrm }: FieldPaletteProps) {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    Object.fromEntries(PALETTE_SECTIONS.map((s) => [s.title, s.defaultOpen]))
+  );
+
+  const toggleSection = (title: string) => {
+    setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
+
   return (
-    <div className="p-4 space-y-5">
-      <h3 className="text-sm font-semibold text-foreground">Campos disponibles</h3>
+    <div className="p-4 space-y-1">
+      <h3 className="text-sm font-semibold text-foreground mb-3">Campos disponibles</h3>
       {PALETTE_SECTIONS.map((section) => (
-        <div key={section.title} className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {section.title}
-            </p>
-            {section.title === "Datos CRM" && onAddAllCrm && (
-              <button
-                onClick={onAddAllCrm}
-                className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
-                title="Agregar todos los campos CRM"
-              >
-                <RiAddLine className="h-3 w-3" />
-                Todos
-              </button>
-            )}
+        <Collapsible
+          key={section.title}
+          open={openSections[section.title]}
+          onOpenChange={() => toggleSection(section.title)}
+        >
+          <div className="rounded-lg">
+            <CollapsibleTrigger className="flex items-center gap-2 w-full rounded-lg px-2 py-2 hover:bg-accent transition-colors text-left">
+              <section.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{section.title}</span>
+                  <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
+                    {section.fields.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 line-clamp-1">
+                  {section.description}
+                </p>
+              </div>
+              <RiArrowDownSLine
+                className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                  openSections[section.title] ? "rotate-180" : ""
+                }`}
+              />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <div className="mt-1 space-y-0.5">
+                {section.title === "Datos CRM" && onAddAllCrm && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAddAllCrm(); }}
+                    className="flex items-center gap-1 w-full rounded-md px-3 py-1.5 text-xs text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <RiAddLine className="h-3 w-3" />
+                    Agregar todos los campos CRM
+                  </button>
+                )}
+                {section.fields.map((field) => (
+                  <button
+                    key={field.type}
+                    onClick={() => onAddField(field.type, field.label, field.crmMapping)}
+                    className="flex items-center gap-2 w-full rounded-md px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors group"
+                  >
+                    <field.icon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground" />
+                    <span className="flex-1">{field.label}</span>
+                    <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100">+</span>
+                  </button>
+                ))}
+              </div>
+            </CollapsibleContent>
           </div>
-          <div className="space-y-1">
-            {section.fields.map((field) => (
-              <button
-                key={field.type}
-                onClick={() => onAddField(field.type, field.label, field.crmMapping)}
-                className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-left hover:bg-accent transition-colors group"
-              >
-                <field.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                <span className="flex-1">{field.label}</span>
-                <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100">+</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        </Collapsible>
       ))}
     </div>
   );
