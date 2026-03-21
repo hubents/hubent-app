@@ -83,13 +83,13 @@ interface CollaboratorDrawerProps {
 
 const SECTIONS = [
   { key: "general", label: "General", levels: ["none", "view", "edit"] },
+  { key: "calendar", label: "Calendario", levels: ["none", "view", "edit"] },
   { key: "tasks", label: "Tareas", levels: ["none", "view", "edit"] },
-  { key: "guests", label: "Lista de Invitados", levels: ["none", "view", "edit"] },
-  { key: "rsvp", label: "RSVP", levels: ["none", "view", "edit"] },
   { key: "vendors", label: "Proveedores", levels: ["none", "view"] },
   { key: "finances", label: "Finanzas", levels: ["none", "view"] },
-  { key: "runsheet", label: "Orden del d\u00eda", levels: ["none", "view", "edit"] },
-  { key: "calendar", label: "Calendario", levels: ["none", "view", "edit"] },
+  { key: "rsvp", label: "RSVP", levels: ["none", "view", "edit"] },
+  { key: "guests", label: "Lista de Invitados", levels: ["none", "view", "edit"] },
+  { key: "runsheet", label: "Orden del día", levels: ["none", "view", "edit"] },
 ] as const;
 
 const LEVEL_LABELS: Record<string, string> = {
