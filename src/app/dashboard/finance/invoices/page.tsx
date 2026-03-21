@@ -50,6 +50,7 @@ import { PaymentDrawer } from "@/components/finance/payment-drawer";
 import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { cn } from "@/lib/utils";
 import { useUserSession } from "@/hooks/use-user-session";
+import { type ScopeValue } from "@/components/ui/scope-filter";
 
 interface DocumentItem {
   id: number;
@@ -135,26 +136,29 @@ function InvoicesContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
+  const [scope, setScope] = useState<ScopeValue>("standalone");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"invoice" | "delivery_note">("invoice");
-  
+  const [drawerType, setDrawerType] = useState<"invoice" | "delivery_note">(
+    "invoice",
+  );
+
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
-  
+
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     fetchInvoices();
-  }, [page, statusFilter, directionTab]);
+  }, [page, statusFilter, directionTab, scope]);
 
   useEffect(() => {
     if (searchParams.get("new") === "true") {
@@ -180,6 +184,9 @@ function InvoicesContent() {
       if (searchTerm) {
         params.set("search", searchTerm);
       }
+      if (scope !== "all") {
+        params.set("scope", scope);
+      }
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
@@ -190,7 +197,8 @@ function InvoicesContent() {
         }
       } else {
         const data = await res.json().catch(() => null);
-        const msg = data?.error?.message || `Error del servidor (${res.status})`;
+        const msg =
+          data?.error?.message || `Error del servidor (${res.status})`;
         setFetchError(msg);
         toast.error(msg);
       }
@@ -222,7 +230,10 @@ function InvoicesContent() {
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "invoice" | "delivery_note") {
+  async function fetchDocAndOpenDrawer(
+    id: number,
+    targetType: "invoice" | "delivery_note",
+  ) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -235,9 +246,15 @@ function InvoicesContent() {
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
-            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote
+              ? undefined
+              : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote
+              ? undefined
+              : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote
+              ? undefined
+              : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
@@ -260,7 +277,12 @@ function InvoicesContent() {
   }
 
   async function createCreditNote(id: number) {
-    if (!confirm("¿Crear una factura rectificativa? Esto generará una factura con importes negativos que anula la factura original.")) return;
+    if (
+      !confirm(
+        "¿Crear una factura rectificativa? Esto generará una factura con importes negativos que anula la factura original.",
+      )
+    )
+      return;
 
     try {
       const res = await fetch(`/api/finance/documents/${id}/credit-note`, {
@@ -271,7 +293,9 @@ function InvoicesContent() {
         fetchInvoices();
       } else {
         const error = await res.json();
-        toast.error(error.error?.message || "Error al crear factura rectificativa");
+        toast.error(
+          error.error?.message || "Error al crear factura rectificativa",
+        );
       }
     } catch (error) {
       toast.error("Error al crear factura rectificativa");
@@ -286,7 +310,9 @@ function InvoicesContent() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        toast.success(
+          `Estado actualizado a ${statusConfig[status]?.label || status}`,
+        );
         fetchInvoices();
       } else {
         const data = await res.json().catch(() => null);
@@ -371,7 +397,8 @@ function InvoicesContent() {
 
   function isOverdue(invoice: Invoice): boolean {
     if (!invoice.dueDate) return false;
-    if (invoice.status === "paid" || invoice.status === "cancelled") return false;
+    if (invoice.status === "paid" || invoice.status === "cancelled")
+      return false;
     return new Date(invoice.dueDate) < new Date();
   }
 
@@ -420,12 +447,23 @@ function InvoicesContent() {
         onSearchChange={setSearchTerm}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder="Buscar por número o cliente..."
+        scope={scope}
+        onScopeChange={(v) => {
+          setScope(v);
+          setPage(1);
+        }}
         directions={directionTabs}
         activeDirection={directionTab}
-        onDirectionChange={(key) => { setDirectionTab(key as DirectionTab); setPage(1); }}
+        onDirectionChange={(key) => {
+          setDirectionTab(key as DirectionTab);
+          setPage(1);
+        }}
         statusTabs={statusTabs}
         activeStatus={statusFilter}
-        onStatusChange={(key) => { setStatusFilter(key); setPage(1); }}
+        onStatusChange={(key) => {
+          setStatusFilter(key);
+          setPage(1);
+        }}
       />
 
       {/* Table */}
@@ -448,14 +486,22 @@ function InvoicesContent() {
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <div className="text-red-600 font-medium">{fetchError}</div>
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchInvoices()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => fetchInvoices()}
+                    >
                       Reintentar
                     </Button>
                   </TableCell>
                 </TableRow>
               ) : invoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     No hay facturas
                   </TableCell>
                 </TableRow>
@@ -463,14 +509,21 @@ function InvoicesContent() {
                 invoices.map((invoice: Invoice) => {
                   const displayStatus = getDisplayStatus(invoice);
                   return (
-                    <TableRow 
-                      key={invoice.id} 
+                    <TableRow
+                      key={invoice.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => invoice.status === "paid" || invoice.status === "partial" ? openPreview(invoice.id) : openEditDrawer(invoice.id)}
+                      onClick={() =>
+                        invoice.status === "paid" ||
+                        invoice.status === "partial"
+                          ? openPreview(invoice.id)
+                          : openEditDrawer(invoice.id)
+                      }
                     >
                       <TableCell>
                         {invoice.issueDate
-                          ? format(new Date(invoice.issueDate), "dd MMM yyyy", { locale: es })
+                          ? format(new Date(invoice.issueDate), "dd MMM yyyy", {
+                              locale: es,
+                            })
                           : "-"}
                       </TableCell>
                       <TableCell>{getClientName(invoice)}</TableCell>
@@ -481,14 +534,23 @@ function InvoicesContent() {
                         {(() => {
                           const total = parseFloat(invoice.total || "0");
                           const paid = parseFloat(invoice.paidAmount || "0");
-                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
-                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          if (paid <= 0)
+                            return (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          const pct =
+                            total > 0 ? Math.min((paid / total) * 100, 100) : 0;
                           return (
                             <div className="flex items-center gap-2 min-w-[100px]">
                               <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full"
+                                  style={{ width: `${pct}%` }}
+                                />
                               </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {pct.toFixed(0)}%
+                              </span>
                             </div>
                           );
                         })()}
@@ -498,8 +560,14 @@ function InvoicesContent() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
-                            {statusConfig[displayStatus]?.label || invoice.status}
+                          <Badge
+                            className={
+                              statusConfig[displayStatus]?.color ||
+                              "bg-gray-100"
+                            }
+                          >
+                            {statusConfig[displayStatus]?.label ||
+                              invoice.status}
                           </Badge>
                         </div>
                       </TableCell>
@@ -512,27 +580,43 @@ function InvoicesContent() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {/* Payment actions — available when not fully paid */}
-                            {(invoice.status === "sent" || invoice.status === "partial") && (
+                            {(invoice.status === "sent" ||
+                              invoice.status === "partial") && (
                               <>
-                                <DropdownMenuItem onClick={() => openPaymentDialog(invoice)}>
+                                <DropdownMenuItem
+                                  onClick={() => openPaymentDialog(invoice)}
+                                >
                                   <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
                                   Registrar Pago
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => generatePaymentLink(invoice)}>
+                                <DropdownMenuItem
+                                  onClick={() => generatePaymentLink(invoice)}
+                                >
                                   <RiLinkM className="mr-2 h-4 w-4" />
                                   Generar Link de Pago
                                 </DropdownMenuItem>
                               </>
                             )}
                             {/* Credit note and delivery note */}
-                            {(invoice.status === "sent" || invoice.status === "paid" || invoice.status === "partial") && (
+                            {(invoice.status === "sent" ||
+                              invoice.status === "paid" ||
+                              invoice.status === "partial") && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "delivery_note")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    fetchDocAndOpenDrawer(
+                                      invoice.id,
+                                      "delivery_note",
+                                    )
+                                  }
+                                >
                                   <RiTruckLine className="mr-2 h-4 w-4" />
                                   Convertir a Albarán
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => createCreditNote(invoice.id)}>
+                                <DropdownMenuItem
+                                  onClick={() => createCreditNote(invoice.id)}
+                                >
                                   <RiRefund2Line className="mr-2 h-4 w-4" />
                                   Crear Factura Rectificativa
                                 </DropdownMenuItem>
@@ -540,21 +624,37 @@ function InvoicesContent() {
                             )}
                             <DropdownMenuSeparator />
                             {/* Common actions */}
-                            {invoice.status !== "paid" && invoice.status !== "partial" && (
-                              <DropdownMenuItem onClick={() => openEditDrawer(invoice.id)}>
-                                <RiEditLine className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => openPreview(invoice.id)}>
+                            {invoice.status !== "paid" &&
+                              invoice.status !== "partial" && (
+                                <DropdownMenuItem
+                                  onClick={() => openEditDrawer(invoice.id)}
+                                >
+                                  <RiEditLine className="mr-2 h-4 w-4" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                            <DropdownMenuItem
+                              onClick={() => openPreview(invoice.id)}
+                            >
                               <RiEyeLine className="mr-2 h-4 w-4" />
                               Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(invoice.id, "invoice")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                fetchDocAndOpenDrawer(invoice.id, "invoice")
+                              }
+                            >
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => downloadDocumentPDF(invoice.id, `invoice-${invoice.number}.pdf`)}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                downloadDocumentPDF(
+                                  invoice.id,
+                                  `invoice-${invoice.number}.pdf`,
+                                )
+                              }
+                            >
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
@@ -597,7 +697,10 @@ function InvoicesContent() {
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) { setDrawerInitialData(undefined); setDrawerType("invoice"); }
+          if (!open) {
+            setDrawerInitialData(undefined);
+            setDrawerType("invoice");
+          }
         }}
         type={drawerType}
         documentId={editingId}
@@ -609,7 +712,11 @@ function InvoicesContent() {
         }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "invoice" | "delivery_note");
+          if (editingId)
+            fetchDocAndOpenDrawer(
+              editingId,
+              targetType as "invoice" | "delivery_note",
+            );
         }}
       />
 

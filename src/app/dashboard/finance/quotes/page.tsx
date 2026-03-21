@@ -49,6 +49,7 @@ import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 import { useUserSession } from "@/hooks/use-user-session";
+import { type ScopeValue } from "@/components/ui/scope-filter";
 
 interface DocumentItem {
   id: number;
@@ -97,7 +98,10 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
   accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
   rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
-  payment_promise: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
+  payment_promise: {
+    label: "Promesa de pago",
+    color: "bg-amber-100 text-amber-700",
+  },
   // Legacy fallbacks — cleaned up by migration 0044, kept for safety
   partial: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
   paid: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
@@ -137,22 +141,25 @@ function QuotesContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
+  const [scope, setScope] = useState<ScopeValue>("standalone");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"quote" | "invoice" | "delivery_note">("quote");
-  
+  const [drawerType, setDrawerType] = useState<
+    "quote" | "invoice" | "delivery_note"
+  >("quote");
+
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
     fetchQuotes();
-  }, [page, statusFilter, directionTab]);
+  }, [page, statusFilter, directionTab, scope]);
 
   useEffect(() => {
     if (searchParams.get("new") === "true") {
@@ -172,6 +179,7 @@ function QuotesContent() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (directionTab !== "all") params.set("direction", directionTab);
       if (searchTerm) params.set("search", searchTerm);
+      if (scope !== "all") params.set("scope", scope);
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
@@ -182,7 +190,8 @@ function QuotesContent() {
         }
       } else {
         const data = await res.json().catch(() => null);
-        const msg = data?.error?.message || `Error del servidor (${res.status})`;
+        const msg =
+          data?.error?.message || `Error del servidor (${res.status})`;
         setFetchError(msg);
         toast.error(msg);
       }
@@ -214,7 +223,10 @@ function QuotesContent() {
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "quote" | "invoice" | "delivery_note") {
+  async function fetchDocAndOpenDrawer(
+    id: number,
+    targetType: "quote" | "invoice" | "delivery_note",
+  ) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -227,9 +239,15 @@ function QuotesContent() {
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
-            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote
+              ? undefined
+              : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote
+              ? undefined
+              : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote
+              ? undefined
+              : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
@@ -259,12 +277,16 @@ function QuotesContent() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        toast.success(
+          `Estado actualizado a ${statusConfig[status]?.label || status}`,
+        );
         fetchQuotes();
-        
+
         // If accepted, ask if user wants to generate invoice
         if (status === "accepted") {
-          const generateInvoice = confirm("¿Deseas generar una factura a partir de este presupuesto?");
+          const generateInvoice = confirm(
+            "¿Deseas generar una factura a partir de este presupuesto?",
+          );
           if (generateInvoice) {
             await fetchDocAndOpenDrawer(id, "invoice");
           }
@@ -326,7 +348,12 @@ function QuotesContent() {
   };
 
   function getDisplayStatus(quote: Quote): string {
-    if (quote.validUntil && quote.status !== "accepted" && quote.status !== "rejected" && quote.status !== "cancelled") {
+    if (
+      quote.validUntil &&
+      quote.status !== "accepted" &&
+      quote.status !== "rejected" &&
+      quote.status !== "cancelled"
+    ) {
       if (new Date(quote.validUntil) < new Date()) return "overdue";
     }
     return quote.status;
@@ -372,12 +399,23 @@ function QuotesContent() {
         onSearchChange={setSearchTerm}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder="Buscar por número o cliente..."
+        scope={scope}
+        onScopeChange={(v) => {
+          setScope(v);
+          setPage(1);
+        }}
         directions={directionTabs}
         activeDirection={directionTab}
-        onDirectionChange={(key) => { setDirectionTab(key as DirectionTab); setPage(1); }}
+        onDirectionChange={(key) => {
+          setDirectionTab(key as DirectionTab);
+          setPage(1);
+        }}
         statusTabs={statusTabs}
         activeStatus={statusFilter}
-        onStatusChange={(key) => { setStatusFilter(key); setPage(1); }}
+        onStatusChange={(key) => {
+          setStatusFilter(key);
+          setPage(1);
+        }}
       />
 
       {/* Table */}
@@ -400,14 +438,22 @@ function QuotesContent() {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">
                     <div className="text-red-600 font-medium">{fetchError}</div>
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => fetchQuotes()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => fetchQuotes()}
+                    >
                       Reintentar
                     </Button>
                   </TableCell>
                 </TableRow>
               ) : quotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     No hay presupuestos
                   </TableCell>
                 </TableRow>
@@ -415,14 +461,16 @@ function QuotesContent() {
                 quotes.map((quote: Quote) => {
                   const displayStatus = getDisplayStatus(quote);
                   return (
-                    <TableRow 
+                    <TableRow
                       key={quote.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => openEditDrawer(quote.id)}
                     >
                       <TableCell>
                         {quote.issueDate
-                          ? format(new Date(quote.issueDate), "dd MMM yyyy", { locale: es })
+                          ? format(new Date(quote.issueDate), "dd MMM yyyy", {
+                              locale: es,
+                            })
                           : "-"}
                       </TableCell>
                       <TableCell>{getClientName(quote)}</TableCell>
@@ -433,14 +481,23 @@ function QuotesContent() {
                         {(() => {
                           const total = parseFloat(quote.total || "0");
                           const paid = parseFloat(quote.paidAmount || "0");
-                          if (paid <= 0) return <span className="text-muted-foreground">-</span>;
-                          const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                          if (paid <= 0)
+                            return (
+                              <span className="text-muted-foreground">-</span>
+                            );
+                          const pct =
+                            total > 0 ? Math.min((paid / total) * 100, 100) : 0;
                           return (
                             <div className="flex items-center gap-2 min-w-[100px]">
                               <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full"
+                                  style={{ width: `${pct}%` }}
+                                />
                               </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {pct.toFixed(0)}%
+                              </span>
                             </div>
                           );
                         })()}
@@ -449,7 +506,11 @@ function QuotesContent() {
                         {formatCurrency(quote.total, quote.currency)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusConfig[displayStatus]?.color || "bg-gray-100"}>
+                        <Badge
+                          className={
+                            statusConfig[displayStatus]?.color || "bg-gray-100"
+                          }
+                        >
                           {statusConfig[displayStatus]?.label || quote.status}
                         </Badge>
                       </TableCell>
@@ -464,11 +525,19 @@ function QuotesContent() {
                             {/* Status actions per state */}
                             {quote.status === "sent" && (
                               <>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(quote.id, "accepted")
+                                  }
+                                >
                                   <RiCheckLine className="mr-2 h-4 w-4" />
                                   Aceptar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "rejected")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(quote.id, "rejected")
+                                  }
+                                >
                                   <RiCloseLine className="mr-2 h-4 w-4" />
                                   Rechazar
                                 </DropdownMenuItem>
@@ -476,11 +545,17 @@ function QuotesContent() {
                             )}
                             {quote.status === "accepted" && (
                               <>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "payment_promise")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(quote.id, "payment_promise")
+                                  }
+                                >
                                   <RiHandCoinLine className="mr-2 h-4 w-4" />
                                   Promesa de pago
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                <DropdownMenuItem
+                                  onClick={() => updateStatus(quote.id, "sent")}
+                                >
                                   <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                   Volver a Pendiente
                                 </DropdownMenuItem>
@@ -488,11 +563,17 @@ function QuotesContent() {
                             )}
                             {quote.status === "rejected" && (
                               <>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                <DropdownMenuItem
+                                  onClick={() => updateStatus(quote.id, "sent")}
+                                >
                                   <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                   Volver a Pendiente
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(quote.id, "accepted")
+                                  }
+                                >
                                   <RiCheckLine className="mr-2 h-4 w-4" />
                                   Aceptar
                                 </DropdownMenuItem>
@@ -500,29 +581,49 @@ function QuotesContent() {
                             )}
                             {quote.status === "payment_promise" && (
                               <>
-                                <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                                <DropdownMenuItem
+                                  onClick={() => openPreview(quote.id)}
+                                >
                                   <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
                                   Registrar Pago
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    updateStatus(quote.id, "accepted")
+                                  }
+                                >
                                   <RiCheckLine className="mr-2 h-4 w-4" />
                                   Volver a Aceptado
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                <DropdownMenuItem
+                                  onClick={() => updateStatus(quote.id, "sent")}
+                                >
                                   <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                   Volver a Pendiente
                                 </DropdownMenuItem>
                               </>
                             )}
                             {/* Convert actions */}
-                            {(quote.status === "accepted" || quote.status === "payment_promise") && (
+                            {(quote.status === "accepted" ||
+                              quote.status === "payment_promise") && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    fetchDocAndOpenDrawer(quote.id, "invoice")
+                                  }
+                                >
                                   <RiExchangeLine className="mr-2 h-4 w-4" />
                                   Convertir a Factura
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "delivery_note")}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    fetchDocAndOpenDrawer(
+                                      quote.id,
+                                      "delivery_note",
+                                    )
+                                  }
+                                >
                                   <RiTruckLine className="mr-2 h-4 w-4" />
                                   Convertir a Albarán
                                 </DropdownMenuItem>
@@ -530,24 +631,40 @@ function QuotesContent() {
                             )}
                             <DropdownMenuSeparator />
                             {/* Common actions */}
-                            <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
+                            <DropdownMenuItem
+                              onClick={() => openEditDrawer(quote.id)}
+                            >
                               <RiEditLine className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                            <DropdownMenuItem
+                              onClick={() => openPreview(quote.id)}
+                            >
                               <RiEyeLine className="mr-2 h-4 w-4" />
                               Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "quote")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                fetchDocAndOpenDrawer(quote.id, "quote")
+                              }
+                            >
                               <RiFileCopyLine className="mr-2 h-4 w-4" />
                               Duplicar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => downloadDocumentPDF(quote.id, `quote-${quote.number}.pdf`)}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                downloadDocumentPDF(
+                                  quote.id,
+                                  `quote-${quote.number}.pdf`,
+                                )
+                              }
+                            >
                               <RiFileDownloadLine className="mr-2 h-4 w-4" />
                               Descargar PDF
                             </DropdownMenuItem>
                             {/* Delete only for sent/rejected */}
-                            {(quote.status === "sent" || quote.status === "rejected") && (
+                            {(quote.status === "sent" ||
+                              quote.status === "rejected") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -585,7 +702,10 @@ function QuotesContent() {
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) { setDrawerInitialData(undefined); setDrawerType("quote"); }
+          if (!open) {
+            setDrawerInitialData(undefined);
+            setDrawerType("quote");
+          }
         }}
         type={drawerType}
         documentId={editingId}
@@ -597,7 +717,11 @@ function QuotesContent() {
         }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "quote" | "invoice" | "delivery_note");
+          if (editingId)
+            fetchDocAndOpenDrawer(
+              editingId,
+              targetType as "quote" | "invoice" | "delivery_note",
+            );
         }}
       />
 

@@ -25,7 +25,9 @@ interface TaskStats {
   completionRate: number;
 }
 
-export function useTasks(eventId?: number) {
+export type TaskScope = "standalone" | "event" | "all";
+
+export function useTasks(eventId?: number, scope?: TaskScope) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<TaskStats>({
     total: 0,
@@ -40,10 +42,14 @@ export function useTasks(eventId?: number) {
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      let url = "/api/tasks";
+      const params = new URLSearchParams();
       if (eventId) {
-        url += `?eventId=${eventId}`;
+        params.set("eventId", eventId.toString());
+      } else if (scope && scope !== "all") {
+        params.set("scope", scope);
       }
+      const qs = params.toString();
+      const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
 
       const response = await fetch(url);
       const result = await response.json();
@@ -54,9 +60,15 @@ export function useTasks(eventId?: number) {
 
         // Calculate stats
         const total = taskList.length;
-        const completed = taskList.filter((t: Task) => t.status === "completed").length;
-        const inProgress = taskList.filter((t: Task) => t.status === "in_progress").length;
-        const pending = taskList.filter((t: Task) => t.status === "pending").length;
+        const completed = taskList.filter(
+          (t: Task) => t.status === "completed",
+        ).length;
+        const inProgress = taskList.filter(
+          (t: Task) => t.status === "in_progress",
+        ).length;
+        const pending = taskList.filter(
+          (t: Task) => t.status === "pending",
+        ).length;
 
         setStats({
           total,
@@ -73,68 +85,77 @@ export function useTasks(eventId?: number) {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, scope]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
-  const updateTaskStatus = useCallback(async (taskId: number, status: string) => {
-    try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+  const updateTaskStatus = useCallback(
+    async (taskId: number, status: string) => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
 
-      if (response.ok) {
-        // Optimistic update
-        setTasks(prev =>
-          prev.map(t => (t.id === taskId ? { ...t, status } : t))
-        );
-        fetchTasks(); // Refetch for accurate stats
+        if (response.ok) {
+          // Optimistic update
+          setTasks((prev) =>
+            prev.map((t) => (t.id === taskId ? { ...t, status } : t)),
+          );
+          fetchTasks(); // Refetch for accurate stats
+        }
+      } catch (err) {
+        console.error("Failed to update task:", err);
       }
-    } catch (err) {
-      console.error("Failed to update task:", err);
-    }
-  }, [fetchTasks]);
+    },
+    [fetchTasks],
+  );
 
-  const createTask = useCallback(async (data: {
-    title: string;
-    description?: string;
-    priority?: string;
-    dueDate?: Date;
-    eventId?: number;
-    assignedTo?: string;
-  }) => {
-    try {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+  const createTask = useCallback(
+    async (data: {
+      title: string;
+      description?: string;
+      priority?: string;
+      dueDate?: Date;
+      eventId?: number;
+      assignedTo?: string;
+    }) => {
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
 
-      const result = await response.json();
+        const result = await response.json();
 
-      if (result.success) {
+        if (result.success) {
+          fetchTasks();
+          return result.data;
+        }
+        return null;
+      } catch (err) {
+        console.error("Failed to create task:", err);
+        return null;
+      }
+    },
+    [fetchTasks],
+  );
+
+  const deleteTask = useCallback(
+    async (taskId: number) => {
+      try {
+        await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
         fetchTasks();
-        return result.data;
+      } catch (err) {
+        console.error("Failed to delete task:", err);
       }
-      return null;
-    } catch (err) {
-      console.error("Failed to create task:", err);
-      return null;
-    }
-  }, [fetchTasks]);
-
-  const deleteTask = useCallback(async (taskId: number) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      fetchTasks();
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    }
-  }, [fetchTasks]);
+    },
+    [fetchTasks],
+  );
 
   return {
     tasks,

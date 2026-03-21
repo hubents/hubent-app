@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, events, users, eventParticipants, taskParticipants, providerEventAccess } from "@/db/schema";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import {
+  tasks,
+  events,
+  users,
+  eventParticipants,
+  taskParticipants,
+  providerEventAccess,
+} from "@/db/schema";
+import { eq, and, desc, asc, sql, isNull, isNotNull } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/tasks - List tasks
-export const GET = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("tasks:read");
+export const GET = withMonitoring(
+  async (request: NextRequest) => {
+    const session = await requirePermission("tasks:read");
     const { searchParams } = new URL(request.url);
-    
+
     const eventId = searchParams.get("eventId");
+    const scope = searchParams.get("scope") as
+      | "standalone"
+      | "event"
+      | "all"
+      | null;
     const status = searchParams.get("status");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
@@ -20,10 +33,20 @@ export const GET = withMonitoring(async (request: NextRequest) => {
 
     if (eventId) {
       whereClause = and(whereClause, eq(tasks.eventId, parseInt(eventId, 10)))!;
+    } else if (scope === "standalone") {
+      whereClause = and(whereClause, isNull(tasks.eventId))!;
+    } else if (scope === "event") {
+      whereClause = and(whereClause, isNotNull(tasks.eventId))!;
     }
 
     if (status) {
-      whereClause = and(whereClause, eq(tasks.status, status as "pending" | "in_progress" | "completed" | "cancelled"))!;
+      whereClause = and(
+        whereClause,
+        eq(
+          tasks.status,
+          status as "pending" | "in_progress" | "completed" | "cancelled",
+        ),
+      )!;
     }
 
     // For eventScoped roles, apply participation-based filtering:
@@ -46,7 +69,7 @@ export const GET = withMonitoring(async (request: NextRequest) => {
           )
           OR ${tasks.assignedTo} = ${session.user.userId}
           OR ${tasks.createdBy} = ${session.user.userId}
-        )`
+        )`,
       )!;
     }
 
@@ -73,15 +96,18 @@ export const GET = withMonitoring(async (request: NextRequest) => {
       .limit(limit)
       .offset(offset);
 
-  return NextResponse.json({
-    success: true,
-    data: results,
-  });
-}, { name: "GET /api/tasks" });
+    return NextResponse.json({
+      success: true,
+      data: results,
+    });
+  },
+  { name: "GET /api/tasks" },
+);
 
 // POST /api/tasks - Create task
-export const POST = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("tasks:create");
+export const POST = withMonitoring(
+  async (request: NextRequest) => {
+    const session = await requirePermission("tasks:create");
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;
@@ -93,8 +119,11 @@ export const POST = withMonitoring(async (request: NextRequest) => {
 
     if (!title) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Title is required" } },
-        { status: 400 }
+        {
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "Title is required" },
+        },
+        { status: 400 },
       );
     }
 
@@ -106,23 +135,26 @@ export const POST = withMonitoring(async (request: NextRequest) => {
         and(
           eq(tasks.organizationId, session.organizationId),
           eventId ? eq(tasks.eventId, eventId) : sql`${tasks.eventId} IS NULL`,
-          eq(tasks.status, body.status || "pending")
-        )
+          eq(tasks.status, body.status || "pending"),
+        ),
       );
     const nextSortOrder = (maxOrderResult[0]?.maxOrder || 0) + 1;
 
-    const [task] = await db.insert(tasks).values({
-      organizationId: session.organizationId,
-      title,
-      description,
-      status: body.status || "pending",
-      priority: priority || "medium",
-      dueDate: dueDate ? new Date(dueDate) : undefined,
-      eventId,
-      assignedTo: assignedTo || session.user.userId,
-      createdBy: session.user.userId,
-      sortOrder: nextSortOrder,
-    }).returning();
+    const [task] = await db
+      .insert(tasks)
+      .values({
+        organizationId: session.organizationId,
+        title,
+        description,
+        status: body.status || "pending",
+        priority: priority || "medium",
+        dueDate: dueDate ? new Date(dueDate) : undefined,
+        eventId,
+        assignedTo: assignedTo || session.user.userId,
+        createdBy: session.user.userId,
+        sortOrder: nextSortOrder,
+      })
+      .returning();
 
     // Auto-add vendor participants for active providers in this event (non-blocking)
     if (eventId) {
@@ -134,8 +166,8 @@ export const POST = withMonitoring(async (request: NextRequest) => {
             .where(
               and(
                 eq(providerEventAccess.eventId, eventId),
-                eq(providerEventAccess.status, "active")
-              )
+                eq(providerEventAccess.status, "active"),
+              ),
             );
 
           let vendorsLinked = 0;
@@ -144,7 +176,7 @@ export const POST = withMonitoring(async (request: NextRequest) => {
             const exists = await db.query.taskParticipants.findFirst({
               where: and(
                 eq(taskParticipants.taskId, task.id),
-                eq(taskParticipants.vendorId, p.vendorId)
+                eq(taskParticipants.vendorId, p.vendorId),
               ),
             });
             if (exists) continue;
@@ -159,16 +191,23 @@ export const POST = withMonitoring(async (request: NextRequest) => {
             vendorsLinked++;
           }
           if (vendorsLinked > 0) {
-            console.log(`[createTask] taskId=${task.id} eventId=${eventId} vendorsLinked=${vendorsLinked}`);
+            console.log(
+              `[createTask] taskId=${task.id} eventId=${eventId} vendorsLinked=${vendorsLinked}`,
+            );
           }
         } catch (err) {
-          console.error("[createTask] auto-add vendor participants failed:", err);
+          console.error(
+            "[createTask] auto-add vendor participants failed:",
+            err,
+          );
         }
       })();
     }
 
-  return NextResponse.json({
-    success: true,
-    data: task,
-  });
-}, { name: "POST /api/tasks" });
+    return NextResponse.json({
+      success: true,
+      data: task,
+    });
+  },
+  { name: "POST /api/tasks" },
+);

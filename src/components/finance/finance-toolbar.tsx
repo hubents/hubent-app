@@ -3,6 +3,7 @@
 import { RiSearchLine } from "@remixicon/react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 
 export interface DirectionOption {
   key: string;
@@ -29,6 +30,9 @@ interface FinanceToolbarProps {
   activeStatus?: string;
   onStatusChange?: (key: string) => void;
 
+  scope?: ScopeValue;
+  onScopeChange?: (value: ScopeValue) => void;
+
   children?: React.ReactNode;
 }
 
@@ -43,11 +47,13 @@ export function FinanceToolbar({
   statusTabs,
   activeStatus,
   onStatusChange,
+  scope,
+  onScopeChange,
   children,
 }: FinanceToolbarProps) {
   return (
     <div className="rounded-lg border bg-card">
-      {/* Top row: Search + Direction segment + Action */}
+      {/* Top row: Search + Scope + Direction segment + Action */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="relative flex-1">
           <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -60,6 +66,10 @@ export function FinanceToolbar({
           />
         </div>
 
+        {scope !== undefined && onScopeChange && (
+          <ScopeFilter value={scope} onChange={onScopeChange} />
+        )}
+
         {directions && directions.length > 0 && onDirectionChange && (
           <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
             {directions.map((d) => (
@@ -70,7 +80,7 @@ export function FinanceToolbar({
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                   activeDirection === d.key
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {d.label}
@@ -93,9 +103,13 @@ export function FinanceToolbar({
                 "px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5",
                 activeStatus === tab.key
                   ? "text-foreground font-semibold"
-                  : "text-muted-foreground/70 hover:text-foreground"
+                  : "text-muted-foreground/70 hover:text-foreground",
               )}
-              style={activeStatus === tab.key ? { boxShadow: "inset 0 -2.5px 0 0 var(--foreground)" } : undefined}
+              style={
+                activeStatus === tab.key
+                  ? { boxShadow: "inset 0 -2.5px 0 0 var(--foreground)" }
+                  : undefined
+              }
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
@@ -104,7 +118,7 @@ export function FinanceToolbar({
                     "text-[10px] font-medium rounded-full px-1.5 py-0.5 leading-none",
                     activeStatus === tab.key
                       ? "bg-foreground/10 text-foreground"
-                      : "bg-muted text-muted-foreground"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   {tab.count}

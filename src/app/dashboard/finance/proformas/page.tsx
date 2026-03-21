@@ -46,6 +46,7 @@ import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { cn } from "@/lib/utils";
 import { useUserSession } from "@/hooks/use-user-session";
+import { type ScopeValue } from "@/components/ui/scope-filter";
 
 interface DocumentItem {
   id: number;
@@ -117,6 +118,7 @@ export default function ProformasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
+  const [scope, setScope] = useState<ScopeValue>("standalone");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -124,7 +126,9 @@ export default function ProformasPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"proforma" | "invoice" | "delivery_note">("proforma");
+  const [drawerType, setDrawerType] = useState<
+    "proforma" | "invoice" | "delivery_note"
+  >("proforma");
 
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -132,7 +136,7 @@ export default function ProformasPage() {
 
   useEffect(() => {
     fetchProformas();
-  }, [page, statusFilter, directionTab]);
+  }, [page, statusFilter, directionTab, scope]);
 
   async function fetchProformas() {
     try {
@@ -144,6 +148,7 @@ export default function ProformasPage() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (directionTab !== "all") params.set("direction", directionTab);
       if (searchTerm) params.set("search", searchTerm);
+      if (scope !== "all") params.set("scope", scope);
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
@@ -164,7 +169,9 @@ export default function ProformasPage() {
   async function deleteProforma(id: number) {
     if (!confirm("¿Estás seguro de eliminar esta proforma?")) return;
     try {
-      const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/finance/documents/${id}`, {
+        method: "DELETE",
+      });
       if (res.ok) {
         toast.success("Proforma eliminada");
         fetchProformas();
@@ -176,7 +183,10 @@ export default function ProformasPage() {
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "proforma" | "invoice" | "delivery_note") {
+  async function fetchDocAndOpenDrawer(
+    id: number,
+    targetType: "proforma" | "invoice" | "delivery_note",
+  ) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -189,9 +199,15 @@ export default function ProformasPage() {
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
-            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote
+              ? undefined
+              : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote
+              ? undefined
+              : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote
+              ? undefined
+              : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
@@ -221,7 +237,9 @@ export default function ProformasPage() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        toast.success(
+          `Estado actualizado a ${statusConfig[status]?.label || status}`,
+        );
         fetchProformas();
       } else {
         toast.error("Error al actualizar estado");
@@ -316,12 +334,23 @@ export default function ProformasPage() {
         onSearchChange={setSearchTerm}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder="Buscar por número o cliente..."
+        scope={scope}
+        onScopeChange={(v) => {
+          setScope(v);
+          setPage(1);
+        }}
         directions={directionTabs}
         activeDirection={directionTab}
-        onDirectionChange={(key) => { setDirectionTab(key as DirectionTab); setPage(1); }}
+        onDirectionChange={(key) => {
+          setDirectionTab(key as DirectionTab);
+          setPage(1);
+        }}
         statusTabs={proformaStatusTabs}
         activeStatus={statusFilter}
-        onStatusChange={(key) => { setStatusFilter(key); setPage(1); }}
+        onStatusChange={(key) => {
+          setStatusFilter(key);
+          setPage(1);
+        }}
       />
 
       {/* Table */}
@@ -342,7 +371,10 @@ export default function ProformasPage() {
             <TableBody>
               {proformas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     No hay proformas
                   </TableCell>
                 </TableRow>
@@ -355,7 +387,9 @@ export default function ProformasPage() {
                   >
                     <TableCell>
                       {doc.issueDate
-                        ? format(new Date(doc.issueDate), "dd MMM yyyy", { locale: es })
+                        ? format(new Date(doc.issueDate), "dd MMM yyyy", {
+                            locale: es,
+                          })
                         : "-"}
                     </TableCell>
                     <TableCell>{getClientName(doc)}</TableCell>
@@ -364,14 +398,23 @@ export default function ProformasPage() {
                       {(() => {
                         const total = parseFloat(doc.total || "0");
                         const paid = parseFloat(doc.paidAmount || "0");
-                        if (paid <= 0) return <span className="text-muted-foreground">-</span>;
-                        const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                        if (paid <= 0)
+                          return (
+                            <span className="text-muted-foreground">-</span>
+                          );
+                        const pct =
+                          total > 0 ? Math.min((paid / total) * 100, 100) : 0;
                         return (
                           <div className="flex items-center gap-2 min-w-[100px]">
                             <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                              <div
+                                className="h-full bg-emerald-500 rounded-full"
+                                style={{ width: `${pct}%` }}
+                              />
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {pct.toFixed(0)}%
+                            </span>
                           </div>
                         );
                       })()}
@@ -380,7 +423,11 @@ export default function ProformasPage() {
                       {formatCurrency(doc.total, doc.currency)}
                     </TableCell>
                     <TableCell>
-                      <Badge className={statusConfig[doc.status]?.color || "bg-gray-100"}>
+                      <Badge
+                        className={
+                          statusConfig[doc.status]?.color || "bg-gray-100"
+                        }
+                      >
                         {statusConfig[doc.status]?.label || doc.status}
                       </Badge>
                     </TableCell>
@@ -392,7 +439,9 @@ export default function ProformasPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDrawer(doc.id)}>
+                          <DropdownMenuItem
+                            onClick={() => openEditDrawer(doc.id)}
+                          >
                             <RiEditLine className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
@@ -400,57 +449,89 @@ export default function ProformasPage() {
                             <RiEyeLine className="mr-2 h-4 w-4" />
                             Vista previa
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "proforma")}>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              fetchDocAndOpenDrawer(doc.id, "proforma")
+                            }
+                          >
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `proforma-${doc.number}.pdf`)}>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              downloadDocumentPDF(
+                                doc.id,
+                                `proforma-${doc.number}.pdf`,
+                              )
+                            }
+                          >
                             <RiFileDownloadLine className="mr-2 h-4 w-4" />
                             Descargar PDF
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {doc.status === "draft" && (
                             <>
-                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "approved")}>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(doc.id, "approved")}
+                              >
                                 <RiCheckDoubleLine className="mr-2 h-4 w-4" />
                                 Aprobar
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(doc.id, "sent")}
+                              >
                                 <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                 Marcar como Pendiente
                               </DropdownMenuItem>
                             </>
                           )}
                           {doc.status === "approved" && (
-                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
+                            <DropdownMenuItem
+                              onClick={() => updateStatus(doc.id, "sent")}
+                            >
                               <RiSendPlaneLine className="mr-2 h-4 w-4" />
                               Marcar como Pendiente
                             </DropdownMenuItem>
                           )}
                           {doc.status === "sent" && (
-                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "paid")}>
+                            <DropdownMenuItem
+                              onClick={() => updateStatus(doc.id, "paid")}
+                            >
                               <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
                               Marcar como Pagada
                             </DropdownMenuItem>
                           )}
                           {(doc.status === "sent" || doc.status === "paid") && (
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "invoice")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                fetchDocAndOpenDrawer(doc.id, "invoice")
+                              }
+                            >
                               <RiExchangeLine className="mr-2 h-4 w-4" />
                               Convertir a Factura
                             </DropdownMenuItem>
                           )}
                           {(doc.status === "sent" || doc.status === "paid") && (
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "delivery_note")}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                fetchDocAndOpenDrawer(doc.id, "delivery_note")
+                              }
+                            >
                               <RiTruckLine className="mr-2 h-4 w-4" />
                               Convertir a Albarán
                             </DropdownMenuItem>
                           )}
-                          {doc.status !== "paid" && doc.status !== "cancelled" && (
-                            <DropdownMenuItem onClick={() => updateStatus(doc.id, "cancelled")}>
-                              <RiCheckLine className="mr-2 h-4 w-4" />
-                              Cancelar
-                            </DropdownMenuItem>
-                          )}
+                          {doc.status !== "paid" &&
+                            doc.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  updateStatus(doc.id, "cancelled")
+                                }
+                              >
+                                <RiCheckLine className="mr-2 h-4 w-4" />
+                                Cancelar
+                              </DropdownMenuItem>
+                            )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
@@ -484,7 +565,10 @@ export default function ProformasPage() {
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) { setDrawerInitialData(undefined); setDrawerType("proforma"); }
+          if (!open) {
+            setDrawerInitialData(undefined);
+            setDrawerType("proforma");
+          }
         }}
         type={drawerType}
         documentId={editingId}
@@ -496,7 +580,11 @@ export default function ProformasPage() {
         }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "proforma" | "invoice" | "delivery_note");
+          if (editingId)
+            fetchDocAndOpenDrawer(
+              editingId,
+              targetType as "proforma" | "invoice" | "delivery_note",
+            );
         }}
       />
 

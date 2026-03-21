@@ -45,6 +45,7 @@ import { DocumentPreview } from "@/components/finance/document-preview";
 import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
+import { type ScopeValue } from "@/components/ui/scope-filter";
 
 interface DocumentItem {
   id: number;
@@ -101,7 +102,11 @@ export default function DeliveryNotesPage() {
   );
 }
 
-export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-notes" }: { basePath?: string }) {
+export function DeliveryNotesContent({
+  basePath = "/dashboard/finance/delivery-notes",
+}: {
+  basePath?: string;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { can } = useUserSession();
@@ -109,22 +114,25 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [scope, setScope] = useState<ScopeValue>("standalone");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
   const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<"delivery_note" | "invoice">("delivery_note");
-  
+  const [drawerType, setDrawerType] = useState<"delivery_note" | "invoice">(
+    "delivery_note",
+  );
+
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewNote, setPreviewNote] = useState<DeliveryNote | null>(null);
 
   useEffect(() => {
     fetchNotes();
-  }, [statusFilter, page]);
+  }, [statusFilter, page, scope]);
 
   useEffect(() => {
     if (searchParams.get("new") === "true") {
@@ -142,6 +150,7 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
       });
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (searchTerm) params.set("search", searchTerm);
+      if (scope !== "all") params.set("scope", scope);
 
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
@@ -177,7 +186,10 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
     }
   }
 
-  async function fetchDocAndOpenDrawer(id: number, targetType: "delivery_note" | "invoice") {
+  async function fetchDocAndOpenDrawer(
+    id: number,
+    targetType: "delivery_note" | "invoice",
+  ) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -190,9 +202,15 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
             vendorId: doc.vendorId,
             eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote ? undefined : (parseFloat(doc.globalDiscount || "0") || undefined),
-            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote
+              ? undefined
+              : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote
+              ? undefined
+              : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote
+              ? undefined
+              : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
             items: doc.items?.map((item: any) => ({
@@ -222,7 +240,9 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(`Estado actualizado a ${statusConfig[status]?.label || status}`);
+        toast.success(
+          `Estado actualizado a ${statusConfig[status]?.label || status}`,
+        );
         fetchNotes();
       } else {
         toast.error("Error al actualizar estado");
@@ -308,9 +328,17 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
         onSearchChange={setSearchTerm}
         onSearchSubmit={handleSearchSubmit}
         searchPlaceholder="Buscar por número o cliente..."
+        scope={scope}
+        onScopeChange={(v) => {
+          setScope(v);
+          setPage(1);
+        }}
         statusTabs={deliveryStatusTabs}
         activeStatus={statusFilter}
-        onStatusChange={(key) => { setStatusFilter(key); setPage(1); }}
+        onStatusChange={(key) => {
+          setStatusFilter(key);
+          setPage(1);
+        }}
       />
 
       {/* Table */}
@@ -338,22 +366,26 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
                 </TableRow>
               ) : (
                 notes.map((note: DeliveryNote) => (
-                  <TableRow 
+                  <TableRow
                     key={note.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => openEditDrawer(note.id)}
                   >
                     <TableCell>
                       {note.issueDate
-                        ? format(new Date(note.issueDate), "dd MMM yyyy", { locale: es })
+                        ? format(new Date(note.issueDate), "dd MMM yyyy", {
+                            locale: es,
+                          })
                         : "-"}
                     </TableCell>
                     <TableCell>{getClientName(note)}</TableCell>
-                    <TableCell className="font-medium">
-                      {note.number}
-                    </TableCell>
+                    <TableCell className="font-medium">{note.number}</TableCell>
                     <TableCell>
-                      <Badge className={statusConfig[note.status]?.color || "bg-gray-100"}>
+                      <Badge
+                        className={
+                          statusConfig[note.status]?.color || "bg-gray-100"
+                        }
+                      >
                         {statusConfig[note.status]?.label || note.status}
                       </Badge>
                     </TableCell>
@@ -365,53 +397,83 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDrawer(note.id)}>
+                          <DropdownMenuItem
+                            onClick={() => openEditDrawer(note.id)}
+                          >
                             <RiEditLine className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openPreview(note.id)}>
+                          <DropdownMenuItem
+                            onClick={() => openPreview(note.id)}
+                          >
                             <RiEyeLine className="mr-2 h-4 w-4" />
                             Vista previa
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(note.id, "delivery_note")}>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              fetchDocAndOpenDrawer(note.id, "delivery_note")
+                            }
+                          >
                             <RiFileCopyLine className="mr-2 h-4 w-4" />
                             Duplicar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => downloadDocumentPDF(note.id, `delivery-note-${note.number}.pdf`)}>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              downloadDocumentPDF(
+                                note.id,
+                                `delivery-note-${note.number}.pdf`,
+                              )
+                            }
+                          >
                             <RiFileDownloadLine className="mr-2 h-4 w-4" />
                             Descargar PDF
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {note.status === "draft" && (
                             <>
-                              <DropdownMenuItem onClick={() => updateStatus(note.id, "approved")}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  updateStatus(note.id, "approved")
+                                }
+                              >
                                 <RiCheckDoubleLine className="mr-2 h-4 w-4" />
                                 Aprobar
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateStatus(note.id, "sent")}>
+                              <DropdownMenuItem
+                                onClick={() => updateStatus(note.id, "sent")}
+                              >
                                 <RiSendPlaneLine className="mr-2 h-4 w-4" />
                                 Marcar como Pendiente
                               </DropdownMenuItem>
                             </>
                           )}
                           {note.status === "approved" && (
-                            <DropdownMenuItem onClick={() => updateStatus(note.id, "sent")}>
+                            <DropdownMenuItem
+                              onClick={() => updateStatus(note.id, "sent")}
+                            >
                               <RiSendPlaneLine className="mr-2 h-4 w-4" />
                               Marcar como Pendiente
                             </DropdownMenuItem>
                           )}
                           {note.status === "sent" && (
-                            <DropdownMenuItem onClick={() => updateStatus(note.id, "delivered")}>
+                            <DropdownMenuItem
+                              onClick={() => updateStatus(note.id, "delivered")}
+                            >
                               <RiCheckLine className="mr-2 h-4 w-4" />
                               Marcar como Entregado
                             </DropdownMenuItem>
                           )}
-                          {note.status !== "draft" && note.status !== "cancelled" && (
-                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(note.id, "invoice")}>
-                              <RiExchangeLine className="mr-2 h-4 w-4" />
-                              Convertir a Factura
-                            </DropdownMenuItem>
-                          )}
+                          {note.status !== "draft" &&
+                            note.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  fetchDocAndOpenDrawer(note.id, "invoice")
+                                }
+                              >
+                                <RiExchangeLine className="mr-2 h-4 w-4" />
+                                Convertir a Factura
+                              </DropdownMenuItem>
+                            )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
@@ -445,7 +507,10 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) { setDrawerInitialData(undefined); setDrawerType("delivery_note"); }
+          if (!open) {
+            setDrawerInitialData(undefined);
+            setDrawerType("delivery_note");
+          }
         }}
         type={drawerType}
         documentId={editingId}
@@ -457,7 +522,11 @@ export function DeliveryNotesContent({ basePath = "/dashboard/finance/delivery-n
         }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "delivery_note" | "invoice");
+          if (editingId)
+            fetchDocAndOpenDrawer(
+              editingId,
+              targetType as "delivery_note" | "invoice",
+            );
         }}
       />
 

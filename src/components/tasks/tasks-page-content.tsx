@@ -17,7 +17,8 @@ import {
   RiListUnordered,
   RiDraggable,
 } from "@remixicon/react";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasks, type TaskScope } from "@/hooks/use-tasks";
+import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -47,8 +48,16 @@ import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useTaskRefresh } from "@/hooks/use-task-refresh";
 
 const priorityConfig = {
-  high: { label: "Alta", variant: "destructive" as const, color: "text-red-500" },
-  medium: { label: "Media", variant: "warning" as const, color: "text-yellow-500" },
+  high: {
+    label: "Alta",
+    variant: "destructive" as const,
+    color: "text-red-500",
+  },
+  medium: {
+    label: "Media",
+    variant: "warning" as const,
+    color: "text-yellow-500",
+  },
   low: { label: "Baja", variant: "secondary" as const, color: "text-gray-500" },
 };
 
@@ -76,11 +85,11 @@ interface Task {
 }
 
 // Sortable Task Card Component
-function SortableTaskCard({ 
-  task, 
-  onClick 
-}: { 
-  task: Task; 
+function SortableTaskCard({
+  task,
+  onClick,
+}: {
+  task: Task;
   onClick: () => void;
 }) {
   const {
@@ -106,31 +115,49 @@ function SortableTaskCard({
       style={style}
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow",
-        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md"
+        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md",
       )}
       {...listeners}
       {...attributes}
     >
-      <CardContent className="p-3" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+      <CardContent
+        className="p-3"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
           <RiDraggable className="h-4 w-4 text-muted-foreground shrink-0" />
         </div>
         {task.eventName && (
-          <p className="text-xs text-muted-foreground mt-1 truncate">{task.eventName}</p>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {task.eventName}
+          </p>
         )}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <span className={cn(
-            "px-2 py-0.5 rounded text-xs font-medium border",
-            task.priority === "high" && "bg-red-100 text-red-700 border-red-200",
-            task.priority === "medium" && "bg-yellow-100 text-yellow-700 border-yellow-200",
-            task.priority === "low" && "bg-green-100 text-green-700 border-green-200"
-          )}>
-            {priorityConfig[task.priority as keyof typeof priorityConfig]?.label || task.priority}
+          <span
+            className={cn(
+              "px-2 py-0.5 rounded text-xs font-medium border",
+              task.priority === "high" &&
+                "bg-red-100 text-red-700 border-red-200",
+              task.priority === "medium" &&
+                "bg-yellow-100 text-yellow-700 border-yellow-200",
+              task.priority === "low" &&
+                "bg-green-100 text-green-700 border-green-200",
+            )}
+          >
+            {priorityConfig[task.priority as keyof typeof priorityConfig]
+              ?.label || task.priority}
           </span>
           {task.dueDate && (
             <span className="text-xs text-muted-foreground">
-              📅 {new Date(task.dueDate).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+              📅{" "}
+              {new Date(task.dueDate).toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "short",
+              })}
             </span>
           )}
         </div>
@@ -140,18 +167,18 @@ function SortableTaskCard({
 }
 
 // Sortable Column Component with Quick Add
-function SortableColumn({ 
-  id, 
-  title, 
-  color, 
-  tasks, 
+function SortableColumn({
+  id,
+  title,
+  color,
+  tasks,
   onTaskClick,
   onAddTask,
   onQuickAdd,
-}: { 
-  id: string; 
-  title: string; 
-  color: string; 
+}: {
+  id: string;
+  title: string;
+  color: string;
   tasks: Task[];
   onTaskClick: (taskId: number) => void;
   onAddTask: (status: string) => void;
@@ -181,17 +208,22 @@ function SortableColumn({
   };
 
   // Sort tasks by sortOrder
-  const sortedTasks = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
+  const sortedTasks = [...tasks].sort(
+    (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
+  );
   const taskIds = sortedTasks.map((t) => t.id.toString());
 
   return (
     <div className="flex flex-col">
-      <div className={cn("rounded-t-lg px-4 py-3 font-medium flex items-center justify-between", color)}>
+      <div
+        className={cn(
+          "rounded-t-lg px-4 py-3 font-medium flex items-center justify-between",
+          color,
+        )}
+      >
         <div className="flex items-center gap-2">
           <span>{title}</span>
-          <Badge variant="secondary">
-            {tasks.length}
-          </Badge>
+          <Badge variant="secondary">{tasks.length}</Badge>
         </div>
         <Button
           variant="ghost"
@@ -203,11 +235,11 @@ function SortableColumn({
           <RiAddLine className="h-4 w-4" />
         </Button>
       </div>
-      <div 
+      <div
         ref={setNodeRef}
         className={cn(
           "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
-          isOver && "bg-primary/10 ring-2 ring-primary ring-inset"
+          isOver && "bg-primary/10 ring-2 ring-primary ring-inset",
         )}
       >
         {/* Quick Add Input */}
@@ -258,10 +290,10 @@ function SortableColumn({
         )}
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {sortedTasks.map((task) => (
-            <SortableTaskCard 
-              key={task.id} 
-              task={task} 
-              onClick={() => onTaskClick(task.id)} 
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onTaskClick(task.id)}
             />
           ))}
         </SortableContext>
@@ -276,12 +308,20 @@ function SortableColumn({
 }
 
 export function TasksPageContent() {
-  const { tasks: apiTasks, stats, loading, refetch } = useTasks();
+  const [scope, setScope] = useState<TaskScope>("standalone");
+  const {
+    tasks: apiTasks,
+    stats,
+    loading,
+    refetch,
+  } = useTasks(undefined, scope);
   const searchParams = useSearchParams();
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
-  const [drawerInitialData, setDrawerInitialData] = useState<{ status?: string } | undefined>(undefined);
+  const [drawerInitialData, setDrawerInitialData] = useState<
+    { status?: string } | undefined
+  >(undefined);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -294,7 +334,7 @@ export function TasksPageContent() {
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const kanbanCollisionDetection: CollisionDetection = (args) => {
@@ -304,14 +344,14 @@ export function TasksPageContent() {
     }
     return closestCorners(args);
   };
-  
+
   // Sync local tasks with API tasks
   useEffect(() => {
     if (apiTasks.length > 0) {
       setLocalTasks(apiTasks as Task[]);
     }
   }, [apiTasks]);
-  
+
   useEffect(() => {
     const taskIdParam = searchParams.get("taskId");
     if (taskIdParam) {
@@ -325,10 +365,10 @@ export function TasksPageContent() {
       openCreateDrawer();
     }
   }, [searchParams]);
-  
+
   const displayTasks = localTasks.length > 0 ? localTasks : [];
   const filteredTasks = displayTasks.filter((task) =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase())
+    task.title.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   const completionRate = stats.completionRate;
 
@@ -395,13 +435,13 @@ export function TasksPageContent() {
     const activeId = active.id as string;
     const overId = over.id as string;
     const draggedTask = displayTasks.find((t) => t.id.toString() === activeId);
-    
+
     if (!draggedTask) return;
 
     // Check if dropping on a column (status change) or on another task (reorder)
     const isColumn = columns.some((c) => c.id === overId);
     const overTask = displayTasks.find((t) => t.id.toString() === overId);
-    
+
     if (isColumn) {
       // Dropping on a column - change status
       const newStatus = overId;
@@ -409,7 +449,9 @@ export function TasksPageContent() {
 
       // Optimistic update
       setLocalTasks((prev) =>
-        prev.map((t) => (t.id.toString() === activeId ? { ...t, status: newStatus } : t))
+        prev.map((t) =>
+          t.id.toString() === activeId ? { ...t, status: newStatus } : t,
+        ),
       );
 
       try {
@@ -426,16 +468,22 @@ export function TasksPageContent() {
     } else if (overTask) {
       // Dropping on another task - reorder within same column or move to different column
       const sameColumn = draggedTask.status === overTask.status;
-      
+
       if (sameColumn) {
         // Reorder within same column
         const columnTasks = displayTasks
           .filter((t) => t.status === draggedTask.status)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
-        
-        const oldIndex = columnTasks.findIndex((t) => t.id.toString() === activeId);
-        const newIndex = columnTasks.findIndex((t) => t.id.toString() === overId);
-        
+          .sort(
+            (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
+          );
+
+        const oldIndex = columnTasks.findIndex(
+          (t) => t.id.toString() === activeId,
+        );
+        const newIndex = columnTasks.findIndex(
+          (t) => t.id.toString() === overId,
+        );
+
         if (oldIndex !== newIndex) {
           const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
           const items = reorderedTasks.map((t, index) => ({
@@ -445,7 +493,9 @@ export function TasksPageContent() {
 
           // Optimistic update
           setLocalTasks((prev) => {
-            const otherTasks = prev.filter((t) => t.status !== draggedTask.status);
+            const otherTasks = prev.filter(
+              (t) => t.status !== draggedTask.status,
+            );
             const updatedColumnTasks = reorderedTasks.map((t, index) => ({
               ...t,
               sortOrder: index,
@@ -457,7 +507,10 @@ export function TasksPageContent() {
             await fetch("/api/tasks/reorder", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items, eventId: draggedTask.eventId ?? null }),
+              body: JSON.stringify({
+                items,
+                eventId: draggedTask.eventId ?? null,
+              }),
             });
           } catch (error) {
             console.error("Failed to reorder tasks:", error);
@@ -469,10 +522,14 @@ export function TasksPageContent() {
         const newStatus = overTask.status;
         const targetColumnTasks = displayTasks
           .filter((t) => t.status === newStatus)
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id);
-        
-        const targetIndex = targetColumnTasks.findIndex((t) => t.id.toString() === overId);
-        
+          .sort(
+            (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
+          );
+
+        const targetIndex = targetColumnTasks.findIndex(
+          (t) => t.id.toString() === overId,
+        );
+
         // Optimistic update
         setLocalTasks((prev) => {
           const updated = prev.map((t) => {
@@ -488,13 +545,13 @@ export function TasksPageContent() {
           const moveRes = await fetch(`/api/tasks/${draggedTask.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               status: newStatus,
               sortOrder: targetIndex,
             }),
           });
           if (!moveRes.ok) throw new Error("Failed to move task");
-          
+
           // Reorder the target column - include the moved task
           const items = [
             ...targetColumnTasks.slice(0, targetIndex).map((t, index) => ({
@@ -511,7 +568,10 @@ export function TasksPageContent() {
           await fetch("/api/tasks/reorder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items, eventId: draggedTask.eventId ?? null }),
+            body: JSON.stringify({
+              items,
+              eventId: draggedTask.eventId ?? null,
+            }),
           });
         } catch (error) {
           console.error("Failed to move task:", error);
@@ -531,7 +591,11 @@ export function TasksPageContent() {
         <div>
           <h1 className="text-2xl font-bold">Tareas</h1>
           <p className="text-muted-foreground">
-            Gestiona las tareas de todos tus eventos
+            {scope === "standalone"
+              ? "Tareas independientes, no asociadas a eventos"
+              : scope === "event"
+                ? "Tareas asociadas a eventos"
+                : "Todas las tareas de la organización"}
           </p>
         </div>
         {canCreateTask && (
@@ -591,13 +655,22 @@ export function TasksPageContent() {
 
       {/* Filters and View Toggle */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="relative w-full sm:w-72">
-          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tareas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="relative w-full sm:w-72">
+            <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar tareas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <ScopeFilter
+            value={scope}
+            onChange={(v) => {
+              setScope(v as TaskScope);
+              setLocalTasks([]);
+            }}
           />
         </div>
         <div className="flex items-center gap-1 border rounded-lg p-1">
@@ -631,9 +704,13 @@ export function TasksPageContent() {
             <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="font-medium mb-2">No hay tareas</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Crea tu primera tarea para comenzar
+              {scope === "standalone"
+                ? "No hay tareas independientes. Crea una tarea aquí o cambia el filtro."
+                : scope === "event"
+                  ? "No hay tareas asociadas a eventos. Crea tareas desde la vista de cada evento."
+                  : "Crea tu primera tarea para comenzar"}
             </p>
-            {canCreateTask && (
+            {canCreateTask && scope !== "event" && (
               <Button onClick={() => openCreateDrawer()}>
                 <RiAddLine className="h-4 w-4 mr-2" />
                 Nueva Tarea
@@ -654,7 +731,11 @@ export function TasksPageContent() {
                   id={column.id}
                   title={column.title}
                   color={column.color}
-                  tasks={filteredTasks.filter((t) => t.status === column.id) as Task[]}
+                  tasks={
+                    filteredTasks.filter(
+                      (t) => t.status === column.id,
+                    ) as Task[]
+                  }
                   onTaskClick={handleTaskClick}
                   onAddTask={openCreateDrawer}
                   onQuickAdd={handleQuickAdd}
@@ -666,13 +747,20 @@ export function TasksPageContent() {
                 <Card className="shadow-xl rotate-3 cursor-grabbing">
                   <CardContent className="p-3">
                     <h4 className="font-medium text-sm">{activeTask.title}</h4>
-                    <span className={cn(
-                      "inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium border",
-                      activeTask.priority === "high" && "bg-red-100 text-red-700 border-red-200",
-                      activeTask.priority === "medium" && "bg-yellow-100 text-yellow-700 border-yellow-200",
-                      activeTask.priority === "low" && "bg-green-100 text-green-700 border-green-200"
-                    )}>
-                      {priorityConfig[activeTask.priority as keyof typeof priorityConfig]?.label || activeTask.priority}
+                    <span
+                      className={cn(
+                        "inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium border",
+                        activeTask.priority === "high" &&
+                          "bg-red-100 text-red-700 border-red-200",
+                        activeTask.priority === "medium" &&
+                          "bg-yellow-100 text-yellow-700 border-yellow-200",
+                        activeTask.priority === "low" &&
+                          "bg-green-100 text-green-700 border-green-200",
+                      )}
+                    >
+                      {priorityConfig[
+                        activeTask.priority as keyof typeof priorityConfig
+                      ]?.label || activeTask.priority}
                     </span>
                   </CardContent>
                 </Card>
@@ -698,9 +786,15 @@ export function TasksPageContent() {
                 <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="font-medium mb-2">No hay tareas</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  {displayTasks.length === 0 ? "Crea tu primera tarea para comenzar" : "No hay tareas que coincidan con la búsqueda"}
+                  {displayTasks.length === 0
+                    ? scope === "standalone"
+                      ? "No hay tareas independientes. Crea una tarea aquí o cambia el filtro."
+                      : scope === "event"
+                        ? "No hay tareas asociadas a eventos."
+                        : "Crea tu primera tarea para comenzar"
+                    : "No hay tareas que coincidan con la búsqueda"}
                 </p>
-                {displayTasks.length === 0 && canCreateTask && (
+                {displayTasks.length === 0 && canCreateTask && scope !== "event" && (
                   <Button onClick={() => openCreateDrawer()}>
                     <RiAddLine className="h-4 w-4 mr-2" />
                     Nueva Tarea
@@ -733,50 +827,51 @@ export function TasksPageContent() {
                         className={`font-medium truncate ${
                           task.status === "completed"
                             ? "line-through text-muted-foreground"
-                          : ""
-                      }`}
-                    >
-                      {task.title}
-                    </p>
-                    {task.eventName && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {task.eventName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <RiCalendarLine className="h-4 w-4" />
-                        {new Date(task.dueDate).toLocaleDateString()}
-                      </div>
-                    )}
-
-                    {task.priority && (
-                      <RiFlag2Line
-                        className={`h-4 w-4 ${
-                          priorityConfig[task.priority as keyof typeof priorityConfig]?.color ||
-                          "text-gray-500"
+                            : ""
                         }`}
-                      />
-                    )}
+                      >
+                        {task.title}
+                      </p>
+                      {task.eventName && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {task.eventName}
+                        </p>
+                      )}
+                    </div>
 
-                    <Badge
-                      variant={
-                        statusConfig[task.status as keyof typeof statusConfig]?.variant ||
-                        "secondary"
-                      }
-                    >
-                      {statusConfig[task.status as keyof typeof statusConfig]?.label ||
-                        task.status}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {task.dueDate && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <RiCalendarLine className="h-4 w-4" />
+                          {new Date(task.dueDate).toLocaleDateString()}
+                        </div>
+                      )}
+
+                      {task.priority && (
+                        <RiFlag2Line
+                          className={`h-4 w-4 ${
+                            priorityConfig[
+                              task.priority as keyof typeof priorityConfig
+                            ]?.color || "text-gray-500"
+                          }`}
+                        />
+                      )}
+
+                      <Badge
+                        variant={
+                          statusConfig[task.status as keyof typeof statusConfig]
+                            ?.variant || "secondary"
+                        }
+                      >
+                        {statusConfig[task.status as keyof typeof statusConfig]
+                          ?.label || task.status}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
+                ))}
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
 
