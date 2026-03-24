@@ -11,7 +11,7 @@ import {
   eventTables,
   guestCheckins
 } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
 import type { TenantSession, PaginationParams } from "@/types";
 
 // ============================================
@@ -86,7 +86,7 @@ export async function getGuests(
     whereClause = and(whereClause, eq(guests.groupId, groupId))!;
   }
 
-  const guestList = await db
+  const baseQuery = db
     .select({
       id: guests.id,
       firstName: guests.firstName,
@@ -113,16 +113,21 @@ export async function getGuests(
     .from(guests)
     .leftJoin(rsvpResponses, eq(guests.id, rsvpResponses.guestId))
     .leftJoin(guestGroups, eq(guests.groupId, guestGroups.id))
-    .leftJoin(eventTables, eq(guests.tableId, eventTables.id))
+    .leftJoin(eventTables, eq(guests.tableId, eventTables.id));
+
+  if (rsvpStatus) {
+    if (rsvpStatus === "pending") {
+      whereClause = and(whereClause, or(eq(rsvpResponses.status, "pending"), isNull(rsvpResponses.status)))!;
+    } else {
+      whereClause = and(whereClause, eq(rsvpResponses.status, rsvpStatus as "confirmed" | "declined" | "maybe"))!;
+    }
+  }
+
+  const filteredGuests = await baseQuery
     .where(whereClause)
     .orderBy(guests.lastName, guests.firstName)
     .limit(limit)
     .offset(offset);
-
-  // Filter by RSVP status if provided
-  const filteredGuests = rsvpStatus
-    ? guestList.filter(g => g.rsvpStatus === rsvpStatus)
-    : guestList;
 
   // Get companions for each guest
   const guestsWithCompanions = await Promise.all(
@@ -186,6 +191,17 @@ export async function getGuests(
 
   const totalCompanions = Number(companionStats[0]?.count || 0);
 
+  // When filtering by rsvpStatus, meta.total must reflect the filtered count
+  let filteredTotal = Number(stats.total);
+  if (rsvpStatus) {
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(guests)
+      .leftJoin(rsvpResponses, eq(guests.id, rsvpResponses.guestId))
+      .where(whereClause);
+    filteredTotal = Number(countResult?.count || 0);
+  }
+
   return {
     data: guestsWithCompanions,
     stats: {
@@ -205,8 +221,8 @@ export async function getGuests(
     meta: {
       page,
       limit,
-      total: Number(stats.total),
-      totalPages: Math.ceil(Number(stats.total) / limit),
+      total: filteredTotal,
+      totalPages: Math.ceil(filteredTotal / limit),
     },
   };
 }
@@ -306,21 +322,29 @@ export async function updateGuestRsvpStatus(
     .where(eq(rsvpResponses.guestId, guestId))
     .limit(1);
 
+  let result;
   if (existing.length === 0) {
     const [created] = await db.insert(rsvpResponses).values({
       guestId,
       status,
       respondedAt: new Date(),
     }).returning();
-    return created;
+    result = created;
+  } else {
+    const [updated] = await db.update(rsvpResponses)
+      .set({ status, respondedAt: new Date() })
+      .where(eq(rsvpResponses.guestId, guestId))
+      .returning();
+    result = updated;
   }
 
-  const [updated] = await db.update(rsvpResponses)
-    .set({ status, respondedAt: new Date() })
-    .where(eq(rsvpResponses.guestId, guestId))
-    .returning();
+  if (status === "declined") {
+    await db.update(guests)
+      .set({ tableId: null, updatedAt: new Date() })
+      .where(eq(guests.id, guestId));
+  }
 
-  return updated;
+  return result;
 }
 
 export async function deleteGuest(guestId: number) {
@@ -370,6 +394,12 @@ export async function submitRsvp(
     })
     .where(eq(rsvpResponses.guestId, guestId))
     .returning();
+
+  if (data.status === "declined") {
+    await db.update(guests)
+      .set({ tableId: null, updatedAt: new Date() })
+      .where(eq(guests.id, guestId));
+  }
 
   return updated;
 }

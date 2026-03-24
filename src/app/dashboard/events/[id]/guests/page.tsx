@@ -921,7 +921,7 @@ function GuestRow({
         <Select
           value={guest.tableId?.toString() || "none"}
           onValueChange={(value) => onTableChange(guest.id, value)}
-          disabled={readOnly}
+          disabled={readOnly || guest.rsvpStatus === "declined"}
         >
           <SelectTrigger className="w-32 h-8">
             <SelectValue placeholder="Mesa" />

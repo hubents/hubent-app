@@ -75,6 +75,21 @@ const tableTemplates = [
 export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasProps) {
   const [tableCounter, setTableCounter] = useState(tables.length + 1);
 
+  const handleDeleteTable = useCallback(async (tableId: number) => {
+    if (!confirm("¿Eliminar esta mesa? Los invitados asignados quedarán sin mesa.")) return;
+    try {
+      const res = await fetch(`/api/events/${eventId}/tables/${tableId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error("Failed to delete table:", error);
+    }
+  }, [eventId, onRefresh]);
+
   const initialNodes: Node[] = useMemo(() => 
     tables.map((t) => ({
       id: `table-${t.id}`,
@@ -88,14 +103,14 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
         guestCount: t.guestCount,
         guests: t.guests,
         color: t.color,
+        onDelete: handleDeleteTable,
       },
     })),
-    [tables]
+    [tables, handleDeleteTable]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
-  // Sync nodes when tables change
   useEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
@@ -160,19 +175,7 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
     }
   };
 
-  const _handleRemoveGuest = async (guestId: number, tableId: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/tables/${tableId}/assign?guestId=${guestId}`, {
-        method: "DELETE",
-      });
-      onRefresh();
-    } catch (error) {
-      console.error("Failed to remove guest:", error);
-    }
-  };
-  void _handleRemoveGuest;
-
-  const unseatedGuests = guests.filter((g) => !g.tableId);
+  const unseatedGuests = guests.filter((g) => !g.tableId && g.rsvpStatus !== "declined");
 
   return (
     <div className="flex h-[600px] border rounded-lg overflow-hidden bg-white">

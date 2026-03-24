@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { cn } from "@/lib/utils";
+import { RiDeleteBinLine } from "@remixicon/react";
 
 interface TableNodeData {
   id: number;
@@ -16,16 +17,17 @@ interface TableNodeData {
     lastName: string | null;
   }>;
   color: string;
+  onDelete?: (tableId: number) => void;
 }
 
 function TableNodeComponent({ data, selected }: NodeProps<TableNodeData>) {
-  const { name, shape, capacity, guestCount, guests, color } = data;
+  const { id, name, shape, capacity, guestCount, guests, color, onDelete } = data;
   const isFull = guestCount >= capacity;
 
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center border-2 shadow-lg transition-all cursor-pointer",
+        "group/table relative flex flex-col items-center justify-center border-2 shadow-lg transition-all cursor-pointer",
         shape === "round" ? "rounded-full" : "rounded-lg",
         selected ? "border-primary ring-2 ring-primary/20" : "border-gray-300",
         isFull ? "bg-green-50" : "bg-white"
@@ -36,6 +38,19 @@ function TableNodeComponent({ data, selected }: NodeProps<TableNodeData>) {
         backgroundColor: color || "#ffffff",
       }}
     >
+      {onDelete && (
+        <button
+          className="absolute -top-2 -right-2 z-10 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover/table:opacity-100 transition-opacity hover:scale-110"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(id);
+          }}
+          title="Eliminar mesa"
+        >
+          <RiDeleteBinLine className="h-3 w-3" />
+        </button>
+      )}
+
       <div className="font-semibold text-sm">{name}</div>
       
       <div className={cn(
