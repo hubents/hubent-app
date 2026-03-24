@@ -153,9 +153,12 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     fetchEvent();
   }, [eventId, setActiveEvent]);
 
-  const fetchGuests = async (p = page) => {
+  const fetchGuests = async (p = page, status = statusFilter) => {
     try {
       const params = new URLSearchParams({ page: p.toString() });
+      if (status && status !== "all") {
+        params.set("rsvpStatus", status);
+      }
       const [guestsRes, tablesRes] = await Promise.all([
         fetch(`/api/events/${eventId}/guests?${params}`),
         fetch(`/api/events/${eventId}/tables`),
@@ -183,8 +186,15 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   };
 
   useEffect(() => {
-    fetchGuests(page);
-  }, [eventId, page]);
+    setPage(1);
+    fetchGuests(1, statusFilter);
+  }, [eventId, statusFilter]);
+
+  useEffect(() => {
+    if (page !== 1) {
+      fetchGuests(page, statusFilter);
+    }
+  }, [page]);
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
