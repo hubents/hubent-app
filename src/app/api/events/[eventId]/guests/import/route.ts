@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { guests, guestGroups } from "@/db/schema";
+import { guests, guestGroups, rsvpResponses } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           g.ageGroup?.toLowerCase().includes("bebe") || g.ageGroup?.toLowerCase().includes("baby") ? "baby" :
           "adult";
 
-        await db.insert(guests).values({
+        const [inserted] = await db.insert(guests).values({
           eventId: eventIdNum,
           firstName: g.firstName,
           lastName: g.lastName || null,
@@ -128,6 +128,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           menuPreference: g.menuPreference || null,
           ageGroup: normalizedAgeGroup,
           notes: g.notes || null,
+        }).returning({ id: guests.id });
+
+        await db.insert(rsvpResponses).values({
+          guestId: inserted.id,
+          status: "pending",
         });
 
         imported++;

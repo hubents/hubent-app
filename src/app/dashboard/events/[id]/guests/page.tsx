@@ -234,7 +234,8 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (guest.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
       (guest.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    const matchesStatus = statusFilter === "all" || guest.rsvpStatus === statusFilter;
+    const guestStatus = guest.rsvpStatus || "pending";
+    const matchesStatus = statusFilter === "all" || guestStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
