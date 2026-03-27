@@ -2,14 +2,16 @@
 // GLOBAL TYPES FOR HUBENTS
 // ============================================
 
-// User roles within a tenant (organization)
+// User roles within a tenant (organization).
+// Each orgType has a subset of these roles enforced by getAvailableRoles().
 export type TenantRole = 
   | "owner"           // Full control, can delete org
   | "admin"           // Full control except delete org
   | "planner"         // Event planner - main user
-  | "assistant"       // Planner assistant
+  | "assistant"       // Planner assistant (eventScoped)
   | "accountant"      // Finance only
-  | "viewer"          // Read only
+  | "viewer"          // Read only (eventScoped)
+  | "client"          // Client with limited event access (eventScoped)
   | "provider_owner"  // Provider org owner
   | "provider_admin"  // Provider org admin
   | "provider_tech";  // Provider technician

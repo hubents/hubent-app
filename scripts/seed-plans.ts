@@ -121,8 +121,20 @@ const PLANS = [
   },
 ];
 
+const FEATURE_FLAGS = [
+  { key: "rsvp",             name: "Web evento con RSVP",           description: "Página pública del evento con confirmación de asistencia",      planSlugs: ["standard", "agency"] },
+  { key: "auto_processes",   name: "Creación procesos automático",  description: "Crear tareas automáticamente desde plantillas",                  planSlugs: ["standard", "agency"] },
+  { key: "guest_lists",      name: "Listas de invitados",           description: "Gestión completa de listas de invitados y mesas",                planSlugs: ["standard", "agency"] },
+  { key: "auto_agenda",      name: "Orden del día automático",      description: "Generar automáticamente el cronograma del evento",               planSlugs: ["agency", "provider-free", "provider-pro"] },
+  { key: "custom_roles",     name: "Roles de usuarios",             description: "Crear y gestionar roles personalizados con permisos granulares", planSlugs: ["agency", "provider-pro"] },
+  { key: "smart_date_block", name: "Bloqueo inteligente de fechas", description: "Bloquear fechas automáticamente al aceptar eventos",             planSlugs: ["provider-pro"] },
+  { key: "recommended",      name: "Recomendado por planners",      description: "Aparecer como proveedor recomendado en búsquedas",               planSlugs: ["provider-pro"] },
+];
+
 async function seedPlans() {
   console.log("🌱 Seeding subscription plans...\n");
+
+  const planIdMap: Record<string, number> = {};
 
   for (const plan of PLANS) {
     const existing = await db.query.subscriptionPlans.findFirst({
@@ -130,7 +142,6 @@ async function seedPlans() {
     });
 
     if (existing) {
-      // Update existing plan
       await db
         .update(schema.subscriptionPlans)
         .set({
@@ -138,17 +149,58 @@ async function seedPlans() {
           updatedAt: new Date(),
         })
         .where(eq(schema.subscriptionPlans.slug, plan.slug));
+      planIdMap[plan.slug] = existing.id;
       console.log(`  ✅ Updated: ${plan.name} (${plan.orgType}) - €${plan.priceMonthly}/mes`);
     } else {
-      // Insert new plan
-      await db.insert(schema.subscriptionPlans).values(plan);
+      const [inserted] = await db
+        .insert(schema.subscriptionPlans)
+        .values(plan)
+        .returning();
+      planIdMap[plan.slug] = inserted.id;
       console.log(`  ✅ Created: ${plan.name} (${plan.orgType}) - €${plan.priceMonthly}/mes`);
     }
   }
 
-  console.log("\n✨ Seed complete! Plans ready.\n");
+  // Seed feature flags
+  console.log("\n🌱 Seeding feature flags...\n");
 
-  // Show summary
+  for (const ff of FEATURE_FLAGS) {
+    const planIds = ff.planSlugs
+      .map((slug) => planIdMap[slug])
+      .filter((id): id is number => id !== undefined);
+
+    const existing = await db.query.featureFlags.findFirst({
+      where: eq(schema.featureFlags.key, ff.key),
+    });
+
+    if (existing) {
+      await db
+        .update(schema.featureFlags)
+        .set({
+          name: ff.name,
+          description: ff.description,
+          enabled: true,
+          planIds,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.featureFlags.id, existing.id));
+      console.log(`  ✅ Updated feature: ${ff.key}`);
+    } else {
+      await db
+        .insert(schema.featureFlags)
+        .values({
+          key: ff.key,
+          name: ff.name,
+          description: ff.description,
+          enabled: true,
+          planIds,
+        });
+      console.log(`  ✅ Created feature: ${ff.key}`);
+    }
+  }
+
+  console.log("\n✨ Seed complete! Plans & features ready.\n");
+
   const allPlans = await db
     .select()
     .from(schema.subscriptionPlans)

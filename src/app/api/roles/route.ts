@@ -3,17 +3,22 @@ import { requirePermission, requireFeature } from "@/lib/session";
 import { db } from "@/db";
 import { roles, rolePermissions, permissions, organizationMembers } from "@/db/schema";
 import { eq, and, isNull, count } from "drizzle-orm";
+import { getAvailableRoles } from "@/lib/tenant-type";
 
 /**
  * GET /api/roles
- * List system roles + custom roles for the current organization
+ * List system roles + custom roles for the current organization.
+ * System roles are filtered by orgType so planner orgs only see planner roles
+ * and provider orgs only see provider roles.
  */
 export async function GET() {
   try {
     const session = await requirePermission("team:read");
 
-    // Get system roles (organizationId is null)
-    const systemRoles = await db
+    const allowedSlugs = getAvailableRoles(session.orgType);
+
+    // Get system roles (organizationId is null), filtered by orgType
+    const allSystemRoles = await db
       .select({
         id: roles.id,
         name: roles.name,
@@ -25,6 +30,10 @@ export async function GET() {
       })
       .from(roles)
       .where(isNull(roles.organizationId));
+
+    const systemRoles = allowedSlugs.length > 0
+      ? allSystemRoles.filter((r) => allowedSlugs.includes(r.slug))
+      : [];
 
     // Get custom roles for this organization
     const customRoles = await db

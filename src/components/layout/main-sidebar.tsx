@@ -25,18 +25,17 @@ import {
   RiFileList2Line,
   RiTruckLine,
   RiBankLine,
-  RiMore2Line,
   RiToolsLine,
   RiCalendar2Line,
   RiFolder3Line,
   RiSurveyLine,
-  RiRestaurantLine,
   RiBuilding2Line,
   RiGroupLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
 import { useUserSession } from "@/hooks/use-user-session";
+import { getSidebarSections } from "@/lib/tenant-type";
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +45,10 @@ import {
 
 const navigationDashboard = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine, permission: null },
+];
+
+const navigationProviderProfile = [
+  { name: "Mi Perfil Público", href: "/dashboard/public-profile", icon: RiStoreLine, permission: null as string | null },
 ];
 
 const navigationAfterContacts = [
@@ -63,7 +66,6 @@ const navigationMarketplace = [
   { name: "Marketplace", href: "/dashboard/marketplace", icon: RiStore2Line, permission: null as string | null },
 ];
 
-const navigationAfterFinance: typeof navigationMarketplace = [];
 
 const productivitySubNav = [
   { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line },
@@ -98,34 +100,55 @@ interface MainSidebarProps {
 export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const pathname = usePathname();
   const { isEventView } = useEvent();
-  const { can, eventScoped, loading: sessionLoading } = useUserSession();
+  const { can, eventScoped, orgType, loading: sessionLoading } = useUserSession();
   const [financeExpanded, setFinanceExpanded] = useState(false);
   const [productivityExpanded, setProductivityExpanded] = useState(false);
   const [contactsExpanded, setContactsExpanded] = useState(false);
 
+  // Config-driven section visibility based on orgType
+  const activeSections = useMemo(() => {
+    return getSidebarSections(orgType);
+  }, [orgType]);
+
+  const hasSection = useMemo(() => {
+    const set = new Set(activeSections);
+    return (section: string) => set.has(section);
+  }, [activeSections]);
+
   const filteredDashboard = useMemo(() => {
-    if (eventScoped) return [];
+    if (eventScoped || !hasSection("dashboard")) return [];
     return navigationDashboard.filter((item) => !item.permission || can(item.permission));
-  }, [can, eventScoped]);
+  }, [can, eventScoped, hasSection]);
+
   const filteredMarketplace = useMemo(() => {
     if (eventScoped) return [];
-    return navigationMarketplace.filter((item) => !item.permission || can(item.permission));
-  }, [can, eventScoped]);
+    const items = [
+      ...(hasSection("marketplace") ? navigationMarketplace : []),
+      ...(hasSection("public-profile") ? navigationProviderProfile : []),
+    ];
+    return items.filter((item) => !item.permission || can(item.permission));
+  }, [can, eventScoped, hasSection]);
+
   const filteredAfterContacts = useMemo(() => {
-    const base = navigationAfterContacts.filter((item) => !item.permission || can(item.permission));
+    const base = navigationAfterContacts.filter((item) => {
+      if (item.name === "CRM" && !hasSection("crm")) return false;
+      if (item.name === "Eventos" && !hasSection("events")) return false;
+      if (item.permission && !can(item.permission)) return false;
+      return true;
+    });
     if (eventScoped) return base.filter((item) => item.name === "Eventos");
     return base;
-  }, [can, eventScoped]);
-  const filteredNavAfter = useMemo(() => {
-    if (eventScoped) return [];
-    return navigationAfterFinance.filter((item) => !item.permission || can(item.permission));
-  }, [can, eventScoped]);
+  }, [can, eventScoped, hasSection]);
   const filteredNavAfterProductivity = useMemo(() => {
     if (eventScoped) return [];
-    return navigationAfterProductivity.filter((item) => !item.permission || can(item.permission));
-  }, [can, eventScoped]);
-  const showFinance = useMemo(() => !eventScoped && can("finance:read"), [can, eventScoped]);
-  const showContacts = useMemo(() => !eventScoped && can("crm:read"), [can, eventScoped]);
+    return navigationAfterProductivity.filter((item) => {
+      if (item.name === "Equipo" && !hasSection("team")) return false;
+      if (item.name === "HubIA" && !hasSection("ai")) return false;
+      return !item.permission || can(item.permission);
+    });
+  }, [can, eventScoped, hasSection]);
+  const showFinance = useMemo(() => !eventScoped && hasSection("finance") && can("finance:read"), [can, eventScoped, hasSection]);
+  const showContacts = useMemo(() => !eventScoped && hasSection("contacts") && can("crm:read"), [can, eventScoped, hasSection]);
   
   // Auto-expand menus based on current page
   const isFinancePage = pathname.startsWith("/dashboard/finance");
@@ -452,52 +475,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </div>
             ))}
 
-            {/* Items after Finance: Proveedores directory */}
-            {filteredNavAfter.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-              
-              if (isCollapsed) {
-                return (
-                  <Tooltip key={item.name}>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
-                          isActive
-                            ? "bg-[var(--primary)] text-white"
-                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                        )}
-                      >
-                        <item.icon className="h-5 w-5" />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      {item.name}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-[var(--primary)] text-white"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
-
             {/* Productividad Menu with Submenu */}
-            {!eventScoped && (isCollapsed ? (
+            {!eventScoped && hasSection("productivity") && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -581,10 +560,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                       <Link
                         href={item.href}
                         className={cn(
-                          "flex items-center justify-center rounded-lg p-3 transition-colors",
+                          "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
                           isActive
-                            ? "bg-primary text-white"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            ? "bg-[var(--primary)] text-white"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                         )}
                       >
                         <item.icon className="h-5 w-5" />
@@ -602,10 +581,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-primary text-white"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-[var(--primary)] text-white"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                   )}
                 >
                   <item.icon className="h-5 w-5" />

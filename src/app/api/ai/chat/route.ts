@@ -4,6 +4,7 @@ import { buildSystemPrompt, INITIAL_SUGGESTIONS } from "@/lib/ai/system-prompt";
 import { createAITools } from "@/lib/ai/tools";
 import { getComposioTools } from "@/lib/composio";
 import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { db } from "@/db";
 import { 
   aiConversations, 
@@ -12,7 +13,7 @@ import {
   organizations, 
   roles 
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export const maxDuration = 60;
 
@@ -170,6 +171,10 @@ export async function GET(req: Request) {
 // Helpers
 async function getUserContext(userId: string) {
   try {
+    // Use the active org from session (set by middleware via x-organization-id header)
+    const tenantSession = await getSession();
+    const activeOrgId = tenantSession?.organizationId;
+
     const memberData = await db
       .select({
         organizationId: organizationMembers.organizationId,
@@ -179,7 +184,14 @@ async function getUserContext(userId: string) {
       .from(organizationMembers)
       .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
       .innerJoin(roles, eq(roles.id, organizationMembers.roleId))
-      .where(eq(organizationMembers.userId, userId))
+      .where(
+        activeOrgId
+          ? and(
+              eq(organizationMembers.userId, userId),
+              eq(organizationMembers.organizationId, activeOrgId)
+            )
+          : eq(organizationMembers.userId, userId)
+      )
       .limit(1);
 
     if (memberData.length === 0) return null;

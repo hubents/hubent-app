@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, providerEventAccess, tasks, events, financialDocuments, organizationFinanceSettings, vendors, taskParticipants } from "@/db/schema";
 import { eq, and, count, sum, sql, inArray } from "drizzle-orm";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 /**
  * GET /api/vendor/dashboard

@@ -7,6 +7,7 @@ import {
   createSubmission,
   extractCrmData,
 } from "@/lib/form-submissions";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function POST(
   try {
     const session = await requireAuth();
 
-    if (session.orgType !== "provider") {
+    if (!isMarketplaceType(session.orgType)) {
       return NextResponse.json({ success: false, error: "Solo organizaciones proveedoras" }, { status: 403 });
     }
 

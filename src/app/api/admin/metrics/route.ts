@@ -8,7 +8,7 @@ import {
   invoices,
 } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/session";
-import { eq, count, sum, and, gte, desc } from "drizzle-orm";
+import { eq, count, sum, and, gte, desc, sql } from "drizzle-orm";
 
 export async function GET() {
   try {
@@ -111,11 +111,13 @@ export async function GET() {
       .orderBy(desc(organizations.createdAt))
       .limit(5);
 
-    // Org type distribution
-    const [tenantCount] = await db
+    // Org type distribution (supports both "tenant" and future "planner" values)
+    const [plannerCount] = await db
       .select({ count: count() })
       .from(organizations)
-      .where(eq(organizations.orgType, "tenant"));
+      .where(
+        sql`${organizations.orgType} IN ('tenant', 'planner')`
+      );
 
     const [providerCount] = await db
       .select({ count: count() })
@@ -146,7 +148,7 @@ export async function GET() {
         },
         planDistribution,
         orgTypeDistribution: {
-          tenants: tenantCount?.count || 0,
+          planners: plannerCount?.count || 0,
           providers: providerCount?.count || 0,
         },
         recentSignups: recentSignups.map((o) => ({

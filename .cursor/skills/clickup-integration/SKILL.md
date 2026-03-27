@@ -90,23 +90,18 @@ await addClickUpTaskComment("86afx36wc", "# Reporte...\n\n---\n*NapsixAI*");
 
 ## Branding en tareas automáticas
 
-**SIEMPRE usar "NapsixAI"** en comentarios y descripciones:
-
-```text
----
-*Tarea creada automaticamente por NapsixAI*
-```
-
-```text
----
-*Comentario agregado por NapsixAI*
-```
+**SIEMPRE usar "NapsixAI"** en comentarios y descripciones. Firma al final: `—` + salto + `NapsixAI`.
 
 **NO usar** nombres de editores/IDEs en contenido orientado al cliente.
 
-## Formato recomendado para reportes
+## Formato de comentarios
 
-Markdown con secciones claras, checklist y firma con fecha.
+Ver regla **`.cursor/rules/hubents-clickup-comments.mdc`** para el formato estándar. Resumen:
+
+- Emojis como separadores de sección (📋 🔴 ✅ 🔍 🚀 📁), no `#` ni `##`
+- Bullets con `•`, no `-` ni `*`
+- Sin backticks de bloque ni markdown pesado
+- Construir string en Node, no PowerShell
 
 ## Notas
 

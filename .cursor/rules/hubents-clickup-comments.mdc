@@ -1,0 +1,59 @@
+---
+description: Formato de comentarios ClickUp — sin markdown pesado, con emojis y bullets limpios
+globs:
+alwaysApply: false
+---
+
+# Formato de comentarios ClickUp
+
+Cuando insertes comentarios en tareas de ClickUp (via script, API, o `addClickUpTaskComment`), usa este formato. **No uses** markdown pesado (`#`, `##`, `**`, backticks de bloque, `---`).
+
+## Formato estándar
+
+```text
+📋 Título breve de lo que se hizo
+
+🔴 Antes (problema)
+• Bullet 1 describiendo el problema
+• Bullet 2
+
+✅ Después (solución)
+• Bullet 1 describiendo la solución
+• Bullet 2
+
+🔍 Auditoría (si aplica)
+• Bugs encontrados y corregidos
+• Estado de tests
+
+🚀 Deploy (si aplica)
+• Migración aplicada
+• Commit hash → main → Vercel
+
+📁 Archivos: archivo1.ts, archivo2.tsx, archivo3.sql
+
+—
+NapsixAI
+```
+
+## Reglas
+
+- Secciones separadas con emoji + título en texto plano (no `#`)
+- Bullets con `•` (U+2022), no `-` ni `*`
+- Nombres técnicos van inline sin backticks — ClickUp no los renderiza bien
+- Firma siempre al final: raya em `—` + salto + `NapsixAI`
+- Construir el string en Node (script tsx, Server Action), no en PowerShell
+- Mantener conciso: archivos en una línea, no en lista vertical
+- Omitir secciones vacías (si no hay auditoría o deploy, no incluirlas)
+
+## Emojis de sección
+
+| Sección            | Emoji |
+| ------------------ | ----- |
+| Título             | 📋    |
+| Problema / antes   | 🔴    |
+| Solución / después | ✅    |
+| Auditoría          | 🔍    |
+| Deploy             | 🚀    |
+| Archivos           | 📁    |
+| Nota / warning     | ⚠️    |
+| Info adicional     | ℹ️    |

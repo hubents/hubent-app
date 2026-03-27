@@ -13,6 +13,7 @@ import {
   organizations
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { getAvailableRoles } from "@/lib/tenant-type";
 import type { TenantSession } from "@/types";
 import { canInviteRole } from "@/lib/tenant";
 import { sendContactTaskNotificationEmail } from "@/lib/email";
@@ -53,6 +54,12 @@ export async function createOrganizationInvitation(
 
   if (!role) {
     throw new Error(`Role "${roleSlug}" not found`);
+  }
+
+  // Validate role is allowed for this org's type (fail-closed)
+  const allowed = getAvailableRoles(session.orgType);
+  if (!allowed.includes(roleSlug)) {
+    throw new Error(`Role "${roleSlug}" is not valid for this organization type`);
   }
 
   // Check if user can invite this role
@@ -136,6 +143,26 @@ export async function acceptInvitation(token: string, userId: string) {
       .set({ status: "expired" })
       .where(eq(invitations.id, invitation.id));
     throw new Error("Invitation has expired");
+  }
+
+  // Validate role is compatible with the organization's type (fail-closed)
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, invitation.organizationId),
+  });
+  if (!org) {
+    throw new Error("Organization for this invitation no longer exists");
+  }
+
+  const invRole = await db.query.roles.findFirst({
+    where: eq(roles.id, invitation.roleId),
+  });
+  if (!invRole) {
+    throw new Error("Role for this invitation no longer exists");
+  }
+
+  const allowed = getAvailableRoles(org.orgType || "");
+  if (!allowed.includes(invRole.slug)) {
+    throw new Error(`Role '${invRole.slug}' is not valid for organization type '${org.orgType}'`);
   }
 
   // Add user to organization

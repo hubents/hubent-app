@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use src/lib/system-init.ts as the canonical source for roles and permissions.
+ * This file is kept only for the seedSuperAdmin function which should be run manually.
+ * Do NOT use seedRolesAndPermissions() -- it conflicts with system-init.
+ */
 import { db } from "./index";
 import { roles, permissions, rolePermissions, users, platformAdmins } from "./schema";
 import { eq } from "drizzle-orm";
@@ -276,8 +281,14 @@ export async function seedRolesAndPermissions(organizationId?: number) {
 
 export async function seedSuperAdmin(
   email: string = "german@napsix.ai",
-  password: string = "Hubents2026.!"
+  password?: string
 ) {
+  if (!password) {
+    password = process.env.ADMIN_SEED_PASSWORD;
+    if (!password) {
+      throw new Error("Password required: pass as argument or set ADMIN_SEED_PASSWORD env var");
+    }
+  }
   console.log(`🔐 Setting up super admin for: ${email}`);
 
   // Hash the password

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { providerEventAccess, organizations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -26,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!org || org.orgType !== "provider") {
+    if (!org || !isMarketplaceType(org.orgType)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }

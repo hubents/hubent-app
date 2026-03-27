@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerEventAccess, formInstances, forms, formFields } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export async function GET(
   try {
     const session = await requireAuth();
 
-    if (session.orgType !== "provider") {
+    if (!isMarketplaceType(session.orgType)) {
       return NextResponse.json({ success: false, error: "Solo organizaciones proveedoras" }, { status: 403 });
     }
 

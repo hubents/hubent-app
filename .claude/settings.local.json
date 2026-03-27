@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(ls \"c:\\\\dev_projects\\\\hubents-new\\\\src\\\\app\\\\dashboard\\\\providers\"\" 2>nul || echo \"No providers dir \")",
+      "Bash(vercel ls:*)",
+      "Bash(ls -la \"c:\\\\dev_projects\\\\hubents-new\\\\src\\\\app\\\\api\\\\vendor\"\" | grep -E \"^d)",
+      "Bash(.ts$ \")"
+    ]
+  }
+}

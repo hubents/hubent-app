@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { requirePermission, requireLimit, requireActiveSubscription } from "@/lib/session";
 import { canInviteRole } from "@/lib/tenant";
 import { sendOrganizationInviteEmail } from "@/lib/email";
+import { getAvailableRoles } from "@/lib/tenant-type";
 import type { TenantRole } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -45,6 +46,15 @@ export async function POST(request: NextRequest) {
     if (!targetRole) {
       return NextResponse.json(
         { success: false, error: { code: "INVALID_ROLE", message: `El rol '${role}' no existe` } },
+        { status: 400 }
+      );
+    }
+
+    // Validate role is allowed for this organization's type (fail-closed)
+    const allowedRoles = getAvailableRoles(session.orgType);
+    if (!allowedRoles.includes(targetRole.slug)) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_ROLE", message: `El rol '${role}' no es válido para este tipo de organización` } },
         { status: 400 }
       );
     }

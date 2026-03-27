@@ -76,23 +76,24 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
     postLoginRedirect: "/dashboard",
     postRegisterRedirect: "/onboarding?welcome=true",
 
-    isMarketplaceVisible: false,
+    isMarketplaceVisible: true,
     canBrowseMarketplace: true,
 
     defaultPlanSlug: "starter",
     ownerRoleSlug: "owner",
-    availableRoles: ["owner", "admin", "planner", "assistant", "viewer", "accountant"],
+    availableRoles: ["owner", "admin", "planner", "assistant", "viewer", "accountant", "client"],
 
-    hasPublicProfile: false,
+    hasPublicProfile: true,
     hasPortfolio: false,
     canCreateEvents: true,
-    canBeInvitedToEvents: false,
+    canBeInvitedToEvents: true,
 
     onboardingSteps: ["profile", "company", "first-event", "team"],
 
     sidebarSections: [
       "dashboard",
       "marketplace",
+      "public-profile",
       "contacts",
       "events",
       "crm",
@@ -115,7 +116,7 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
     postRegisterRedirect: "/onboarding?welcome=true",
 
     isMarketplaceVisible: true,
-    canBrowseMarketplace: false,
+    canBrowseMarketplace: true,
 
     defaultPlanSlug: "provider-free",
     ownerRoleSlug: "provider_owner",
@@ -130,10 +131,9 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
 
     sidebarSections: [
       "dashboard",
+      "marketplace",
       "public-profile",
-      "contacts",
       "events",
-      "crm",
       "finance",
       "productivity",
       "team",

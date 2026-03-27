@@ -25,22 +25,32 @@ import {
   Edit
 } from "lucide-react";
 import { PROVIDER_CATEGORIES } from "@/config/provider-constants";
+import { getOnboardingSteps } from "@/lib/tenant-type";
 
-// ─── Step Definitions ─────────────────────────────────────────────────────────
+// ─── Step Registry ──────────────────────────────────────────────────────────
+// Maps step identifiers from tenant-types config to UI metadata.
+// To add steps for a new orgType, just add the step ID to tenant-types config
+// and register its metadata here.
 
-const PLANNER_STEPS = [
-  { id: 1, title: "Tu perfil", description: "Cuéntanos un poco sobre ti", icon: User },
-  { id: 2, title: "Tu empresa", description: "Personaliza tu espacio de trabajo", icon: Building2 },
-  { id: 3, title: "Primer evento", description: "Crea tu primer evento (opcional)", icon: Calendar },
-  { id: 4, title: "Tu equipo", description: "Invita a tu equipo (opcional)", icon: Users },
-];
+const STEP_REGISTRY: Record<string, { title: string; description: string; icon: typeof User }> = {
+  profile:                { title: "Tu perfil", description: "Cuéntanos un poco sobre ti", icon: User },
+  company:                { title: "Tu empresa", description: "Personaliza tu espacio de trabajo", icon: Building2 },
+  "first-event":          { title: "Primer evento", description: "Crea tu primer evento (opcional)", icon: Calendar },
+  team:                   { title: "Tu equipo", description: "Invita a tu equipo (opcional)", icon: Users },
+  "company-public-profile": { title: "Tu empresa y perfil público", description: "Configura cómo te verán en el marketplace", icon: Building2 },
+  "profile-preview":      { title: "Vista previa", description: "Así se verá tu perfil en el marketplace", icon: Eye },
+};
 
-const PROVIDER_STEPS = [
-  { id: 1, title: "Tu perfil", description: "Cuéntanos un poco sobre ti", icon: User },
-  { id: 2, title: "Tu empresa y perfil público", description: "Configura cómo te verán en el marketplace", icon: Building2 },
-  { id: 3, title: "Vista previa", description: "Así se verá tu perfil en el marketplace", icon: Eye },
-  { id: 4, title: "Tu equipo", description: "Invita a tu equipo (opcional)", icon: Users },
-];
+function buildSteps(orgType: string) {
+  let stepIds = [...getOnboardingSteps(orgType)];
+  if (stepIds.length === 0) {
+    stepIds = ["profile", "company", "team"];
+  }
+  return stepIds.map((stepId, index) => {
+    const meta = STEP_REGISTRY[stepId] || { title: stepId, description: "", icon: User };
+    return { id: index + 1, stepKey: stepId, ...meta };
+  });
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -113,7 +123,7 @@ function OnboardingContent() {
   }, []);
 
   const isProvider = orgType === "provider";
-  const steps = isProvider ? PROVIDER_STEPS : PLANNER_STEPS;
+  const steps = buildSteps(orgType);
   const totalSteps = steps.length;
 
   // ─── Welcome screen timer ──────────────────────────────────────────────────
@@ -213,56 +223,52 @@ function OnboardingContent() {
 
   // ─── Step Content Renderer ─────────────────────────────────────────────────
 
+  const currentStepKey = steps[step - 1]?.stepKey;
+
   const renderStepContent = () => {
-    // Step 1: Profile (shared by both types)
-    if (step === 1) {
-      return (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono (opcional)</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+54 11 1234-5678"
-              value={profile.phone}
-              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="bio">Bio (opcional)</Label>
-            <Textarea
-              id="bio"
-              placeholder={isProvider
-                ? "Cuéntanos sobre tu empresa y los servicios que ofreces..."
-                : "Cuéntanos sobre ti y tu experiencia en eventos..."}
-              value={profile.bio}
-              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-              rows={3}
-            />
-          </div>
-        </>
-      );
-    }
+    switch (currentStepKey) {
+      case "profile":
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Teléfono (opcional)</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+54 11 1234-5678"
+                value={profile.phone}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio (opcional)</Label>
+              <Textarea
+                id="bio"
+                placeholder={isProvider
+                  ? "Cuéntanos sobre tu empresa y los servicios que ofreces..."
+                  : "Cuéntanos sobre ti y tu experiencia en eventos..."}
+                value={profile.bio}
+                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </>
+        );
 
-    // Step 2: Company
-    if (step === 2) {
-      if (isProvider) {
+      case "company":
+        return renderPlannerCompanyStep();
+
+      case "company-public-profile":
         return renderProviderCompanyStep();
-      }
-      return renderPlannerCompanyStep();
-    }
 
-    // Step 3
-    if (step === 3) {
-      if (isProvider) {
+      case "first-event":
+        return renderPlannerEventStep();
+
+      case "profile-preview":
         return renderProviderPreview();
-      }
-      return renderPlannerEventStep();
-    }
 
-    // Step 4: Team (shared by both types)
-    if (step === 4) {
-      return (
+      case "team":
+        return (
         <>
           <div className="space-y-2">
             <Label htmlFor="emails">Emails del equipo</Label>
@@ -286,9 +292,10 @@ function OnboardingContent() {
           </div>
         </>
       );
-    }
 
-    return null;
+      default:
+        return null;
+    }
   };
 
   // ─── Planner Step 2: Company ───────────────────────────────────────────────
@@ -708,7 +715,7 @@ function OnboardingContent() {
               </div>
               <div className="flex gap-2">
                 {/* Skip - not shown on provider preview step */}
-                {!(isProvider && step === 3) && (
+                {currentStepKey !== "profile-preview" && (
                   <Button variant="ghost" onClick={handleSkip}>
                     {step === totalSteps ? "Omitir y terminar" : "Omitir"}
                   </Button>

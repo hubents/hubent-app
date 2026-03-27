@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { invitations, organizations, users, organizationMembers, contacts, eventParticipants } from "@/db/schema";
+import { invitations, organizations, users, organizationMembers, contacts, eventParticipants, roles } from "@/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { getAvailableRoles } from "@/lib/tenant-type";
 
 export async function POST(
   request: NextRequest,
@@ -69,6 +70,35 @@ export async function POST(
         .returning();
 
       user = newUser;
+    }
+
+    // Validate the invitation's role is compatible with the org's type
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, invitation.organizationId),
+    });
+    if (!org) {
+      return NextResponse.json(
+        { error: "La organización de esta invitación ya no existe" },
+        { status: 400 }
+      );
+    }
+
+    const invitationRole = await db.query.roles.findFirst({
+      where: eq(roles.id, invitation.roleId),
+    });
+    if (!invitationRole) {
+      return NextResponse.json(
+        { error: "El rol de esta invitación ya no existe" },
+        { status: 400 }
+      );
+    }
+
+    const allowedRoles = getAvailableRoles(org.orgType || "");
+    if (!allowedRoles.includes(invitationRole.slug)) {
+      return NextResponse.json(
+        { error: "El rol de esta invitación no es compatible con el tipo de organización" },
+        { status: 400 }
+      );
     }
 
     const existingMember = await db.query.organizationMembers.findFirst({

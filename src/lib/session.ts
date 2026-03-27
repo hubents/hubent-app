@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { buildUserContext, createTenantSession } from "@/lib/tenant";
 import { getUsage } from "@/lib/entitlements";
 import { checkEventSectionAccess } from "@/lib/event-permissions";
-import type { TenantSession, UserContext, EventSectionPermissions } from "@/types";
+import type { TenantSession, TenantRole, UserContext, EventSectionPermissions } from "@/types";
 
 /**
  * Get the current authenticated session with tenant context
@@ -93,25 +93,43 @@ export async function requireAuth(): Promise<TenantSession> {
 }
 
 /**
- * Require a specific role level
+ * Require a specific role level.
+ * 
+ * DEPRECATED: Prefer requirePermission("resource:action") for all new code.
+ * This function is kept for backward compatibility but now properly checks
+ * both tenant and provider hierarchies instead of blindly bypassing.
  */
 export async function requireRole(
-  minRole: "viewer" | "accountant" | "assistant" | "planner" | "admin" | "owner"
+  minRole: "client" | "viewer" | "accountant" | "assistant" | "planner" | "admin" | "owner"
 ): Promise<TenantSession> {
   const session = await requireAuth();
   
-  const roleHierarchy = ["viewer", "accountant", "assistant", "planner", "admin", "owner"];
-  const providerBypass = ["provider_owner", "provider_admin", "provider_tech"];
+  const { hasRoleLevel } = await import("@/lib/tenant");
 
-  // Provider owner/admin bypass tenant role checks (they operate in their own hierarchy)
-  if (providerBypass.includes(session.role)) {
+  // For provider roles, map the requested tenant minRole to an equivalent
+  // provider hierarchy level. provider_owner = owner/admin, provider_admin = planner,
+  // provider_tech = viewer/assistant.
+  const PROVIDER_ROLE_MAP: Record<string, TenantRole> = {
+    owner: "provider_owner",
+    admin: "provider_owner",
+    planner: "provider_admin",
+    assistant: "provider_tech",
+    accountant: "provider_admin",
+    viewer: "provider_tech",
+    client: "provider_tech",
+  };
+
+  const isProviderRole = ["provider_owner", "provider_admin", "provider_tech"].includes(session.role);
+  
+  if (isProviderRole) {
+    const mappedRequired = PROVIDER_ROLE_MAP[minRole];
+    if (mappedRequired && !hasRoleLevel(session.role, mappedRequired)) {
+      throw new Error(`Forbidden: Requires ${minRole} role or higher`);
+    }
     return session;
   }
 
-  const userRoleIndex = roleHierarchy.indexOf(session.role);
-  const requiredRoleIndex = roleHierarchy.indexOf(minRole);
-
-  if (userRoleIndex < requiredRoleIndex) {
+  if (!hasRoleLevel(session.role, minRole as TenantRole)) {
     throw new Error(`Forbidden: Requires ${minRole} role or higher`);
   }
 

@@ -3,9 +3,14 @@ import fs from "fs";
 import path from "path";
 
 const SRC = path.resolve(__dirname, "../..");
+const ROOT = path.resolve(__dirname, "../../../..");
 
 function readSrc(relativePath: string): string {
   return fs.readFileSync(path.join(SRC, relativePath), "utf-8");
+}
+
+function readRoot(relativePath: string): string {
+  return fs.readFileSync(path.join(ROOT, relativePath), "utf-8");
 }
 
 // ============================================
@@ -42,7 +47,7 @@ describe("Fix 2: Provider slug normalization", () => {
   });
 
   it("seed-plans uses provider-free and provider-pro (hyphens)", () => {
-    const seed = readSrc("db/seed-plans.ts");
+    const seed = readRoot("scripts/seed-plans.ts");
     expect(seed).toContain('"provider-free"');
     expect(seed).toContain('"provider-pro"');
     expect(seed).not.toContain('"provider_free"');
@@ -323,7 +328,7 @@ describe("Fix 13: Custom error pages", () => {
 describe("Cross-cutting consistency", () => {
   it("no provider_free slug anywhere in src (except test files checking for absence)", () => {
     const flagsFile = readSrc("lib/api/api-feature-flags.ts");
-    const seedFile = readSrc("db/seed-plans.ts");
+    const seedFile = readRoot("scripts/seed-plans.ts");
     const providerRegister = readSrc("app/api/auth/provider-register/route.ts");
 
     // These files should NOT contain the old underscore format

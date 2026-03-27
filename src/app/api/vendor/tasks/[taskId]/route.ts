@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { organizations, vendors, taskParticipants, tasks, events, providerEventAccess, users } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { notifyTaskStatusChanged } from "@/lib/push-notifications";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -20,7 +21,7 @@ async function verifyVendorTaskAccess(
     where: eq(organizations.id, session.organizationId),
     columns: { orgType: true },
   });
-  if (!org || org.orgType !== "provider") {
+  if (!org || !isMarketplaceType(org.orgType)) {
     throw { status: 403, code: "FORBIDDEN", message: "Not a provider organization" };
   }
 

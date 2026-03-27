@@ -6,6 +6,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { createDocument } from "@/lib/finance";
 import { createMirrorDocument } from "@/lib/cross-org-finance";
 import { getVendorForProviderOrg } from "@/lib/cross-org";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!org || org.orgType !== "provider") {
+    if (!org || !isMarketplaceType(org.orgType)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!orgCheck || orgCheck.orgType !== "provider") {
+    if (!orgCheck || !isMarketplaceType(orgCheck.orgType)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }

@@ -114,11 +114,11 @@ export async function notifyTaskAssigned(
 ): Promise<void> {
   const title = "📋 Nueva tarea asignada";
   const body = `${assignedByName} te asignó: ${taskTitle}`;
-  const link = `${BASE_URL}/dashboard/tareas?task=${taskId}`;
+  const link = `${BASE_URL}/dashboard/tasks?task=${taskId}`;
   const data = { type: "task_assigned", taskId: taskId.toString() };
 
   await sendPushToUsers([assignedToUserId], { title, body, deep_link: link, data });
-  triggerInApp([assignedToUserId], "assigned", { taskId, taskTitle, actorName: assignedByName });
+  triggerInApp([assignedToUserId], "task:assigned", { taskId, taskTitle, actorName: assignedByName });
   
   // Save to DB if organizationId provided
   if (organizationId) {
@@ -150,10 +150,10 @@ export async function notifyTaskStatusChanged(
   await sendPushToUsers(filtered, {
     title: "🔄 Tarea actualizada",
     body: `${changedByName} marcó "${taskTitle}" como ${statusLabels[newStatus] || newStatus}`,
-    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    deep_link: `${BASE_URL}/dashboard/tasks?task=${taskId}`,
     data: { type: "task_status_changed", taskId: taskId.toString(), status: newStatus },
   });
-  triggerInApp(filtered, "updated", { taskId, taskTitle, actorName: changedByName });
+  triggerInApp(filtered, "task:updated", { taskId, taskTitle, actorName: changedByName });
 }
 
 /**
@@ -168,7 +168,7 @@ export async function notifyAddedAsParticipant(
   await sendPushToUsers([addedUserId], {
     title: "👥 Agregado a tarea",
     body: `${addedByName} te agregó como participante en: ${taskTitle}`,
-    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    deep_link: `${BASE_URL}/dashboard/tasks?task=${taskId}`,
     data: { type: "task_participant_added", taskId: taskId.toString() },
   });
 }
@@ -206,7 +206,7 @@ export async function notifyPaymentRegistered(
   await sendPushToUsers(filtered, {
     title: "💰 Pago registrado",
     body,
-    deep_link: `${BASE_URL}/dashboard/pagos`,
+    deep_link: `${BASE_URL}/dashboard/finance/payments`,
     data: { type: "payment_registered" },
   });
 }
@@ -232,7 +232,7 @@ export async function notifyPaymentStatusChanged(
   await sendPushToUsers(filtered, {
     title: `${statusEmoji} Pago ${statusLabel}`,
     body: paymentDescription,
-    deep_link: `${BASE_URL}/dashboard/pagos`,
+    deep_link: `${BASE_URL}/dashboard/finance/payments`,
     data: { type: "payment_status_changed", status: newStatus },
   });
 }
@@ -267,10 +267,10 @@ export async function notifyGuestRsvp(
   await sendPushToUsers(recipients, {
     title: `${responseEmoji} RSVP recibido`,
     body,
-    deep_link: `${BASE_URL}/dashboard/eventos/${eventId}/invitados`,
+    deep_link: `${BASE_URL}/dashboard/events/${eventId}/invitados`,
     data: { type: "rsvp_received", eventId: eventId.toString(), response },
   });
-  triggerInApp(recipients, "rsvp_received", { eventId, eventName, body });
+  triggerInApp(recipients, "rsvp:received", { eventId, eventName, body });
 }
 
 // ============================================
@@ -295,10 +295,10 @@ export async function notifyNewContact(
   await sendPushToUsers(filtered, {
     title: "👤 Nuevo contacto",
     body: `${contactName} (${typeLabel}) agregado al CRM`,
-    deep_link: `${BASE_URL}/dashboard/contactos`,
+    deep_link: `${BASE_URL}/dashboard/contacts`,
     data: { type: "new_contact", contactType },
   });
-  triggerInApp(filtered, "new_contact", { body: `${contactName} (${typeLabel}) agregado al CRM` });
+  triggerInApp(filtered, "contact:new", { body: `${contactName} (${typeLabel}) agregado al CRM` });
 }
 
 /**
@@ -372,7 +372,7 @@ export async function notifyEventReminder(
   await sendPushToUsers(recipients, {
     title: "⏰ Recordatorio de evento",
     body: `${eventName} comienza ${timeLabel}`,
-    deep_link: `${BASE_URL}/dashboard/eventos/${eventId}`,
+    deep_link: `${BASE_URL}/dashboard/events/${eventId}`,
     data: { type: "event_reminder", eventId: eventId.toString() },
   });
 }
@@ -428,7 +428,7 @@ export async function notifyMentions(
   await sendPushToUsers(uniqueUserIds, {
     title: `🔔 ${senderName} te mencionó`,
     body: preview,
-    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    deep_link: `${BASE_URL}/dashboard/tasks?task=${taskId}`,
     data: { type: "mention", taskId: taskId.toString() },
   });
 }
@@ -446,7 +446,7 @@ export async function notifyChecklistAssigned(
   await sendPushToUsers([assignedToUserId], {
     title: "✅ Nuevo ítem asignado",
     body: `${assignedByName} te asignó: "${checklistItemTitle}" en la tarea "${taskTitle}"`,
-    deep_link: `${BASE_URL}/dashboard/tareas?task=${taskId}`,
+    deep_link: `${BASE_URL}/dashboard/tasks?task=${taskId}`,
     data: { type: "checklist_assigned", taskId: taskId.toString() },
   });
 }
@@ -474,10 +474,10 @@ export async function notifyNewEvent(
   await sendPushToUsers(filtered, {
     title: "🎉 Nuevo evento creado",
     body: `${eventName} - ${dateStr}`,
-    deep_link: `${BASE_URL}/dashboard/eventos/${eventId}`,
+    deep_link: `${BASE_URL}/dashboard/events/${eventId}`,
     data: { type: "new_event", eventId: eventId.toString() },
   });
-  triggerInApp(filtered, "new_event", { eventId, eventName, body: `${eventName} - ${dateStr}` });
+  triggerInApp(filtered, "event:new", { eventId, eventName, body: `${eventName} - ${dateStr}` });
 }
 
 // ============================================
@@ -560,7 +560,7 @@ export async function notifyDocumentStatusChanged(
 
   const title = `${emoji} Documento ${statusLabel}`;
   const body = `${plannerOrgName} marcó ${documentNumber} como ${statusLabel} (${eventName})`;
-  const link = `${BASE_URL}/vendor/finance/${documentType === "quote" ? "quotes" : "invoices"}`;
+  const link = `${BASE_URL}/dashboard/finance/${documentType === "quote" ? "quotes" : "invoices"}`;
 
   await sendPushToUsers(recipients, {
     title,
@@ -594,7 +594,7 @@ export async function notifyPaymentReceived(
   const docRef = documentNumber ? ` (${documentNumber})` : "";
   const title = "💰 Pago recibido";
   const body = `${plannerOrgName} registró un pago de ${formattedAmount}${docRef} — ${eventName}`;
-  const link = `${BASE_URL}/vendor/finance/payments`;
+  const link = `${BASE_URL}/dashboard/finance/payments`;
 
   await sendPushToUsers(recipients, {
     title,
@@ -620,7 +620,7 @@ export async function notifyProviderInvited(
 
   const title = "📩 Nueva invitación a evento";
   const body = `${plannerOrgName} te invitó a participar en: ${eventName}`;
-  const link = `${BASE_URL}/vendor/events`;
+  const link = `${BASE_URL}/dashboard/events`;
 
   await sendPushToUsers(recipients, {
     title,

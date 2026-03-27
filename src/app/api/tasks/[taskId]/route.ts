@@ -116,7 +116,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         taskIdNum,
         updated.title,
         cleanBody.assignedTo as string,
-        userName
+        userName,
+        session.organizationId
       ).catch(err => console.error("Push notification failed:", err));
     }
 

@@ -5,6 +5,7 @@ import { organizations, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderVerifiedEmail, sendProviderRejectedEmail } from "@/lib/email";
+import { getConfigByDbOrgType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -18,17 +19,19 @@ const verifySchema = z.object({
 
 /**
  * POST /api/admin/providers/[id]/verify
- * Verify or reject a provider organization
+ * Verify or reject any marketplace-visible organization (provider, planner, venue, etc.).
+ * Not restricted to orgType=provider -- any orgType that has isMarketplaceVisible=true
+ * in tenant-types config can be verified.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePlatformAdmin();
     const { id } = await params;
-    const providerId = parseInt(id);
+    const orgId = parseInt(id);
 
-    if (isNaN(providerId)) {
+    if (isNaN(orgId)) {
       return NextResponse.json(
-        { success: false, error: { code: "INVALID_ID", message: "Invalid provider ID" } },
+        { success: false, error: { code: "INVALID_ID", message: "Invalid organization ID" } },
         { status: 400 }
       );
     }
@@ -45,15 +48,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { action, rejectionReason } = parsed.data;
 
-    // Check provider exists and is a provider org
     const provider = await db.query.organizations.findFirst({
-      where: eq(organizations.id, providerId),
+      where: eq(organizations.id, orgId),
     });
 
-    if (!provider || provider.orgType !== "provider") {
+    if (!provider) {
       return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Provider not found" } },
+        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
         { status: 404 }
+      );
+    }
+
+    // Any marketplace-visible orgType can be verified (not just providers)
+    const typeConfig = getConfigByDbOrgType(provider.orgType || "");
+    if (!typeConfig?.isMarketplaceVisible) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_VERIFIABLE", message: `Organization type '${provider.orgType}' is not marketplace-visible` } },
+        { status: 400 }
       );
     }
 
@@ -67,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           rejectionReason: null,
           updatedAt: new Date(),
         })
-        .where(eq(organizations.id, providerId));
+        .where(eq(organizations.id, orgId));
 
       // Send approval email (non-blocking)
       if (provider.ownerId) {
@@ -92,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           rejectionReason: rejectionReason || "No cumple los requisitos",
           updatedAt: new Date(),
         })
-        .where(eq(organizations.id, providerId));
+        .where(eq(organizations.id, orgId));
 
       // Send rejection email (non-blocking)
       if (provider.ownerId) {

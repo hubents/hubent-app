@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerEventAccess, paymentRecords, financialDocuments, contacts, organizations } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { isMarketplaceType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!org || org.orgType !== "provider") {
+    if (!org || !isMarketplaceType(org.orgType)) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }
