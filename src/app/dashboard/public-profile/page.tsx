@@ -83,38 +83,72 @@ export default function PublicProfilePage() {
   const [editData, setEditData] = useState<Partial<ProfileData>>({});
   const [newPortfolioUrl, setNewPortfolioUrl] = useState("");
 
-  // Redirect non-providers
-  useEffect(() => {
-    if (!sessionLoading && orgType !== "provider") {
-      router.replace("/dashboard");
-    }
-  }, [orgType, sessionLoading, router]);
+  const isProvider = orgType === "provider";
 
   const fetchProfile = useCallback(async () => {
     try {
-      const [profileRes, portfolioRes] = await Promise.all([
-        fetch("/api/vendor/profile"),
-        fetch("/api/vendor/portfolio"),
-      ]);
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        setProfile(data.data || data);
-        setEditData({});
-      }
-      if (portfolioRes.ok) {
-        const data = await portfolioRes.json();
-        setPortfolio(data.data || []);
+      if (isProvider) {
+        const [profileRes, portfolioRes] = await Promise.all([
+          fetch("/api/vendor/profile"),
+          fetch("/api/vendor/portfolio"),
+        ]);
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setProfile(data.data || data);
+          setEditData({});
+        }
+        if (portfolioRes.ok) {
+          const data = await portfolioRes.json();
+          setPortfolio(data.data || []);
+        }
+      } else {
+        const res = await fetch("/api/user/organizations");
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data && data.length > 0) {
+            const org = data[0];
+            setProfile({
+              id: org.id,
+              name: org.name || "",
+              slug: org.slug || "",
+              logo: org.logo || null,
+              phone: org.phone || null,
+              website: org.website || null,
+              instagramHandle: org.instagramHandle || null,
+              providerCategory: null,
+              verificationStatus: org.verificationStatus || "unverified",
+              description: org.description || null,
+              tagline: org.tagline || null,
+              coverImage: org.coverImage || null,
+              publicEmail: null,
+              priceRange: null,
+              services: null,
+              foundedYear: null,
+              city: org.city || null,
+              region: org.region || null,
+              country: null,
+              minBudget: null,
+              maxBudget: null,
+              responseTime: null,
+              profileCompleteness: org.profileCompleteness || 0,
+              totalReviews: null,
+              averageRating: null,
+              isFeatured: false,
+            });
+            setEditData({});
+          }
+        }
       }
     } catch {
       toast.error("Error al cargar el perfil");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isProvider]);
 
   useEffect(() => {
-    if (orgType === "provider") fetchProfile();
-  }, [orgType, fetchProfile]);
+    if (!sessionLoading) fetchProfile();
+  }, [sessionLoading, fetchProfile]);
 
   const handleSave = async () => {
     if (Object.keys(editData).length === 0) return;
@@ -172,7 +206,7 @@ export default function PublicProfilePage() {
     return (editData as Record<string, unknown>)[key] ?? profile?.[key] ?? "";
   };
 
-  if (sessionLoading || (orgType !== "provider")) {
+  if (sessionLoading) {
     return null;
   }
 
@@ -413,8 +447,8 @@ export default function PublicProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Portfolio */}
-        <Card>
+        {/* Portfolio (providers only) */}
+        {isProvider && <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RiImageAddLine className="h-5 w-5" />
@@ -453,7 +487,7 @@ export default function PublicProfilePage() {
               </p>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Stats (read-only) */}
         {(profile?.totalReviews ?? 0) > 0 && (

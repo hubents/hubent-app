@@ -87,6 +87,7 @@ function MarketplaceContent() {
   const [priceRange, setPriceRange] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [myProvidersOnly, setMyProvidersOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [total, setTotal] = useState(0);
   const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
     if (typeof window !== "undefined") {
@@ -106,6 +107,7 @@ function MarketplaceContent() {
       if (priceRange) params.set("priceRange", priceRange);
       if (favoritesOnly) params.set("favorites", "true");
       if (myProvidersOnly) params.set("myProviders", "true");
+      if (verifiedOnly) params.set("verified", "true");
       params.set("limit", "50");
 
       const res = await fetch(`/api/providers?${params}`);
@@ -119,7 +121,7 @@ function MarketplaceContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, city, priceRange, favoritesOnly, myProvidersOnly]);
+  }, [search, category, city, priceRange, favoritesOnly, myProvidersOnly, verifiedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchProviders, 300);
@@ -159,9 +161,10 @@ function MarketplaceContent() {
     setPriceRange("");
     setFavoritesOnly(false);
     setMyProvidersOnly(false);
+    setVerifiedOnly(false);
   };
 
-  const hasFilters = search || category || city || priceRange || favoritesOnly || myProvidersOnly;
+  const hasFilters = search || category || city || priceRange || favoritesOnly || myProvidersOnly || verifiedOnly;
 
   return (
     <div className="space-y-6">
@@ -264,6 +267,17 @@ function MarketplaceContent() {
           >
             <RiStore2Line className="h-3.5 w-3.5" />
             Mis Proveedores
+          </button>
+          <button
+            onClick={() => setVerifiedOnly(!verifiedOnly)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              verifiedOnly
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
+            }`}
+          >
+            <RiShieldCheckLine className="h-3.5 w-3.5" />
+            Verificados
           </button>
           {hasFilters && (
             <button

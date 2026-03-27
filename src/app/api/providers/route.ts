@@ -1,33 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { organizations } from "@/db/schema";
-import { eq, and, ilike, desc, sql } from "drizzle-orm";
+import { organizations, providerFavorites, vendors } from "@/db/schema";
+import { eq, and, ilike, desc, sql, inArray } from "drizzle-orm";
 
 /**
  * GET /api/providers
- * Search verified provider organizations (for planners)
- * Query params: ?search=X&category=Y&page=1&limit=20
+ * Search provider organizations for the marketplace.
+ * Query params: ?search=X&category=Y&city=Z&verified=true&favorites=true&myProviders=true&page=1&limit=50
  */
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission("vendors:read");
+    const session = await requireAuth();
 
     const { searchParams } = request.nextUrl;
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category") || "";
+    const city = searchParams.get("city") || "";
+    const verified = searchParams.get("verified") === "true";
+    const favoritesOnly = searchParams.get("favorites") === "true";
+    const myProvidersOnly = searchParams.get("myProviders") === "true";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const offset = (page - 1) * limit;
 
-    const conditions = [
+    // Base: provider orgs only
+    const conditions: ReturnType<typeof eq>[] = [
       eq(organizations.orgType, "provider"),
-      eq(organizations.verificationStatus, "verified"),
     ];
+
+    if (verified) {
+      conditions.push(eq(organizations.verificationStatus, "verified"));
+    }
 
     if (search) {
       conditions.push(
-        sql`(${ilike(organizations.name, `%${search}%`)} OR ${ilike(organizations.instagramHandle, `%${search}%`)})`
+        sql`(${ilike(organizations.name, `%${search}%`)} OR ${ilike(organizations.instagramHandle, `%${search}%`)} OR ${ilike(organizations.description, `%${search}%`)})`
       );
     }
 
@@ -35,18 +43,65 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(organizations.providerCategory, category));
     }
 
-    const providers = await db
+    if (city) {
+      conditions.push(ilike(organizations.city, `%${city}%`));
+    }
+
+    // Get user's favorites for isFavorite flag
+    const userFavorites = await db
+      .select({ providerOrgId: providerFavorites.providerOrgId })
+      .from(providerFavorites)
+      .where(
+        and(
+          eq(providerFavorites.organizationId, session.organizationId),
+          eq(providerFavorites.userId, session.user.userId)
+        )
+      );
+    const favoriteIds = new Set(userFavorites.map((f) => f.providerOrgId));
+
+    // If favorites filter active, restrict to favorite IDs
+    if (favoritesOnly && favoriteIds.size > 0) {
+      conditions.push(inArray(organizations.id, [...favoriteIds]));
+    } else if (favoritesOnly) {
+      return NextResponse.json({ success: true, data: [], meta: { page, limit, total: 0 } });
+    }
+
+    // If myProviders filter, restrict to orgs linked via vendors table
+    if (myProvidersOnly) {
+      const linkedVendors = await db
+        .select({ providerOrgId: vendors.providerOrgId })
+        .from(vendors)
+        .where(eq(vendors.organizationId, session.organizationId));
+      const linkedIds = linkedVendors
+        .map((v) => v.providerOrgId)
+        .filter((id): id is number => id !== null);
+      if (linkedIds.length > 0) {
+        conditions.push(inArray(organizations.id, linkedIds));
+      } else {
+        return NextResponse.json({ success: true, data: [], meta: { page, limit, total: 0 } });
+      }
+    }
+
+    const rows = await db
       .select({
         id: organizations.id,
         name: organizations.name,
         slug: organizations.slug,
         logo: organizations.logo,
-        instagramHandle: organizations.instagramHandle,
+        description: organizations.description,
+        tagline: organizations.tagline,
         providerCategory: organizations.providerCategory,
-        serviceRadius: organizations.serviceRadius,
-        serviceAreas: organizations.serviceAreas,
+        city: organizations.city,
+        region: organizations.region,
+        coverImage: organizations.coverImage,
+        verificationStatus: organizations.verificationStatus,
+        instagramHandle: organizations.instagramHandle,
         phone: organizations.phone,
         website: organizations.website,
+        profileCompleteness: organizations.profileCompleteness,
+        services: organizations.services,
+        serviceRadius: organizations.serviceRadius,
+        serviceAreas: organizations.serviceAreas,
       })
       .from(organizations)
       .where(and(...conditions))
@@ -54,15 +109,27 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    // Count total
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(organizations)
       .where(and(...conditions));
 
+    const data = rows.map((p) => ({
+      ...p,
+      isFavorite: favoriteIds.has(p.id),
+      isMyProvider: false,
+      isUnclaimed: false,
+      isFeatured: false,
+      averageRating: null,
+      totalReviews: null,
+      priceRange: null,
+      country: null,
+      categories: null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: providers,
+      data,
       meta: {
         page,
         limit,

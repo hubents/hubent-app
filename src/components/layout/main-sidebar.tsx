@@ -75,8 +75,9 @@ const productivitySubNav = [
 ];
 
 const navigationAfterProductivity = [
-  { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine, permission: "team:read" },
-  { name: "HubIA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null },
+  { name: "Equipo", href: "/dashboard/team", icon: RiTeamLine, permission: "team:read", section: "team" },
+  { name: "Mi Perfil Público", href: "/dashboard/public-profile", icon: RiStoreLine, permission: null, section: "public-profile" },
+  { name: "HubIA", href: "/dashboard/ai", icon: RiSparklingLine, permission: null, section: "ai" },
 ];
 
 const financeSubNav = [
@@ -121,12 +122,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   }, [can, eventScoped, hasSection]);
 
   const filteredMarketplace = useMemo(() => {
-    if (eventScoped) return [];
-    const items = [
-      ...(hasSection("marketplace") ? navigationMarketplace : []),
-      ...(hasSection("public-profile") ? navigationProviderProfile : []),
-    ];
-    return items.filter((item) => !item.permission || can(item.permission));
+    if (eventScoped || !hasSection("marketplace")) return [];
+    return navigationMarketplace.filter((item) => !item.permission || can(item.permission));
   }, [can, eventScoped, hasSection]);
 
   const filteredAfterContacts = useMemo(() => {
@@ -142,8 +139,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const filteredNavAfterProductivity = useMemo(() => {
     if (eventScoped) return [];
     return navigationAfterProductivity.filter((item) => {
-      if (item.name === "Equipo" && !hasSection("team")) return false;
-      if (item.name === "HubIA" && !hasSection("ai")) return false;
+      if (item.section && !hasSection(item.section)) return false;
       return !item.permission || can(item.permission);
     });
   }, [can, eventScoped, hasSection]);
