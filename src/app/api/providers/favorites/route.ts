@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerFavorites, organizations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 
 /**
@@ -60,18 +60,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the target is actually a provider org
+    // Verify the target is a provider or planner (tenant) org
     const providerOrg = await db.query.organizations.findFirst({
       where: and(
         eq(organizations.id, parsed.data.providerOrgId),
-        eq(organizations.orgType, "provider")
+        or(
+          eq(organizations.orgType, "provider"),
+          eq(organizations.orgType, "tenant")
+        )
       ),
       columns: { id: true },
     });
 
     if (!providerOrg) {
       return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Provider not found" } },
+        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
         { status: 404 }
       );
     }

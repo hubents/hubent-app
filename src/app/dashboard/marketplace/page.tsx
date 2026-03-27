@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,17 +40,25 @@ import {
   RiUserUnfollowLine,
   RiCalendarEventLine,
   RiSendPlaneLine,
+  RiBuilding2Line,
+  RiTeamLine,
 } from "@remixicon/react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { PROVIDER_CATEGORIES, PRICE_RANGES } from "@/config/provider-constants";
+import {
+  PROVIDER_CATEGORIES,
+  PRICE_RANGES,
+  getOrgTypeLabel,
+  getOrgTypeBadgeVariant,
+} from "@/config/provider-constants";
 
 interface MarketplaceProvider {
   id: number;
   name: string;
   slug: string;
   logo: string | null;
+  orgType: string | null;
   tagline: string | null;
   description: string | null;
   providerCategory: string | null;
@@ -79,13 +87,13 @@ export default function MarketplacePage() {
 }
 
 function MarketplaceContent() {
-  // toast imported from sonner at top level
   const [providers, setProviders] = useState<MarketplaceProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
   const [priceRange, setPriceRange] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [myProvidersOnly, setMyProvidersOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -147,6 +155,7 @@ function MarketplaceContent() {
       if (category) params.set("category", category);
       if (city) params.set("city", city);
       if (priceRange) params.set("priceRange", priceRange);
+      if (typeFilter) params.set("type", typeFilter);
       if (favoritesOnly) params.set("favorites", "true");
       if (myProvidersOnly) params.set("myProviders", "true");
       if (verifiedOnly) params.set("verified", "true");
@@ -163,7 +172,7 @@ function MarketplaceContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, city, priceRange, favoritesOnly, myProvidersOnly, verifiedOnly]);
+  }, [search, category, city, priceRange, typeFilter, favoritesOnly, myProvidersOnly, verifiedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchProviders, 300);
@@ -177,20 +186,29 @@ function MarketplaceContent() {
 
   const toggleFavorite = async (provider: MarketplaceProvider) => {
     try {
+      let res: Response;
       if (provider.isFavorite) {
-        await fetch(`/api/providers/favorites/${provider.id}`, { method: "DELETE" });
+        res = await fetch(`/api/providers/favorites/${provider.id}`, { method: "DELETE" });
       } else {
-        await fetch("/api/providers/favorites", {
+        res = await fetch("/api/providers/favorites", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ providerOrgId: provider.id }),
         });
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data?.error?.message || "No se pudo actualizar favorito");
+        return;
       }
       setProviders((prev) =>
         prev.map((p) =>
           p.id === provider.id ? { ...p, isFavorite: !p.isFavorite } : p
         )
       );
+      if (!provider.isFavorite) {
+        toast.success(`${provider.name} agregado a favoritos`);
+      }
     } catch {
       toast.error("No se pudo actualizar favorito");
     }
@@ -201,12 +219,13 @@ function MarketplaceContent() {
     setCategory("");
     setCity("");
     setPriceRange("");
+    setTypeFilter("");
     setFavoritesOnly(false);
     setMyProvidersOnly(false);
     setVerifiedOnly(false);
   };
 
-  const hasFilters = search || category || city || priceRange || favoritesOnly || myProvidersOnly || verifiedOnly;
+  const hasFilters = search || category || city || priceRange || typeFilter || favoritesOnly || myProvidersOnly || verifiedOnly;
 
   return (
     <div className="space-y-6">
@@ -256,8 +275,18 @@ function MarketplaceContent() {
               className="pl-10"
             />
           </div>
+          <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
+            <SelectTrigger className="w-full sm:w-[170px]">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              <SelectItem value="provider">Proveedores</SelectItem>
+              <SelectItem value="planner">Planificadores</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectTrigger className="w-full sm:w-[190px]">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -268,7 +297,7 @@ function MarketplaceContent() {
             </SelectContent>
           </Select>
           <Select value={priceRange || "all"} onValueChange={(v) => setPriceRange(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectTrigger className="w-full sm:w-[130px]">
               <SelectValue placeholder="Precio" />
             </SelectTrigger>
             <SelectContent>
@@ -282,7 +311,7 @@ function MarketplaceContent() {
             value={city}
             onChange={(e) => setCity(e.target.value)}
             placeholder="Ciudad..."
-            className="w-full sm:w-[160px]"
+            className="w-full sm:w-[150px]"
           />
         </div>
 
@@ -337,7 +366,7 @@ function MarketplaceContent() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-56 w-full rounded-lg" />
+            <Skeleton key={i} className="h-64 w-full rounded-lg" />
           ))}
         </div>
       ) : providers.length === 0 ? (
@@ -346,19 +375,19 @@ function MarketplaceContent() {
             <RiStore2Line className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-lg font-medium">
               {favoritesOnly
-                ? "No tienes favoritos aun"
+                ? "No tienes favoritos aún"
                 : myProvidersOnly
-                ? "No has creado proveedores aun"
+                ? "No has creado proveedores aún"
                 : "No se encontraron proveedores"}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
               {favoritesOnly
-                ? "Marca proveedores con el corazon para encontrarlos rapido"
+                ? "Marca proveedores con el corazón para encontrarlos rápido"
                 : myProvidersOnly
                 ? "Crea un proveedor para empezar a gestionarlo"
                 : hasFilters
-                ? "Intenta con otros filtros de busqueda"
-                : "Aun no hay proveedores en la plataforma"}
+                ? "Intenta con otros filtros de búsqueda"
+                : "Aún no hay proveedores en la plataforma"}
             </p>
             {!hasFilters && (
               <Button className="mt-4 gap-1.5" onClick={() => setShowCreateDrawer(true)}>
@@ -371,7 +400,7 @@ function MarketplaceContent() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {total} {total === 1 ? "proveedor encontrado" : "proveedores encontrados"}
+            {total} {total === 1 ? "resultado encontrado" : "resultados encontrados"}
           </p>
 
           {viewMode === "cards" ? (
@@ -386,12 +415,12 @@ function MarketplaceContent() {
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left text-sm font-medium p-3">Proveedor</th>
-                    <th className="text-left text-sm font-medium p-3 hidden md:table-cell">Categoria</th>
+                    <th className="text-left text-sm font-medium p-3 hidden sm:table-cell">Tipo</th>
+                    <th className="text-left text-sm font-medium p-3 hidden md:table-cell">Categoría</th>
                     <th className="text-left text-sm font-medium p-3 hidden md:table-cell">Ciudad</th>
                     <th className="text-left text-sm font-medium p-3 hidden lg:table-cell">Rating</th>
-                    <th className="text-left text-sm font-medium p-3 hidden lg:table-cell">Precio</th>
-                    <th className="text-center text-sm font-medium p-3 w-20">Fav</th>
-                    <th className="text-right text-sm font-medium p-3 w-24">Acciones</th>
+                    <th className="text-center text-sm font-medium p-3 w-16">Fav</th>
+                    <th className="text-right text-sm font-medium p-3 w-28">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,7 +434,7 @@ function MarketplaceContent() {
         </>
       )}
 
-      {/* Invite to Event Dialog */}
+      {/* Invite to Event Sheet */}
       <Sheet open={!!inviteTarget} onOpenChange={(o) => { if (!o) { setInviteTarget(null); setSelectedEventId(""); } }}>
         <SheetContent>
           <SheetHeader>
@@ -462,6 +491,40 @@ function MarketplaceContent() {
   );
 }
 
+// ─── Avatar with verified badge overlay ─────────────────────────────────────
+
+function ProviderAvatar({ provider, size = "md" }: { provider: MarketplaceProvider; size?: "sm" | "md" }) {
+  const isProvider = provider.orgType === "provider";
+  const dim = size === "sm" ? "h-10 w-10" : "h-14 w-14";
+  const iconDim = size === "sm" ? "h-5 w-5" : "h-7 w-7";
+  const bgColor = isProvider ? "bg-purple-100" : "bg-blue-100";
+  const iconColor = isProvider ? "text-purple-600" : "text-blue-600";
+  const Icon = isProvider ? RiBuilding2Line : RiTeamLine;
+
+  return (
+    <div className="relative shrink-0">
+      {provider.logo ? (
+        <Image
+          src={provider.logo}
+          alt={provider.name}
+          width={size === "sm" ? 40 : 56}
+          height={size === "sm" ? 40 : 56}
+          className={`${dim} rounded-xl object-cover`}
+        />
+      ) : (
+        <div className={`${dim} rounded-xl ${bgColor} flex items-center justify-center`}>
+          <Icon className={`${iconDim} ${iconColor}`} />
+        </div>
+      )}
+      {provider.verificationStatus === "verified" && (
+        <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-1 ring-white">
+          <RiShieldCheckLine className="h-3.5 w-3.5 text-green-500" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Card View ──────────────────────────────────────────────────────────────
 
 function ProviderCard({
@@ -474,97 +537,94 @@ function ProviderCard({
   onInviteToEvent: (p: MarketplaceProvider) => void;
 }) {
   return (
-    <Card className="hover:shadow-md transition-shadow overflow-hidden relative group">
+    <Card className="hover:shadow-md transition-shadow overflow-hidden relative group flex flex-col">
       {/* Favorite button */}
       <button
         onClick={(e) => { e.preventDefault(); onToggleFavorite(provider); }}
-        className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/80 hover:bg-white shadow-sm transition-colors"
+        className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm transition-colors"
+        aria-label={provider.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
       >
         {provider.isFavorite ? (
           <RiHeartFill className="h-4 w-4 text-red-500" />
         ) : (
-          <RiHeartLine className="h-4 w-4 text-gray-400 group-hover:text-red-400" />
+          <RiHeartLine className="h-4 w-4 text-muted-foreground group-hover:text-red-400 transition-colors" />
         )}
       </button>
 
-      <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          {provider.logo ? (
-            <Image
-              src={provider.logo}
-              alt={provider.name}
-              width={48}
-              height={48}
-              className="h-12 w-12 rounded-lg object-cover shrink-0"
-            />
-          ) : (
-            <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-              <RiStore2Line className="h-6 w-6 text-purple-600" />
-            </div>
-          )}
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        {/* Header: avatar + name + badges */}
+        <div className="flex items-start gap-3 pr-8">
+          <ProviderAvatar provider={provider} />
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base truncate flex items-center gap-1.5">
-              {provider.name}
+            <p className="font-semibold text-sm leading-tight truncate">{provider.name}</p>
+            {provider.tagline ? (
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{provider.tagline}</p>
+            ) : null}
+            {/* Org type + featured */}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <Badge
+                variant={getOrgTypeBadgeVariant(provider.orgType)}
+                className="text-[10px] px-1.5 py-0 h-4"
+              >
+                {getOrgTypeLabel(provider.orgType)}
+              </Badge>
               {provider.isFeatured && (
-                <Badge variant="default" className="text-[10px] px-1.5 py-0">Destacado</Badge>
-              )}
-            </CardTitle>
-            <CardDescription className="flex items-center gap-1 mt-0.5">
-              {provider.verificationStatus === "verified" && (
-                <>
-                  <RiShieldCheckLine className="h-3 w-3 text-green-600" />
-                  <span>Verificado</span>
-                </>
+                <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">Destacado</Badge>
               )}
               {provider.isUnclaimed && (
-                <>
-                  <RiUserUnfollowLine className="h-3 w-3 text-orange-500" />
-                  <span className="text-orange-600">Sin reclamar</span>
-                </>
-              )}
-              {(provider.totalReviews || 0) > 0 && (
-                <span className="flex items-center gap-0.5 ml-2">
-                  <RiStarFill className="h-3 w-3 text-yellow-500" />
-                  {provider.averageRating}
-                  <span className="text-muted-foreground">({provider.totalReviews})</span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-orange-600">
+                  <RiUserUnfollowLine className="h-3 w-3" />
+                  Sin reclamar
                 </span>
               )}
-            </CardDescription>
+            </div>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {provider.tagline && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{provider.tagline}</p>
+
+        {/* Rating */}
+        {(provider.totalReviews || 0) > 0 && (
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <RiStarFill
+                key={i}
+                className={`h-3.5 w-3.5 ${i < Math.round(parseFloat(provider.averageRating || "0")) ? "text-yellow-400" : "text-muted"}`}
+              />
+            ))}
+            <span className="text-xs font-medium ml-0.5">{provider.averageRating}</span>
+            <span className="text-xs text-muted-foreground">({provider.totalReviews})</span>
+          </div>
         )}
 
+        {/* Category + location + price badges */}
         <div className="flex flex-wrap gap-1.5">
           {provider.providerCategory && (
-            <Badge variant="secondary">{provider.providerCategory}</Badge>
+            <Badge variant="secondary" className="text-xs">{provider.providerCategory}</Badge>
           )}
           {provider.priceRange && (
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="outline" className="gap-1 text-xs">
               <RiPriceTag3Line className="h-3 w-3" />
               {provider.priceRange}
             </Badge>
           )}
           {(provider.city || provider.region) && (
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="outline" className="gap-1 text-xs">
               <RiMapPinLine className="h-3 w-3" />
               {[provider.city, provider.region].filter(Boolean).join(", ")}
             </Badge>
           )}
         </div>
 
+        {/* Instagram */}
         {provider.instagramHandle && (
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            <RiInstagramLine className="h-3.5 w-3.5" />
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RiInstagramLine className="h-3.5 w-3.5 shrink-0" />
             @{provider.instagramHandle}
           </p>
         )}
 
-        <div className="flex gap-2 pt-1">
-          <Button variant="outline" size="sm" className="flex-1" asChild>
+        {/* Actions — pushed to bottom */}
+        <div className="flex gap-2 mt-auto pt-1">
+          <Button variant="outline" size="sm" className="flex-1 text-xs" asChild>
             <Link href={`/providers/${provider.slug}`} target="_blank">
               <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
               Ver Perfil
@@ -573,14 +633,14 @@ function ProviderCard({
           <Button
             variant="default"
             size="sm"
-            className="flex-1 gap-1"
+            className="flex-1 gap-1 text-xs"
             onClick={(e) => { e.preventDefault(); onInviteToEvent(provider); }}
           >
             <RiCalendarEventLine className="h-3.5 w-3.5" />
             Invitar
           </Button>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
@@ -600,19 +660,7 @@ function ProviderRow({
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
       <td className="p-3">
         <div className="flex items-center gap-3">
-          {provider.logo ? (
-            <Image
-              src={provider.logo}
-              alt={provider.name}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-md object-cover shrink-0"
-            />
-          ) : (
-            <div className="h-8 w-8 rounded-md bg-purple-100 flex items-center justify-center shrink-0">
-              <RiStore2Line className="h-4 w-4 text-purple-600" />
-            </div>
-          )}
+          <ProviderAvatar provider={provider} size="sm" />
           <div className="min-w-0">
             <p className="text-sm font-medium truncate flex items-center gap-1.5">
               {provider.name}
@@ -623,10 +671,15 @@ function ProviderRow({
               )}
             </p>
             {provider.tagline && (
-              <p className="text-xs text-muted-foreground truncate">{provider.tagline}</p>
+              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{provider.tagline}</p>
             )}
           </div>
         </div>
+      </td>
+      <td className="p-3 hidden sm:table-cell">
+        <Badge variant={getOrgTypeBadgeVariant(provider.orgType)} className="text-xs whitespace-nowrap">
+          {getOrgTypeLabel(provider.orgType)}
+        </Badge>
       </td>
       <td className="p-3 hidden md:table-cell">
         {provider.providerCategory && <Badge variant="secondary" className="text-xs">{provider.providerCategory}</Badge>}
@@ -637,25 +690,23 @@ function ProviderRow({
       <td className="p-3 hidden lg:table-cell text-sm">
         {(provider.totalReviews || 0) > 0 ? (
           <span className="flex items-center gap-0.5">
-            <RiStarFill className="h-3 w-3 text-yellow-500" />
-            {provider.averageRating}
+            <RiStarFill className="h-3 w-3 text-yellow-400" />
+            <span className="font-medium">{provider.averageRating}</span>
           </span>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
       </td>
-      <td className="p-3 hidden lg:table-cell text-sm text-muted-foreground">
-        {provider.priceRange || "—"}
-      </td>
       <td className="p-3 text-center">
         <button
           onClick={() => onToggleFavorite(provider)}
           className="p-1 rounded hover:bg-muted transition-colors"
+          aria-label={provider.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
         >
           {provider.isFavorite ? (
             <RiHeartFill className="h-4 w-4 text-red-500" />
           ) : (
-            <RiHeartLine className="h-4 w-4 text-gray-400" />
+            <RiHeartLine className="h-4 w-4 text-muted-foreground" />
           )}
         </button>
       </td>
@@ -692,7 +743,6 @@ function CreateProviderDrawer({
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
-  // toast imported from sonner at top level
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -706,7 +756,7 @@ function CreateProviderDrawer({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.category) {
-      toast.error("Nombre y categoria son requeridos");
+      toast.error("Nombre y categoría son requeridos");
       return;
     }
 
@@ -722,7 +772,7 @@ function CreateProviderDrawer({
 
       toast.success(
         data.data.invitationSent
-          ? `Se envio invitacion por email a ${form.email}`
+          ? `Se envió invitación por email a ${form.email}`
           : `${form.name} fue agregado al marketplace`
       );
       setForm({ name: "", email: "", phone: "", category: "", instagram: "", city: "" });
@@ -740,7 +790,7 @@ function CreateProviderDrawer({
         <SheetHeader>
           <SheetTitle>Crear Proveedor</SheetTitle>
           <SheetDescription>
-            Agrega un proveedor al Marketplace. Si tiene email, recibira una invitacion para reclamar su perfil.
+            Agrega un proveedor al Marketplace. Si tiene email, recibirá una invitación para reclamar su perfil.
           </SheetDescription>
         </SheetHeader>
 
@@ -757,10 +807,10 @@ function CreateProviderDrawer({
           </div>
 
           <div className="space-y-2">
-            <Label>Categoria *</Label>
+            <Label>Categoría *</Label>
             <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona categoria" />
+                <SelectValue placeholder="Selecciona categoría" />
               </SelectTrigger>
               <SelectContent>
                 {PROVIDER_CATEGORIES.map((cat) => (
@@ -783,7 +833,7 @@ function CreateProviderDrawer({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="cp-phone">Telefono</Label>
+              <Label htmlFor="cp-phone">Teléfono</Label>
               <Input
                 id="cp-phone"
                 value={form.phone}
