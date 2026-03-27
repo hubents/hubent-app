@@ -720,6 +720,22 @@ export const organizations = pgTable("organizations", {
 
   providerCategory: text("provider_category"),
 
+  description: text("description"),
+
+  tagline: text("tagline"),
+
+  city: text("city"),
+
+  region: text("region"),
+
+  coverImage: text("cover_image"),
+
+  profileCompleteness: integer("profile_completeness").default(0),
+
+  services: json("services").$type<string[]>(),
+
+  createdByOrgId: integer("created_by_org_id"),
+
   // Fiscal data (unified source of truth for documents)
 
   fiscalName: text("fiscal_name"),

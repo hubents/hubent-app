@@ -22,7 +22,12 @@ export const GET = withMonitoring(async (_request: NextRequest) => {
 
   // Provider/marketplace org: return collaboration-focused stats
   if (org && isMarketplaceType(org.orgType || "") && org.orgType === "provider") {
-    return getProviderStats(orgId, org);
+    return getProviderStats(orgId, {
+      name: org.name,
+      verificationStatus: org.verificationStatus,
+      instagramHandle: org.instagramHandle,
+      providerCategory: org.providerCategory,
+    });
   }
 
   // Default planner stats

@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
           teamRole = createdRole;
         }
 
-        await sendTeamInvitations(teamEmails, userOrg, teamRole, session.user!.id!);
+        if (teamRole) {
+          await sendTeamInvitations(teamEmails, userOrg as { id: number; name: string }, teamRole, session.user!.id!);
+        }
       }
 
       // Providers do NOT create events during onboarding
@@ -163,7 +165,9 @@ export async function POST(request: NextRequest) {
           memberRole = createdRole;
         }
 
-        await sendTeamInvitations(teamEmails, userOrg, memberRole, session.user!.id!);
+        if (memberRole) {
+          await sendTeamInvitations(teamEmails, userOrg as { id: number; name: string }, memberRole, session.user!.id!);
+        }
       }
     }
 
