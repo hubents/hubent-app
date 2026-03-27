@@ -24,6 +24,8 @@ import {
   RiSearchLine,
   RiCloseLine,
   RiLoader4Line,
+  RiHeartFill,
+  RiShieldCheckLine,
 } from "@remixicon/react";
 
 interface TeamMember {
@@ -33,10 +35,14 @@ interface TeamMember {
   image?: string;
 }
 
-interface Vendor {
+interface MarketplaceProvider {
   id: number;
   name: string;
-  category: string | null;
+  providerCategory: string | null;
+  verificationStatus: string | null;
+  isFavorite: boolean;
+  slug: string;
+  city: string | null;
 }
 
 interface Contact {
@@ -58,7 +64,7 @@ interface ParticipantSelectorProps {
   disabled?: boolean;
 }
 
-type FilterType = "all" | "members" | "vendors" | "contacts";
+type FilterType = "all" | "members" | "marketplace" | "contacts";
 
 export function ParticipantSelector({
   teamMembers,
@@ -73,7 +79,8 @@ export function ParticipantSelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [favorites, setFavorites] = useState<MarketplaceProvider[]>([]);
+  const [marketplaceProviders, setMarketplaceProviders] = useState<MarketplaceProvider[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,18 +91,25 @@ export function ParticipantSelector({
       const params = new URLSearchParams({ limit: "20" });
       if (searchTerm) params.set("search", searchTerm);
 
-      const [vendorsRes, contactsRes] = await Promise.all([
-        fetch(`/api/vendors?${params}`),
+      const [providersRes, favoritesRes, contactsRes] = await Promise.all([
+        fetch(`/api/providers?${params}`),
+        searchTerm ? Promise.resolve(null) : fetch(`/api/providers?favorites=true&limit=20`),
         fetch(`/api/contacts?${params}`),
       ]);
-      const [vendorsData, contactsData] = await Promise.all([
-        vendorsRes.json(),
-        contactsRes.json(),
-      ]);
 
-      if (vendorsData.success && Array.isArray(vendorsData.data)) {
-        setVendors(vendorsData.data);
+      const providersData = await providersRes.json();
+      if (providersData.success && Array.isArray(providersData.data)) {
+        setMarketplaceProviders(providersData.data);
       }
+
+      if (favoritesRes) {
+        const favData = await favoritesRes.json();
+        if (favData.success && Array.isArray(favData.data)) {
+          setFavorites(favData.data);
+        }
+      }
+
+      const contactsData = await contactsRes.json();
       if (contactsData.success && Array.isArray(contactsData.data)) {
         setContacts(contactsData.data);
       }
@@ -106,14 +120,14 @@ export function ParticipantSelector({
     }
   }, []);
 
-  // Load initial data when popover opens, reset when it closes
   useEffect(() => {
     if (open) {
       fetchServerData("");
     } else {
       setSearch("");
       setTypeFilter("all");
-      setVendors([]);
+      setFavorites([]);
+      setMarketplaceProviders([]);
       setContacts([]);
     }
   }, [open, fetchServerData]);
@@ -133,16 +147,6 @@ export function ParticipantSelector({
     };
   }, [search, open, fetchServerData]);
 
-  // Get unique vendor categories
-  const vendorCategories = useMemo(() => {
-    const categories = new Set<string>();
-    vendors.forEach((v) => {
-      if (v.category) categories.add(v.category);
-    });
-    return Array.from(categories).sort();
-  }, [vendors]);
-
-  // Filter available items (exclude already added)
   const filteredMembers = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "members") return [];
     const available = teamMembers.filter((m) => !excludedMemberIds.includes(m.id));
@@ -155,10 +159,16 @@ export function ParticipantSelector({
     );
   }, [teamMembers, excludedMemberIds, search, typeFilter]);
 
-  const filteredVendors = useMemo(() => {
-    if (typeFilter !== "all" && typeFilter !== "vendors") return [];
-    return vendors.filter((v) => !excludedVendorIds.includes(v.id));
-  }, [vendors, excludedVendorIds, typeFilter]);
+  const filteredFavorites = useMemo(() => {
+    if (typeFilter !== "all" && typeFilter !== "marketplace") return [];
+    return favorites.filter((p) => !excludedVendorIds.includes(p.id));
+  }, [favorites, excludedVendorIds, typeFilter]);
+
+  const filteredMarketplace = useMemo(() => {
+    if (typeFilter !== "all" && typeFilter !== "marketplace") return [];
+    const favIds = new Set(favorites.map((f) => f.id));
+    return marketplaceProviders.filter((p) => !excludedVendorIds.includes(p.id) && !favIds.has(p.id));
+  }, [marketplaceProviders, favorites, excludedVendorIds, typeFilter]);
 
   const filteredContacts = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "contacts") return [];
@@ -170,8 +180,8 @@ export function ParticipantSelector({
     setOpen(false);
   };
 
-  const handleSelectVendor = (vendorId: number) => {
-    onAddVendor(vendorId);
+  const handleSelectProvider = (providerOrgId: number) => {
+    onAddVendor(providerOrgId);
     setOpen(false);
   };
 
@@ -181,7 +191,7 @@ export function ParticipantSelector({
   };
 
   const totalAvailable =
-    filteredMembers.length + filteredVendors.length + filteredContacts.length;
+    filteredMembers.length + filteredFavorites.length + filteredMarketplace.length + filteredContacts.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -238,7 +248,7 @@ export function ParticipantSelector({
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="members">Miembros</SelectItem>
-              <SelectItem value="vendors">Proveedores</SelectItem>
+              <SelectItem value="marketplace">Marketplace</SelectItem>
               <SelectItem value="contacts">Contactos</SelectItem>
             </SelectContent>
           </Select>
@@ -294,29 +304,66 @@ export function ParticipantSelector({
                 </div>
               )}
 
-              {/* Vendors Section */}
-              {filteredVendors.length > 0 && (
+              {/* Favorites Section */}
+              {filteredFavorites.length > 0 && (
+                <div>
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 flex items-center gap-2">
+                    <RiHeartFill className="h-3 w-3 text-red-400" />
+                    MIS FAVORITOS ({filteredFavorites.length})
+                  </div>
+                  {filteredFavorites.map((provider) => (
+                    <button
+                      key={`fav-${provider.id}`}
+                      onClick={() => handleSelectProvider(provider.id)}
+                      className="w-full px-3 py-2 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center">
+                        <RiStore2Line className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate flex items-center gap-1">
+                          {provider.name}
+                          {provider.verificationStatus === "verified" && (
+                            <RiShieldCheckLine className="h-3 w-3 text-green-600 shrink-0" />
+                          )}
+                        </p>
+                        {provider.providerCategory && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {provider.providerCategory}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Marketplace Section */}
+              {filteredMarketplace.length > 0 && (
                 <div>
                   <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 flex items-center gap-2">
                     <RiStore2Line className="h-3 w-3" />
-                    PROVEEDORES ({filteredVendors.length})
+                    MARKETPLACE HUBENTS ({filteredMarketplace.length})
                   </div>
-                  {filteredVendors.map((vendor) => (
+                  {filteredMarketplace.map((provider) => (
                     <button
-                      key={vendor.id}
-                      onClick={() => handleSelectVendor(vendor.id)}
+                      key={`mkt-${provider.id}`}
+                      onClick={() => handleSelectProvider(provider.id)}
                       className="w-full px-3 py-2 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
                     >
                       <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center">
                         <RiStore2Line className="h-4 w-4 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {vendor.name}
+                        <p className="text-sm font-medium truncate flex items-center gap-1">
+                          {provider.name}
+                          {provider.verificationStatus === "verified" && (
+                            <RiShieldCheckLine className="h-3 w-3 text-green-600 shrink-0" />
+                          )}
                         </p>
-                        {vendor.category && (
+                        {provider.providerCategory && (
                           <p className="text-xs text-muted-foreground truncate">
-                            {vendor.category}
+                            {provider.providerCategory}
                           </p>
                         )}
                       </div>

@@ -17,10 +17,10 @@ export async function GET() {
       where: eq(organizations.id, session.organizationId),
     });
 
-    if (!org || org.orgType !== "provider") {
+    if (!org) {
       return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
-        { status: 403 }
+        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
+        { status: 404 }
       );
     }
 
@@ -34,6 +34,7 @@ export async function GET() {
         phone: org.phone,
         website: org.website,
         address: org.address,
+        orgType: org.orgType,
         instagramHandle: org.instagramHandle,
         providerCategory: org.providerCategory,
         serviceRadius: org.serviceRadius,
@@ -133,10 +134,10 @@ export async function PATCH(request: NextRequest) {
       where: eq(organizations.id, session.organizationId),
     });
 
-    if (!org || org.orgType !== "provider") {
+    if (!org) {
       return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
-        { status: 403 }
+        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
+        { status: 404 }
       );
     }
 

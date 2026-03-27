@@ -36,9 +36,10 @@ import {
   RiAddLine,
   RiGridLine,
   RiListUnordered,
-  RiFilterLine,
   RiCloseLine,
   RiUserUnfollowLine,
+  RiCalendarEventLine,
+  RiSendPlaneLine,
 } from "@remixicon/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -96,6 +97,47 @@ function MarketplaceContent() {
     return "cards";
   });
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<MarketplaceProvider | null>(null);
+  const [events, setEvents] = useState<{ id: number; name: string }[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [inviting, setInviting] = useState(false);
+
+  useEffect(() => {
+    if (inviteTarget) {
+      fetch("/api/events?limit=50")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) setEvents(d.data?.map((e: { id: number; name: string }) => ({ id: e.id, name: e.name })) || []);
+        })
+        .catch(() => {});
+    }
+  }, [inviteTarget]);
+
+  const handleInviteToEvent = async () => {
+    if (!inviteTarget || !selectedEventId) return;
+    setInviting(true);
+    try {
+      const res = await fetch(`/api/events/${selectedEventId}/providers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerOrgId: inviteTarget.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${inviteTarget.name} invitado al evento`);
+      } else if (data.error?.code === "DUPLICATE") {
+        toast.info("Este proveedor ya está asignado al evento");
+      } else {
+        toast.error(data.error?.message || "Error al invitar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setInviting(false);
+      setInviteTarget(null);
+      setSelectedEventId("");
+    }
+  };
 
   const fetchProviders = useCallback(async () => {
     setLoading(true);
@@ -335,7 +377,7 @@ function MarketplaceContent() {
           {viewMode === "cards" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {providers.map((provider) => (
-                <ProviderCard key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} />
+                <ProviderCard key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} onInviteToEvent={setInviteTarget} />
               ))}
             </div>
           ) : (
@@ -354,7 +396,7 @@ function MarketplaceContent() {
                 </thead>
                 <tbody>
                   {providers.map((provider) => (
-                    <ProviderRow key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} />
+                    <ProviderRow key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} onInviteToEvent={setInviteTarget} />
                   ))}
                 </tbody>
               </table>
@@ -362,6 +404,50 @@ function MarketplaceContent() {
           )}
         </>
       )}
+
+      {/* Invite to Event Dialog */}
+      <Sheet open={!!inviteTarget} onOpenChange={(o) => { if (!o) { setInviteTarget(null); setSelectedEventId(""); } }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <RiCalendarEventLine className="h-5 w-5" />
+              Invitar a Evento
+            </SheetTitle>
+            <SheetDescription>
+              Invitar a <strong>{inviteTarget?.name}</strong> a participar en un evento
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div className="space-y-2">
+              <Label>Seleccionar evento</Label>
+              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Elegir evento..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id.toString()}>
+                      {ev.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {events.length === 0 && (
+                <p className="text-xs text-muted-foreground">No hay eventos disponibles</p>
+              )}
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => { setInviteTarget(null); setSelectedEventId(""); }}>
+                Cancelar
+              </Button>
+              <Button className="flex-1 gap-1.5" onClick={handleInviteToEvent} disabled={inviting || !selectedEventId}>
+                <RiSendPlaneLine className="h-4 w-4" />
+                {inviting ? "Invitando..." : "Invitar"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Create Provider Drawer */}
       <CreateProviderDrawer
@@ -381,9 +467,11 @@ function MarketplaceContent() {
 function ProviderCard({
   provider,
   onToggleFavorite,
+  onInviteToEvent,
 }: {
   provider: MarketplaceProvider;
   onToggleFavorite: (p: MarketplaceProvider) => void;
+  onInviteToEvent: (p: MarketplaceProvider) => void;
 }) {
   return (
     <Card className="hover:shadow-md transition-shadow overflow-hidden relative group">
@@ -482,6 +570,15 @@ function ProviderCard({
               Ver Perfil
             </Link>
           </Button>
+          <Button
+            variant="default"
+            size="sm"
+            className="flex-1 gap-1"
+            onClick={(e) => { e.preventDefault(); onInviteToEvent(provider); }}
+          >
+            <RiCalendarEventLine className="h-3.5 w-3.5" />
+            Invitar
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -493,9 +590,11 @@ function ProviderCard({
 function ProviderRow({
   provider,
   onToggleFavorite,
+  onInviteToEvent,
 }: {
   provider: MarketplaceProvider;
   onToggleFavorite: (p: MarketplaceProvider) => void;
+  onInviteToEvent: (p: MarketplaceProvider) => void;
 }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
@@ -561,11 +660,22 @@ function ProviderRow({
         </button>
       </td>
       <td className="p-3 text-right">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/providers/${provider.slug}`} target="_blank">
-            Ver
-          </Link>
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => onInviteToEvent(provider)}
+          >
+            <RiCalendarEventLine className="h-3.5 w-3.5 mr-1" />
+            Invitar
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+            <Link href={`/providers/${provider.slug}`} target="_blank">
+              Ver
+            </Link>
+          </Button>
+        </div>
       </td>
     </tr>
   );

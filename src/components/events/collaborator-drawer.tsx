@@ -242,31 +242,43 @@ export function CollaboratorDrawer({
     }
   }, [editingParticipant, open]);
 
+  // Load marketplace favorites + search when vendors tab is active
   const directoryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!open || isEditing || activeTab !== "vendors") return;
-    if (directorySearch.length < 2) {
-      setDirectoryProviders([]);
+
+    // Always load favorites on tab open
+    if (directoryProviders.length === 0 && !directorySearch) {
+      setDirectoryLoading(true);
+      fetch(`/api/providers?favorites=true&limit=20`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) setDirectoryProviders(data.data || []);
+        })
+        .catch(() => {})
+        .finally(() => setDirectoryLoading(false));
       return;
     }
+
+    if (!directorySearch) return;
     if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
     directoryDebounceRef.current = setTimeout(async () => {
       setDirectoryLoading(true);
       try {
-        const params = new URLSearchParams({ search: directorySearch, limit: "10" });
+        const params = new URLSearchParams({ search: directorySearch, limit: "20" });
         const res = await fetch(`/api/providers?${params}`);
         const data = await res.json();
         if (data.success) setDirectoryProviders(data.data || []);
       } catch {
-        console.error("Error fetching directory providers");
+        console.error("Error fetching marketplace providers");
       } finally {
         setDirectoryLoading(false);
       }
-    }, 400);
+    }, 300);
     return () => {
       if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
     };
-  }, [directorySearch, open, isEditing, activeTab]);
+  }, [directorySearch, open, isEditing, activeTab, directoryProviders.length]);
 
   const linkedProviderOrgIds = useMemo(
     () => new Set(vendorsList.filter(v => v.providerOrgId).map(v => v.providerOrgId!)),
@@ -527,43 +539,15 @@ export function CollaboratorDrawer({
 
                   {activeTab === "vendors" && (
                     <>
-                      {filteredVendors.length > 0 && (
-                        <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40">
-                          Mis Proveedores
-                        </div>
-                      )}
-                      {filteredVendors.map((v) => (
-                        <button
-                          key={v.id}
-                          onClick={() => selectVendor(v.id)}
-                          className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
-                            selectedVendorId === v.id ? "bg-primary/10" : "hover:bg-muted"
-                          }`}
-                        >
-                          <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center text-xs font-medium text-orange-700 shrink-0">
-                            {v.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                              {v.name}
-                              {v.providerOrgId && (
-                                <RiVerifiedBadgeFill className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                              )}
-                            </p>
-                            {v.category && <p className="text-xs text-muted-foreground truncate">{v.category}</p>}
-                          </div>
-                        </button>
-                      ))}
-
+                      {/* Marketplace search */}
                       <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 flex items-center gap-1.5">
-                        Directorio HubEnts
-                        <RiVerifiedBadgeFill className="h-3 w-3 text-blue-500" />
+                        Marketplace HubEnts
                       </div>
                       <div className="px-3 py-2">
                         <div className="relative">
                           <RiSearchLine className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
-                            placeholder="Buscar en directorio..."
+                            placeholder="Buscar en marketplace..."
                             value={directorySearch}
                             onChange={(e) => setDirectorySearch(e.target.value)}
                             className="h-8 pl-8 text-xs"
@@ -573,14 +557,11 @@ export function CollaboratorDrawer({
                           )}
                         </div>
                       </div>
-                      {directorySearch.length < 2 && (
+
+                      {/* Marketplace results (favorites auto-loaded, or search results) */}
+                      {!directoryLoading && filteredDirectoryProviders.length === 0 && directorySearch && (
                         <p className="text-xs text-muted-foreground text-center py-2 px-3">
-                          Escribí al menos 2 caracteres para buscar
-                        </p>
-                      )}
-                      {directorySearch.length >= 2 && !directoryLoading && filteredDirectoryProviders.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-2 px-3">
-                          No se encontraron proveedores en el directorio
+                          No se encontraron proveedores
                         </p>
                       )}
                       {filteredDirectoryProviders.map((p) => (
@@ -588,7 +569,7 @@ export function CollaboratorDrawer({
                           key={p.id}
                           className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors"
                         >
-                          <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700 shrink-0">
+                          <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center text-xs font-medium text-purple-700 shrink-0">
                             {p.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -610,10 +591,35 @@ export function CollaboratorDrawer({
                         </div>
                       ))}
 
-                      {filteredVendors.length === 0 && directorySearch.length < 2 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          No tenés proveedores locales
-                        </p>
+                      {/* Already linked local vendors */}
+                      {filteredVendors.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40">
+                            Ya vinculados
+                          </div>
+                          {filteredVendors.map((v) => (
+                            <button
+                              key={v.id}
+                              onClick={() => selectVendor(v.id)}
+                              className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
+                                selectedVendorId === v.id ? "bg-primary/10" : "hover:bg-muted"
+                              }`}
+                            >
+                              <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center text-xs font-medium text-orange-700 shrink-0">
+                                {v.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                                  {v.name}
+                                  {v.providerOrgId && (
+                                    <RiVerifiedBadgeFill className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                  )}
+                                </p>
+                                {v.category && <p className="text-xs text-muted-foreground truncate">{v.category}</p>}
+                              </div>
+                            </button>
+                          ))}
+                        </>
                       )}
                     </>
                   )}

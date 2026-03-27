@@ -151,14 +151,18 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
   const fetchDirectoryProviders = async (search: string) => {
     try {
       const params = new URLSearchParams({ limit: "20" });
-      if (search) params.set("search", search);
+      if (search) {
+        params.set("search", search);
+      } else {
+        params.set("favorites", "true");
+      }
       const res = await fetch(`/api/providers?${params}`);
       const data = await res.json();
       if (data.success) {
         setDirectoryProviders(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch directory:", error);
+      console.error("Failed to fetch marketplace:", error);
     }
   };
 
@@ -260,65 +264,13 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex gap-2">
           {canEditVendors && (
-            <Button className="gap-2" onClick={() => setShowAddDialog(true)}>
+            <Button className="gap-2" onClick={() => setShowInviteDrawer(true)}>
               <RiAddLine className="h-4 w-4" />
-              Asignar Proveedor
+              Agregar Proveedor
             </Button>
           )}
-          <Sheet open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <SheetContent className="sm:max-w-2xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 px-4 pb-4">
-                <div className="space-y-2">
-                  <Label>Seleccionar Proveedor</Label>
-                  {availableVendors.length > 0 ? (
-                    <Select
-                      value={selectedVendorId?.toString() || ""}
-                      onValueChange={(value) => setSelectedVendorId(parseInt(value, 10))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Elegir proveedor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableVendors.map((v) => (
-                          <SelectItem key={v.id} value={v.id.toString()}>
-                            {v.name} {v.category && `(${v.category})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      No hay proveedores disponibles.{" "}
-                      <Link href="/dashboard/contacts?segment=vendors" className="text-[var(--primary)] underline">
-                        Crear nuevo proveedor
-                      </Link>
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Servicio a prestar</Label>
-                  <Input
-                    placeholder="Ej: Catering para 100 personas"
-                    value={vendorService}
-                    onChange={(e) => setVendorService(e.target.value)}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleAddVendor} disabled={adding || !selectedVendorId}>
-                    {adding ? "Asignando..." : "Asignar"}
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <Link href="/dashboard/contacts?segment=vendors">
-            <Button variant="outline">Ver todos</Button>
+          <Link href="/dashboard/marketplace">
+            <Button variant="outline">Marketplace</Button>
           </Link>
         </div>
       </div>
@@ -337,16 +289,10 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
       {/* Platform Providers Section */}
       {platformProviders.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <RiShieldCheckLine className="h-5 w-5 text-green-600" />
-              Proveedores de Plataforma
-            </h2>
-            <Button size="sm" variant="outline" onClick={() => setShowInviteDrawer(true)}>
-              <RiSendPlaneLine className="h-4 w-4 mr-1" />
-              Invitar
-            </Button>
-          </div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <RiShieldCheckLine className="h-5 w-5 text-green-600" />
+            Proveedores de Plataforma
+          </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {platformProviders.map((pp) => {
               const statusMap: Record<string, { label: string; variant: "success" | "warning" | "secondary" | "destructive" }> = {
@@ -376,25 +322,28 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Invite Provider Drawer */}
+      {/* Add Provider Drawer (Marketplace) */}
       <Sheet open={showInviteDrawer} onOpenChange={setShowInviteDrawer}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Invitar Proveedor de Plataforma</SheetTitle>
+            <SheetTitle>Agregar Proveedor al Evento</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
+            <p className="text-sm text-muted-foreground">
+              Busca en el Marketplace HubEnts. Tus favoritos aparecen primero.
+            </p>
             <div className="relative">
               <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={providerSearch}
                 onChange={(e) => setProviderSearch(e.target.value)}
-                placeholder="Buscar proveedor verificado..."
+                placeholder="Buscar en marketplace..."
                 className="pl-10"
               />
             </div>
             {directoryProviders.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No se encontraron proveedores verificados
+                No se encontraron proveedores
               </p>
             ) : (
               <div className="space-y-2">

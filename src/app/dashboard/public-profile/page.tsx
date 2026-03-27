@@ -46,6 +46,7 @@ interface ProfileData {
   logo: string | null;
   phone: string | null;
   website: string | null;
+  orgType: string | null;
   instagramHandle: string | null;
   providerCategory: string | null;
   verificationStatus: string;
@@ -109,11 +110,8 @@ export default function PublicProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!sessionLoading && isProvider) fetchProfile();
-    else if (!sessionLoading && !isProvider) {
-      router.replace("/dashboard");
-    }
-  }, [sessionLoading, isProvider, fetchProfile, router]);
+    if (!sessionLoading) fetchProfile();
+  }, [sessionLoading, fetchProfile]);
 
   const handleSave = async () => {
     if (Object.keys(editData).length === 0) return;
@@ -193,6 +191,7 @@ export default function PublicProfilePage() {
   const completeness = profile.profileCompleteness ?? 0;
   const hasChanges = Object.keys(editData).length > 0;
   const isVerified = profile.verificationStatus === "verified";
+  const profileIsProvider = profile.orgType === "provider";
 
   return (
     <EventScopedGuard>
@@ -209,7 +208,7 @@ export default function PublicProfilePage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {isVerified ? (
+            {profileIsProvider && (isVerified ? (
               <Button variant="outline" size="sm" asChild>
                 <a href={`/providers/${profile.slug}`} target="_blank" rel="noopener noreferrer">
                   <RiExternalLinkLine className="h-4 w-4 mr-1" />
@@ -230,7 +229,7 @@ export default function PublicProfilePage() {
                   <p>Tu perfil público será visible una vez que un administrador verifique tu cuenta.</p>
                 </TooltipContent>
               </Tooltip>
-            )}
+            ))}
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -276,12 +275,14 @@ export default function PublicProfilePage() {
               <span className="text-sm text-[var(--muted-foreground)]">{completeness}%</span>
             </div>
             <Progress value={completeness} className="h-2" />
-            <div className="flex items-center gap-2 mt-2">
-              <Badge variant={isVerified ? "success" : "secondary"}>
-                <RiShieldCheckLine className="h-3 w-3 mr-1" />
-                {isVerified ? "Verificado" : "Sin verificar"}
-              </Badge>
-            </div>
+            {profileIsProvider && (
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant={isVerified ? "success" : "secondary"}>
+                  <RiShieldCheckLine className="h-3 w-3 mr-1" />
+                  {isVerified ? "Verificado" : "Sin verificar"}
+                </Badge>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -292,40 +293,42 @@ export default function PublicProfilePage() {
             <CardDescription>Nombre, categoría y descripción</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Categoría</label>
-                <Select
-                  value={getSelectValue("providerCategory")}
-                  onValueChange={(v) => updateField("providerCategory", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROVIDER_CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {profileIsProvider && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Categoría</label>
+                  <Select
+                    value={getSelectValue("providerCategory")}
+                    onValueChange={(v) => updateField("providerCategory", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PROVIDER_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Rango de precio</label>
+                  <Select
+                    value={getSelectValue("priceRange")}
+                    onValueChange={(v) => updateField("priceRange", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar rango" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRICE_RANGES.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Rango de precio</label>
-                <Select
-                  value={getSelectValue("priceRange")}
-                  onValueChange={(v) => updateField("priceRange", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar rango" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRICE_RANGES.map((r) => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Tagline</label>
               <Input
@@ -454,8 +457,8 @@ export default function PublicProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Instagram Posts */}
-        <Card>
+        {/* Instagram Posts (providers only) */}
+        {profileIsProvider && <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -519,10 +522,10 @@ export default function PublicProfilePage() {
               </Tooltip>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
-        {/* Brochure PDF */}
-        <Card>
+        {/* Brochure PDF (providers only) */}
+        {profileIsProvider && <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RiFileTextLine className="h-5 w-5" />
