@@ -21,7 +21,7 @@ async function verifyVendorTaskAccess(
     where: eq(organizations.id, session.organizationId),
     columns: { orgType: true },
   });
-  if (!org || !isMarketplaceType(org.orgType)) {
+  if (!org || !isMarketplaceType(org.orgType || "")) {
     throw { status: 403, code: "FORBIDDEN", message: "Not a provider organization" };
   }
 

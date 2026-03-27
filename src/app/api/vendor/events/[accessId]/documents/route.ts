@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!org || !isMarketplaceType(org.orgType)) {
+    if (!org || !isMarketplaceType(org.orgType || "")) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!orgCheck || !isMarketplaceType(orgCheck.orgType)) {
+    if (!orgCheck || !isMarketplaceType(orgCheck.orgType || "")) {
       return NextResponse.json(
         { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
         { status: 403 }

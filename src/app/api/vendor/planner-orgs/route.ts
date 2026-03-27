@@ -19,7 +19,7 @@ export async function GET() {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    if (!org || !isMarketplaceType(org.orgType)) {
+    if (!org || !isMarketplaceType(org.orgType || "")) {
       return NextResponse.json({ success: true, data: [] });
     }
 
