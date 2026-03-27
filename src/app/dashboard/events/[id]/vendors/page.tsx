@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
@@ -14,13 +13,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   RiAddLine,
   RiSearchLine,
@@ -85,10 +77,6 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
   const [allVendors, setAllVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null);
-  const [vendorService, setVendorService] = useState("");
-  const [adding, setAdding] = useState(false);
 
   // Platform providers state
   const [platformProviders, setPlatformProviders] = useState<PlatformProvider[]>([]);
@@ -197,27 +185,6 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
     }
   }, [providerSearch, showInviteDrawer]);
 
-  const handleAddVendor = async () => {
-    if (!selectedVendorId) return;
-    setAdding(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/vendors`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vendorId: selectedVendorId, service: vendorService }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSelectedVendorId(null);
-        setVendorService("");
-        setShowAddDialog(false);
-        fetchVendors();
-      }
-    } finally {
-      setAdding(false);
-    }
-  };
-
   const handleRemoveVendor = async (eventVendorId: number) => {
     try {
       await fetch(`/api/events/${eventId}/vendors?id=${eventVendorId}`, {
@@ -228,10 +195,6 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
       console.error("Failed to remove vendor:", error);
     }
   };
-
-  const availableVendors = allVendors.filter(
-    (v) => !vendors.some((ev) => ev.vendorId === v.id)
-  );
 
   const filteredVendors = vendors.filter((v) =>
     v.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -448,9 +411,9 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
               Asigna proveedores a este evento para gestionar sus servicios
             </p>
             {canEditVendors && (
-            <Button onClick={() => setShowAddDialog(true)}>
+            <Button onClick={() => setShowInviteDrawer(true)}>
               <RiAddLine className="h-4 w-4 mr-2" />
-              Asignar primer proveedor
+              Agregar primer proveedor
             </Button>
             )}
           </CardContent>
