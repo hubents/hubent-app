@@ -25,7 +25,7 @@ import {
   RiFileList2Line,
   RiTruckLine,
   RiBankLine,
-  RiToolsLine,
+  RiLineChartLine,
   RiCalendar2Line,
   RiFolder3Line,
   RiSurveyLine,
@@ -484,7 +484,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                         : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
                     )}
                   >
-                    <RiToolsLine className="h-5 w-5" />
+                    <RiLineChartLine className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -503,7 +503,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <RiToolsLine className="h-5 w-5" />
+                    <RiLineChartLine className="h-5 w-5" />
                     Productividad
                   </div>
                   <RiArrowDownSLine 

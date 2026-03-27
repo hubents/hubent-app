@@ -28,7 +28,7 @@ import {
   RiFundsLine,
   RiKanbanView2,
   RiSurveyLine,
-  RiToolsLine,
+  RiLineChartLine,
 } from "@remixicon/react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo } from "react";
@@ -202,7 +202,7 @@ export function ProviderSidebar() {
               )}
             >
               <div className="flex items-center gap-3">
-                <RiToolsLine className="h-5 w-5" />
+                <RiLineChartLine className="h-5 w-5" />
                 Productividad
               </div>
               <RiArrowDownSLine
