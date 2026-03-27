@@ -7,7 +7,7 @@ import { z } from "zod";
 
 /**
  * GET /api/vendor/profile
- * Returns current provider org profile
+ * Returns current provider org profile (all public-profile-relevant fields)
  */
 export async function GET() {
   try {
@@ -40,6 +40,18 @@ export async function GET() {
         serviceAreas: org.serviceAreas,
         verificationStatus: org.verificationStatus,
         settings: org.settings,
+        description: org.description,
+        tagline: org.tagline,
+        coverImage: org.coverImage,
+        city: org.city,
+        region: org.region,
+        country: org.country,
+        publicEmail: org.publicEmail,
+        priceRange: org.priceRange,
+        profileCompleteness: org.profileCompleteness,
+        services: org.services,
+        instagramPosts: org.instagramPosts,
+        brochureUrl: org.brochureUrl,
       },
     });
   } catch (error) {
@@ -53,14 +65,29 @@ export async function GET() {
   }
 }
 
+const instagramUrlRegex = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
+
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
-  phone: z.string().regex(/^[+\d\s\-()]{6,20}$/).optional().or(z.literal("")),
-  website: z.string().url().optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
+  website: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   instagramHandle: z.string().optional().or(z.literal("")),
-  providerCategory: z.string().optional(),
+  providerCategory: z.string().optional().or(z.literal("")),
   serviceRadius: z.number().min(0).optional(),
+  description: z.string().max(2000).optional().or(z.literal("")),
+  tagline: z.string().max(120).optional().or(z.literal("")),
+  coverImage: z.string().optional().or(z.literal("")),
+  logo: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  region: z.string().optional().or(z.literal("")),
+  country: z.string().optional().or(z.literal("")),
+  publicEmail: z.string().email().optional().or(z.literal("")),
+  priceRange: z.string().optional().or(z.literal("")),
+  brochureUrl: z.string().optional().or(z.literal("")),
+  instagramPosts: z.array(
+    z.string().regex(instagramUrlRegex, "URL de Instagram inválida")
+  ).max(6).optional(),
   settings: z.object({
     timezone: z.string().optional(),
     currency: z.string().optional(),
@@ -68,6 +95,31 @@ const updateSchema = z.object({
     dateFormat: z.string().optional(),
   }).optional(),
 });
+
+function calculateProfileCompleteness(org: Record<string, unknown>): number {
+  let score = 0;
+  const checks: [string, number][] = [
+    ["name", 10],
+    ["description", 15],
+    ["tagline", 10],
+    ["providerCategory", 10],
+    ["logo", 10],
+    ["coverImage", 5],
+    ["city", 5],
+    ["region", 5],
+    ["phone", 5],
+    ["publicEmail", 5],
+    ["website", 5],
+    ["instagramHandle", 5],
+    ["priceRange", 5],
+    ["brochureUrl", 5],
+  ];
+  for (const [key, points] of checks) {
+    const val = org[key];
+    if (val && typeof val === "string" && val.trim().length > 0) score += points;
+  }
+  return Math.min(score, 100);
+}
 
 /**
  * PATCH /api/vendor/profile
@@ -79,7 +131,6 @@ export async function PATCH(request: NextRequest) {
 
     const org = await db.query.organizations.findFirst({
       where: eq(organizations.id, session.organizationId),
-      columns: { orgType: true },
     });
 
     if (!org || org.orgType !== "provider") {
@@ -93,8 +144,12 @@ export async function PATCH(request: NextRequest) {
     const parsed = updateSchema.safeParse(body);
 
     if (!parsed.success) {
+      const fieldErrors = parsed.error.issues.map((i) => ({
+        field: i.path.join("."),
+        message: i.message,
+      }));
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0].message } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: fieldErrors[0].message, details: fieldErrors } },
         { status: 400 }
       );
     }
@@ -111,22 +166,32 @@ export async function PATCH(request: NextRequest) {
         ? data.instagramHandle.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/.*$/, "")
         : null;
     }
-    if (data.providerCategory !== undefined) updates.providerCategory = data.providerCategory;
+    if (data.providerCategory !== undefined) updates.providerCategory = data.providerCategory || null;
     if (data.serviceRadius !== undefined) updates.serviceRadius = data.serviceRadius;
+    if (data.description !== undefined) updates.description = data.description || null;
+    if (data.tagline !== undefined) updates.tagline = data.tagline || null;
+    if (data.coverImage !== undefined) updates.coverImage = data.coverImage || null;
+    if (data.logo !== undefined) updates.logo = data.logo || null;
+    if (data.city !== undefined) updates.city = data.city || null;
+    if (data.region !== undefined) updates.region = data.region || null;
+    if (data.country !== undefined) updates.country = data.country || null;
+    if (data.publicEmail !== undefined) updates.publicEmail = data.publicEmail || null;
+    if (data.priceRange !== undefined) updates.priceRange = data.priceRange || null;
+    if (data.brochureUrl !== undefined) updates.brochureUrl = data.brochureUrl || null;
+    if (data.instagramPosts !== undefined) updates.instagramPosts = data.instagramPosts;
     if (data.settings !== undefined) {
-      const currentOrg = await db.query.organizations.findFirst({
-        where: eq(organizations.id, session.organizationId),
-        columns: { settings: true },
-      });
-      updates.settings = { ...(currentOrg?.settings || {}), ...data.settings };
+      updates.settings = { ...(org.settings || {}), ...data.settings };
     }
+
+    const merged = { ...org, ...updates };
+    updates.profileCompleteness = calculateProfileCompleteness(merged as Record<string, unknown>);
 
     await db
       .update(organizations)
       .set(updates)
       .where(eq(organizations.id, session.organizationId));
 
-    return NextResponse.json({ success: true, data: { updated: true } });
+    return NextResponse.json({ success: true, data: { updated: true, profileCompleteness: updates.profileCompleteness } });
   } catch (error) {
     console.error("PATCH /api/vendor/profile error:", error);
     const message = error instanceof Error ? error.message : "Failed to update profile";

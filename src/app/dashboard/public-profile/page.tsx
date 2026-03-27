@@ -15,20 +15,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { FileUploader } from "@/components/ui/file-uploader";
 import {
   RiStoreLine,
   RiInstagramLine,
   RiShieldCheckLine,
   RiSaveLine,
-  RiGlobalLine,
-  RiImageAddLine,
-  RiDeleteBinLine,
   RiExternalLinkLine,
   RiMapPinLine,
-  RiPriceTag3Line,
   RiPhoneLine,
-  RiMailLine,
   RiStarLine,
+  RiInformationLine,
+  RiAddLine,
+  RiDeleteBinLine,
+  RiFileTextLine,
+  RiCloseLine,
+  RiAlertLine,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
@@ -51,169 +54,132 @@ interface ProfileData {
   coverImage: string | null;
   publicEmail: string | null;
   priceRange: string | null;
-  services: string[] | null;
-  foundedYear: number | null;
   city: string | null;
   region: string | null;
   country: string | null;
-  minBudget: string | null;
-  maxBudget: string | null;
-  responseTime: string | null;
   profileCompleteness: number | null;
   totalReviews: number | null;
   averageRating: string | null;
-  isFeatured: boolean;
+  instagramPosts: string[] | null;
+  brochureUrl: string | null;
 }
 
-interface PortfolioItem {
-  id: number;
-  type: string;
-  url: string;
-  title: string | null;
-  description: string | null;
+const IG_URL_REGEX = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+          <RiInformationLine className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[280px]">
+        <p>{text}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export default function PublicProfilePage() {
   const { orgType, loading: sessionLoading } = useUserSession();
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editData, setEditData] = useState<Partial<ProfileData>>({});
-  const [newPortfolioUrl, setNewPortfolioUrl] = useState("");
+  const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isProvider = orgType === "provider";
 
   const fetchProfile = useCallback(async () => {
     try {
-      if (isProvider) {
-        const [profileRes, portfolioRes] = await Promise.all([
-          fetch("/api/vendor/profile"),
-          fetch("/api/vendor/portfolio"),
-        ]);
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setProfile(data.data || data);
-          setEditData({});
-        }
-        if (portfolioRes.ok) {
-          const data = await portfolioRes.json();
-          setPortfolio(data.data || []);
-        }
-      } else {
-        const res = await fetch("/api/user/organizations");
-        if (res.ok) {
-          const { data } = await res.json();
-          if (data && data.length > 0) {
-            const org = data[0];
-            setProfile({
-              id: org.id,
-              name: org.name || "",
-              slug: org.slug || "",
-              logo: org.logo || null,
-              phone: org.phone || null,
-              website: org.website || null,
-              instagramHandle: org.instagramHandle || null,
-              providerCategory: null,
-              verificationStatus: org.verificationStatus || "unverified",
-              description: org.description || null,
-              tagline: org.tagline || null,
-              coverImage: org.coverImage || null,
-              publicEmail: null,
-              priceRange: null,
-              services: null,
-              foundedYear: null,
-              city: org.city || null,
-              region: org.region || null,
-              country: null,
-              minBudget: null,
-              maxBudget: null,
-              responseTime: null,
-              profileCompleteness: org.profileCompleteness || 0,
-              totalReviews: null,
-              averageRating: null,
-              isFeatured: false,
-            });
-            setEditData({});
-          }
-        }
+      const res = await fetch("/api/vendor/profile");
+      if (res.ok) {
+        const { data } = await res.json();
+        setProfile(data);
+        setEditData({});
+        setSaveError(null);
       }
     } catch {
       toast.error("Error al cargar el perfil");
     } finally {
       setLoading(false);
     }
-  }, [isProvider]);
+  }, []);
 
   useEffect(() => {
-    if (!sessionLoading) fetchProfile();
-  }, [sessionLoading, fetchProfile]);
+    if (!sessionLoading && isProvider) fetchProfile();
+    else if (!sessionLoading && !isProvider) {
+      router.replace("/dashboard");
+    }
+  }, [sessionLoading, isProvider, fetchProfile, router]);
 
   const handleSave = async () => {
     if (Object.keys(editData).length === 0) return;
     setSaving(true);
+    setSaveError(null);
     try {
+      const payload = { ...editData };
+      if (Array.isArray(payload.instagramPosts)) {
+        payload.instagramPosts = (payload.instagramPosts as string[]).filter((u) => u.trim().length > 0);
+      }
       const res = await fetch("/api/vendor/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editData),
+        body: JSON.stringify(payload),
       });
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         toast.success("Perfil actualizado");
         fetchProfile();
       } else {
-        toast.error("Error al guardar");
+        const msg = json.error?.details
+          ? json.error.details.map((d: { field: string; message: string }) => `${d.field}: ${d.message}`).join(", ")
+          : json.error?.message || "Error al guardar";
+        setSaveError(msg);
+        toast.error(msg);
       }
     } catch {
+      setSaveError("Error de conexión");
       toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAddPortfolio = async () => {
-    if (!newPortfolioUrl.trim()) return;
-    try {
-      const res = await fetch("/api/vendor/portfolio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: newPortfolioUrl.trim(), type: "image" }),
-      });
-      if (res.ok) {
-        setNewPortfolioUrl("");
-        fetchProfile();
-      }
-    } catch {
-      toast.error("Error al agregar imagen");
-    }
-  };
-
-  const handleDeletePortfolio = async (id: number) => {
-    try {
-      await fetch(`/api/vendor/portfolio/${id}`, { method: "DELETE" });
-      setPortfolio((prev) => prev.filter((p) => p.id !== id));
-    } catch {
-      toast.error("Error al eliminar");
-    }
-  };
-
   const updateField = (key: string, value: unknown) => {
     setEditData((prev) => ({ ...prev, [key]: value }));
+    setSaveError(null);
   };
 
-  const getValue = (key: keyof ProfileData) => {
-    return (editData as Record<string, unknown>)[key] ?? profile?.[key] ?? "";
+  const getValue = (key: keyof ProfileData): string => {
+    const edited = editData[key];
+    if (edited !== undefined) return String(edited ?? "");
+    return String(profile?.[key] ?? "");
   };
 
-  if (sessionLoading) {
-    return null;
-  }
+  const getSelectValue = (key: keyof ProfileData): string | undefined => {
+    const edited = editData[key];
+    if (edited !== undefined) return edited ? String(edited) : undefined;
+    const val = profile?.[key];
+    return val ? String(val) : undefined;
+  };
 
-  if (loading) {
+  const getInstagramPosts = (): string[] => {
+    if (editData.instagramPosts !== undefined) return editData.instagramPosts as string[];
+    return profile?.instagramPosts || [];
+  };
+
+  const getBrochureUrl = (): string => {
+    if (editData.brochureUrl !== undefined) return String(editData.brochureUrl ?? "");
+    return profile?.brochureUrl || "";
+  };
+
+  if (sessionLoading || loading) {
     return (
       <EventScopedGuard>
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-48 w-full" />
@@ -222,13 +188,16 @@ export default function PublicProfilePage() {
     );
   }
 
-  const completeness = profile?.profileCompleteness ?? 0;
+  if (!profile) return null;
+
+  const completeness = profile.profileCompleteness ?? 0;
   const hasChanges = Object.keys(editData).length > 0;
+  const isVerified = profile.verificationStatus === "verified";
 
   return (
     <EventScopedGuard>
       <div className="space-y-6 max-w-4xl">
-        {/* Header */}
+        {/* Header with always-visible actions */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -239,23 +208,65 @@ export default function PublicProfilePage() {
               Gestiona cómo apareces en el Marketplace HubEnts
             </p>
           </div>
-          <div className="flex gap-2">
-            {profile?.slug && (
+          <div className="flex items-center gap-2">
+            {isVerified ? (
               <Button variant="outline" size="sm" asChild>
                 <a href={`/providers/${profile.slug}`} target="_blank" rel="noopener noreferrer">
                   <RiExternalLinkLine className="h-4 w-4 mr-1" />
                   Ver perfil público
                 </a>
               </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button variant="outline" size="sm" disabled>
+                      <RiExternalLinkLine className="h-4 w-4 mr-1" />
+                      Ver perfil público
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Tu perfil público será visible una vez que un administrador verifique tu cuenta.</p>
+                </TooltipContent>
+              </Tooltip>
             )}
-            {hasChanges && (
-              <Button onClick={handleSave} disabled={saving} size="sm">
-                <RiSaveLine className="h-4 w-4 mr-1" />
-                {saving ? "Guardando..." : "Guardar cambios"}
-              </Button>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button onClick={handleSave} disabled={!hasChanges || saving} size="sm">
+                    <RiSaveLine className="h-4 w-4 mr-1" />
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!hasChanges && (
+                <TooltipContent>
+                  <p>Editá algún campo para habilitar el guardado.</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
           </div>
         </div>
+
+        {/* Unsaved changes banner */}
+        {hasChanges && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            <RiAlertLine className="h-4 w-4 shrink-0" />
+            <span>Tenés cambios sin guardar.</span>
+            <Button variant="link" size="sm" className="ml-auto p-0 h-auto text-amber-800 underline" onClick={() => { setEditData({}); setSaveError(null); }}>
+              Descartar
+            </Button>
+          </div>
+        )}
+
+        {/* Validation error */}
+        {saveError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+            <RiCloseLine className="h-4 w-4 shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
 
         {/* Profile Completeness */}
         <Card>
@@ -266,16 +277,10 @@ export default function PublicProfilePage() {
             </div>
             <Progress value={completeness} className="h-2" />
             <div className="flex items-center gap-2 mt-2">
-              <Badge variant={profile?.verificationStatus === "verified" ? "success" : "secondary"}>
+              <Badge variant={isVerified ? "success" : "secondary"}>
                 <RiShieldCheckLine className="h-3 w-3 mr-1" />
-                {profile?.verificationStatus === "verified" ? "Verificado" : "Sin verificar"}
+                {isVerified ? "Verificado" : "Sin verificar"}
               </Badge>
-              {profile?.isFeatured && (
-                <Badge variant="default">
-                  <RiStarLine className="h-3 w-3 mr-1" />
-                  Destacado
-                </Badge>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -291,7 +296,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Categoría</label>
                 <Select
-                  value={String(getValue("providerCategory"))}
+                  value={getSelectValue("providerCategory")}
                   onValueChange={(v) => updateField("providerCategory", v)}
                 >
                   <SelectTrigger>
@@ -307,7 +312,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Rango de precio</label>
                 <Select
-                  value={String(getValue("priceRange"))}
+                  value={getSelectValue("priceRange")}
                   onValueChange={(v) => updateField("priceRange", v)}
                 >
                   <SelectTrigger>
@@ -325,18 +330,20 @@ export default function PublicProfilePage() {
               <label className="text-sm font-medium">Tagline</label>
               <Input
                 placeholder="Frase corta que te describe"
-                value={String(getValue("tagline"))}
+                value={getValue("tagline")}
                 onChange={(e) => updateField("tagline", e.target.value)}
                 maxLength={120}
               />
+              <p className="text-xs text-[var(--muted-foreground)]">{getValue("tagline").length}/120</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Descripción</label>
               <Textarea
                 placeholder="Describe tu empresa y servicios..."
-                value={String(getValue("description"))}
+                value={getValue("description")}
                 onChange={(e) => updateField("description", e.target.value)}
                 rows={4}
+                maxLength={2000}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -344,7 +351,7 @@ export default function PublicProfilePage() {
                 <label className="text-sm font-medium">Logo URL</label>
                 <Input
                   placeholder="https://..."
-                  value={String(getValue("logo"))}
+                  value={getValue("logo")}
                   onChange={(e) => updateField("logo", e.target.value)}
                 />
               </div>
@@ -352,7 +359,7 @@ export default function PublicProfilePage() {
                 <label className="text-sm font-medium">Imagen de portada URL</label>
                 <Input
                   placeholder="https://..."
-                  value={String(getValue("coverImage"))}
+                  value={getValue("coverImage")}
                   onChange={(e) => updateField("coverImage", e.target.value)}
                 />
               </div>
@@ -373,7 +380,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Teléfono</label>
                 <Input
-                  value={String(getValue("phone"))}
+                  value={getValue("phone")}
                   onChange={(e) => updateField("phone", e.target.value)}
                   placeholder="+54 11 ..."
                 />
@@ -382,7 +389,7 @@ export default function PublicProfilePage() {
                 <label className="text-sm font-medium">Email público</label>
                 <Input
                   type="email"
-                  value={String(getValue("publicEmail"))}
+                  value={getValue("publicEmail")}
                   onChange={(e) => updateField("publicEmail", e.target.value)}
                   placeholder="contacto@empresa.com"
                 />
@@ -392,7 +399,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sitio web</label>
                 <Input
-                  value={String(getValue("website"))}
+                  value={getValue("website")}
                   onChange={(e) => updateField("website", e.target.value)}
                   placeholder="https://..."
                 />
@@ -400,7 +407,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Instagram</label>
                 <Input
-                  value={String(getValue("instagramHandle"))}
+                  value={getValue("instagramHandle")}
                   onChange={(e) => updateField("instagramHandle", e.target.value)}
                   placeholder="@tu_empresa"
                 />
@@ -422,7 +429,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Ciudad</label>
                 <Input
-                  value={String(getValue("city"))}
+                  value={getValue("city")}
                   onChange={(e) => updateField("city", e.target.value)}
                   placeholder="Buenos Aires"
                 />
@@ -430,7 +437,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Región</label>
                 <Input
-                  value={String(getValue("region"))}
+                  value={getValue("region")}
                   onChange={(e) => updateField("region", e.target.value)}
                   placeholder="CABA"
                 />
@@ -438,7 +445,7 @@ export default function PublicProfilePage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">País</label>
                 <Input
-                  value={String(getValue("country"))}
+                  value={getValue("country")}
                   onChange={(e) => updateField("country", e.target.value)}
                   placeholder="Argentina"
                 />
@@ -447,50 +454,122 @@ export default function PublicProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Portfolio (providers only) */}
-        {isProvider && <Card>
+        {/* Instagram Posts */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiImageAddLine className="h-5 w-5" />
-              Portfolio
-            </CardTitle>
-            <CardDescription>Muestra tu mejor trabajo</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="URL de imagen..."
-                value={newPortfolioUrl}
-                onChange={(e) => setNewPortfolioUrl(e.target.value)}
-              />
-              <Button onClick={handleAddPortfolio} disabled={!newPortfolioUrl.trim()}>
-                Agregar
-              </Button>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <RiInstagramLine className="h-5 w-5" />
+                Instagram
+                <InfoTooltip text="Pegá las URLs de tus publicaciones de Instagram. Se mostrarán como previews interactivos en tu perfil público del Marketplace." />
+              </CardTitle>
+              <span className="text-xs text-[var(--muted-foreground)]">{getInstagramPosts().length}/6 posts</span>
             </div>
-            {portfolio.length > 0 ? (
-              <div className="grid grid-cols-3 gap-3">
-                {portfolio.map((item) => (
-                  <div key={item.id} className="relative group rounded-lg overflow-hidden aspect-video bg-[var(--muted)]">
-                    <img src={item.url} alt={item.title || ""} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => handleDeletePortfolio(item.id)}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <RiDeleteBinLine className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+            <CardDescription>Mostrá tus mejores posts en tu perfil público</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {getInstagramPosts().map((url, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <RiInstagramLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
+                  <Input
+                    value={url}
+                    onChange={(e) => {
+                      const posts = [...getInstagramPosts()];
+                      posts[idx] = e.target.value;
+                      updateField("instagramPosts", posts);
+                    }}
+                    placeholder="https://www.instagram.com/p/ABC123/"
+                    className="pl-10"
+                  />
+                </div>
+                {url && !IG_URL_REGEX.test(url) && (
+                  <span className="text-xs text-red-500 shrink-0">URL inválida</span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-9 w-9 text-[var(--muted-foreground)] hover:text-red-500"
+                  onClick={() => {
+                    const posts = getInstagramPosts().filter((_, i) => i !== idx);
+                    updateField("instagramPosts", posts);
+                  }}
+                >
+                  <RiDeleteBinLine className="h-4 w-4" />
+                </Button>
               </div>
-            ) : (
-              <p className="text-center py-6 text-[var(--muted-foreground)]">
-                Agrega imágenes de tu trabajo para atraer más clientes
-              </p>
+            ))}
+            {getInstagramPosts().length < 6 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      updateField("instagramPosts", [...getInstagramPosts(), ""]);
+                    }}
+                  >
+                    <RiAddLine className="h-4 w-4 mr-1" />
+                    Agregar post
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Abrí Instagram, andá a un post, copiá la URL de la barra de direcciones y pegala acá.</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </CardContent>
-        </Card>}
+        </Card>
+
+        {/* Brochure PDF */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RiFileTextLine className="h-5 w-5" />
+              Brochure / Dossier
+              <InfoTooltip text="Subí un PDF con tu portfolio, tarifas o catálogo. Los visitantes podrán descargarlo desde tu perfil público." />
+            </CardTitle>
+            <CardDescription>PDF descargable desde tu perfil público</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {getBrochureUrl() ? (
+              <div className="flex items-center gap-3 rounded-lg border p-3">
+                <RiFileTextLine className="h-8 w-8 text-red-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">Brochure subido</p>
+                  <a
+                    href={getBrochureUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--muted-foreground)] hover:underline truncate block"
+                  >
+                    {getBrochureUrl()}
+                  </a>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-[var(--muted-foreground)] hover:text-red-500"
+                  onClick={() => updateField("brochureUrl", "")}
+                >
+                  <RiDeleteBinLine className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <FileUploader
+                folder="brochures"
+                accept="application/pdf"
+                variant="default"
+                onUpload={(result) => {
+                  updateField("brochureUrl", result.url);
+                }}
+              />
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stats (read-only) */}
-        {(profile?.totalReviews ?? 0) > 0 && (
+        {(profile.totalReviews ?? 0) > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -500,9 +579,9 @@ export default function PublicProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
-                <div className="text-3xl font-bold">{profile?.averageRating || "—"}</div>
+                <div className="text-3xl font-bold">{profile.averageRating || "—"}</div>
                 <div className="text-sm text-[var(--muted-foreground)]">
-                  {profile?.totalReviews} reseña{(profile?.totalReviews ?? 0) > 1 ? "s" : ""}
+                  {profile.totalReviews} reseña{(profile.totalReviews ?? 0) > 1 ? "s" : ""}
                 </div>
               </div>
             </CardContent>

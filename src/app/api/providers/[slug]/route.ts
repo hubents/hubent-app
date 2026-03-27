@@ -7,7 +7,7 @@ type RouteParams = { params: Promise<{ slug: string }> };
 
 /**
  * GET /api/providers/[slug]
- * Public endpoint - returns provider public profile
+ * Public endpoint - returns provider public profile with all marketplace-relevant fields
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
@@ -41,6 +41,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         providerCategory: provider.providerCategory,
         serviceRadius: provider.serviceRadius,
         serviceAreas: provider.serviceAreas,
+        description: provider.description,
+        tagline: provider.tagline,
+        coverImage: provider.coverImage,
+        city: provider.city,
+        region: provider.region,
+        country: provider.country,
+        publicEmail: provider.publicEmail,
+        priceRange: provider.priceRange,
+        instagramPosts: provider.instagramPosts,
+        brochureUrl: provider.brochureUrl,
       },
     });
   } catch (error) {

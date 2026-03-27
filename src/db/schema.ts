@@ -736,6 +736,13 @@ export const organizations = pgTable("organizations", {
 
   createdByOrgId: integer("created_by_org_id"),
 
+  // Public profile fields
+  publicEmail: text("public_email"),
+  priceRange: text("price_range"),
+  country: text("country"),
+  instagramPosts: json("instagram_posts").$type<string[]>(),
+  brochureUrl: text("brochure_url"),
+
   // Fiscal data (unified source of truth for documents)
 
   fiscalName: text("fiscal_name"),
