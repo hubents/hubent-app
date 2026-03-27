@@ -8,9 +8,10 @@ import { z } from "zod";
 
 const registerSchema = z.object({
   companyName: z.string().min(2, "Nombre de empresa requerido"),
+  name: z.string().min(2, "Nombre requerido").optional(),
   email: z.string().email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
-  instagram: z.string().min(1, "Instagram es obligatorio"),
+  instagram: z.string().optional().or(z.literal("")),
   category: z.string().min(1, "Categoría requerida"),
   phone: z.string().regex(/^[+\d\s\-()]{6,20}$/, "Formato de teléfono inválido").optional().or(z.literal("")),
   serviceRadius: z.number().optional(),
@@ -32,8 +33,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { companyName, password, instagram, category, phone, serviceRadius } = parsed.data;
+    const { companyName, name, password, instagram, category, phone, serviceRadius } = parsed.data;
     const email = parsed.data.email.toLowerCase();
+    const userName = name || companyName;
 
     // Check if email already exists
     const existingUser = await db.query.users.findFirst({
@@ -70,9 +72,10 @@ export async function POST(request: NextRequest) {
       .insert(users)
       .values({
         email,
-        name: companyName,
+        name: userName,
         passwordHash: hashedPassword,
         emailVerified: new Date(),
+        phone: phone || null,
       })
       .returning();
 
@@ -86,7 +89,8 @@ export async function POST(request: NextRequest) {
           slug: finalSlug,
           orgType: "provider",
           ownerId: newUser.id,
-          instagramHandle: instagram.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/.*$/, ""),
+          instagramHandle: instagram ? instagram.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/.*$/, "") : null,
+          phone: phone || null,
           providerCategory: category,
           serviceRadius: serviceRadius || null,
           verificationStatus: "unverified",

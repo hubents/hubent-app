@@ -9,7 +9,6 @@ const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];
 const ADMIN_PROTECTED_ROUTES = ["/admin"];
 const DASHBOARD_ROUTES = ["/dashboard", "/onboarding", "/billing", "/select-org"];
 const INVITE_ROUTES = ["/invite"];
-const VENDOR_PORTAL_ROUTES = ["/vendor"];
 const CLIENT_PORTAL_ROUTES = ["/client"];
 
 export default auth((req) => {
@@ -39,7 +38,7 @@ export default auth((req) => {
   const isProviderAuthRoute = PROVIDER_AUTH_ROUTES.some((route) =>
     pathname === route || pathname.startsWith(`${route}/`)
   );
-  const isVendorPortal = VENDOR_PORTAL_ROUTES.some((route) => pathname.startsWith(route)) && !isProviderAuthRoute;
+  const isVendorPortal = pathname.startsWith("/vendor") && !isProviderAuthRoute;
   const isClientPortal = CLIENT_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
 
   // Allow public routes
@@ -63,10 +62,15 @@ export default auth((req) => {
   // Provider auth routes (/provider/register, /provider/login) - allow public access
   if (isProviderAuthRoute) {
     if (isLoggedIn) {
-      // Redirect to /dashboard — vendor layout validates orgType separately
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
     return NextResponse.next();
+  }
+
+  // Legacy vendor portal → redirect 301 to /dashboard/*
+  if (isVendorPortal) {
+    const newPath = pathname.replace(/^\/vendor/, "/dashboard");
+    return NextResponse.redirect(new URL(newPath, nextUrl), 301);
   }
 
   // Admin auth routes (/admin/login, /admin/invite/*) - allow access
@@ -87,7 +91,7 @@ export default auth((req) => {
   }
 
   // Dashboard and tenant protected routes
-  if (isDashboardRoute || isVendorPortal || isClientPortal) {
+  if (isDashboardRoute || isClientPortal) {
     if (!isLoggedIn) {
       const callbackUrl = encodeURIComponent(pathname);
       return NextResponse.redirect(new URL(`/auth/login?callbackUrl=${callbackUrl}`, nextUrl));

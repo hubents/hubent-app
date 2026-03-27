@@ -115,8 +115,8 @@ export const POST = withMonitoring(async (request: NextRequest) => {
           planSlug: plan.slug,
         },
       },
-      success_url: `${appUrl}/${org?.orgType === "provider" ? "vendor" : "dashboard"}/settings?billing=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/${org?.orgType === "provider" ? "vendor" : "dashboard"}/settings?billing=cancelled`,
+      success_url: `${appUrl}/dashboard/settings?billing=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/dashboard/settings?billing=cancelled`,
       metadata: {
         organizationId: session.organizationId.toString(),
         planId: planId.toString(),

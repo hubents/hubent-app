@@ -41,8 +41,7 @@ interface InAppNotification {
 export function RealtimeNotifications() {
   const router = useRouter();
   const pathname = usePathname();
-  const isVendor = pathname.startsWith("/vendor");
-  const base = isVendor ? "/vendor" : "/dashboard";
+  const base = "/dashboard";
 
   const handleNotification = useCallback((data: unknown) => {
     const n = data as InAppNotification;

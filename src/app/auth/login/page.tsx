@@ -71,7 +71,13 @@ function LoginContent() {
           setError(result.error);
         }
       } else if (result?.ok) {
-        router.push(callbackUrl);
+        // Smart redirect: if no explicit callback, detect org type
+        if (callbackUrl === "/dashboard") {
+          const dest = await detectRedirectDestination();
+          router.push(dest);
+        } else {
+          router.push(callbackUrl);
+        }
         router.refresh();
       }
     } catch {
@@ -110,8 +116,23 @@ function LoginContent() {
   };
 
   const handleGoogleLogin = () => {
+    // For Google, we can't do smart redirect in callback easily,
+    // so we use /dashboard and let vendor-guard handle it
     signIn("google", { callbackUrl });
   };
+
+  async function detectRedirectDestination(): Promise<string> {
+    try {
+      const res = await fetch("/api/user/organizations");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        // All org types now use unified /dashboard portal
+      }
+    } catch {
+      // fallback to dashboard
+    }
+    return "/dashboard";
+  }
 
   if (magicLinkSent) {
     return (
@@ -310,6 +331,12 @@ function LoginContent() {
           ¿No tienes cuenta?{" "}
           <Link href="/auth/register" className="text-[var(--primary)] hover:underline font-medium">
             Regístrate gratis
+          </Link>
+        </p>
+        <p className="text-center text-xs text-[var(--muted-foreground)]">
+          ¿Eres proveedor de eventos?{" "}
+          <Link href="/auth/register?type=provider" className="text-[var(--primary)] hover:underline">
+            Registra tu empresa
           </Link>
         </p>
       </CardContent>

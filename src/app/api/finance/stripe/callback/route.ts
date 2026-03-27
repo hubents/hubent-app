@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  // Determine redirect base from state orgType (provider → /vendor, tenant → /dashboard)
+  // All org types use unified /dashboard portal
   function buildRedirectUrl(orgType?: string) {
-    const base = orgType === "provider" ? "/vendor/finance/settings" : "/dashboard/finance/settings";
+    const base = "/dashboard/finance/settings";
     return `${appUrl}${base}?tab=payments`;
   }
 

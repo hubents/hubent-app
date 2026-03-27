@@ -57,12 +57,13 @@ const contactsSubNav = [
   { name: "Todos", href: "/dashboard/contacts", icon: RiGroupLine },
   { name: "Personas", href: "/dashboard/contacts?segment=persons", icon: RiUserLine },
   { name: "Empresas", href: "/dashboard/contacts?segment=companies", icon: RiBuilding2Line },
-  { name: "Proveedores", href: "/dashboard/contacts?segment=vendors", icon: RiStore2Line },
 ];
 
-const navigationAfterFinance = [
-  { name: "Proveedores", href: "/dashboard/providers", icon: RiStoreLine, permission: "vendors:read" },
+const navigationMarketplace = [
+  { name: "Marketplace", href: "/dashboard/marketplace", icon: RiStore2Line, permission: null as string | null },
 ];
+
+const navigationAfterFinance: typeof navigationMarketplace = [];
 
 const productivitySubNav = [
   { name: "Calendario", href: "/dashboard/calendar", icon: RiCalendar2Line },
@@ -105,6 +106,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const filteredDashboard = useMemo(() => {
     if (eventScoped) return [];
     return navigationDashboard.filter((item) => !item.permission || can(item.permission));
+  }, [can, eventScoped]);
+  const filteredMarketplace = useMemo(() => {
+    if (eventScoped) return [];
+    return navigationMarketplace.filter((item) => !item.permission || can(item.permission));
   }, [can, eventScoped]);
   const filteredAfterContacts = useMemo(() => {
     const base = navigationAfterContacts.filter((item) => !item.permission || can(item.permission));
@@ -218,7 +223,51 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               );
             })}
 
-            {/* Contactos Menu with Submenu (right after Dashboard) */}
+            {/* Marketplace HubEnts (after Dashboard, before Contacts) */}
+            {filteredMarketplace.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+
+              if (isCollapsed) {
+                return (
+                  <Tooltip key={item.name}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center justify-center rounded-[var(--radius)] p-3 transition-colors",
+                          isActive
+                            ? "bg-[var(--primary)] text-white"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        )}
+                      >
+                        <item.icon className="h-5 w-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {item.name}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+
+            {/* Contactos Menu with Submenu (right after Marketplace) */}
             {showContacts && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>

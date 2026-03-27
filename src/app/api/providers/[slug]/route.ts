@@ -16,8 +16,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const provider = await db.query.organizations.findFirst({
       where: and(
         eq(organizations.slug, slug),
-        eq(organizations.orgType, "provider"),
-        eq(organizations.verificationStatus, "verified")
+        eq(organizations.orgType, "provider")
       ),
     });
 
@@ -41,6 +40,28 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         providerCategory: provider.providerCategory,
         serviceRadius: provider.serviceRadius,
         serviceAreas: provider.serviceAreas,
+        verificationStatus: provider.verificationStatus,
+        description: provider.description,
+        tagline: provider.tagline,
+        coverImage: provider.coverImage,
+        publicEmail: provider.publicEmail,
+        tiktokHandle: provider.tiktokHandle,
+        facebookUrl: provider.facebookUrl,
+        linkedinUrl: provider.linkedinUrl,
+        priceRange: provider.priceRange,
+        services: provider.services,
+        categories: provider.categories,
+        foundedYear: provider.foundedYear,
+        city: provider.city,
+        region: provider.region,
+        country: provider.country,
+        languagesSpoken: provider.languagesSpoken,
+        minBudget: provider.minBudget,
+        maxBudget: provider.maxBudget,
+        responseTime: provider.responseTime,
+        totalReviews: provider.totalReviews,
+        averageRating: provider.averageRating,
+        isFeatured: provider.isFeatured,
       },
     });
   } catch (error) {

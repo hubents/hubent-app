@@ -49,7 +49,7 @@ export function CalendarDrawer({ open, onOpenChange }: CalendarDrawerProps) {
 
   const handleOpenFullPage = () => {
     onOpenChange(false);
-    router.push(orgType === "provider" ? "/vendor/calendar" : "/dashboard/calendar");
+    router.push("/dashboard/calendar");
   };
 
   return (

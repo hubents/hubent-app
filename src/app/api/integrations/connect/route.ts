@@ -30,8 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const portalPrefix =
-      session.orgType === "provider" ? "/vendor" : "/dashboard";
+    const portalPrefix = "/dashboard";
     const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/callback?toolkit=${toolkit}&orgId=${orgId}&portal=${portalPrefix}`;
 
     const { redirectUrl } = await authorizeToolkit(

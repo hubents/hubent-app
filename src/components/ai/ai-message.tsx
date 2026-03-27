@@ -61,26 +61,10 @@ const ROUTE_MAP: Record<string, RouteInfo> = {
   "/dashboard/settings": { icon: Settings, label: "Configuración" },
   "/dashboard/settings/roles": { icon: Settings, label: "Roles y Permisos" },
   "/dashboard/settings/billing": { icon: CreditCard, label: "Plan y Facturación" },
-  "/vendor": { icon: LayoutDashboard, label: "Dashboard" },
-  "/vendor/events": { icon: CalendarDays, label: "Eventos" },
-  "/vendor/tasks": { icon: ListChecks, label: "Tareas" },
-  "/vendor/calendar": { icon: CalendarDays, label: "Calendario" },
-  "/vendor/crm": { icon: ClipboardList, label: "CRM" },
-  "/vendor/contacts": { icon: Contact, label: "Contactos" },
-  "/vendor/finance": { icon: Receipt, label: "Finanzas" },
-  "/vendor/finance/invoices": { icon: Receipt, label: "Facturas" },
-  "/vendor/finance/quotes": { icon: Receipt, label: "Presupuestos" },
-  "/vendor/finance/reports": { icon: Receipt, label: "Reportes Contables" },
-  "/vendor/forms": { icon: FileText, label: "Formularios" },
-  "/vendor/team": { icon: Users, label: "Equipo" },
-  "/vendor/settings": { icon: Settings, label: "Configuración" },
-  "/vendor/settings/roles": { icon: Settings, label: "Roles y Permisos" },
 };
 
-function remapRouteForContext(href: string, isVendor: boolean): string {
-  if (isVendor && href.startsWith("/dashboard")) {
-    return href.replace(/^\/dashboard/, "/vendor");
-  }
+function remapRouteForContext(href: string, _isVendor: boolean): string {
+  // All org types now use unified /dashboard portal
   return href;
 }
 
@@ -127,7 +111,7 @@ export function AIMessage({ role, content, isLoading, onFeedback }: AIMessagePro
   const [feedback, setFeedback] = useState<number | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const isVendor = pathname.startsWith("/vendor");
+  const isVendor = false; // Legacy: all org types use /dashboard
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(content);

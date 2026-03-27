@@ -401,7 +401,7 @@ export async function GET(request: NextRequest) {
 
     const items: CalendarItem[] = [];
     const vendorHref = (eventId: number | null) =>
-      eventId && accessIdMap[eventId] ? `/vendor/events/${accessIdMap[eventId]}` : "/vendor/events";
+      eventId && accessIdMap[eventId] ? `/dashboard/events/${accessIdMap[eventId]}` : "/dashboard/events";
 
     // Map events
     for (const row of eventRows) {

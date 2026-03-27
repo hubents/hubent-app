@@ -4,11 +4,12 @@ import { users, organizations, events, invitations, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrganizationInviteEmail } from "@/lib/email";
+import { calculateProfileCompleteness } from "@/config/provider-constants";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -17,38 +18,124 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { profile, company, event, teamEmails } = body;
+    const { profile, company, event, teamEmails, providerProfile } = body;
 
-    // Note: Neon HTTP driver doesn't support transactions, so we do sequential operations
+    // Mark user as onboarded + save profile data
+    const userUpdate: Record<string, unknown> = {
+      onboardingCompleted: true,
+      updatedAt: new Date(),
+    };
+    if (profile?.phone) userUpdate.phone = profile.phone;
+    if (profile?.bio) userUpdate.bio = profile.bio;
+
     await db
       .update(users)
-      .set({
-        onboardingCompleted: true,
-        updatedAt: new Date(),
-      })
+      .set(userUpdate)
       .where(eq(users.id, session.user!.id!));
 
-    const userOrgs = await db.query.organizations.findFirst({
+    const userOrg = await db.query.organizations.findFirst({
       where: eq(organizations.ownerId, session.user!.id!),
     });
 
-    if (userOrgs && company) {
+    if (!userOrg) {
+      return NextResponse.json({ success: true });
+    }
+
+    const isProvider = userOrg.orgType === "provider";
+
+    if (isProvider) {
+      // ─── Provider Onboarding ──────────────────────────────────
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date(),
+      };
+
+      // Company base fields
+      if (profile?.phone) updateData.phone = profile.phone;
+      if (company?.logo) updateData.logo = company.logo;
+      if (company?.timezone || company?.currency) {
+        updateData.settings = {
+          timezone: company?.timezone || "America/Argentina/Buenos_Aires",
+          currency: company?.currency || "USD",
+          language: "es",
+        };
+      }
+
+      // Provider marketplace fields
+      if (providerProfile) {
+        if (providerProfile.description) updateData.description = providerProfile.description;
+        if (providerProfile.tagline) updateData.tagline = providerProfile.tagline;
+        if (providerProfile.providerCategory) updateData.providerCategory = providerProfile.providerCategory;
+        if (providerProfile.instagramHandle) updateData.instagramHandle = providerProfile.instagramHandle;
+        if (providerProfile.city) updateData.city = providerProfile.city;
+        if (providerProfile.region) updateData.region = providerProfile.region;
+        if (providerProfile.coverImage) updateData.coverImage = providerProfile.coverImage;
+      }
+
+      // Calculate profile completeness
+      const completeness = calculateProfileCompleteness({
+        logo: (updateData.logo as string) || userOrg.logo,
+        description: (updateData.description as string) || userOrg.description,
+        tagline: (updateData.tagline as string) || userOrg.tagline,
+        providerCategory: (updateData.providerCategory as string) || userOrg.providerCategory,
+        city: (updateData.city as string) || userOrg.city,
+        coverImage: (updateData.coverImage as string) || userOrg.coverImage,
+        instagramHandle: (updateData.instagramHandle as string) || userOrg.instagramHandle,
+        phone: (updateData.phone as string) || userOrg.phone,
+        websiteUrl: userOrg.website,
+        services: userOrg.services,
+      });
+      updateData.profileCompleteness = completeness;
+
       await db
         .update(organizations)
-        .set({
-          logo: company.logo || null,
-          settings: {
-            timezone: company.timezone || "America/Argentina/Buenos_Aires",
-            currency: company.currency || "USD",
-            language: "es",
-          },
-          updatedAt: new Date(),
-        })
-        .where(eq(organizations.id, userOrgs.id));
+        .set(updateData)
+        .where(eq(organizations.id, userOrg.id));
 
+      // Provider team invitations use provider_admin role
+      if (teamEmails && teamEmails.length > 0) {
+        let teamRole = await db.query.roles.findFirst({
+          where: eq(roles.slug, "provider_admin"),
+        });
+
+        if (!teamRole) {
+          // Create provider_admin role if it doesn't exist yet
+          const [createdRole] = await db
+            .insert(roles)
+            .values({
+              name: "Provider Admin",
+              slug: "provider_admin",
+              description: "Administrador de organización proveedora",
+              isSystem: true,
+            })
+            .returning();
+          teamRole = createdRole;
+        }
+
+        await sendTeamInvitations(teamEmails, userOrg, teamRole, session.user!.id!);
+      }
+
+      // Providers do NOT create events during onboarding
+    } else {
+      // ─── Planner Onboarding ───────────────────────────────────
+      if (company) {
+        await db
+          .update(organizations)
+          .set({
+            logo: company.logo || null,
+            settings: {
+              timezone: company.timezone || "America/Argentina/Buenos_Aires",
+              currency: company.currency || "USD",
+              language: "es",
+            },
+            updatedAt: new Date(),
+          })
+          .where(eq(organizations.id, userOrg.id));
+      }
+
+      // Create first event if provided
       if (event?.name) {
         await db.insert(events).values({
-          organizationId: userOrgs.id,
+          organizationId: userOrg.id,
           name: event.name,
           type: event.type || "wedding",
           date: event.date ? new Date(event.date) : null,
@@ -57,6 +144,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Planner team invitations use planner role
       if (teamEmails && teamEmails.length > 0) {
         let memberRole = await db.query.roles.findFirst({
           where: eq(roles.slug, "planner"),
@@ -75,33 +163,7 @@ export async function POST(request: NextRequest) {
           memberRole = createdRole;
         }
 
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
-
-        for (const email of teamEmails) {
-          if (email && email.includes("@")) {
-            const token = crypto.randomUUID();
-            await db.insert(invitations).values({
-              organizationId: userOrgs.id,
-              email: email.toLowerCase().trim(),
-              roleId: memberRole.id,
-              token,
-              status: "pending",
-              invitedBy: session.user!.id!,
-              expiresAt,
-            });
-
-            // Send invitation email (fire-and-forget)
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-            sendOrganizationInviteEmail(
-              email.toLowerCase().trim(),
-              userOrgs.name,
-              memberRole.name,
-              session.user?.name || null,
-              `${appUrl}/invite/${token}`
-            ).catch((err) => console.error("Failed to send invite email:", err));
-          }
-        }
+        await sendTeamInvitations(teamEmails, userOrg, memberRole, session.user!.id!);
       }
     }
 
@@ -112,5 +174,39 @@ export async function POST(request: NextRequest) {
       { error: "Error interno del servidor" },
       { status: 500 }
     );
+  }
+}
+
+async function sendTeamInvitations(
+  emails: string[],
+  org: { id: number; name: string },
+  role: { id: number; name: string },
+  invitedBy: string
+) {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  for (const email of emails) {
+    if (email && email.includes("@")) {
+      const token = crypto.randomUUID();
+      await db.insert(invitations).values({
+        organizationId: org.id,
+        email: email.toLowerCase().trim(),
+        roleId: role.id,
+        token,
+        status: "pending",
+        invitedBy,
+        expiresAt,
+      });
+
+      sendOrganizationInviteEmail(
+        email.toLowerCase().trim(),
+        org.name,
+        role.name,
+        null,
+        `${appUrl}/invite/${token}`
+      ).catch((err) => console.error("Failed to send invite email:", err));
+    }
   }
 }

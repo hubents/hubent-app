@@ -36,7 +36,7 @@ interface Submission {
 
 export function TaskFormsTab({ taskId }: { taskId: number }) {
   const pathname = usePathname();
-  const formsBasePath = pathname.startsWith("/vendor") ? "/vendor/forms" : "/dashboard/forms";
+  const formsBasePath = "/dashboard/forms";
   const [forms, setForms] = useState<TaskFormInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);

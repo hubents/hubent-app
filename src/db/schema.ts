@@ -10,6 +10,7 @@ import {
   primaryKey,
   json,
   jsonb,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -174,6 +175,9 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   mustChangePassword: boolean("must_change_password").default(false),
   onboardingCompleted: boolean("onboarding_completed").default(false),
+  phone: text("phone"),
+  bio: text("bio"),
+  jobTitle: text("job_title"),
   status: userStatusEnum("status").default("active"),
   suspendedAt: timestamp("suspended_at"),
   suspendedBy: text("suspended_by"),
@@ -359,6 +363,29 @@ export const organizations = pgTable("organizations", {
   verifiedBy: text("verified_by").references(() => users.id),
   rejectionReason: text("rejection_reason"),
   providerCategory: text("provider_category"),
+  // Marketplace profile fields
+  description: text("description"),
+  tagline: text("tagline"),
+  coverImage: text("cover_image"),
+  publicEmail: text("public_email"),
+  tiktokHandle: text("tiktok_handle"),
+  facebookUrl: text("facebook_url"),
+  linkedinUrl: text("linkedin_url"),
+  priceRange: text("price_range"),
+  services: json("services").$type<string[]>(),
+  categories: json("categories").$type<string[]>(),
+  foundedYear: integer("founded_year"),
+  city: text("city"),
+  region: text("region"),
+  country: text("country").default("España"),
+  languagesSpoken: json("languages_spoken").$type<string[]>(),
+  minBudget: decimal("min_budget", { precision: 10, scale: 2 }),
+  maxBudget: decimal("max_budget", { precision: 10, scale: 2 }),
+  responseTime: text("response_time"),
+  profileCompleteness: integer("profile_completeness").default(0),
+  totalReviews: integer("total_reviews").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  isFeatured: boolean("is_featured").default(false),
   // Fiscal data (unified source of truth for documents)
   fiscalName: text("fiscal_name"),
   taxId: text("tax_id"),
@@ -369,6 +396,8 @@ export const organizations = pgTable("organizations", {
   fiscalEmail: text("fiscal_email"),
   fiscalPhone: text("fiscal_phone"),
   invoiceLogo: text("invoice_logo"),
+  // Tracks which planner org created an unclaimed provider
+  createdByOrgId: integer("created_by_org_id").references((): AnyPgColumn => organizations.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1795,6 +1824,7 @@ export const vendorReviews = pgTable("vendor_reviews", {
   rating: integer("rating").notNull(),
   title: text("title"),
   content: text("content"),
+  organizationId: integer("organization_id").references(() => organizations.id),
   isVerified: boolean("is_verified").default(false),
   isPublic: boolean("is_public").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1811,6 +1841,62 @@ export const vendorClaims = pgTable("vendor_claims", {
   verificationMethod: text("verification_method"),
   expiresAt: timestamp("expires_at").notNull(),
   verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
+// ORGANIZATION PORTFOLIO (linked to org, not vendor_profiles)
+// ============================================
+
+export const organizationPortfolio = pgTable("organization_portfolio", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  type: text("type").default("image"),
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  title: text("title"),
+  description: text("description"),
+  eventType: text("event_type"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================
+// PROVIDER INVITATIONS (planner invites provider to register)
+// ============================================
+
+export const providerInvitations = pgTable("provider_invitations", {
+  id: serial("id").primaryKey(),
+  plannerOrgId: integer("planner_org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  eventId: integer("event_id").references(() => events.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  category: text("category"),
+  phone: text("phone"),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("pending"),
+  invitedBy: text("invited_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  providerOrgId: integer("provider_org_id").references(() => organizations.id),
+});
+
+export const providerFavorites = pgTable("provider_favorites", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerOrgId: integer("provider_org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

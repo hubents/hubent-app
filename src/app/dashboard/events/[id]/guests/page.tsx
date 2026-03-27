@@ -603,7 +603,9 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                 Object.entries(groupedGuests).map(([group, groupGuests]) => (
                   <div key={group}>
                     <div className="px-4 py-2 bg-muted font-medium text-sm flex items-center justify-between">
-                      <span>{group} ({groupGuests.length})</span>
+                      <span>
+                        {group} ({groupGuests.length}{meta.totalPages > 1 ? " en esta página" : ""})
+                      </span>
                     </div>
                     <div className="divide-y">
                       {groupGuests.map((guest) => (
@@ -742,7 +744,9 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       {meta.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-muted-foreground">
-            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+            Página {meta.page} de {meta.totalPages}
+            {" · "}
+            {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total} invitados
           </p>
           <NumericPagination
             currentPage={meta.page}

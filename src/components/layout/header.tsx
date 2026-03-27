@@ -24,7 +24,8 @@ export function Header() {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const isVendor = pathname.startsWith("/vendor");
+  // All org types now use unified /dashboard portal
+  const isVendor = false;
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -101,11 +102,11 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push(isVendor ? "/vendor/profile" : "/dashboard/settings")}>
+            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
               <RiUserLine className="mr-2 h-4 w-4" />
               Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(isVendor ? "/vendor/settings" : "/dashboard/settings")}>
+            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
               <RiSettings4Line className="mr-2 h-4 w-4" />
               Configuración
             </DropdownMenuItem>

@@ -28,7 +28,7 @@ export async function POST() {
       where: eq(organizations.id, session.organizationId),
       columns: { orgType: true },
     });
-    const settingsPath = org?.orgType === "provider" ? "vendor" : "dashboard";
+    const settingsPath = "dashboard";
 
     const stripe = getStripePlatform();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
