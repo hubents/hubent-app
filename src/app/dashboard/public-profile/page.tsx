@@ -35,7 +35,6 @@ import {
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
-import { useRouter } from "next/navigation";
 import { PROVIDER_CATEGORIES, PRICE_RANGES } from "@/config/provider-constants";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 
@@ -84,7 +83,6 @@ function InfoTooltip({ text }: { text: string }) {
 
 export default function PublicProfilePage() {
   const { orgType, loading: sessionLoading } = useUserSession();
-  const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -569,7 +567,7 @@ export default function PublicProfilePage() {
               />
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Stats (read-only) */}
         {(profile.totalReviews ?? 0) > 0 && (
