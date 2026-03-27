@@ -30,11 +30,13 @@ import {
   RiPriceTag3Line,
 } from "@remixicon/react";
 import { InstagramEmbed } from "react-social-media-embed";
+import { getOrgTypeLabel } from "@/config/provider-constants";
 
 interface ProviderProfile {
   name: string;
   slug: string;
   logo: string | null;
+  orgType: string | null;
   phone: string | null;
   website: string | null;
   address: string | null;
@@ -99,7 +101,7 @@ export default function ProviderPublicProfilePage() {
       <div className="min-h-screen bg-gradient-to-br from-stone-50 to-orange-50/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center p-8">
           <RiStoreLine className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Proveedor no encontrado</h1>
+          <h1 className="text-2xl font-bold mb-2">Perfil no encontrado</h1>
           <p className="text-muted-foreground mb-4">
             Este perfil no existe o aún no ha sido verificado.
           </p>
@@ -191,6 +193,9 @@ export default function ProviderPublicProfilePage() {
 
             {/* Badges */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
+              <Badge variant={provider.orgType === "provider" ? "default" : "secondary"}>
+                {getOrgTypeLabel(provider.orgType)}
+              </Badge>
               {provider.providerCategory && (
                 <Badge variant="outline">{provider.providerCategory}</Badge>
               )}

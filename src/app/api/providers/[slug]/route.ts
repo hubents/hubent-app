@@ -1,29 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ slug: string }> };
 
 /**
  * GET /api/providers/[slug]
- * Public endpoint - returns provider public profile with all marketplace-relevant fields
+ * Public endpoint - returns verified org profile (providers + planners)
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { slug } = await params;
 
-    const provider = await db.query.organizations.findFirst({
+    const org = await db.query.organizations.findFirst({
       where: and(
         eq(organizations.slug, slug),
-        eq(organizations.orgType, "provider"),
+        or(
+          eq(organizations.orgType, "provider"),
+          eq(organizations.orgType, "tenant")
+        ),
         eq(organizations.verificationStatus, "verified")
       ),
     });
 
-    if (!provider) {
+    if (!org) {
       return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Provider not found" } },
+        { success: false, error: { code: "NOT_FOUND", message: "Profile not found" } },
         { status: 404 }
       );
     }
@@ -31,32 +34,33 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: {
-        name: provider.name,
-        slug: provider.slug,
-        logo: provider.logo,
-        phone: provider.phone,
-        website: provider.website,
-        address: provider.address,
-        instagramHandle: provider.instagramHandle,
-        providerCategory: provider.providerCategory,
-        serviceRadius: provider.serviceRadius,
-        serviceAreas: provider.serviceAreas,
-        description: provider.description,
-        tagline: provider.tagline,
-        coverImage: provider.coverImage,
-        city: provider.city,
-        region: provider.region,
-        country: provider.country,
-        publicEmail: provider.publicEmail,
-        priceRange: provider.priceRange,
-        instagramPosts: provider.instagramPosts,
-        brochureUrl: provider.brochureUrl,
+        name: org.name,
+        slug: org.slug,
+        logo: org.logo,
+        orgType: org.orgType,
+        phone: org.phone,
+        website: org.website,
+        address: org.address,
+        instagramHandle: org.instagramHandle,
+        providerCategory: org.providerCategory,
+        serviceRadius: org.serviceRadius,
+        serviceAreas: org.serviceAreas,
+        description: org.description,
+        tagline: org.tagline,
+        coverImage: org.coverImage,
+        city: org.city,
+        region: org.region,
+        country: org.country,
+        publicEmail: org.publicEmail,
+        priceRange: org.priceRange,
+        instagramPosts: org.instagramPosts,
+        brochureUrl: org.brochureUrl,
       },
     });
   } catch (error) {
     console.error("GET /api/providers/[slug] error:", error);
     return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message: "Failed to fetch provider" } },
+      { success: false, error: { code: "FETCH_ERROR", message: "Failed to fetch profile" } },
       { status: 500 }
     );
   }

@@ -23,81 +23,72 @@ import {
   RiExternalLinkLine,
 } from "@remixicon/react";
 import Link from "next/link";
+import { PROVIDER_CATEGORIES, PLANNER_CATEGORIES, getOrgTypeLabel } from "@/config/provider-constants";
 
-interface ProviderOrg {
+interface MarketplaceOrg {
   id: number;
   name: string;
   slug: string;
   logo: string | null;
+  orgType: string | null;
   instagramHandle: string | null;
   providerCategory: string | null;
+  tagline: string | null;
+  city: string | null;
+  region: string | null;
   serviceRadius: number | null;
   serviceAreas: string[] | null;
   phone: string | null;
   website: string | null;
 }
 
-const CATEGORIES = [
-  "Catering",
-  "Fotografía",
-  "Video",
-  "Música / DJ",
-  "Decoración",
-  "Florería",
-  "Iluminación",
-  "Sonido",
-  "Mobiliario",
-  "Transporte",
-  "Animación",
-  "Wedding Planner",
-  "Pastelería",
-  "Bartender",
-  "Otro",
-];
+const ALL_CATEGORIES = [...new Set([...PROVIDER_CATEGORIES, ...PLANNER_CATEGORIES])].sort();
 
 export default function ProvidersDirectoryPage() {
   return <EventScopedGuard><ProvidersDirectoryContent /></EventScopedGuard>;
 }
 
 function ProvidersDirectoryContent() {
-  const [providers, setProviders] = useState<ProviderOrg[]>([]);
+  const [orgs, setOrgs] = useState<MarketplaceOrg[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [total, setTotal] = useState(0);
 
-  const fetchProviders = useCallback(async () => {
+  const fetchOrgs = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (category) params.set("category", category);
+      if (typeFilter) params.set("type", typeFilter);
       params.set("limit", "50");
 
       const res = await fetch(`/api/providers?${params}`);
       const data = await res.json();
       if (data.success) {
-        setProviders(data.data);
+        setOrgs(data.data);
         setTotal(data.meta?.total ?? data.data.length);
       }
     } catch {
-      console.error("Error fetching providers");
+      console.error("Error fetching marketplace");
     } finally {
       setLoading(false);
     }
-  }, [search, category]);
+  }, [search, category, typeFilter]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchProviders, 300);
+    const timer = setTimeout(fetchOrgs, 300);
     return () => clearTimeout(timer);
-  }, [fetchProviders]);
+  }, [fetchOrgs]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Directorio de Proveedores</h1>
+        <h1 className="text-2xl font-bold">Marketplace</h1>
         <p className="text-muted-foreground">
-          Proveedores verificados disponibles en la plataforma
+          Proveedores y planificadores verificados en la plataforma
         </p>
       </div>
 
@@ -112,13 +103,23 @@ function ProvidersDirectoryContent() {
             className="pl-10"
           />
         </div>
-        <Select value={category} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
+        <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="provider">Proveedores</SelectItem>
+            <SelectItem value="planner">Planificadores</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
           <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las categorías</SelectItem>
-            {CATEGORIES.map((cat) => (
+            {ALL_CATEGORIES.map((cat) => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
@@ -132,80 +133,79 @@ function ProvidersDirectoryContent() {
             <Skeleton key={i} className="h-48 w-full rounded-lg" />
           ))}
         </div>
-      ) : providers.length === 0 ? (
+      ) : orgs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <RiStoreLine className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-lg font-medium">No se encontraron proveedores</p>
+            <p className="text-lg font-medium">No se encontraron resultados</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {search || category
+              {search || category || typeFilter
                 ? "Intenta con otros filtros de búsqueda"
-                : "Aún no hay proveedores verificados en la plataforma"}
+                : "Aún no hay organizaciones verificadas en la plataforma"}
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">{total} proveedores encontrados</p>
+          <p className="text-sm text-muted-foreground">{total} resultados encontrados</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {providers.map((provider) => (
-              <Card key={provider.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                      <RiStoreLine className="h-6 w-6 text-purple-600" />
+            {orgs.map((org) => {
+              const location = [org.city, org.region].filter(Boolean).join(", ");
+              return (
+                <Card key={org.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`h-12 w-12 rounded-lg flex items-center justify-center shrink-0 ${org.orgType === "provider" ? "bg-purple-100" : "bg-blue-100"}`}>
+                        <RiStoreLine className={`h-6 w-6 ${org.orgType === "provider" ? "text-purple-600" : "text-blue-600"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base truncate">{org.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1 mt-0.5">
+                          <RiShieldCheckLine className="h-3 w-3 text-green-600" />
+                          Verificado
+                        </CardDescription>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base truncate">{provider.name}</CardTitle>
-                      <CardDescription className="flex items-center gap-1 mt-0.5">
-                        <RiShieldCheckLine className="h-3 w-3 text-green-600" />
-                        Verificado
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {provider.providerCategory && (
-                      <Badge variant="secondary">{provider.providerCategory}</Badge>
-                    )}
-                    {provider.serviceRadius && (
-                      <Badge variant="outline" className="gap-1">
-                        <RiMapPinLine className="h-3 w-3" />
-                        {provider.serviceRadius} km
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={org.orgType === "provider" ? "default" : "secondary"} className="text-xs">
+                        {getOrgTypeLabel(org.orgType)}
                       </Badge>
-                    )}
-                  </div>
-
-                  {provider.instagramHandle && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <RiInstagramLine className="h-3.5 w-3.5" />
-                      @{provider.instagramHandle}
-                    </p>
-                  )}
-
-                  {provider.serviceAreas && provider.serviceAreas.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {provider.serviceAreas.slice(0, 3).map((area) => (
-                        <Badge key={area} variant="outline" className="text-xs">{area}</Badge>
-                      ))}
-                      {provider.serviceAreas.length > 3 && (
-                        <Badge variant="outline" className="text-xs">+{provider.serviceAreas.length - 3}</Badge>
+                      {org.providerCategory && (
+                        <Badge variant="outline">{org.providerCategory}</Badge>
+                      )}
+                      {location && (
+                        <Badge variant="outline" className="gap-1">
+                          <RiMapPinLine className="h-3 w-3" />
+                          {location}
+                        </Badge>
                       )}
                     </div>
-                  )}
 
-                  <div className="flex gap-2 pt-1">
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link href={`/providers/${provider.slug}`} target="_blank">
-                        <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
-                        Ver Perfil
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {org.tagline && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">{org.tagline}</p>
+                    )}
+
+                    {org.instagramHandle && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <RiInstagramLine className="h-3.5 w-3.5" />
+                        @{org.instagramHandle}
+                      </p>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <Button variant="outline" size="sm" className="flex-1" asChild>
+                        <Link href={`/providers/${org.slug}`} target="_blank">
+                          <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
+                          Ver Perfil
+                        </Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}

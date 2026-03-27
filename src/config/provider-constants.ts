@@ -93,6 +93,39 @@ export const PROVIDER_CATEGORIES = [
 
 export type ProviderCategory = (typeof PROVIDER_CATEGORIES)[number];
 
+// ─── Planner Categories ──────────────────────────────────────────────────────
+
+export const PLANNER_CATEGORIES = [
+  "Wedding Planner",
+  "Event Planner",
+  "Organizador Corporativo",
+  "Organizador Social",
+  "Organizador Deportivo",
+  "Productor de Eventos",
+  "Coordinador de Bodas",
+  "Agencia de Eventos",
+  "Otro",
+] as const;
+
+export type PlannerCategory = (typeof PLANNER_CATEGORIES)[number];
+
+/** Returns the correct category list based on orgType */
+export function getCategoriesForOrgType(orgType: string | null | undefined): readonly string[] {
+  return orgType === "provider" ? PROVIDER_CATEGORIES : PLANNER_CATEGORIES;
+}
+
+/** Returns display label for an orgType */
+export function getOrgTypeLabel(orgType: string | null | undefined): string {
+  if (orgType === "provider") return "Proveedor";
+  if (orgType === "tenant") return "Planificador";
+  return "Organización";
+}
+
+/** Returns badge color class for an orgType */
+export function getOrgTypeBadgeVariant(orgType: string | null | undefined): "default" | "secondary" {
+  return orgType === "provider" ? "default" : "secondary";
+}
+
 // ─── Price Ranges ─────────────────────────────────────────────────────────────
 
 export const PRICE_RANGES = ["$", "$$", "$$$", "$$$$"] as const;

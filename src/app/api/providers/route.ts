@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, providerFavorites, vendors } from "@/db/schema";
-import { eq, and, ilike, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, ilike, desc, sql, inArray, or } from "drizzle-orm";
 
 /**
  * GET /api/providers
- * Search provider organizations for the marketplace.
- * Query params: ?search=X&category=Y&city=Z&verified=true&favorites=true&myProviders=true&page=1&limit=50
+ * Search organizations for the marketplace (providers + planners).
+ * Query params: ?search=X&category=Y&city=Z&verified=true&favorites=true&myProviders=true&type=provider|planner&page=1&limit=50
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,14 +20,25 @@ export async function GET(request: NextRequest) {
     const verified = searchParams.get("verified") === "true";
     const favoritesOnly = searchParams.get("favorites") === "true";
     const myProvidersOnly = searchParams.get("myProviders") === "true";
+    const typeFilter = searchParams.get("type") || "";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const offset = (page - 1) * limit;
 
-    // Base: provider orgs only
-    const conditions: ReturnType<typeof eq>[] = [
-      eq(organizations.orgType, "provider"),
-    ];
+    const conditions: ReturnType<typeof eq>[] = [];
+
+    if (typeFilter === "provider") {
+      conditions.push(eq(organizations.orgType, "provider"));
+    } else if (typeFilter === "planner") {
+      conditions.push(eq(organizations.orgType, "tenant"));
+    } else {
+      conditions.push(
+        or(
+          eq(organizations.orgType, "provider"),
+          eq(organizations.orgType, "tenant")
+        )!
+      );
+    }
 
     if (verified) {
       conditions.push(eq(organizations.verificationStatus, "verified"));
@@ -88,6 +99,7 @@ export async function GET(request: NextRequest) {
         name: organizations.name,
         slug: organizations.slug,
         logo: organizations.logo,
+        orgType: organizations.orgType,
         description: organizations.description,
         tagline: organizations.tagline,
         providerCategory: organizations.providerCategory,
@@ -102,6 +114,8 @@ export async function GET(request: NextRequest) {
         services: organizations.services,
         serviceRadius: organizations.serviceRadius,
         serviceAreas: organizations.serviceAreas,
+        priceRange: organizations.priceRange,
+        country: organizations.country,
       })
       .from(organizations)
       .where(and(...conditions))
@@ -122,8 +136,6 @@ export async function GET(request: NextRequest) {
       isFeatured: false,
       averageRating: null,
       totalReviews: null,
-      priceRange: null,
-      country: null,
       categories: null,
     }));
 
