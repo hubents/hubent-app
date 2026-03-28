@@ -49,26 +49,18 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
     return newMembership;
   }
 
-  // Create new organization for user
-  // First ensure starter plan exists
-  let starterPlan = await db.query.subscriptionPlans.findFirst({
+  // Starter plan MUST exist (seeded via scripts/seed-plans.ts or system-init)
+  const starterPlan = await db.query.subscriptionPlans.findFirst({
     where: eq(subscriptionPlans.slug, "starter"),
   });
 
   if (!starterPlan) {
-    const [created] = await db.insert(subscriptionPlans).values({
-      name: "Starter",
-      slug: "starter",
-      description: "Plan gratuito",
-      priceMonthly: "0",
-      priceYearly: "0",
-      features: ["1 evento", "2 usuarios", "Funciones básicas"],
-      limits: { maxUsers: 2, maxEvents: 1, maxStorage: 500 },
-      isActive: true,
-      sortOrder: 0,
-    }).returning();
-    starterPlan = created;
+    throw new Error("Starter plan not found in DB. Run scripts/seed-plans.ts before allowing registrations.");
   }
+
+  const trialDays = (starterPlan as Record<string, unknown>).trialDays as number || 14;
+  const trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
   // Create organization
   const displayName = userName || userEmail.split("@")[0];
@@ -78,14 +70,12 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
     name: `${displayName}'s Workspace`,
     slug,
     ownerId: userId,
+    planId: starterPlan.id,
     status: "active",
     settings: { timezone: "America/Argentina/Buenos_Aires", currency: "USD", language: "es" },
   }).returning();
 
   // Create subscription
-  const trialEndsAt = new Date();
-  trialEndsAt.setDate(trialEndsAt.getDate() + 7);
-
   await db.insert(subscriptions).values({
     organizationId: newOrg.id,
     planId: starterPlan.id,

@@ -22,37 +22,53 @@ const SYSTEM_ROLES = [
   { name: "Provider Technician", slug: "provider_tech", description: "Técnico del proveedor - acceso a tareas y eventos asignados" },
 ];
 
-// Default subscription plans
+// Canonical plans — must match scripts/seed-plans.ts.
+// system-init only ensures a minimal starter plan exists so registration works.
+// Full plan catalog (standard, agency, provider-*) is managed by seed-plans.ts.
 const DEFAULT_PLANS = [
   {
     name: "Starter",
     slug: "starter",
-    description: "Plan gratuito para comenzar",
+    description: "Para wedding planners que comienzan. Gestiona hasta 3 eventos con herramientas esenciales.",
+    orgType: "tenant" as const,
+    priceMonthly: "14.50",
+    priceYearly: "145.00",
+    currency: "EUR",
+    features: [
+      "CRM de contactos",
+      "Documentos financieros",
+      "Finanzas y pagos",
+      "Gestión de tareas",
+      "Chat interno",
+      "Directorio de proveedores",
+      "Cobros con Stripe",
+    ],
+    limits: { maxUsers: 1, maxEvents: 3, maxStorage: 500 },
+    sortOrder: 1,
+    trialDays: 14,
+  },
+  {
+    name: "Free",
+    slug: "provider-free",
+    description: "Perfil gratuito para proveedores. Visibilidad básica en el marketplace.",
+    orgType: "provider" as const,
     priceMonthly: "0",
     priceYearly: "0",
-    features: ["1 evento activo", "2 usuarios", "50 invitados RSVP", "500MB almacenamiento"],
-    limits: { maxUsers: 2, maxEvents: 1, maxStorage: 500 },
-    sortOrder: 0,
-  },
-  {
-    name: "Pro",
-    slug: "pro",
-    description: "Para planificadores profesionales",
-    priceMonthly: "29",
-    priceYearly: "290",
-    features: ["10 eventos activos", "10 usuarios", "500 invitados RSVP", "5GB almacenamiento", "Soporte prioritario"],
-    limits: { maxUsers: 10, maxEvents: 10, maxStorage: 5000 },
-    sortOrder: 1,
-  },
-  {
-    name: "Business",
-    slug: "business",
-    description: "Para empresas de eventos",
-    priceMonthly: "79",
-    priceYearly: "790",
-    features: ["Eventos ilimitados", "Usuarios ilimitados", "Invitados ilimitados", "50GB almacenamiento", "API access", "Soporte 24/7"],
-    limits: { maxUsers: -1, maxEvents: -1, maxStorage: 50000 },
-    sortOrder: 2,
+    currency: "EUR",
+    features: [
+      "Perfil de proveedor",
+      "Instagram integrado",
+      "CRM de contactos",
+      "Documentos financieros",
+      "Finanzas y pagos",
+      "Gestión de tareas",
+      "Chat interno",
+      "Procesos automáticos",
+      "Agenda",
+    ],
+    limits: { maxUsers: 1, maxEvents: 1, maxStorage: 200 },
+    sortOrder: 10,
+    trialDays: 0,
   },
 ];
 

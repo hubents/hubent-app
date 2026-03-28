@@ -15,17 +15,38 @@ alwaysApply: false
 
 ## Plan Enforcement (session.ts)
 
-- `requireActiveSubscription()` → en TODA API de escritura (crear eventos, invitar miembros)
-- `requireLimit("events"|"users"|"storage")` → verificar límites del plan
-- `requireFeature("key")` → para features gated por plan
+- `requireActiveSubscription()` → en TODA API de escritura (crear eventos, invitar miembros). Bloquea `canceled` y `past_due`
+- `requireLimit("events"|"users"|"storage")` → verificar límites del plan. Si no hay plan, aplica defaults restrictivos (1 user, 1 event, 500MB)
+- `requireFeature("key")` → para features gated por plan (usa `feature_flags` table, NO `subscription_plans.features`)
 - Super admins e impersonation bypasean todos los checks
 - `TenantSession.subscriptionStatus` disponible: active/trialing/canceled/past_due/null
 
+### Dos sistemas de feature flags (intencional)
+
+1. **DB `feature_flags`** + `requireFeature()` = features de producto (rsvp, guest_lists, auto_processes, custom_roles, etc.)
+2. **`api-feature-flags.ts`** + `isFeatureAvailable()` = features de API developer (webhooks, MCP, rate limits). Usa `PLAN_HIERARCHY` hardcoded — si se agrega un nuevo slug, hay que actualizar el hierarchy
+
+### Feature flags enforced en rutas
+
+- `rsvp` → `PUT /api/events/[eventId]/rsvp`
+- `guest_lists` → `POST /api/events/[eventId]/guests`
+- `auto_processes` → `POST /api/events/templates/[id]/tasks`
+- `custom_roles` → `POST/PATCH /api/roles`
+
 ## Registro de organizaciones
 
-- **Tenant**: auto-assign Starter (id=5) + trial 14d → `src/app/api/auth/register/route.ts`
-- **Provider**: auto-assign provider_free (id=8) + active → `src/app/api/auth/provider-register/route.ts`
-- Siempre crear subscription + actualizar org.planId
+- **Tenant**: auto-assign Starter + trial `plan.trialDays` → `src/app/api/auth/register/route.ts`
+- **Provider**: auto-assign provider-free + active → `src/app/api/auth/provider-register/route.ts`
+- **OAuth/magic-link**: auto-create org + starter plan + trial `plan.trialDays` → `src/app/api/user/profile/route.ts`
+- **Admin-created**: trial usa `plan.trialDays` del plan seleccionado → `src/app/api/admin/tenants/route.ts`
+- Siempre crear subscription + actualizar org.planId (AMBOS, nunca solo uno)
+- Starter plan DEBE existir en DB antes de cualquier registro (fail ruidoso si falta)
+- Provider-free plan DEBE existir para registro de proveedores (rollback si falta)
+
+### Checkout/Portal URLs
+
+- Checkout y Billing Portal usan `org.orgType` para determinar la URL de retorno
+- Providers → `/vendor/settings`, Tenants → `/dashboard/settings`
 
 ## Planes activos (sincronizados con Stripe live Mar 2026)
 

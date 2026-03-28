@@ -198,9 +198,9 @@ export async function requireActiveSubscription(): Promise<TenantSession> {
   // No subscription record = legacy/trial user, allow (for now)
   if (!session.subscriptionStatus) return session;
 
-  const blocked = ["canceled"];
+  const blocked = ["canceled", "past_due"];
   if (blocked.includes(session.subscriptionStatus)) {
-    throw new Error("SubscriptionInactive: Your subscription is inactive. Please upgrade to continue.");
+    throw new Error("SubscriptionInactive: Your subscription is inactive. Please update your payment method to continue.");
   }
 
   return session;
@@ -218,10 +218,11 @@ export async function requireLimit(
   if (session.user.platformLevel === "super_admin") return session;
   if (session.isImpersonating) return session;
 
-  if (!session.plan) return session; // No plan = no limits enforced (trial/legacy)
+  const DEFAULT_LIMITS = { maxUsers: 1, maxEvents: 1, maxStorage: 500 };
 
-  const limitKey = `max${resource.charAt(0).toUpperCase() + resource.slice(1)}` as keyof typeof session.plan.limits;
-  const max = session.plan.limits[limitKey];
+  const limits = session.plan?.limits ?? DEFAULT_LIMITS;
+  const limitKey = `max${resource.charAt(0).toUpperCase() + resource.slice(1)}` as keyof typeof limits;
+  const max = limits[limitKey];
 
   if (max === -1) return session; // Unlimited
 

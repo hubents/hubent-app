@@ -22,6 +22,11 @@ function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
 }
 
+function getSettingsUrl(orgType?: string) {
+  const base = orgType === "provider" ? "vendor" : "dashboard";
+  return `${getAppUrl()}/${base}/settings`;
+}
+
 function getLogoUrl() {
   return `${getAppUrl()}/images/logo.png`;
 }
@@ -176,7 +181,8 @@ export async function sendWelcomeEmail(
   to: string,
   name: string,
   companyName: string,
-  trialEndsAt: Date
+  trialEndsAt: Date,
+  trialDays: number = 14
 ) {
   const trialEndDate = trialEndsAt.toLocaleDateString("es", {
     day: "numeric",
@@ -188,7 +194,7 @@ export async function sendWelcomeEmail(
     ${heading("Bienvenido a HubEnts")}
     ${paragraph(`Hola <strong>${name}</strong>,`)}
     ${paragraph(`Tu cuenta para <strong>${companyName}</strong> ha sido creada exitosamente.`)}
-    ${infoBox(`<strong>Tu prueba gratuita de 7 días</strong> está activa hasta el ${trialEndDate}. Tienes acceso completo a todas las funcionalidades.`, "success")}
+    ${infoBox(`<strong>Tu prueba gratuita de ${trialDays} días</strong> está activa hasta el ${trialEndDate}. Tienes acceso completo a todas las funcionalidades.`, "success")}
     ${paragraph("¿Listo para comenzar? Completa tu configuración inicial:")}
     ${primaryButton("Comenzar configuración", `${getAppUrl()}/onboarding?welcome=true`)}
     ${mutedText("¿Necesitas ayuda? Responde a este email.")}
@@ -198,7 +204,7 @@ export async function sendWelcomeEmail(
     to,
     subject: `Bienvenido a HubEnts, ${name}`,
     html: emailWrapper(content),
-    text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita está activa hasta el ${trialEndDate}. Visita ${getAppUrl()}/onboarding para comenzar.`,
+    text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita de ${trialDays} días está activa hasta el ${trialEndDate}. Visita ${getAppUrl()}/onboarding para comenzar.`,
   });
 }
 
@@ -548,15 +554,17 @@ export async function sendTrialExpiringEmail(
   to: string,
   orgName: string,
   daysLeft: number,
-  planName: string
+  planName: string,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
   const content = `
     ${heading("Tu prueba gratuita está por terminar")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
     ${infoBox(`Tu prueba del plan <strong>${planName}</strong> finaliza en <strong>${daysLeft} día${daysLeft > 1 ? "s" : ""}</strong>.`)}
     ${paragraph("Para seguir disfrutando de todas las funcionalidades, suscríbete a un plan antes de que termine tu prueba.")}
     ${paragraph("El precio se mostrará en tu moneda local al momento de pagar.")}
-    ${primaryButton("Elegir mi plan", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${primaryButton("Elegir mi plan", `${settingsUrl}?billing=upgrade`)}
     ${mutedText("Si tienes alguna pregunta, responde a este email.")}
   `;
 
@@ -564,21 +572,23 @@ export async function sendTrialExpiringEmail(
     to,
     subject: `⏰ Tu prueba gratuita termina en ${daysLeft} día${daysLeft > 1 ? "s" : ""} — ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, tu prueba del plan ${planName} termina en ${daysLeft} días. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${orgName}, tu prueba del plan ${planName} termina en ${daysLeft} días. Suscríbete en ${settingsUrl}`,
   });
 }
 
 export async function sendTrialExpiredEmail(
   to: string,
   orgName: string,
-  planName: string
+  planName: string,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
   const content = `
     ${heading("Tu prueba gratuita ha terminado")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
     ${infoBox("Tu período de prueba ha finalizado. Tu cuenta ahora tiene acceso limitado en modo lectura.")}
     ${paragraph("Para recuperar el acceso completo a todas las funcionalidades, elige un plan:")}
-    ${primaryButton("Suscribirse ahora", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${primaryButton("Suscribirse ahora", `${settingsUrl}?billing=upgrade`)}
     ${paragraph("Tus datos están seguros y no se eliminarán. Puedes reactivar tu cuenta en cualquier momento.")}
     ${mutedText("Si necesitas ayuda, responde a este email.")}
   `;
@@ -587,21 +597,23 @@ export async function sendTrialExpiredEmail(
     to,
     subject: `Tu prueba de HubEnts ha terminado — ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, tu prueba del plan ${planName} ha terminado. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${orgName}, tu prueba del plan ${planName} ha terminado. Suscríbete en ${settingsUrl}`,
   });
 }
 
 export async function sendPaymentFailedEmail(
   to: string,
   orgName: string,
-  planName: string
+  planName: string,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
   const content = `
     ${heading("Problema con tu pago")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
     ${infoBox("No pudimos procesar el pago de tu suscripción al plan <strong>" + planName + "</strong>.")}
     ${paragraph("Por favor, actualiza tu método de pago para evitar la suspensión de tu cuenta:")}
-    ${primaryButton("Actualizar método de pago", `${getAppUrl()}/dashboard/settings?billing=update-payment`)}
+    ${primaryButton("Actualizar método de pago", `${settingsUrl}?billing=update-payment`)}
     ${paragraph("Si crees que esto es un error, contacta a tu banco o responde a este email.")}
     ${mutedText("Stripe reintentará el cobro automáticamente en los próximos días.")}
   `;
@@ -610,22 +622,24 @@ export async function sendPaymentFailedEmail(
     to,
     subject: `⚠️ Problema con el pago de tu suscripción — ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, no pudimos procesar el pago de tu plan ${planName}. Actualiza tu método de pago en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${orgName}, no pudimos procesar el pago de tu plan ${planName}. Actualiza tu método de pago en ${settingsUrl}`,
   });
 }
 
 export async function sendSubscriptionCanceledEmail(
   to: string,
   orgName: string,
-  planName: string
+  planName: string,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
   const content = `
     ${heading("Tu suscripción ha sido cancelada")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
     ${paragraph(`Tu suscripción al plan <strong>${planName}</strong> ha sido cancelada.`)}
     ${paragraph("Tu cuenta seguirá activa hasta el final del período facturado. Después, pasará a modo lectura.")}
     ${paragraph("¿Cambiaste de opinión? Puedes reactivar tu suscripción en cualquier momento:")}
-    ${primaryButton("Reactivar suscripción", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${primaryButton("Reactivar suscripción", `${settingsUrl}?billing=upgrade`)}
     ${mutedText("Nos encantaría saber cómo mejorar. Responde a este email con tu feedback.")}
   `;
 
@@ -633,21 +647,23 @@ export async function sendSubscriptionCanceledEmail(
     to,
     subject: `Tu suscripción de HubEnts ha sido cancelada — ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, tu suscripción al plan ${planName} ha sido cancelada. Reactívala en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${orgName}, tu suscripción al plan ${planName} ha sido cancelada. Reactívala en ${settingsUrl}`,
   });
 }
 
 export async function sendWinBackEmail(
   to: string,
-  orgName: string
+  orgName: string,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
   const content = `
     ${heading("Te extrañamos en HubEnts")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
     ${paragraph("Hace unos días que tu prueba gratuita terminó y queremos asegurarnos de que no te pierdas todo lo que HubEnts puede ofrecer.")}
     ${infoBox("🎁 <strong>Oferta especial:</strong> Suscríbete hoy y obtén un descuento en tu primer mes.", "success")}
     ${paragraph("Con HubEnts puedes gestionar eventos, contactos, finanzas y mucho más desde una sola plataforma.")}
-    ${primaryButton("Volver a HubEnts", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    ${primaryButton("Volver a HubEnts", `${settingsUrl}?billing=upgrade`)}
     ${mutedText("Si ya no deseas recibir estos emails, responde con 'cancelar'.")}
   `;
 
@@ -655,7 +671,7 @@ export async function sendWinBackEmail(
     to,
     subject: `Te extrañamos — Vuelve a HubEnts, ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, te extrañamos en HubEnts. Suscríbete en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${orgName}, te extrañamos en HubEnts. Suscríbete en ${settingsUrl}`,
   });
 }
 
@@ -665,8 +681,11 @@ export async function sendTrialRenewedEmail(
   orgName: string,
   planName: string,
   trialDays: number,
-  trialEndsAt: Date
+  trialEndsAt: Date,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
+  const dashboardUrl = orgType === "provider" ? `${getAppUrl()}/vendor` : `${getAppUrl()}/dashboard`;
   const trialEndDate = trialEndsAt.toLocaleDateString("es", {
     day: "numeric",
     month: "long",
@@ -680,7 +699,7 @@ export async function sendTrialRenewedEmail(
     ${infoBox(`Tienes <strong>${trialDays} días más</strong> para explorar todas las funcionalidades de tu plan <strong>${planName}</strong>. Tu prueba vence el <strong>${trialEndDate}</strong>.`, "success")}
     ${paragraph("Durante este período tienes acceso completo a todas las herramientas de tu plan. Aprovecha para:")}
     ${paragraph("• Crear y gestionar tus eventos<br>• Organizar contactos y proveedores<br>• Administrar finanzas y pagos<br>• Colaborar con tu equipo")}
-    ${primaryButton("Acceder a mi cuenta", `${getAppUrl()}/dashboard`)}
+    ${primaryButton("Acceder a mi cuenta", dashboardUrl)}
     ${paragraph("Cuando estés listo, puedes elegir un plan de pago desde tu configuración para no perder el acceso.")}
     ${mutedText("¿Tienes preguntas? Responde a este email y te ayudamos.")}
   `;
@@ -689,7 +708,7 @@ export async function sendTrialRenewedEmail(
     to,
     subject: `Buenas noticias — Tu prueba gratuita fue renovada, ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${ownerName}, hemos renovado tu prueba gratuita del plan ${planName} en ${orgName}. Tienes ${trialDays} días más hasta el ${trialEndDate}. Accede en ${getAppUrl()}/dashboard`,
+    text: `Hola ${ownerName}, hemos renovado tu prueba gratuita del plan ${planName} en ${orgName}. Tienes ${trialDays} días más hasta el ${trialEndDate}. Accede en ${dashboardUrl}`,
   });
 }
 
@@ -697,17 +716,17 @@ export async function sendPlansAvailableEmail(
   to: string,
   ownerName: string,
   orgName: string,
-  wasTrialing: boolean
+  wasTrialing: boolean,
+  orgType?: string
 ) {
+  const settingsUrl = getSettingsUrl(orgType);
+  const isProvider = orgType === "provider";
+
   const introText = wasTrialing
     ? `Tu período de prueba en <strong>${orgName}</strong> ha finalizado. Tu cuenta ha pasado al plan <strong>Free</strong>, pero toda tu información está segura.`
     : `Tenemos novedades para <strong>${orgName}</strong> en HubEnts.`;
 
-  const content = `
-    ${heading("Nuevos planes disponibles")}
-    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
-    ${paragraph(introText)}
-    ${paragraph("Ahora puedes elegir el plan que mejor se adapte a tu negocio:")}
+  const tenantPlansTable = `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border: 1px solid ${COLORS.border}; border-radius: 8px; overflow: hidden;">
       <tr style="background-color: ${COLORS.background};">
         <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border};">Plan</td>
@@ -729,11 +748,40 @@ export async function sendPlansAvailableEmail(
         <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center;">€49,50/mes</td>
         <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center;">€495/año</td>
       </tr>
-    </table>
-    ${infoBox("El precio se mostrará en tu moneda local al momento de pagar. Todos los planes incluyen prueba gratuita de 7 días.", "success")}
-    ${primaryButton("Elegir mi plan", `${getAppUrl()}/dashboard/settings?billing=upgrade`)}
+    </table>`;
+
+  const providerPlansTable = `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border: 1px solid ${COLORS.border}; border-radius: 8px; overflow: hidden;">
+      <tr style="background-color: ${COLORS.background};">
+        <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border};">Plan</td>
+        <td style="padding: 10px 16px; font-size: 13px; font-weight: 600; color: ${COLORS.textSecondary}; border-bottom: 1px solid ${COLORS.border}; text-align: center;">Precio</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; border-bottom: 1px solid ${COLORS.border};"><strong>Free</strong></td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center; border-bottom: 1px solid ${COLORS.border};">Gratis</td>
+      </tr>
+      <tr style="background-color: ${COLORS.successBg};">
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary};"><strong>Pro</strong> ⭐</td>
+        <td style="padding: 12px 16px; font-size: 14px; color: ${COLORS.textPrimary}; text-align: center;">€9,90/mes</td>
+      </tr>
+    </table>`;
+
+  const plansTable = isProvider ? providerPlansTable : tenantPlansTable;
+
+  const content = `
+    ${heading("Nuevos planes disponibles")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(introText)}
+    ${paragraph("Ahora puedes elegir el plan que mejor se adapte a tu negocio:")}
+    ${plansTable}
+    ${infoBox("El precio se mostrará en tu moneda local al momento de pagar. Todos los planes incluyen prueba gratuita de 14 días.", "success")}
+    ${primaryButton("Elegir mi plan", `${settingsUrl}?billing=upgrade`)}
     ${mutedText("¿Tienes preguntas? Responde a este email y te ayudamos.")}
   `;
+
+  const plansSummary = isProvider
+    ? "Planes: Free (gratis), Pro €9,90/mes."
+    : "Nuevos planes: Starter €14,50/mes, Standard €29,50/mes, Agency €49,50/mes.";
 
   return sendEmail({
     to,
@@ -741,7 +789,7 @@ export async function sendPlansAvailableEmail(
       ? `Tu prueba terminó — Elige tu plan en HubEnts, ${orgName}`
       : `Nuevos planes disponibles en HubEnts — ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${ownerName}, ${wasTrialing ? "tu prueba ha terminado" : "tenemos novedades"}. Nuevos planes: Starter €14,50/mes, Standard €29,50/mes, Agency €49,50/mes. Elige tu plan en ${getAppUrl()}/dashboard/settings`,
+    text: `Hola ${ownerName}, ${wasTrialing ? "tu prueba ha terminado" : "tenemos novedades"}. ${plansSummary} Elige tu plan en ${settingsUrl}`,
   });
 }
 

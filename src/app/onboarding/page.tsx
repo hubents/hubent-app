@@ -748,7 +748,7 @@ function OnboardingContent() {
         {/* Trial reminder */}
         <div className="text-center">
           <p className="text-sm text-[var(--muted-foreground)]">
-            Tienes <strong>7 días de prueba gratis</strong> con acceso completo
+            Tienes <strong>14 días de prueba gratis</strong> con acceso completo
           </p>
         </div>
       </div>

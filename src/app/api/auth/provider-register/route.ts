@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, organizationMembers, roles, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, validatePassword } from "@/lib/password";
 import { sendProviderWelcomeEmail } from "@/lib/email";
 import { z } from "zod";
 
@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
 
     const { companyName, password, instagram, category, phone, serviceRadius } = parsed.data;
     const email = parsed.data.email.toLowerCase();
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: passwordError } },
+        { status: 400 }
+      );
+    }
 
     // Check if email already exists
     const existingUser = await db.query.users.findFirst({
@@ -126,26 +134,32 @@ export async function POST(request: NextRequest) {
       throw memberError;
     }
 
-    // Auto-assign provider-free plan
-    try {
-      const freePlan = await db.query.subscriptionPlans.findFirst({
-        where: eq(subscriptionPlans.slug, "provider-free"),
-      });
-      if (freePlan) {
-        await db.insert(subscriptions).values({
-          organizationId: newOrg.id,
-          planId: freePlan.id,
-          status: "active",
-          currentPeriodStart: new Date(),
-        });
-        await db
-          .update(organizations)
-          .set({ planId: freePlan.id })
-          .where(eq(organizations.id, newOrg.id));
-      }
-    } catch (planError) {
-      console.error("Failed to assign provider-free plan:", planError);
+    // Assign provider-free plan (mandatory)
+    const freePlan = await db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.slug, "provider-free"),
+    });
+    if (!freePlan) {
+      // Rollback: delete membership, org, and user
+      await db.delete(organizationMembers).where(eq(organizationMembers.organizationId, newOrg.id));
+      await db.delete(organizations).where(eq(organizations.id, newOrg.id));
+      await db.delete(users).where(eq(users.id, newUser.id));
+      console.error("POST /api/auth/provider-register: provider-free plan not found. Run scripts/seed-plans.ts");
+      return NextResponse.json(
+        { success: false, error: { code: "SYSTEM_ERROR", message: "El sistema no está configurado correctamente. Contacte al administrador." } },
+        { status: 500 }
+      );
     }
+
+    await db.insert(subscriptions).values({
+      organizationId: newOrg.id,
+      planId: freePlan.id,
+      status: "active",
+      currentPeriodStart: new Date(),
+    });
+    await db
+      .update(organizations)
+      .set({ planId: freePlan.id })
+      .where(eq(organizations.id, newOrg.id));
 
     // Send welcome email (non-blocking)
     sendProviderWelcomeEmail(email, newUser.name || companyName, companyName).catch((e) =>

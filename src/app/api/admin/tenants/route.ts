@@ -282,8 +282,12 @@ export async function POST(request: NextRequest) {
 
     // Create trial subscription if plan selected
     if (planId) {
+      const plan = await db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.id, planId),
+      });
+      const trialDays = (plan as Record<string, unknown> | undefined)?.trialDays as number || 14;
       const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
       await db.insert(subscriptions).values({
         organizationId: newTenant.id,

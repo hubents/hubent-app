@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (ownerEmail && org && plan) {
-          await sendTrialExpiringEmail(ownerEmail, org.name, 3, plan.name);
+          await sendTrialExpiringEmail(ownerEmail, org.name, 3, plan.name, org.orgType ?? undefined);
           results.trialExpiring3Days++;
         }
       } catch (err) {
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
           todayStart.setHours(0, 0, 0, 0);
 
           if (trialEnd && trialEnd >= todayStart) {
-            await sendTrialExpiredEmail(ownerEmail, org.name, plan.name);
+            await sendTrialExpiredEmail(ownerEmail, org.name, plan.name, org.orgType ?? undefined);
             results.trialExpiredToday++;
           }
         }
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (ownerEmail && org) {
-          await sendWinBackEmail(ownerEmail, org.name);
+          await sendWinBackEmail(ownerEmail, org.name, org.orgType ?? undefined);
           results.winBack7Days++;
         }
       } catch (err) {
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("📧 Subscription lifecycle cron results:", results);
+    console.error("[subscription-lifecycle] cron results:", results);
 
     return NextResponse.json({
       success: true,

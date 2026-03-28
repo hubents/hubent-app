@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled platform webhook event: ${event.type}`);
+        break;
     }
 
     return NextResponse.json({ received: true });
@@ -154,7 +154,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     .set({ planId, updatedAt: new Date() })
     .where(eq(organizations.id, orgId));
 
-  console.log(`✅ Subscription created for org ${orgId}, plan ${planId}`);
+  console.error(`[stripe-platform] checkout completed: org=${orgId} plan=${planId}`);
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -182,7 +182,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     .limit(1);
 
   if (existingInv) {
-    console.log(`Invoice already processed: ${invoice.id}`);
+    console.error(`[stripe-platform] invoice already processed: ${invoice.id}`);
     return;
   }
 
@@ -226,7 +226,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       .where(eq(subscriptions.id, sub.id));
   }
 
-  console.log(`✅ Invoice paid for org ${sub.organizationId}: ${invoice.id}`);
+  console.error(`[stripe-platform] invoice paid: org=${sub.organizationId} invoice=${invoice.id}`);
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -260,14 +260,14 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
         where: eq(users.id, org.ownerId),
       });
       if (owner?.email && plan) {
-        await sendPaymentFailedEmail(owner.email, org.name, plan.name);
+        await sendPaymentFailedEmail(owner.email, org.name, plan.name, org.orgType ?? undefined);
       }
     }
   } catch (emailErr) {
     console.error("Failed to send payment failed email:", emailErr);
   }
 
-  console.log(`⚠️ Payment failed for org ${sub.organizationId}: ${invoice.id}`);
+  console.error(`[stripe-platform] payment failed: org=${sub.organizationId} invoice=${invoice.id}`);
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -333,7 +333,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       .where(eq(organizations.id, sub.organizationId));
   }
 
-  console.log(`🔄 Subscription updated for org ${sub.organizationId}: ${newStatus}`);
+  console.error(`[stripe-platform] subscription updated: org=${sub.organizationId} status=${newStatus}`);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -367,12 +367,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         where: eq(users.id, org.ownerId),
       });
       if (owner?.email && plan) {
-        await sendSubscriptionCanceledEmail(owner.email, org.name, plan.name);
+        await sendSubscriptionCanceledEmail(owner.email, org.name, plan.name, org.orgType ?? undefined);
       }
     }
   } catch (emailErr) {
     console.error("Failed to send cancellation email:", emailErr);
   }
 
-  console.log(`❌ Subscription canceled for org ${sub.organizationId}`);
+  console.error(`[stripe-platform] subscription canceled: org=${sub.organizationId}`);
 }

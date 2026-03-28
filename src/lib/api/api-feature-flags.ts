@@ -1,7 +1,14 @@
 // ============================================
-// API Feature Flags
+// API Feature Flags (Developer API only)
 // ============================================
-// Controls which API features are available per plan.
+// Controls which DEVELOPER API features are available per plan.
+//
+// THIS IS INTENTIONALLY SEPARATE from the DB-based feature_flags table.
+// - DB feature_flags + requireFeature() = product features (RSVP, guest lists, etc.)
+// - This file + isFeatureAvailable() = developer/API features (webhooks, MCP, rate limits)
+//
+// If you add a new plan slug via admin, you MUST add it to PLAN_HIERARCHY below
+// or the API will default to level 0 for that plan.
 
 export interface ApiFeatureFlag {
   key: string;

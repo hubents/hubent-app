@@ -94,6 +94,7 @@ export const POST = withMonitoring(async (request: NextRequest) => {
 
     // Determine app URL for redirects
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const settingsPath = org?.orgType === "provider" ? "vendor" : "dashboard";
 
     // Only offer trial if user has no existing subscription (new customer)
     const hasExistingSub = !!existingSub?.stripeCustomerId;
@@ -115,8 +116,8 @@ export const POST = withMonitoring(async (request: NextRequest) => {
           planSlug: plan.slug,
         },
       },
-      success_url: `${appUrl}/dashboard/settings?billing=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/dashboard/settings?billing=cancelled`,
+      success_url: `${appUrl}/${settingsPath}/settings?billing=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/${settingsPath}/settings?billing=cancelled`,
       metadata: {
         organizationId: session.organizationId.toString(),
         planId: planId.toString(),

@@ -81,6 +81,7 @@ export const POST = withMonitoring(async (request: NextRequest) => {
         name: companyName,
         slug: uniqueSlug,
         ownerId: newUser.id,
+        planId: starterPlan.id,
         status: "active",
         settings: {
           timezone: "America/Argentina/Buenos_Aires",
@@ -131,7 +132,8 @@ export const POST = withMonitoring(async (request: NextRequest) => {
       newUser.email,
       newUser.name || name,
       newOrg.name,
-      trialEndsAt
+      trialEndsAt,
+      trialDays
     ).catch((err) => console.error("Failed to send welcome email:", err));
 
   return NextResponse.json({

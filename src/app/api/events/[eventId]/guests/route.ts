@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireEventSectionAccess } from "@/lib/session";
+import { requireEventSectionAccess, requireFeature } from "@/lib/session";
 import { getGuests, createGuest, bulkCreateGuests, getGuestGroups, createGuestGroup } from "@/lib/guests";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
+    await requireFeature("guest_lists");
     await requireEventSectionAccess(id, "guests", "edit");
     const body = await request.json();
 

@@ -168,7 +168,13 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState("profile");
+  const [activeSection, setActiveSection] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("billing")) return "billing";
+    }
+    return "profile";
+  });
 
   const filteredSections = useMemo(() =>
     settingsSections.filter((s) => !('requiredPermission' in s && s.requiredPermission) || can(s.requiredPermission as string)),
@@ -794,6 +800,7 @@ function BillingSection() {
       priceYearly: string;
       currency: string;
       limits: { maxUsers: number; maxEvents: number; maxStorage: number };
+      trialDays: number;
     } | null;
     subscription: {
       id: number;
@@ -804,6 +811,11 @@ function BillingSection() {
       presentmentCurrency: string | null;
       hasStripeSubscription: boolean;
     } | null;
+    usage: {
+      users: number;
+      events: number;
+      storage: number;
+    };
     availablePlans: {
       id: number;
       name: string;
@@ -862,8 +874,15 @@ function BillingSection() {
       toast.success("Suscripción activada correctamente");
     } else if (billingParam === "cancelled") {
       toast.info("Checkout cancelado");
+    } else if (billingParam === "upgrade") {
+      setShowPlans(true);
+    } else if (billingParam === "update-payment") {
+      toast.warning("Actualiza tu método de pago para evitar la suspensión del servicio.");
+      if (billing?.subscription?.hasStripeSubscription) {
+        handlePortal();
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, billing?.subscription?.hasStripeSubscription]);
 
   async function handleCheckout(planId: number) {
     setCheckoutLoading(planId);
@@ -968,7 +987,7 @@ function BillingSection() {
                   <div className="mt-1 h-2 w-48 rounded-full bg-muted">
                     <div
                       className="h-2 rounded-full bg-amber-500 transition-all"
-                      style={{ width: `${Math.max(5, ((14 - trialDays) / 14) * 100)}%` }}
+                      style={{ width: `${Math.max(5, (((billing?.plan?.trialDays ?? 14) - trialDays) / (billing?.plan?.trialDays ?? 14)) * 100)}%` }}
                     />
                   </div>
                 </div>
@@ -1013,6 +1032,34 @@ function BillingSection() {
             <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground flex items-start gap-2">
               <RiAlertLine className="h-4 w-4 mt-0.5 shrink-0" />
               <span>Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas.</span>
+            </div>
+          )}
+
+          {/* Usage */}
+          {billing?.plan?.limits && billing.usage && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Uso actual</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Usuarios", used: billing.usage.users, max: billing.plan.limits.maxUsers },
+                  { label: "Eventos", used: billing.usage.events, max: billing.plan.limits.maxEvents },
+                ].map((item) => (
+                  <div key={item.label} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className={item.used >= item.max ? "text-destructive font-medium" : ""}>
+                        {item.used} de {item.max}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${item.used >= item.max ? "bg-destructive" : "bg-primary"}`}
+                        style={{ width: `${Math.min(100, (item.used / item.max) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

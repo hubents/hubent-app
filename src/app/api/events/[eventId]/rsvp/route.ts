@@ -14,7 +14,7 @@ import {
   rsvpTransportOptions
 } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { requireEventSectionAccess } from "@/lib/session";
+import { requireEventSectionAccess, requireFeature } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -152,6 +152,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
+    await requireFeature("rsvp");
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
     const body = await request.json();
 

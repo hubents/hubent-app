@@ -23,6 +23,7 @@ import {
   RiAlertLine,
   RiCheckLine,
   RiFileList3Line,
+  RiSparklingLine,
 } from "@remixicon/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -312,13 +313,23 @@ function BillingCard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [billingData, setBillingData] = useState<{
-    plan?: { id: number; name: string; slug: string; priceMonthly: string; priceYearly: string; features: string[] };
+    plan?: {
+      id: number; name: string; slug: string; priceMonthly: string; priceYearly: string;
+      features: string[];
+      limits?: { maxUsers: number; maxEvents: number; maxStorage: number };
+      trialDays?: number;
+    };
     subscription?: {
       status: string;
       hasStripeSubscription: boolean;
       trialEndsAt: string | null;
       currentPeriodEnd: string | null;
       cancelAt: string | null;
+    };
+    usage?: {
+      users: number;
+      events: number;
+      storage: number;
     };
     availablePlans?: Array<{
       id: number; name: string; slug: string; description?: string;
@@ -357,17 +368,24 @@ function BillingCard() {
     fetchBilling();
   }, []);
 
+  const isFreePlan = !billingData?.plan || billingData.plan.slug === "provider-free";
+  const hasStripe = billingData?.subscription?.hasStripeSubscription === true;
+
   useEffect(() => {
     const billing = searchParams.get("billing");
     if (billing === "success") {
       toast.success("Suscripción activada correctamente");
     } else if (billing === "cancelled") {
       toast.info("Checkout cancelado");
+    } else if (billing === "upgrade") {
+      setShowPlans(true);
+    } else if (billing === "update-payment") {
+      toast.warning("Actualiza tu método de pago para evitar la suspensión del servicio.");
+      if (hasStripe) {
+        openPortal();
+      }
     }
-  }, [searchParams]);
-
-  const isFreePlan = !billingData?.plan || billingData.plan.slug === "provider-free";
-  const hasStripe = billingData?.subscription?.hasStripeSubscription === true;
+  }, [searchParams, hasStripe]);
   const status = billingData?.subscription?.status;
 
   function getStatusBadge(s: string) {
@@ -475,7 +493,7 @@ function BillingCard() {
                 <div className="mt-1 h-2 w-48 rounded-full bg-muted">
                   <div
                     className="h-2 rounded-full bg-amber-500 transition-all"
-                    style={{ width: `${Math.max(5, ((14 - trialDays) / 14) * 100)}%` }}
+                    style={{ width: `${Math.max(5, (((billingData?.plan?.trialDays ?? 14) - trialDays) / (billingData?.plan?.trialDays ?? 14)) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -516,6 +534,45 @@ function BillingCard() {
           <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground flex items-start gap-2">
             <RiAlertLine className="h-4 w-4 mt-0.5 shrink-0" />
             <span>Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas.</span>
+          </div>
+        )}
+
+        {isFreePlan && status !== "canceled" && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm flex items-start gap-2">
+            <RiSparklingLine className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+            <div>
+              <strong>Desbloquea más con Pro</strong> — Obtén bloqueo inteligente de fechas, prioridad en el directorio y más funcionalidades avanzadas.
+              <Button variant="link" className="h-auto p-0 ml-1 text-primary underline" onClick={() => setShowPlans(true)}>
+                Ver planes
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {billingData?.plan?.limits && billingData.usage && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Uso actual</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Usuarios", used: billingData.usage.users, max: billingData.plan.limits.maxUsers },
+                { label: "Eventos", used: billingData.usage.events, max: billingData.plan.limits.maxEvents },
+              ].map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className={item.used >= item.max ? "text-destructive font-medium" : ""}>
+                      {item.used} de {item.max}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${item.used >= item.max ? "bg-destructive" : "bg-primary"}`}
+                      style={{ width: `${Math.min(100, (item.used / item.max) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

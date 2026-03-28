@@ -7,6 +7,7 @@ import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { handleBillingError } from "@/lib/billing-errors";
 import {
   Sheet,
   SheetContent,
@@ -115,9 +116,11 @@ export function TeamPageContent({ rolesPath = "/dashboard/settings/roles" }: { r
         setEmailError(null);
         setIsDrawerOpen(false);
       } else {
-        toast.error("Error al enviar invitación", {
-          description: result.error,
-        });
+        if (!handleBillingError(result.error || "")) {
+          toast.error("Error al enviar invitación", {
+            description: result.error,
+          });
+        }
       }
     } finally {
       setIsSubmitting(false);

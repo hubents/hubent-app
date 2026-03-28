@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { handleBillingError } from "@/lib/billing-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -135,7 +136,10 @@ export function CreateEventDrawer({ open, onOpenChange, onEventCreated }: Create
         onOpenChange(false);
         onEventCreated?.();
       } else {
-        setError(data.error?.message || "Error al crear el evento");
+        const msg = data.error?.message || "Error al crear el evento";
+        if (!handleBillingError(msg)) {
+          setError(msg);
+        }
       }
     } catch (err) {
       console.error("Error creating event:", err);

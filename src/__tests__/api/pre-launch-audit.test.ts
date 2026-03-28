@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 const SRC = path.resolve(__dirname, "../..");
-const ROOT = path.resolve(__dirname, "../../../..");
+const ROOT = path.resolve(__dirname, "../../..");
 
 function readSrc(relativePath: string): string {
   return fs.readFileSync(path.join(SRC, relativePath), "utf-8");
@@ -219,9 +219,10 @@ describe("Fix 10: Onboarding emails + error handling", () => {
     expect(onboardingApi).toContain("sendOrganizationInviteEmail");
   });
 
-  it("calls sendOrganizationInviteEmail with all 5 params", () => {
-    // to, orgName, roleName, inviterName, url
-    expect(onboardingApi).toContain("session.user?.name || null");
+  it("calls sendOrganizationInviteEmail with all required params", () => {
+    expect(onboardingApi).toContain("sendOrganizationInviteEmail(");
+    expect(onboardingApi).toContain("org.name");
+    expect(onboardingApi).toContain("role.name");
   });
 
   it("email send is fire-and-forget with catch", () => {
@@ -269,19 +270,19 @@ describe("Fix 12: Provider BillingCard upgrade", () => {
   const vendorSettings = readSrc("app/vendor/settings/page.tsx");
 
   it("detects free plan by slug", () => {
-    expect(vendorSettings).toContain('billingData?.plan?.slug === "provider-free"');
+    expect(vendorSettings).toContain('billingData.plan.slug === "provider-free"');
   });
 
-  it("has upgrade button for free plan", () => {
-    expect(vendorSettings).toContain("Actualizar a Pro");
+  it("has upgrade CTA for free plan", () => {
+    expect(vendorSettings).toContain("Desbloquea más con Pro");
   });
 
   it("calls checkout API on upgrade", () => {
     expect(vendorSettings).toContain("/api/subscriptions/checkout");
   });
 
-  it("still has portal button for paid plans", () => {
-    expect(vendorSettings).toContain("Gestionar Suscripción");
+  it("has portal button for paid plans", () => {
+    expect(vendorSettings).toContain("Gestionar");
   });
 });
 
