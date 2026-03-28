@@ -103,7 +103,7 @@ export async function deleteFromR2(key: string): Promise<boolean> {
  */
 export function extractR2Key(url: string): string | null {
   const publicUrl = process.env.R2_PUBLIC_URL;
-  if (!publicUrl || !url.startsWith(publicUrl)) return null;
+  if (!publicUrl || !url.startsWith(publicUrl + "/")) return null;
   return url.slice(publicUrl.length + 1); // +1 for the trailing "/"
 }
 
