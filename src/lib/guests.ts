@@ -257,6 +257,8 @@ export async function createGuest(
     email?: string;
     phone?: string;
     groupId?: number;
+    menuPreference?: string;
+    ageGroup?: string;
     plusOne?: boolean;
     plusOneName?: string;
     dietaryRestrictions?: string;
@@ -271,6 +273,8 @@ export async function createGuest(
     email: data.email,
     phone: data.phone,
     groupId: data.groupId,
+    menuPreference: data.menuPreference || null,
+    ageGroup: data.ageGroup || "adult",
     plusOne: data.plusOne || false,
     plusOneName: data.plusOneName,
     dietaryRestrictions: data.dietaryRestrictions,

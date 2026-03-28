@@ -26,9 +26,7 @@ import {
   RiAddLine,
   RiSearchLine,
   RiFilterLine,
-  RiUserLine,
   RiMailLine,
-  RiPhoneLine,
   RiCheckLine,
   RiCloseLine,
   RiTimeLine,
@@ -40,6 +38,7 @@ import {
   RiParentLine,
   RiDeleteBinLine,
   RiPencilLine,
+  RiFileListLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
@@ -49,6 +48,7 @@ import { CSVImportDrawer } from "@/components/guests/csv-import-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
+import { downloadPDFFromHTML } from "@/lib/pdf-download";
 
 const TableCanvas = dynamic(
   () => import("@/components/guests/table-canvas").then((mod) => mod.TableCanvas),
@@ -69,6 +69,13 @@ interface EventTable {
   guestCount: number;
 }
 
+interface GuestGroup {
+  id: number;
+  name: string;
+  tableNumber: number | null;
+  notes: string | null;
+}
+
 interface Guest {
   id: number;
   firstName: string;
@@ -78,6 +85,7 @@ interface Guest {
   rsvpStatus: string | null;
   menuPreference: string | null;
   ageGroup: string | null;
+  groupId: number | null;
   groupName: string | null;
   tableId: number | null;
   tableName: string | null;
@@ -115,6 +123,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   const canEditGuests = canEdit("guests");
 
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [groups, setGroups] = useState<GuestGroup[]>([]);
   const [tables, setTables] = useState<EventTable[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,10 +131,14 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ page: 1, limit: 100, total: 0, totalPages: 0 });
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("grupos");
   const [viewMode, setViewMode] = useState<"list" | "floor">("list");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<GuestGroup | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [newGuest, setNewGuest] = useState({
     firstName: "",
     lastName: "",
@@ -133,7 +146,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     phone: "",
     menuPreference: "",
     ageGroup: "adult",
-    groupName: "",
+    groupId: "",
   });
   const [newGroup, setNewGroup] = useState({ name: "", notes: "" });
   const [adding, setAdding] = useState(false);
@@ -153,11 +166,26 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     fetchEvent();
   }, [eventId, setActiveEvent]);
 
-  const fetchGuests = async (p = page, status = statusFilter) => {
+  const fetchGroups = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests?type=groups`);
+      const data = await res.json();
+      if (data.success) {
+        setGroups(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch groups:", error);
+    }
+  };
+
+  const fetchGuests = async (p = page, status = statusFilter, gFilter = groupFilter) => {
     try {
       const params = new URLSearchParams({ page: p.toString() });
       if (status && status !== "all") {
         params.set("rsvpStatus", status);
+      }
+      if (gFilter && gFilter !== "all") {
+        params.set("groupId", gFilter);
       }
       const [guestsRes, tablesRes] = await Promise.all([
         fetch(`/api/events/${eventId}/guests?${params}`),
@@ -186,13 +214,17 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   };
 
   useEffect(() => {
+    fetchGroups();
+  }, [eventId]);
+
+  useEffect(() => {
     setPage(1);
-    fetchGuests(1, statusFilter);
-  }, [eventId, statusFilter]);
+    fetchGuests(1, statusFilter, groupFilter);
+  }, [eventId, statusFilter, groupFilter]);
 
   useEffect(() => {
     if (page !== 1) {
-      fetchGuests(page, statusFilter);
+      fetchGuests(page, statusFilter, groupFilter);
     }
   }, [page]);
 
@@ -200,14 +232,25 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     if (!newGuest.firstName) return;
     setAdding(true);
     try {
+      const payload: Record<string, unknown> = {
+        firstName: newGuest.firstName,
+        lastName: newGuest.lastName,
+        email: newGuest.email,
+        phone: newGuest.phone,
+        menuPreference: newGuest.menuPreference || undefined,
+        ageGroup: newGuest.ageGroup,
+      };
+      if (newGuest.groupId && newGuest.groupId !== "none") {
+        payload.groupId = parseInt(newGuest.groupId, 10);
+      }
       const res = await fetch(`/api/events/${eventId}/guests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newGuest),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        setNewGuest({ firstName: "", lastName: "", email: "", phone: "", menuPreference: "", ageGroup: "adult", groupName: "" });
+        setNewGuest({ firstName: "", lastName: "", email: "", phone: "", menuPreference: "", ageGroup: "adult", groupId: "" });
         setShowAddDialog(false);
         fetchGuests();
       }
@@ -239,13 +282,19 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     return matchesSearch && matchesStatus;
   });
 
-  // Group guests by groupName
-  const groupedGuests = filteredGuests.reduce((acc, guest) => {
-    const group = guest.groupName || "Sin grupo";
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(guest);
-    return acc;
-  }, {} as Record<string, Guest[]>);
+  // Group guests by groupName, including empty groups from the full group list
+  const groupedGuests = (() => {
+    const map: Record<string, { groupId: number | null; guests: Guest[] }> = {};
+    for (const g of groups) {
+      map[g.name] = { groupId: g.id, guests: [] };
+    }
+    for (const guest of filteredGuests) {
+      const key = guest.groupName || "Sin grupo";
+      if (!map[key]) map[key] = { groupId: null, guests: [] };
+      map[key].guests.push(guest);
+    }
+    return map;
+  })();
 
   // Group guests by table
   const guestsByTable = filteredGuests.reduce((acc, guest) => {
@@ -319,7 +368,6 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Handle add group
   const handleAddGroup = async () => {
     if (!newGroup.name) return;
     setAdding(true);
@@ -333,10 +381,58 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       if (data.success) {
         setNewGroup({ name: "", notes: "" });
         setShowGroupDialog(false);
+        fetchGroups();
         fetchGuests();
       }
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleEditGroup = async (groupId: number, name: string) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests/groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEditingGroup(null);
+        setEditGroupName("");
+        fetchGroups();
+        fetchGuests();
+      }
+    } catch (error) {
+      console.error("Failed to update group:", error);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: number) => {
+    if (!confirm("¿Eliminar este grupo? Los invitados se moverán a 'Sin grupo'.")) return;
+    try {
+      const res = await fetch(`/api/events/${eventId}/guests/groups/${groupId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchGroups();
+        fetchGuests();
+      }
+    } catch (error) {
+      console.error("Failed to delete group:", error);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setDownloadingPdf(true);
+    try {
+      await downloadPDFFromHTML(
+        `/api/events/${eventId}/guests/pdf`,
+        `invitados-evento-${eventId}`
+      );
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -388,6 +484,15 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
           >
             <RiDownloadLine className="h-4 w-4" />
             Exportar CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={handleDownloadPDF}
+            disabled={downloadingPdf}
+          >
+            <RiFileListLine className="h-4 w-4" />
+            {downloadingPdf ? "Generando..." : "Descargar PDF"}
           </Button>
           {canEditGuests && (
             <Button 
@@ -468,12 +573,23 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Grupo/Mesa</Label>
-                  <Input
-                    placeholder="Ej: Familia novia"
-                    value={newGuest.groupName}
-                    onChange={(e) => setNewGuest({ ...newGuest, groupName: e.target.value })}
-                  />
+                  <Label>Grupo</Label>
+                  <Select
+                    value={newGuest.groupId}
+                    onValueChange={(value) => setNewGuest({ ...newGuest, groupId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin grupo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin grupo</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id.toString()}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -518,6 +634,16 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
         </Card>
       </div>
 
+      {/* Secondary Stats */}
+      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+        <span>Adultos: <strong className="text-foreground">{displayStats.adults}</strong></span>
+        <span>Niños: <strong className="text-foreground">{displayStats.children}</strong></span>
+        <span>Bebés: <strong className="text-foreground">{displayStats.babies}</strong></span>
+        <span className="border-l pl-4">Sentados: <strong className="text-foreground">{displayStats.seated}</strong></span>
+        <span>Acompañantes: <strong className="text-foreground">{displayStats.totalCompanions}</strong></span>
+        <span className="border-l pl-4">Total asistentes: <strong className="text-foreground">{displayStats.totalAttending}</strong></span>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -541,6 +667,22 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             <SelectItem value="declined">Cancelados</SelectItem>
           </SelectContent>
         </Select>
+        {groups.length > 0 && (
+          <Select value={groupFilter} onValueChange={setGroupFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <RiGroupLine className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrar por grupo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los grupos</SelectItem>
+              {groups.map((g) => (
+                <SelectItem key={g.id} value={g.id.toString()}>
+                  {g.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {/* View Toggle */}
         <div className="flex gap-2">
           <Button
@@ -600,28 +742,96 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
           <Card>
             <CardContent className="p-0">
               {Object.keys(groupedGuests).length > 0 ? (
-                Object.entries(groupedGuests).map(([group, groupGuests]) => (
-                  <div key={group}>
+                Object.entries(groupedGuests).map(([groupName, { groupId, guests: groupGuests }]) => (
+                  <div key={groupName}>
                     <div className="px-4 py-2 bg-muted font-medium text-sm flex items-center justify-between">
-                      <span>
-                        {group} ({groupGuests.length}{meta.totalPages > 1 ? " en esta página" : ""})
-                      </span>
+                      {editingGroup && editingGroup.name === groupName ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editGroupName}
+                            onChange={(e) => setEditGroupName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editGroupName.trim()) {
+                                handleEditGroup(editingGroup.id, editGroupName.trim());
+                              } else if (e.key === "Escape") {
+                                setEditingGroup(null);
+                              }
+                            }}
+                            className="h-7 w-48 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => {
+                              if (editGroupName.trim()) {
+                                handleEditGroup(editingGroup.id, editGroupName.trim());
+                              }
+                            }}
+                          >
+                            <RiCheckLine className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => setEditingGroup(null)}
+                          >
+                            <RiCloseLine className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <RiGroupLine className="h-4 w-4" />
+                          {groupName} ({groupGuests.length}{meta.totalPages > 1 ? " en esta página" : ""})
+                        </span>
+                      )}
+                      {canEditGuests && groupId && !editingGroup && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setEditingGroup({ id: groupId, name: groupName, tableNumber: null, notes: null });
+                              setEditGroupName(groupName);
+                            }}
+                          >
+                            <RiPencilLine className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteGroup(groupId)}
+                          >
+                            <RiDeleteBinLine className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <div className="divide-y">
-                      {groupGuests.map((guest) => (
-                        <GuestRow 
-                          key={guest.id} 
-                          guest={guest} 
-                          tables={tables}
-                          onStatusChange={handleStatusChange}
-                          onMenuChange={handleMenuChange}
-                          onTableChange={handleTableChange}
-                          onNameChange={handleNameChange}
-                          onDelete={handleDeleteGuest}
-                          readOnly={!canEditGuests}
-                        />
-                      ))}
-                    </div>
+                    {groupGuests.length > 0 ? (
+                      <div className="divide-y">
+                        {groupGuests.map((guest) => (
+                          <GuestRow 
+                            key={guest.id} 
+                            guest={guest} 
+                            tables={tables}
+                            onStatusChange={handleStatusChange}
+                            onMenuChange={handleMenuChange}
+                            onTableChange={handleTableChange}
+                            onNameChange={handleNameChange}
+                            onDelete={handleDeleteGuest}
+                            readOnly={!canEditGuests}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-muted-foreground italic">
+                        Sin invitados en este grupo
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (

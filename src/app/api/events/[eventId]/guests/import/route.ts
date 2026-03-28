@@ -90,14 +90,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           if (groupCache[g.groupName]) {
             groupId = groupCache[g.groupName];
           } else {
-            const existingGroup = await db
-              .select({ id: guestGroups.id })
+            const existingGroups = await db
+              .select({ id: guestGroups.id, name: guestGroups.name })
               .from(guestGroups)
               .where(eq(guestGroups.eventId, eventIdNum))
-              .limit(100);
+              .limit(500);
 
-            const found = existingGroup.find(
-              (grp) => grp.id && g.groupName
+            const found = existingGroups.find(
+              (grp) => grp.name.toLowerCase() === g.groupName!.toLowerCase()
             );
 
             if (found) {
