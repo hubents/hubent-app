@@ -119,7 +119,7 @@ export default function EventsPage() {
     setLoading(true);
     try {
       if (isProvider) {
-        const res = await fetch("/api/vendor/accessible-events");
+        const res = await fetch("/api/events?scope=accessible");
         if (res.ok) {
           const data = await res.json();
           // Map accessible events to the Event shape for display
@@ -351,7 +351,7 @@ export default function EventsPage() {
           </Button>
         </div>
 
-        {canCreate && !isProvider && (
+        {canCreate && (
           <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
             <RiAddLine className="h-4 w-4" />
             Nuevo evento
@@ -383,13 +383,13 @@ export default function EventsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {canCreate && !isProvider && (
+                    {canCreate && (
                       <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
                         <RiFileCopyLine className="h-4 w-4 mr-2" />
                         Duplicar evento
                       </DropdownMenuItem>
                     )}
-                    {canCreate && !isProvider && (
+                    {canCreate && (
                       <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
                         <RiFileList3Line className="h-4 w-4 mr-2" />
                         Guardar como template
@@ -521,13 +521,13 @@ export default function EventsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {canCreate && !isProvider && (
+                              {canCreate && (
                                 <DropdownMenuItem onClick={() => setDuplicateEvent(event)}>
                                   <RiFileCopyLine className="h-4 w-4 mr-2" />
                                   Duplicar evento
                                 </DropdownMenuItem>
                               )}
-                              {canCreate && !isProvider && (
+                              {canCreate && (
                                 <DropdownMenuItem onClick={() => setSaveAsTemplateEvent(event)}>
                                   <RiFileList3Line className="h-4 w-4 mr-2" />
                                   Guardar como template
@@ -560,7 +560,7 @@ export default function EventsPage() {
                     : "Crea tu primer evento para comenzar a organizar"
                 }
               </p>
-              {!searchTerm && !filterType && !filterStatus && canCreate && !isProvider && (
+              {!searchTerm && !filterType && !filterStatus && canCreate && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Crear primer evento

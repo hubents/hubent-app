@@ -55,8 +55,7 @@ export function UserSessionProvider({ children }: { children: ReactNode }) {
       if (!data) return false;
       const { role, permissions } = data;
 
-      if (role === "owner" || role === "admin" ||
-          role === "provider_owner") {
+      if (role === "owner" || role === "admin") {
         return true;
       }
 
@@ -84,8 +83,8 @@ export function UserSessionProvider({ children }: { children: ReactNode }) {
     orgType: data?.orgType ?? "tenant",
     can,
     canAny,
-    isOwner: data?.role === "owner" || data?.role === "provider_owner",
-    isAdmin: data?.role === "admin" || data?.role === "owner" || data?.role === "provider_admin" || data?.role === "provider_owner",
+    isOwner: data?.role === "owner",
+    isAdmin: data?.role === "admin" || data?.role === "owner",
     refetch: fetchSession,
   }), [data, loading, can, canAny, fetchSession]);
 

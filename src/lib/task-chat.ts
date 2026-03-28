@@ -22,8 +22,8 @@ export async function canAccessTaskChat(
   taskId: number
 ): Promise<boolean> {
   // High-privilege roles can access all tasks in their org
-  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
-  
+  const highRoles = ["manager", "admin", "owner", "super_admin"];
+
   if (highRoles.includes(session.role)) {
     // Verify task belongs to organization
     const task = await db.query.tasks.findFirst({
@@ -181,7 +181,7 @@ export async function canCommentOnTask(
   session: TenantSession,
   taskId: number
 ): Promise<boolean> {
-  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const highRoles = ["manager", "admin", "owner", "super_admin"];
   if (highRoles.includes(session.role)) {
     return true;
   }
@@ -315,7 +315,7 @@ export async function deleteTaskMessage(
   }
 
   // Only sender or high-privilege roles can delete
-  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const highRoles = ["manager", "admin", "owner", "super_admin"];
   const isHighRole = highRoles.includes(session.role);
 
   if (message.senderId !== session.user.userId && !isHighRole) {
@@ -398,7 +398,7 @@ export async function deleteTaskAttachment(
   }
 
   // Only uploader or high-privilege roles can delete
-  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const highRoles = ["manager", "admin", "owner", "super_admin"];
   const isHighRole = highRoles.includes(session.role);
 
   if (attachment.uploadedBy !== session.user.userId && !isHighRole) {

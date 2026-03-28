@@ -1,10 +1,10 @@
 ---
-description: RBAC requirePermission patterns, roles, and Provider vs vendor-contact architecture
+description: RBAC requirePermission patterns, unified roles, and Provider vs vendor-contact architecture
 globs: src/app/api/**/*.ts
 alwaysApply: false
 ---
 
-# RBAC & Provider Portal Rules
+# RBAC & Provider Architecture Rules
 
 ## Permission System
 
@@ -14,55 +14,46 @@ alwaysApply: false
 - Permission check hook: `usePermissions()` → `can("resource:action")`
 - Session hook: `useUserSession()` returns `{ role, permissions, orgType }`
 
-## Roles
+## Unified Roles (7 roles, all org types)
 
-### Tenant Roles (planner organizations)
-
-- `owner` — Full bypass, control total
-- `admin` — Full bypass, control total (equivale a Management de la propuesta)
-- `planner` — 19 permisos: eventos, tareas, contacts, vendors, finance read, CRM, forms
-- `assistant` — eventScoped, 6 permisos: eventos read, tareas CRUD, vendors read, forms read
-- `accountant` — 7 permisos: finance completo, CRM read, vendors read, settings read
-- `viewer` — eventScoped, 5 permisos: solo lectura en eventos, tareas, vendors, finance, forms
-- `client` — eventScoped, 2 permisos: eventos read, tareas read
-
-### Provider Roles (provider organizations)
-
-- `provider_owner` — Full bypass, control total del portal vendor
-- `provider_admin` — 12 permisos: eventos, tareas, vendors, team, finance, CRM, settings, forms
-- `provider_tech` — 4 permisos: eventos read, tareas read/update, forms read
+- `owner` — Full bypass, all permissions
+- `admin` — Full bypass, all permissions
+- `manager` — Main working role: events CRUD, tasks, vendors, CRM, forms, finance read
+- `accountant` — Finance specialist: finance full, CRM read, vendors read, settings read
+- `staff` — eventScoped: tasks CRUD, events read, vendors read, forms read, finance read
+- `viewer` — eventScoped: read only across events, tasks, vendors, finance, forms
+- `client` — eventScoped: events read, tasks read only
 
 ### Event-Scoped Roles
 
-- `assistant`, `viewer`, `client` tienen `eventScoped = true`
-- Solo ven eventos donde son `event_participants`
-- Permisos granulares por evento via `event_participants.permissions` JSON
+- `staff`, `viewer`, `client` have `eventScoped = true`
+- Only see events where they are `event_participants`
+- Granular per-event permissions via `event_participants.permissions` JSON
 
 ### Canonical Permissions (26 total)
 
 - Resources: events, tasks, vendors, team, finance, crm, settings, forms
 - Actions: read, create, update, delete, invite, manage
-- Script de reset: `scripts/hard-reset-permissions.ts` (idempotente, safe to re-run)
+- Reset script: `scripts/hard-reset-permissions.ts` (idempotent, safe to re-run)
+- Migration script: `scripts/migrate-provider-roles.ts` (one-time role slug migration)
 
 ## Two Types of Vendors (Critical Architecture)
 
 ### 1. Vendor Contacts (Internal CRM)
 
 - Table: `vendors` + `contacts.isVendor`
-- Created by: The planner, manually
-- Visibility: Private to the planner's organization
+- Created by: The org, manually
+- Visibility: Private to the organization
 - Purpose: Personal vendor directory, invoicing, event assignment
 - Sync: Bidirectional between `contacts` and `vendors` tables
-- Files: `src/lib/vendors.ts`, `src/lib/contacts.ts`
 
 ### 2. Provider Organizations (Platform)
 
 - Table: `organizations` where `orgType = 'provider'`
 - Created by: Self-registration at `/provider/register`
 - Visibility: Public directory (after admin verification)
-- Purpose: Own portal, event collaboration, team management
-- Verification: Admin verifies → appears in directory
-- Files: `src/app/vendor/` (portal), `src/app/admin/providers/` (admin)
+- Purpose: Event collaboration, marketplace profile, team management
+- Both planners and providers use `/dashboard` — NO separate `/vendor` portal
 
 ### Event Vendor Page (`/dashboard/events/[id]/vendors`)
 
@@ -71,17 +62,13 @@ alwaysApply: false
 - "Proveedores Locales" = assigned vendor contacts from CRM
 - Table: `providerEventAccess` for platform providers, `eventVendors` for local vendors
 
-## Provider Portal Routes
+## Unified Portal (all at /dashboard)
 
-- `/provider/register` — Registration
-- `/provider/login` — Login
-- `/vendor` — Dashboard
-- `/vendor/events` — Event invitations
-- `/vendor/tasks` — Tasks from shared events
-- `/vendor/finance` — Own financial module
-- `/vendor/profile` — Organization profile
-- `/vendor/team` — Team management
-- `/vendor/settings` — Settings
+- All org types use `/dashboard` layout with `MainSidebar`
+- Sidebar sections configured per orgType via `tenant-types.ts` → `getSidebarSections()`
+- Events page supports `scope=collaborated` for invited events
+- Finance `DocumentDrawer` uses `scope=accessible` to show owned + collaborated events
+- Profile at `/dashboard/public-profile` uses `/api/organizations/profile`
 
 ## Email Templates
 
@@ -89,8 +76,3 @@ alwaysApply: false
 - Provider rejected → rejection with reason
 - Provider invited to event → invitation email
 - All emails are non-blocking (fire-and-forget with .catch() logging)
-
-## Related
-
-- Skill: `provider-portal` — portal flows and APIs
-- Rule: `hubents-project-architecture.mdc`

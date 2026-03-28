@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Helper: check org-level permission
     const canOrg = (perm: string): boolean => {
-      if (session.role === "owner" || session.role === "admin" || session.role === "provider_owner") return true;
+      if (session.role === "owner" || session.role === "admin") return true;
       if (session.isImpersonating) return true;
       if (session.user.platformLevel === "super_admin") return true;
       if (session.permissions.includes(perm)) return true;

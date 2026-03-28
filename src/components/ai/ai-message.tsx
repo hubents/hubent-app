@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-const INTERNAL_ROUTE_PREFIX = ["/dashboard", "/vendor", "/admin", "/developers"];
+const INTERNAL_ROUTE_PREFIX = ["/dashboard", "/admin", "/developers"];
 
 function isInternalLink(href: string): boolean {
   if (!href) return false;

@@ -7,19 +7,15 @@ import { eq, and, isNull } from "drizzle-orm";
  * These ensure required data exists in the database
  */
 
-// System roles that must exist
+// System roles that must exist (universal across all org types)
 const SYSTEM_ROLES = [
   { name: "Owner", slug: "owner", description: "Propietario - acceso completo a la organización" },
-  { name: "Admin", slug: "admin", description: "Administrador - gestión completa excepto facturación" },
-  { name: "Planner", slug: "planner", description: "Planificador - gestión de eventos y tareas" },
-  { name: "Assistant", slug: "assistant", description: "Asistente - apoyo en tareas asignadas", eventScoped: true },
+  { name: "Admin", slug: "admin", description: "Administrador - gestión completa" },
+  { name: "Manager", slug: "manager", description: "Gestor - eventos, tareas, CRM, proveedores, formularios" },
   { name: "Accountant", slug: "accountant", description: "Contador - acceso a finanzas y reportes" },
+  { name: "Staff", slug: "staff", description: "Personal - apoyo en tareas asignadas", eventScoped: true },
   { name: "Viewer", slug: "viewer", description: "Visualizador - solo lectura", eventScoped: true },
   { name: "Client", slug: "client", description: "Cliente - acceso limitado a eventos asignados", eventScoped: true },
-  // Provider roles
-  { name: "Provider Owner", slug: "provider_owner", description: "Dueño de la organización proveedora" },
-  { name: "Provider Admin", slug: "provider_admin", description: "Administrador del proveedor" },
-  { name: "Provider Technician", slug: "provider_tech", description: "Técnico del proveedor - acceso a tareas y eventos asignados" },
 ];
 
 // Canonical plans — must match scripts/seed-plans.ts.
@@ -189,9 +185,9 @@ export async function initializePermissions(): Promise<{ created: string[]; exis
 }
 
 // Canonical role → permission slug mapping
-// owner, admin, provider_owner have bypass — no rolePermissions needed
+// owner, admin have bypass — no rolePermissions needed
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
-  planner: [
+  manager: [
     "events:read", "events:create", "events:update",
     "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
     "vendors:read", "vendors:create", "vendors:update",
@@ -202,12 +198,6 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "forms:read", "forms:create", "forms:update", "forms:delete",
     "integrations:read",
   ],
-  assistant: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "forms:read",
-  ],
   accountant: [
     "events:read",
     "vendors:read",
@@ -215,6 +205,14 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "crm:read",
     "settings:read",
     "integrations:read",
+  ],
+  staff: [
+    "events:read",
+    "tasks:read", "tasks:create", "tasks:update",
+    "vendors:read",
+    "finance:read",
+    "forms:read",
+    "team:read",
   ],
   viewer: [
     "events:read",
@@ -226,25 +224,6 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
   client: [
     "events:read",
     "tasks:read",
-  ],
-  provider_admin: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
-    "vendors:read", "vendors:create", "vendors:update",
-    "team:read", "team:invite", "team:manage",
-    "finance:read", "finance:create", "finance:manage",
-    "crm:read", "crm:manage",
-    "settings:read", "settings:update",
-    "forms:read", "forms:create", "forms:update", "forms:delete",
-    "integrations:read", "integrations:manage",
-  ],
-  provider_tech: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "finance:read",
-    "forms:read",
-    "team:read",
   ],
 };
 

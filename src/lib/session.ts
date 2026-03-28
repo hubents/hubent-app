@@ -96,38 +96,13 @@ export async function requireAuth(): Promise<TenantSession> {
  * Require a specific role level.
  * 
  * DEPRECATED: Prefer requirePermission("resource:action") for all new code.
- * This function is kept for backward compatibility but now properly checks
- * both tenant and provider hierarchies instead of blindly bypassing.
  */
 export async function requireRole(
-  minRole: "client" | "viewer" | "accountant" | "assistant" | "planner" | "admin" | "owner"
+  minRole: "client" | "viewer" | "accountant" | "staff" | "manager" | "admin" | "owner"
 ): Promise<TenantSession> {
   const session = await requireAuth();
   
   const { hasRoleLevel } = await import("@/lib/tenant");
-
-  // For provider roles, map the requested tenant minRole to an equivalent
-  // provider hierarchy level. provider_owner = owner/admin, provider_admin = planner,
-  // provider_tech = viewer/assistant.
-  const PROVIDER_ROLE_MAP: Record<string, TenantRole> = {
-    owner: "provider_owner",
-    admin: "provider_owner",
-    planner: "provider_admin",
-    assistant: "provider_tech",
-    accountant: "provider_admin",
-    viewer: "provider_tech",
-    client: "provider_tech",
-  };
-
-  const isProviderRole = ["provider_owner", "provider_admin", "provider_tech"].includes(session.role);
-  
-  if (isProviderRole) {
-    const mappedRequired = PROVIDER_ROLE_MAP[minRole];
-    if (mappedRequired && !hasRoleLevel(session.role, mappedRequired)) {
-      throw new Error(`Forbidden: Requires ${minRole} role or higher`);
-    }
-    return session;
-  }
 
   if (!hasRoleLevel(session.role, minRole as TenantRole)) {
     throw new Error(`Forbidden: Requires ${minRole} role or higher`);
@@ -150,9 +125,8 @@ export async function requirePermission(
   // Impersonation has full access
   if (session.isImpersonating) return session;
 
-  // Owner and admin have all permissions
-  if (session.role === "owner" || session.role === "admin" || 
-      session.role === "provider_owner") {
+  // Owner and admin have all permissions (any org type)
+  if (session.role === "owner" || session.role === "admin") {
     return session;
   }
 
@@ -296,7 +270,7 @@ export async function requireEventSectionAccess(
   // Bypass: super_admin, impersonation, owner, admin
   if (session.user.platformLevel === "super_admin") return session;
   if (session.isImpersonating) return session;
-  if (session.role === "owner" || session.role === "admin" || session.role === "provider_owner") {
+  if (session.role === "owner" || session.role === "admin") {
     return session;
   }
 

@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
         const [newRole] = await db
           .insert(roles)
           .values({
-            name: ownerRoleSlug === "provider_owner" ? "Propietario Proveedor" : "Administrador",
+            name: "Owner",
             slug: ownerRoleSlug,
             description: `Rol propietario para ${typeConfig?.label || "organización"}`,
             isSystem: true,

@@ -74,27 +74,24 @@ describe("Integration RBAC Permissions", () => {
 // Integration Permission Access Matrix
 // ============================================
 describe("Integration Access Matrix", () => {
-  const ROLES_THAT_CAN_MANAGE = ["owner", "admin", "provider_owner", "provider_admin"];
-  const ROLES_THAT_CAN_VIEW = [...ROLES_THAT_CAN_MANAGE, "planner", "accountant"];
-  const ROLES_THAT_CANNOT_VIEW = ["assistant", "viewer", "client", "provider_tech"];
+  const ROLES_THAT_CAN_MANAGE = ["owner", "admin"];
+  const ROLES_THAT_CAN_VIEW = [...ROLES_THAT_CAN_MANAGE, "manager", "accountant"];
+  const ROLES_THAT_CANNOT_VIEW = ["staff", "viewer", "client"];
 
   it("owner/admin roles should be able to manage integrations", () => {
     for (const role of ROLES_THAT_CAN_MANAGE) {
-      // Owner and admin have bypass (no explicit permissions needed)
-      // provider_admin has integrations:manage in ROLE_PERMISSION_MAP
       expect(ROLES_THAT_CAN_MANAGE).toContain(role);
     }
   });
 
-  it("planner and accountant should only have read access", () => {
-    // These roles have integrations:read but NOT integrations:manage
-    expect(ROLES_THAT_CAN_VIEW).toContain("planner");
+  it("manager and accountant should only have read access", () => {
+    expect(ROLES_THAT_CAN_VIEW).toContain("manager");
     expect(ROLES_THAT_CAN_VIEW).toContain("accountant");
-    expect(ROLES_THAT_CAN_MANAGE).not.toContain("planner");
+    expect(ROLES_THAT_CAN_MANAGE).not.toContain("manager");
     expect(ROLES_THAT_CAN_MANAGE).not.toContain("accountant");
   });
 
-  it("assistant, viewer, client, provider_tech should NOT see integrations", () => {
+  it("staff, viewer, client should NOT see integrations", () => {
     for (const role of ROLES_THAT_CANNOT_VIEW) {
       expect(ROLES_THAT_CAN_VIEW).not.toContain(role);
     }
@@ -178,9 +175,9 @@ describe("UI Access by Portal Type", () => {
     expect(tenantPath).toContain("/dashboard/");
   });
 
-  it("Provider has integrations page at /vendor/settings/integrations", () => {
-    const providerPath = "/vendor/settings/integrations";
-    expect(providerPath).toContain("/vendor/");
+  it("Provider has integrations page at /dashboard/settings/integrations", () => {
+    const providerPath = "/dashboard/settings/integrations";
+    expect(providerPath).toContain("/dashboard/");
   });
 
   it("Admin has integrations page at /admin/integrations", () => {
@@ -191,9 +188,9 @@ describe("UI Access by Portal Type", () => {
   it("Callback route handles both portal types", () => {
     // Verified: callback route reads ?portal= param and redirects to correct portal
     const tenantRedirect = "/dashboard/settings/integrations?connected=gmail";
-    const providerRedirect = "/vendor/settings/integrations?connected=gmail";
+    const providerRedirect = "/dashboard/settings/integrations?connected=gmail";
     expect(tenantRedirect).toContain("/dashboard/");
-    expect(providerRedirect).toContain("/vendor/");
+    expect(providerRedirect).toContain("/dashboard/");
   });
 });
 

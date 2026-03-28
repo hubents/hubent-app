@@ -2,15 +2,15 @@
  * RBAC UI Permissions Test Suite
  *
  * Tests the client-side `can()` logic from UserSessionContext
- * for every tenant role and every provider role against every permission.
+ * for every unified role against every permission.
  *
- * This is the source of truth for what each role should see in the UI.
+ * Unified roles: owner, admin, manager, accountant, staff, viewer, client
  */
 import { describe, it, expect } from "vitest";
 
 // ─── Replicate can() logic from user-session-context.tsx ───
 function can(role: string, permissions: string[], permission: string): boolean {
-  if (role === "owner" || role === "admin" || role === "provider_owner") {
+  if (role === "owner" || role === "admin") {
     return true;
   }
   if (permissions.includes(permission)) return true;
@@ -19,10 +19,9 @@ function can(role: string, permissions: string[], permission: string): boolean {
   return false;
 }
 
-// ─── Canonical ROLE_PERMISSION_MAP from system-init.ts ───
+// ─── Canonical ROLE_PERMISSION_MAP (unified) ───
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {
-  // Bypass roles (owner, admin, provider_owner) are NOT here — they bypass everything
-  planner: [
+  manager: [
     "events:read", "events:create", "events:update",
     "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
     "vendors:read", "vendors:create", "vendors:update",
@@ -32,18 +31,20 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "settings:read",
     "forms:read", "forms:create", "forms:update", "forms:delete",
   ],
-  assistant: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "forms:read",
-  ],
   accountant: [
     "events:read",
     "vendors:read",
     "finance:read", "finance:create", "finance:manage",
     "crm:read",
     "settings:read",
+  ],
+  staff: [
+    "events:read",
+    "tasks:read", "tasks:create", "tasks:update",
+    "vendors:read",
+    "finance:read",
+    "forms:read",
+    "team:read",
   ],
   viewer: [
     "events:read",
@@ -56,24 +57,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     "events:read",
     "tasks:read",
   ],
-  provider_admin: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "team:read",
-    "finance:read", "finance:create", "finance:manage",
-    "crm:read",
-    "settings:read",
-    "forms:read",
-  ],
-  provider_tech: [
-    "events:read",
-    "tasks:read", "tasks:update",
-    "forms:read",
-  ],
 };
 
-// All permissions in the system
 const ALL_PERMISSIONS = [
   "events:read", "events:create", "events:update", "events:delete",
   "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
@@ -85,28 +70,27 @@ const ALL_PERMISSIONS = [
   "forms:read", "forms:create", "forms:update", "forms:delete",
 ];
 
-// ─── Helper: expected can() result for a role ───
 function expectedCan(role: string, permission: string): boolean {
-  if (role === "owner" || role === "admin" || role === "provider_owner") return true;
+  if (role === "owner" || role === "admin") return true;
   const perms = ROLE_PERMISSION_MAP[role];
   if (!perms) return false;
   return perms.includes(permission);
 }
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 1: TENANT ROLES
+// SECTION 1: ALL ROLES — FULL PERMISSION MATRIX
 // ══════════════════════════════════════════════════════════════
 
-const TENANT_ROLES = ["owner", "admin", "planner", "assistant", "accountant", "viewer", "client"];
+const ALL_ROLES = ["owner", "admin", "manager", "accountant", "staff", "viewer", "client"];
 
-describe("RBAC: Tenant roles — full permission matrix", () => {
-  for (const role of TENANT_ROLES) {
+describe("RBAC: Unified roles — full permission matrix", () => {
+  for (const role of ALL_ROLES) {
     describe(`Role: ${role}`, () => {
       const perms = ROLE_PERMISSION_MAP[role] ?? [];
 
       for (const permission of ALL_PERMISSIONS) {
         const expected = expectedCan(role, permission);
-        it(`${expected ? "✅ CAN" : "❌ CANNOT"} ${permission}`, () => {
+        it(`${expected ? "CAN" : "CANNOT"} ${permission}`, () => {
           expect(can(role, perms, permission)).toBe(expected);
         });
       }
@@ -115,29 +99,7 @@ describe("RBAC: Tenant roles — full permission matrix", () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 2: PROVIDER ROLES
-// ══════════════════════════════════════════════════════════════
-
-const PROVIDER_ROLES = ["provider_owner", "provider_admin", "provider_tech"];
-
-describe("RBAC: Provider roles — full permission matrix", () => {
-  for (const role of PROVIDER_ROLES) {
-    describe(`Role: ${role}`, () => {
-      const perms = ROLE_PERMISSION_MAP[role] ?? [];
-
-      for (const permission of ALL_PERMISSIONS) {
-        const expected = expectedCan(role, permission);
-        it(`${expected ? "✅ CAN" : "❌ CANNOT"} ${permission}`, () => {
-          expect(can(role, perms, permission)).toBe(expected);
-        });
-      }
-    });
-  }
-});
-
-// ══════════════════════════════════════════════════════════════
-// SECTION 3: UI ACTION VISIBILITY BY ROLE
-// Tests map directly to the permission checks in UI components
+// SECTION 2: UI ACTION VISIBILITY BY ROLE
 // ══════════════════════════════════════════════════════════════
 
 interface UIAction {
@@ -146,91 +108,31 @@ interface UIAction {
   permission: string;
 }
 
-const TENANT_UI_ACTIONS: UIAction[] = [
-  // Dashboard quick actions
+const UI_ACTIONS: UIAction[] = [
   { page: "Dashboard", action: "Nuevo Evento card", permission: "events:create" },
   { page: "Dashboard", action: "Agregar Lead card", permission: "crm:manage" },
   { page: "Dashboard", action: "Nueva Tarea card", permission: "tasks:create" },
   { page: "Dashboard", action: "Registrar Pago card", permission: "finance:create" },
-  // Events page
   { page: "Events", action: "Nuevo Evento button", permission: "events:create" },
   { page: "Events", action: "Duplicar button", permission: "events:create" },
-  { page: "Events", action: "Crear desde template", permission: "events:create" },
-  // Tasks page
   { page: "Tasks", action: "Nueva Tarea button", permission: "tasks:create" },
-  // Contacts page
   { page: "Contacts", action: "Nuevo Contacto button", permission: "crm:manage" },
-  { page: "Contacts", action: "Importar CSV button", permission: "crm:manage" },
-  { page: "Contacts", action: "Bulk Eliminar button", permission: "crm:manage" },
-  // CRM page
   { page: "CRM", action: "Nuevo Lead button", permission: "crm:manage" },
-  // Team page
   { page: "Team", action: "Invitar Miembro button", permission: "team:manage" },
-  { page: "Team", action: "Roles button", permission: "team:manage" },
-  { page: "Team", action: "Remove member button", permission: "team:manage" },
-  // Finance dashboard
-  { page: "Finance Dashboard", action: "Nuevo Presupuesto header", permission: "finance:create" },
-  { page: "Finance Dashboard", action: "Nueva Factura header", permission: "finance:create" },
-  { page: "Finance Dashboard", action: "Crear Presupuesto quick", permission: "finance:create" },
-  { page: "Finance Dashboard", action: "Crear Factura quick", permission: "finance:create" },
-  { page: "Finance Dashboard", action: "Registrar Pago quick", permission: "finance:create" },
-  // Finance sub-pages
   { page: "Finance/Invoices", action: "Nueva Factura button", permission: "finance:create" },
   { page: "Finance/Quotes", action: "Nuevo Presupuesto button", permission: "finance:create" },
-  { page: "Finance/Proformas", action: "Nueva Proforma button", permission: "finance:create" },
-  { page: "Finance/DeliveryNotes", action: "Nuevo Albarán button", permission: "finance:create" },
   { page: "Finance/Payments", action: "Registrar Pago button", permission: "finance:create" },
-  // Finance settings
   { page: "Finance/Settings", action: "Nuevo Impuesto button", permission: "finance:manage" },
-  { page: "Finance/Settings", action: "Nueva Cuenta button", permission: "finance:manage" },
-  // Payments standalone
-  { page: "Payments", action: "Nuevo Pago button", permission: "finance:create" },
-  // Forms page
   { page: "Forms", action: "Nuevo formulario button", permission: "forms:create" },
-  { page: "Forms", action: "Duplicar form", permission: "forms:create" },
-  // Settings
-  { page: "Settings/Templates", action: "Nuevo Template button", permission: "events:create" },
   { page: "Settings/Roles", action: "Nuevo Rol button", permission: "team:manage" },
-  { page: "Settings/Roles", action: "Crear Rol button", permission: "team:manage" },
 ];
 
-const PROVIDER_UI_ACTIONS: UIAction[] = [
-  // Provider sidebar
-  { page: "Provider Sidebar", action: "Equipo nav link", permission: "team:read" },
-  { page: "Provider Sidebar", action: "Configuración nav link", permission: "settings:read" },
-  // Provider dashboard
-  { page: "Provider Dashboard", action: "Ingresos Totales card", permission: "finance:read" },
-  { page: "Provider Dashboard", action: "Facturas Pendientes card", permission: "finance:read" },
-  { page: "Provider Dashboard", action: "Finanzas quick action", permission: "finance:read" },
-  // Vendor finance pages
-  { page: "Vendor/Invoices", action: "Nueva Factura button", permission: "finance:create" },
-  { page: "Vendor/Quotes", action: "Nuevo Presupuesto button", permission: "finance:create" },
-  { page: "Vendor/Payments", action: "Registrar Pago button", permission: "finance:create" },
-  // Vendor settings
-  { page: "Vendor/Settings", action: "Guardar config button", permission: "settings:update" },
-];
-
-describe("RBAC: Tenant UI action visibility per role", () => {
-  for (const role of TENANT_ROLES) {
+describe("RBAC: UI action visibility per role", () => {
+  for (const role of ALL_ROLES) {
     describe(`Role: ${role}`, () => {
       const perms = ROLE_PERMISSION_MAP[role] ?? [];
 
-      for (const uiAction of TENANT_UI_ACTIONS) {
-        const visible = can(role, perms, uiAction.permission);
-        it(`${uiAction.page} > "${uiAction.action}" → ${visible ? "VISIBLE" : "HIDDEN"}`, () => {
-          expect(can(role, perms, uiAction.permission)).toBe(expectedCan(role, uiAction.permission));
-        });
-      }
-    });
-  }
-});
-
-describe("RBAC: Provider UI action visibility per role", () => {
-  for (const role of PROVIDER_ROLES) {
-    describe(`Role: ${role}`, () => {
-      const perms = ROLE_PERMISSION_MAP[role] ?? [];
-
-      for (const uiAction of PROVIDER_UI_ACTIONS) {
+      for (const uiAction of UI_ACTIONS) {
         const visible = can(role, perms, uiAction.permission);
         it(`${uiAction.page} > "${uiAction.action}" → ${visible ? "VISIBLE" : "HIDDEN"}`, () => {
           expect(can(role, perms, uiAction.permission)).toBe(expectedCan(role, uiAction.permission));
@@ -241,8 +143,7 @@ describe("RBAC: Provider UI action visibility per role", () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 4: CRITICAL NEGATIVE TESTS
-// Explicitly verify that specific dangerous actions are DENIED
+// SECTION 3: CRITICAL NEGATIVE TESTS
 // ══════════════════════════════════════════════════════════════
 
 describe("RBAC: Critical negative tests — actions MUST be denied", () => {
@@ -265,21 +166,21 @@ describe("RBAC: Critical negative tests — actions MUST be denied", () => {
     }
   });
 
-  describe("assistant CANNOT access finance, CRM manage, team, or settings", () => {
-    const perms = ROLE_PERMISSION_MAP.assistant;
+  describe("staff CANNOT manage events, CRM, team, or settings", () => {
+    const perms = ROLE_PERMISSION_MAP.staff;
     const denied = [
       "events:create", "events:update", "events:delete",
       "tasks:delete",
       "vendors:create", "vendors:update", "vendors:delete",
-      "team:read", "team:invite", "team:manage",
-      "finance:read", "finance:create", "finance:manage",
+      "team:invite", "team:manage",
+      "finance:create", "finance:manage",
       "crm:read", "crm:manage",
       "settings:read", "settings:update",
       "forms:create", "forms:update", "forms:delete",
     ];
     for (const perm of denied) {
-      it(`assistant CANNOT ${perm}`, () => {
-        expect(can("assistant", perms, perm)).toBe(false);
+      it(`staff CANNOT ${perm}`, () => {
+        expect(can("staff", perms, perm)).toBe(false);
       });
     }
   });
@@ -327,8 +228,8 @@ describe("RBAC: Critical negative tests — actions MUST be denied", () => {
     }
   });
 
-  describe("planner CANNOT delete events, manage team, or manage finance", () => {
-    const perms = ROLE_PERMISSION_MAP.planner;
+  describe("manager CANNOT delete events, manage team, or manage finance", () => {
+    const perms = ROLE_PERMISSION_MAP.manager;
     const denied = [
       "events:delete",
       "vendors:delete",
@@ -337,38 +238,19 @@ describe("RBAC: Critical negative tests — actions MUST be denied", () => {
       "settings:update",
     ];
     for (const perm of denied) {
-      it(`planner CANNOT ${perm}`, () => {
-        expect(can("planner", perms, perm)).toBe(false);
-      });
-    }
-  });
-
-  describe("provider_tech CANNOT access finance, team, CRM, or settings", () => {
-    const perms = ROLE_PERMISSION_MAP.provider_tech;
-    const denied = [
-      "events:create", "events:update", "events:delete",
-      "tasks:create", "tasks:delete",
-      "vendors:read", "vendors:create", "vendors:update", "vendors:delete",
-      "team:read", "team:invite", "team:manage",
-      "finance:read", "finance:create", "finance:manage",
-      "crm:read", "crm:manage",
-      "settings:read", "settings:update",
-      "forms:create", "forms:update", "forms:delete",
-    ];
-    for (const perm of denied) {
-      it(`provider_tech CANNOT ${perm}`, () => {
-        expect(can("provider_tech", perms, perm)).toBe(false);
+      it(`manager CANNOT ${perm}`, () => {
+        expect(can("manager", perms, perm)).toBe(false);
       });
     }
   });
 });
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 5: BYPASS ROLES ALWAYS RETURN TRUE
+// SECTION 4: BYPASS ROLES ALWAYS RETURN TRUE
 // ══════════════════════════════════════════════════════════════
 
 describe("RBAC: Bypass roles always have full access", () => {
-  const bypassRoles = ["owner", "admin", "provider_owner"];
+  const bypassRoles = ["owner", "admin"];
   for (const role of bypassRoles) {
     describe(`${role} bypasses all permission checks`, () => {
       for (const perm of ALL_PERMISSIONS) {
@@ -381,7 +263,7 @@ describe("RBAC: Bypass roles always have full access", () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 6: WILDCARD PERMISSION SUPPORT
+// SECTION 5: WILDCARD PERMISSION SUPPORT
 // ══════════════════════════════════════════════════════════════
 
 describe("RBAC: Wildcard permission support", () => {
@@ -400,7 +282,7 @@ describe("RBAC: Wildcard permission support", () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// SECTION 7: EDGE CASES
+// SECTION 6: EDGE CASES
 // ══════════════════════════════════════════════════════════════
 
 describe("RBAC: Edge cases", () => {
@@ -411,12 +293,12 @@ describe("RBAC: Edge cases", () => {
     expect(can("viewer", ROLE_PERMISSION_MAP.viewer, "")).toBe(false);
   });
   it("non-existent permission returns false", () => {
-    expect(can("planner", ROLE_PERMISSION_MAP.planner, "billing:manage")).toBe(false);
+    expect(can("manager", ROLE_PERMISSION_MAP.manager, "billing:manage")).toBe(false);
   });
   it("exact permission match works", () => {
-    expect(can("planner", ROLE_PERMISSION_MAP.planner, "events:create")).toBe(true);
+    expect(can("manager", ROLE_PERMISSION_MAP.manager, "events:create")).toBe(true);
   });
   it("partial slug does not match", () => {
-    expect(can("planner", ROLE_PERMISSION_MAP.planner, "events")).toBe(false);
+    expect(can("manager", ROLE_PERMISSION_MAP.manager, "events")).toBe(false);
   });
 });

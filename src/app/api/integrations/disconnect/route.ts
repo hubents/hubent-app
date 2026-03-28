@@ -13,8 +13,6 @@ export async function POST(req: Request) {
     const canManage =
       session.role === "owner" ||
       session.role === "admin" ||
-      session.role === "provider_owner" ||
-      session.role === "provider_admin" ||
       session.permissions?.includes("integrations:manage");
 
     if (!canManage) {

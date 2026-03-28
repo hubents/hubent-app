@@ -46,11 +46,14 @@ export interface TenantTypeConfig {
   availableRoles: string[];
 
   // --- Capabilities ---
-  /** Can edit a public-facing profile */
+  // DEPRECATED: These are now driven by plan feature flags (public_profile, portfolio).
+  // Event creation is gated by requireLimit("events") which checks plan limits.
+  // Kept here for backward compat during transition. All default to true.
+  /** @deprecated Use plan feature flag "public_profile" */
   hasPublicProfile: boolean;
-  /** Can manage a portfolio (images/videos) */
+  /** @deprecated Use plan feature flag "portfolio" */
   hasPortfolio: boolean;
-  /** Can create and own events */
+  /** @deprecated Event creation is gated by plan limits via requireLimit("events") */
   canCreateEvents: boolean;
   /** Can be invited to participate in others' events */
   canBeInvitedToEvents: boolean;
@@ -81,7 +84,7 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
 
     defaultPlanSlug: "starter",
     ownerRoleSlug: "owner",
-    availableRoles: ["owner", "admin", "planner", "assistant", "viewer", "accountant", "client"],
+    availableRoles: ["owner", "admin", "manager", "accountant", "staff", "viewer", "client"],
 
     hasPublicProfile: true,
     hasPortfolio: false,
@@ -119,12 +122,12 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
     canBrowseMarketplace: true,
 
     defaultPlanSlug: "provider-free",
-    ownerRoleSlug: "provider_owner",
-    availableRoles: ["provider_owner", "provider_admin", "provider_tech"],
+    ownerRoleSlug: "owner",
+    availableRoles: ["owner", "admin", "manager", "accountant", "staff", "viewer", "client"],
 
     hasPublicProfile: true,
     hasPortfolio: true,
-    canCreateEvents: false,
+    canCreateEvents: true,
     canBeInvitedToEvents: true,
 
     onboardingSteps: ["profile", "company-public-profile", "profile-preview", "team"],
@@ -133,7 +136,9 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
       "dashboard",
       "marketplace",
       "public-profile",
+      "contacts",
       "events",
+      "crm",
       "finance",
       "productivity",
       "team",

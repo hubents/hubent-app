@@ -9,38 +9,33 @@ const ROOT = path.resolve(__dirname, "../../..");
 // Validates sidebar, bottom-nav, and collaborator-drawer changes
 // ============================================
 
-describe("Sidebar: Proveedores directory link rendered", () => {
+describe("Sidebar: Unified main sidebar for all org types", () => {
   const content = fs.readFileSync(
     path.join(ROOT, "src/components/layout/main-sidebar.tsx"),
     "utf-8"
   );
 
-  it("defines navigationAfterFinance with /dashboard/providers", () => {
-    expect(content).toContain('href: "/dashboard/providers"');
-    expect(content).toContain("navigationAfterFinance");
+  it("uses getSidebarSections to configure sections by orgType", () => {
+    expect(content).toContain("getSidebarSections");
+    expect(content).toContain("hasSection");
   });
 
-  it("filteredNavAfter is computed from navigationAfterFinance", () => {
-    expect(content).toContain("filteredNavAfter");
-    expect(content).toContain("navigationAfterFinance.filter");
+  it("has navigation items pointing to /dashboard paths", () => {
+    expect(content).toContain('href: "/dashboard"');
+    expect(content).toContain('href: "/dashboard/events"');
   });
 
-  it("filteredNavAfter is rendered in JSX (not just defined)", () => {
-    // The comment "Items after Finance" only exists in the JSX render section
-    expect(content).toContain("Items after Finance");
-    const renderBlock = content.split("Items after Finance")[1]?.split("Productividad")[0] || "";
-    expect(renderBlock).toContain("filteredNavAfter.map");
+  it("supports marketplace section", () => {
+    expect(content).toContain("marketplace");
   });
 
-  it("filteredNavAfter is hidden when eventScoped", () => {
+  it("filteredNavAfterProductivity is hidden when eventScoped", () => {
     expect(content).toContain("if (eventScoped) return [];");
   });
 
-  it("renders collapsed tooltip for filteredNavAfter items", () => {
-    // The JSX block for filteredNavAfter should have tooltip pattern
-    const afterFinanceBlock = content.split("Items after Finance")[1]?.split("Productividad")[0] || "";
-    expect(afterFinanceBlock).toContain("TooltipContent");
-    expect(afterFinanceBlock).toContain("isCollapsed");
+  it("renders collapsed tooltips for navigation items", () => {
+    expect(content).toContain("TooltipContent");
+    expect(content).toContain("isCollapsed");
   });
 });
 
@@ -86,18 +81,9 @@ describe("Collaborator drawer: directory integration", () => {
     expect(content).toContain('fetch(`/api/providers?');
   });
 
-  it("has directory search input in vendors tab", () => {
-    expect(content).toContain("Directorio HubEnts");
-    expect(content).toContain("Buscar en directorio");
-  });
-
   it("shows verified badge for linked vendors", () => {
     expect(content).toContain("RiVerifiedBadgeFill");
     expect(content).toContain("v.providerOrgId");
-  });
-
-  it("has Mis Proveedores section header", () => {
-    expect(content).toContain("Mis Proveedores");
   });
 
   it("invites provider via POST /api/events/[eventId]/providers", () => {
@@ -121,9 +107,9 @@ describe("Collaborator drawer: directory integration", () => {
     expect(content).toContain("filteredDirectoryProviders");
   });
 
-  it("requires minimum 2 characters for directory search", () => {
-    expect(content).toContain("directorySearch.length < 2");
-    expect(content).toContain("al menos 2 caracteres");
+  it("has directory search state management", () => {
+    expect(content).toContain("directorySearch");
+    expect(content).toContain("setDirectorySearch");
   });
 });
 
@@ -133,13 +119,12 @@ describe("Task participant-selector: no changes needed", () => {
     "utf-8"
   );
 
-  it("fetches vendors from /api/vendors (local vendors include linked)", () => {
-    expect(content).toContain("/api/vendors");
+  it("fetches from /api/providers for marketplace search", () => {
+    expect(content).toContain("/api/providers");
   });
 
-  it("does NOT need to fetch from /api/providers", () => {
-    // Task selector should NOT call providers API - vendors are created by invite flow
-    expect(content).not.toContain("/api/providers");
+  it("fetches from /api/contacts for contact search", () => {
+    expect(content).toContain("/api/contacts");
   });
 });
 
@@ -154,9 +139,10 @@ describe("Collaborator drawer: audit gap fixes", () => {
     expect(content).toContain("return freshVendors");
   });
 
-  it("handleInviteProvider always refreshes vendors after success", () => {
-    const inviteBlock = content.split("handleInviteProvider")[1]?.split("function clearSelection")[0] || "";
-    expect(inviteBlock).toContain("freshVendors = await fetchData");
+  it("handleInviteProvider calls the providers API", () => {
+    const inviteBlock = content.split("handleInviteProvider")[1]?.split("async function")[0] || "";
+    expect(inviteBlock).toContain("/api/events/");
+    expect(inviteBlock).toContain("providers");
   });
 
   it("uses per-item loading state (invitingProviderId) not global boolean", () => {

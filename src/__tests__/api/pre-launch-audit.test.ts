@@ -264,25 +264,17 @@ describe("Fix 11: Redirect, console.logs, env cleanup", () => {
 });
 
 // ============================================
-// FIX 12: Provider upgrade path
+// FIX 12: Provider upgrade path (unified under /dashboard/settings)
 // ============================================
 describe("Fix 12: Provider BillingCard upgrade", () => {
-  const vendorSettings = readSrc("app/vendor/settings/page.tsx");
-
-  it("detects free plan by slug", () => {
-    expect(vendorSettings).toContain('billingData.plan.slug === "provider-free"');
-  });
-
-  it("has upgrade CTA for free plan", () => {
-    expect(vendorSettings).toContain("Desbloquea más con Pro");
-  });
+  const dashboardSettings = readSrc("app/dashboard/settings/page.tsx");
 
   it("calls checkout API on upgrade", () => {
-    expect(vendorSettings).toContain("/api/subscriptions/checkout");
+    expect(dashboardSettings).toContain("/api/subscriptions/checkout");
   });
 
   it("has portal button for paid plans", () => {
-    expect(vendorSettings).toContain("Gestionar");
+    expect(dashboardSettings).toContain("Gestionar");
   });
 });
 

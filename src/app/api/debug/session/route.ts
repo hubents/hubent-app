@@ -184,7 +184,7 @@ export async function GET() {
     const hasErrors = (diagnostics.errors as string[]).length > 0;
     diagnostics.status = hasErrors ? "ISSUES_FOUND" : "ALL_OK";
     diagnostics.canCreateEvents = !hasErrors && role.slug !== "viewer";
-    diagnostics.canCreateVendors = !hasErrors && ["owner", "admin", "planner"].includes(role.slug);
+    diagnostics.canCreateVendors = !hasErrors && ["owner", "admin", "manager"].includes(role.slug);
     diagnostics.canManageTeam = !hasErrors && ["owner", "admin"].includes(role.slug);
 
     return NextResponse.json(diagnostics);
@@ -218,8 +218,8 @@ export async function POST() {
     const requiredRoles = [
       { name: "Owner", slug: "owner", description: "Full access to organization" },
       { name: "Admin", slug: "admin", description: "Administrative access" },
-      { name: "Planner", slug: "planner", description: "Event planning access" },
-      { name: "Assistant", slug: "assistant", description: "Assistant access" },
+      { name: "Manager", slug: "manager", description: "Event management access" },
+      { name: "Staff", slug: "staff", description: "Staff access" },
       { name: "Accountant", slug: "accountant", description: "Financial access" },
       { name: "Viewer", slug: "viewer", description: "Read-only access" },
     ];

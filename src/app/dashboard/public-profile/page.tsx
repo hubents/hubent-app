@@ -91,7 +91,7 @@ export default function PublicProfilePage() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch("/api/vendor/profile");
+      const res = await fetch("/api/organizations/profile");
       if (res.ok) {
         const { data } = await res.json();
         setProfile(data);
@@ -118,7 +118,7 @@ export default function PublicProfilePage() {
       if (Array.isArray(payload.instagramPosts)) {
         payload.instagramPosts = (payload.instagramPosts as string[]).filter((u) => u.trim().length > 0);
       }
-      const res = await fetch("/api/vendor/profile", {
+      const res = await fetch("/api/organizations/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

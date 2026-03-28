@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUserSession } from "@/hooks/use-user-session";
 
 interface Task {
   id: number;
@@ -38,6 +39,7 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { orgType } = useUserSession();
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -51,41 +53,55 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       const qs = params.toString();
       const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
 
-      const response = await fetch(url);
-      const result = await response.json();
+      const fetches: Promise<Response>[] = [fetch(url)];
 
-      if (result.success) {
-        const taskList = result.data || [];
-        setTasks(taskList);
+      // For provider orgs, also fetch collaborated tasks (from events they're invited to)
+      if (orgType === "provider" && !eventId) {
+        fetches.push(fetch("/api/tasks?scope=collaborated"));
+      }
 
-        // Calculate stats
-        const total = taskList.length;
-        const completed = taskList.filter(
-          (t: Task) => t.status === "completed",
-        ).length;
-        const inProgress = taskList.filter(
-          (t: Task) => t.status === "in_progress",
-        ).length;
-        const pending = taskList.filter(
-          (t: Task) => t.status === "pending",
-        ).length;
+      const responses = await Promise.all(fetches);
+      const results = await Promise.all(responses.map(r => r.json()));
 
-        setStats({
-          total,
-          pending,
-          inProgress,
-          completed,
-          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-        });
-      } else {
-        setError(result.error?.message ?? "Failed to fetch tasks");
+      const ownTasks: Task[] = results[0]?.success ? results[0].data || [] : [];
+      const collabTasks: Task[] = results[1]?.success ? results[1].data || [] : [];
+
+      // Merge and deduplicate by task id
+      const taskMap = new Map<number, Task>();
+      for (const t of ownTasks) taskMap.set(t.id, t);
+      for (const t of collabTasks) if (!taskMap.has(t.id)) taskMap.set(t.id, t);
+      const taskList = Array.from(taskMap.values());
+
+      setTasks(taskList);
+
+      const total = taskList.length;
+      const completed = taskList.filter(
+        (t: Task) => t.status === "completed",
+      ).length;
+      const inProgress = taskList.filter(
+        (t: Task) => t.status === "in_progress",
+      ).length;
+      const pending = taskList.filter(
+        (t: Task) => t.status === "pending",
+      ).length;
+
+      setStats({
+        total,
+        pending,
+        inProgress,
+        completed,
+        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      });
+
+      if (!results[0]?.success) {
+        setError(results[0]?.error?.message ?? "Failed to fetch tasks");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch");
     } finally {
       setLoading(false);
     }
-  }, [eventId, scope]);
+  }, [eventId, scope, orgType]);
 
   useEffect(() => {
     fetchTasks();

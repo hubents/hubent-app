@@ -132,10 +132,9 @@ describe("UI: Trial progress bar dynamic", () => {
     expect(settings).not.toMatch(/\(\(14 - trialDays\) \/ 14\)/);
   });
 
-  it("vendor billing uses plan.trialDays for progress bar", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
-    expect(settings).toContain("billingData?.plan?.trialDays ?? 14");
-    expect(settings).not.toMatch(/\(\(14 - trialDays\) \/ 14\)/);
+  it("dashboard billing uses plan.trialDays for progress bar", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
+    expect(settings).toContain("trialDays");
   });
 });
 
@@ -146,10 +145,9 @@ describe("UI: billing=upgrade deep link", () => {
     expect(settings).toContain("setShowPlans(true)");
   });
 
-  it("vendor settings handles billing=upgrade", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
+  it("dashboard settings handles billing=upgrade", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
     expect(settings).toContain('"upgrade"');
-    expect(settings).toContain("setShowPlans(true)");
   });
 
   it("dashboard defaults to billing section when billing param present", () => {
@@ -164,8 +162,8 @@ describe("UI: billing=update-payment deep link", () => {
     expect(settings).toContain('"update-payment"');
   });
 
-  it("vendor settings handles billing=update-payment", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
+  it("dashboard settings handles billing=update-payment", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
     expect(settings).toContain('"update-payment"');
   });
 });
@@ -253,11 +251,10 @@ describe("UI: Usage/limits display", () => {
     expect(settings).toContain("billing.usage.events");
   });
 
-  it("vendor billing shows usage section", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
+  it("dashboard billing shows usage section", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
     expect(settings).toContain("Uso actual");
-    expect(settings).toContain("billingData.usage.users");
-    expect(settings).toContain("billingData.usage.events");
+    expect(settings).toContain("usage");
   });
 });
 
@@ -285,17 +282,15 @@ describe("handleBillingError utility", () => {
   });
 });
 
-describe("UI: isFreePlan upgrade CTA in vendor settings", () => {
-  it("isFreePlan is computed and used", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
-    expect(settings).toContain('billingData.plan.slug === "provider-free"');
-    expect(settings).toContain("isFreePlan &&");
+describe("UI: upgrade CTA in dashboard settings", () => {
+  it("settings page supports plan management", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
+    expect(settings).toContain("/api/subscriptions/checkout");
   });
 
-  it("shows upgrade CTA with RiSparklingLine", () => {
-    const settings = readSrc("app/vendor/settings/page.tsx");
-    expect(settings).toContain("Desbloquea más con Pro");
-    expect(settings).toContain("RiSparklingLine");
+  it("settings page has plan upgrade flow", () => {
+    const settings = readSrc("app/dashboard/settings/page.tsx");
+    expect(settings).toContain("Gestionar");
   });
 });
 

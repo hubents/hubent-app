@@ -6,8 +6,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 /**
- * GET /api/vendor/profile
- * Returns current provider org profile (all public-profile-relevant fields)
+ * GET /api/organizations/profile
+ * Returns current org profile (all public-profile-relevant fields)
  */
 export async function GET() {
   try {
@@ -56,7 +56,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/vendor/profile error:", error);
+    console.error("GET /api/organizations/profile error:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch profile";
     const status = message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(
@@ -123,8 +123,8 @@ function calculateProfileCompleteness(org: Record<string, unknown>): number {
 }
 
 /**
- * PATCH /api/vendor/profile
- * Update provider org profile
+ * PATCH /api/organizations/profile
+ * Update org profile
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -194,7 +194,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: { updated: true, profileCompleteness: updates.profileCompleteness } });
   } catch (error) {
-    console.error("PATCH /api/vendor/profile error:", error);
+    console.error("PATCH /api/organizations/profile error:", error);
     const message = error instanceof Error ? error.message : "Failed to update profile";
     const status = message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(

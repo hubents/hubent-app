@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, organizations } from "@/db/schema";
+import { providerEventAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { isMarketplaceType } from "@/lib/tenant-type";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -13,26 +12,14 @@ const actionSchema = z.object({
 });
 
 /**
- * PATCH /api/vendor/events/[accessId]
- * Accept or reject an event invitation (provider side)
+ * PATCH /api/events/collaborations/[accessId]
+ * Accept or reject an event collaboration invitation
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requireAuth();
     const { accessId } = await params;
     const aid = parseInt(accessId);
-
-    // Verify caller is a provider org
-    const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, session.organizationId),
-      columns: { orgType: true },
-    });
-    if (!org || !isMarketplaceType(org.orgType || "")) {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Not a provider organization" } },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const parsed = actionSchema.safeParse(body);
@@ -43,7 +30,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Find the access record, ensure it belongs to this provider org
     const access = await db.query.providerEventAccess.findFirst({
       where: and(
         eq(providerEventAccess.id, aid),
@@ -81,7 +67,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: { id: aid, status: newStatus },
     });
   } catch (error) {
-    console.error("PATCH /api/vendor/events/[accessId] error:", error);
+    console.error("PATCH /api/events/collaborations/[accessId] error:", error);
     const message = error instanceof Error ? error.message : "Failed to update invitation";
     const status = message.includes("Unauthorized") ? 401 : 500;
     return NextResponse.json(

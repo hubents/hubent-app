@@ -339,39 +339,25 @@ export async function getOrgPlanInfo(orgId: number): Promise<PlanInfo | null> {
 // PERMISSION HELPERS
 // ============================================
 
-// Role hierarchy (higher index = more permissions).
+// Unified role hierarchy (higher index = more permissions).
 // "client" is below "viewer" -- most restricted event-scoped role.
 const ROLE_HIERARCHY: TenantRole[] = [
   "client",
   "viewer",
   "accountant",
-  "assistant",
-  "planner",
+  "staff",
+  "manager",
   "admin",
   "owner",
-];
-
-// Provider role hierarchy (separate track)
-const PROVIDER_ROLE_HIERARCHY: TenantRole[] = [
-  "provider_tech",
-  "provider_admin",
-  "provider_owner",
 ];
 
 /**
  * Check if a role has at least the required level
  */
 export function hasRoleLevel(userRole: TenantRole, requiredRole: TenantRole): boolean {
-  // Check if roles are in provider hierarchy
-  const isProviderUser = PROVIDER_ROLE_HIERARCHY.includes(userRole);
-  const isProviderRequired = PROVIDER_ROLE_HIERARCHY.includes(requiredRole);
-
-  // Cross-hierarchy comparison: provider roles can't match tenant requirements and vice versa
-  if (isProviderUser !== isProviderRequired) return false;
-
-  const hierarchy = isProviderUser ? PROVIDER_ROLE_HIERARCHY : ROLE_HIERARCHY;
-  const userLevel = hierarchy.indexOf(userRole);
-  const requiredLevel = hierarchy.indexOf(requiredRole);
+  const userLevel = ROLE_HIERARCHY.indexOf(userRole);
+  const requiredLevel = ROLE_HIERARCHY.indexOf(requiredRole);
+  if (userLevel === -1 || requiredLevel === -1) return false;
   return userLevel >= requiredLevel;
 }
 
@@ -388,8 +374,7 @@ export function hasPermission(
   }
 
   // Owner and admin have all permissions within their org
-  if (session.role === "owner" || session.role === "admin" ||
-      session.role === "provider_owner") {
+  if (session.role === "owner" || session.role === "admin") {
     return { allowed: true };
   }
 
@@ -418,19 +403,14 @@ export function canManageUsers(session: TenantSession): PermissionCheck {
     return { allowed: true };
   }
 
-  // Planners can invite vendors and clients
-  if (session.role === "planner") {
-    return { allowed: true };
-  }
-
-  // Provider owners and admins can manage their team
-  if (session.role === "provider_owner" || session.role === "provider_admin") {
+  // Managers can invite team members
+  if (session.role === "manager") {
     return { allowed: true };
   }
 
   return {
     allowed: false,
-    reason: "Only admins and planners can manage users",
+    reason: "Only admins and managers can manage users",
   };
 }
 

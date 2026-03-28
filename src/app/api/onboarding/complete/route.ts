@@ -91,20 +91,18 @@ export async function POST(request: NextRequest) {
         .set(updateData)
         .where(eq(organizations.id, userOrg.id));
 
-      // Provider team invitations use provider_admin role
       if (teamEmails && teamEmails.length > 0) {
         let teamRole = await db.query.roles.findFirst({
-          where: eq(roles.slug, "provider_admin"),
+          where: eq(roles.slug, "admin"),
         });
 
         if (!teamRole) {
-          // Create provider_admin role if it doesn't exist yet
           const [createdRole] = await db
             .insert(roles)
             .values({
-              name: "Provider Admin",
-              slug: "provider_admin",
-              description: "Administrador de organización proveedora",
+              name: "Admin",
+              slug: "admin",
+              description: "Administrador - gestión completa",
               isSystem: true,
             })
             .returning();
@@ -146,19 +144,18 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Planner team invitations use planner role
       if (teamEmails && teamEmails.length > 0) {
         let memberRole = await db.query.roles.findFirst({
-          where: eq(roles.slug, "planner"),
+          where: eq(roles.slug, "manager"),
         });
 
         if (!memberRole) {
           const [createdRole] = await db
             .insert(roles)
             .values({
-              name: "Planner",
-              slug: "planner",
-              description: "Planificador de eventos",
+              name: "Manager",
+              slug: "manager",
+              description: "Gestor - eventos, tareas, CRM, proveedores, formularios",
               isSystem: true,
             })
             .returning();

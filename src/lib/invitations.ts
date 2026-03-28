@@ -371,6 +371,24 @@ export async function addTaskParticipant(
     addedBy: session.user.userId,
   }).returning();
 
+  // Auto-create providerEventAccess when vendor linked to a provider org gets task participation
+  if (params.vendorId && task.eventId) {
+    try {
+      const { getProviderOrgForVendor, ensureProviderEventAccess } = await import("@/lib/cross-org");
+      const providerOrgId = await getProviderOrgForVendor(params.vendorId);
+      if (providerOrgId) {
+        await ensureProviderEventAccess(
+          providerOrgId,
+          task.eventId,
+          session.organizationId,
+          session.user.userId
+        );
+      }
+    } catch (accessError) {
+      console.error("Failed to ensure provider event access:", accessError);
+    }
+  }
+
   // Send email notification to contact if contactId is provided
   if (params.contactId) {
     try {

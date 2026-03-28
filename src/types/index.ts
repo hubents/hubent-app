@@ -3,18 +3,15 @@
 // ============================================
 
 // User roles within a tenant (organization).
-// Each orgType has a subset of these roles enforced by getAvailableRoles().
+// Universal across all org types. Each orgType uses a subset via getAvailableRoles().
 export type TenantRole = 
   | "owner"           // Full control, can delete org
   | "admin"           // Full control except delete org
-  | "planner"         // Event planner - main user
-  | "assistant"       // Planner assistant (eventScoped)
+  | "manager"         // Main working role (events, tasks, CRM, vendors, forms)
   | "accountant"      // Finance only
+  | "staff"           // Limited working role (eventScoped)
   | "viewer"          // Read only (eventScoped)
-  | "client"          // Client with limited event access (eventScoped)
-  | "provider_owner"  // Provider org owner
-  | "provider_admin"  // Provider org admin
-  | "provider_tech";  // Provider technician
+  | "client";         // Client with limited event access (eventScoped)
 
 // Organization types
 export type OrgType = "tenant" | "provider" | "client";

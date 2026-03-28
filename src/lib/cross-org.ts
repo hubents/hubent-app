@@ -117,6 +117,40 @@ export async function ensureEventVendor(
 }
 
 /**
+ * Ensure a providerEventAccess row exists for a provider org on an event.
+ * If none exists, creates one with status 'active'.
+ * Used when a vendor linked to a provider org gets task participation.
+ */
+export async function ensureProviderEventAccess(
+  providerOrgId: number,
+  eventId: number,
+  plannerOrgId: number,
+  invitedBy: string
+): Promise<void> {
+  const existing = await db.query.providerEventAccess.findFirst({
+    where: and(
+      eq(providerEventAccess.providerOrgId, providerOrgId),
+      eq(providerEventAccess.eventId, eventId)
+    ),
+  });
+
+  if (existing) return;
+
+  const vendorId = await getVendorForProviderOrg(plannerOrgId, providerOrgId);
+
+  await db.insert(providerEventAccess).values({
+    providerOrgId,
+    eventId,
+    plannerOrgId,
+    vendorId,
+    status: "active",
+    invitedBy,
+    invitedAt: new Date(),
+    acceptedAt: new Date(),
+  });
+}
+
+/**
  * Get all provider event access records for a given provider org.
  */
 export async function getProviderAccessForOrg(providerOrgId: number) {

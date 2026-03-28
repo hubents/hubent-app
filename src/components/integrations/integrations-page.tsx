@@ -23,8 +23,6 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
   const canManage =
     role === "owner" ||
     role === "admin" ||
-    role === "provider_owner" ||
-    role === "provider_admin" ||
     can("integrations:manage");
 
   useEffect(() => {

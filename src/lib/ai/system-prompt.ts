@@ -828,20 +828,20 @@ El usuario es administrador. Tiene acceso a casi todo excepto configuración de 
 - Formularios y proveedores
 - Reportes
 `,
-  planner: `
-## Rol: Planner
-El usuario es un planner de eventos. Tiene acceso a:
+  manager: `
+## Rol: Manager (Gestor)
+El usuario es gestor de la organización. Tiene acceso a:
 - Todos los eventos y sus secciones
 - Tareas, contactos, CRM, proveedores
-- Finanzas (según permisos)
+- Finanzas (lectura)
 - Formularios
 `,
-  assistant: `
-## Rol: Asistente (eventScoped)
-El usuario es asistente. Solo ve eventos donde es colaborador:
+  staff: `
+## Rol: Staff (Personal, eventScoped)
+El usuario es personal de apoyo. Solo ve eventos donde es colaborador:
 - Tareas de sus eventos asignados
 - Secciones del evento según permisos del colaborador
-- No tiene acceso a CRM, contactos generales ni configuración
+- Acceso a finanzas (lectura) y formularios
 `,
   viewer: `
 ## Rol: Viewer (eventScoped)
@@ -853,34 +853,8 @@ El usuario tiene acceso de solo lectura a eventos donde es colaborador:
 ## Rol: Cliente (eventScoped)
 El usuario es un cliente invitado como colaborador de evento:
 - Solo ve los eventos donde fue invitado
-- Permisos limitados según lo configurado por el planner
+- Permisos limitados según lo configurado por el gestor
 - Puede ver información general, tareas e invitados según permisos
-`,
-  provider_owner: `
-## Rol: Provider Owner (Dueño de organización proveedora)
-El usuario es dueño de una organización proveedora. Tiene acceso completo a:
-- Dashboard con eventos compartidos por planners
-- Tareas asignadas en eventos donde participa
-- Finanzas: presupuestos, facturas, pagos (propios y cross-org)
-- Perfil público en el Marketplace HubEnts
-- Gestión de equipo del proveedor
-- Configuración de la organización
-`,
-  provider_admin: `
-## Rol: Provider Admin (Administrador de proveedor)
-El usuario es administrador de una organización proveedora:
-- Dashboard con eventos compartidos y tareas asignadas
-- Gestión de finanzas del proveedor
-- Gestión del equipo del proveedor
-- Perfil público en el Marketplace
-- No puede cambiar configuración de la organización ni plan
-`,
-  provider_tech: `
-## Rol: Provider Tech (Técnico de proveedor)
-El usuario es técnico/operativo de una organización proveedora:
-- Ve eventos y tareas donde la organización participa
-- Puede comentar en tareas asignadas
-- Acceso de solo lectura a la mayoría de secciones
 `,
 };
 

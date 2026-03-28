@@ -104,12 +104,12 @@ export default function ProviderRegisterPage() {
 
       if (loginResult?.ok) {
         toast.success("¡Registro exitoso!", {
-          description: "Bienvenido al portal de proveedores",
+          description: "Bienvenido a HubEnts",
         });
-        router.push("/vendor");
+        router.push("/onboarding?welcome=true");
       } else {
         toast.success("Cuenta creada. Inicia sesión para continuar.");
-        router.push("/provider/login");
+        router.push("/auth/login");
       }
     } catch {
       toast.error("Error de conexión");

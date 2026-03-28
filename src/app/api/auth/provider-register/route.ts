@@ -108,23 +108,15 @@ export async function POST(request: NextRequest) {
 
     // Create membership (rollback org + user on failure)
     try {
-      // Find provider_owner role
-      let providerOwnerRole = await db.query.roles.findFirst({
-        where: eq(roles.slug, "provider_owner"),
+      let ownerRole = await db.query.roles.findFirst({
+        where: eq(roles.slug, "owner"),
       });
 
-      // Fallback to owner role if provider_owner doesn't exist yet
-      if (!providerOwnerRole) {
-        providerOwnerRole = await db.query.roles.findFirst({
-          where: eq(roles.slug, "owner"),
-        });
-      }
-
-      if (providerOwnerRole) {
+      if (ownerRole) {
         await db.insert(organizationMembers).values({
           userId: newUser.id,
           organizationId: newOrg.id,
-          roleId: providerOwnerRole.id,
+          roleId: ownerRole.id,
         });
       }
     } catch (memberError) {

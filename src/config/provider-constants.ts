@@ -45,12 +45,6 @@ export const PERMISSION_PROVIDER_PORTFOLIO_UPDATE = "provider_portfolio:update" 
 /** Read verification status. */
 export const PERMISSION_PROVIDER_VERIFICATION_READ = "provider_verification:read" as const;
 
-// ─── Role Slugs ───────────────────────────────────────────────────────────────
-
-export const ROLE_PROVIDER_OWNER = "provider_owner" as const;
-export const ROLE_PROVIDER_ADMIN = "provider_admin" as const;
-export const ROLE_PROVIDER_TECH = "provider_tech" as const;
-
 // ─── DB orgType Values ────────────────────────────────────────────────────────
 
 /** DB orgType for planner organizations. */

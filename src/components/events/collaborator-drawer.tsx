@@ -98,7 +98,7 @@ const LEVEL_LABELS: Record<string, string> = {
   edit: "Editar",
 };
 
-const BYPASS_ROLES = ["owner", "admin", "provider_owner"];
+const BYPASS_ROLES = ["owner", "admin"];
 
 const PRESETS = [
   { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", vendors: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },

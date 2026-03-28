@@ -10,7 +10,7 @@ const PUBLIC_ROUTES = ["/", "/api/auth", "/api/public", "/api/v1", "/components"
 
 const TENANT_AUTH_ROUTES = ["/auth"];
 
-const PROVIDER_AUTH_ROUTES = ["/provider/register", "/provider/login"];
+const PROVIDER_AUTH_ROUTES = ["/provider/register"];
 
 const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];
 
@@ -19,8 +19,6 @@ const ADMIN_PROTECTED_ROUTES = ["/admin"];
 const DASHBOARD_ROUTES = ["/dashboard", "/onboarding", "/billing", "/select-org"];
 
 const INVITE_ROUTES = ["/invite"];
-
-const VENDOR_PORTAL_ROUTES = ["/vendor"];
 
 const CLIENT_PORTAL_ROUTES = ["/client"];
 
@@ -80,7 +78,9 @@ export default auth((req) => {
 
   );
 
-  const isVendorPortal = VENDOR_PORTAL_ROUTES.some((route) => pathname.startsWith(route)) && !isProviderAuthRoute;
+  const isVendorPortal = pathname.startsWith("/vendor");
+
+  const isProviderLogin = pathname === "/provider/login";
 
   const isClientPortal = CLIENT_PORTAL_ROUTES.some((route) => pathname.startsWith(route));
 
@@ -104,7 +104,16 @@ export default auth((req) => {
 
   }
 
+  // Redirect /provider/login → /auth/login
+  if (isProviderLogin) {
+    return NextResponse.redirect(new URL("/auth/login", nextUrl));
+  }
 
+  // Redirect /vendor/* → /dashboard/* (portal unification)
+  if (isVendorPortal) {
+    const dashboardPath = pathname.replace(/^\/vendor/, "/dashboard");
+    return NextResponse.redirect(new URL(dashboardPath + nextUrl.search, nextUrl));
+  }
 
   // Tenant auth routes (/auth/*) - redirect to dashboard if already logged in
 
@@ -176,7 +185,7 @@ export default auth((req) => {
 
   // Dashboard and tenant protected routes
 
-  if (isDashboardRoute || isVendorPortal || isClientPortal) {
+  if (isDashboardRoute || isClientPortal) {
 
     if (!isLoggedIn) {
 

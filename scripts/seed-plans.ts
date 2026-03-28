@@ -129,6 +129,9 @@ const FEATURE_FLAGS = [
   { key: "custom_roles",     name: "Roles de usuarios",             description: "Crear y gestionar roles personalizados con permisos granulares", planSlugs: ["agency", "provider-pro"] },
   { key: "smart_date_block", name: "Bloqueo inteligente de fechas", description: "Bloquear fechas automáticamente al aceptar eventos",             planSlugs: ["provider-pro"] },
   { key: "recommended",      name: "Recomendado por planners",      description: "Aparecer como proveedor recomendado en búsquedas",               planSlugs: ["provider-pro"] },
+  // Plan-driven capabilities (replaces static tenant-types.ts config)
+  { key: "public_profile",   name: "Perfil público",                description: "Editar y publicar un perfil público en el marketplace",          planSlugs: ["starter", "standard", "agency", "provider-free", "provider-pro"] },
+  { key: "portfolio",        name: "Portfolio",                     description: "Gestionar un portfolio de imágenes y vídeos",                    planSlugs: ["provider-free", "provider-pro"] },
 ];
 
 async function seedPlans() {

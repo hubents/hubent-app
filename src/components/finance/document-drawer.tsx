@@ -231,7 +231,7 @@ export function DocumentDrawer({
   async function fetchReferenceData() {
     try {
       const [eventsRes, taxRatesRes, settingsRes, bankAccountsRes] = await Promise.all([
-        lockedEvent ? Promise.resolve(null) : fetch(eventsEndpoint || "/api/events?limit=100"),
+        lockedEvent ? Promise.resolve(null) : fetch(eventsEndpoint || "/api/events?scope=accessible"),
         fetch("/api/finance/tax-rates"),
         fetch("/api/finance/settings"),
         fetch("/api/finance/bank-accounts"),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission, requireEventSectionAccess } from "@/lib/session";
+import { requirePermission, requireAuth, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import {
   tasks,
@@ -8,22 +8,33 @@ import {
   eventParticipants,
   taskParticipants,
   providerEventAccess,
+  vendors,
+  organizationMembers,
 } from "@/db/schema";
-import { eq, and, desc, asc, sql, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, isNull, isNotNull, inArray } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/tasks - List tasks
+// Supports ?scope=collaborated (tasks from events invited via providerEventAccess)
 export const GET = withMonitoring(
   async (request: NextRequest) => {
-    const session = await requirePermission("tasks:read");
     const { searchParams } = new URL(request.url);
 
-    const eventId = searchParams.get("eventId");
     const scope = searchParams.get("scope") as
       | "standalone"
       | "event"
       | "all"
+      | "collaborated"
       | null;
+
+    if (scope === "collaborated") {
+      const session = await requireAuth();
+      return getCollaboratedTasks(session);
+    }
+
+    const session = await requirePermission("tasks:read");
+
+    const eventId = searchParams.get("eventId");
     const status = searchParams.get("status");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
@@ -103,6 +114,65 @@ export const GET = withMonitoring(
   },
   { name: "GET /api/tasks" },
 );
+
+async function getCollaboratedTasks(session: { organizationId: number; user: { userId: string } }) {
+  const accessList = await db
+    .select({ eventId: providerEventAccess.eventId })
+    .from(providerEventAccess)
+    .where(
+      and(
+        eq(providerEventAccess.providerOrgId, session.organizationId),
+        eq(providerEventAccess.status, "active")
+      )
+    );
+  const eventIds = accessList.map((a) => a.eventId);
+
+  if (eventIds.length === 0) {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
+  const linkedVendors = await db
+    .select({ id: vendors.id })
+    .from(vendors)
+    .where(eq(vendors.providerOrgId, session.organizationId));
+  const vendorIds = linkedVendors.map((v) => v.id);
+
+  const taskList = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      description: tasks.description,
+      status: tasks.status,
+      priority: tasks.priority,
+      dueDate: tasks.dueDate,
+      eventId: tasks.eventId,
+      eventName: events.name,
+      eventDate: events.date,
+      createdAt: tasks.createdAt,
+    })
+    .from(tasks)
+    .innerJoin(events, eq(events.id, tasks.eventId))
+    .where(
+      and(
+        inArray(tasks.eventId, eventIds),
+        sql`(
+          ${vendorIds.length > 0 ? sql`${tasks.id} IN (
+            SELECT ${taskParticipants.taskId}
+            FROM ${taskParticipants}
+            WHERE ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
+          )` : sql`FALSE`}
+          OR ${tasks.createdBy} IN (
+            SELECT ${organizationMembers.userId}
+            FROM ${organizationMembers}
+            WHERE ${organizationMembers.organizationId} = ${session.organizationId}
+          )
+        )`
+      )
+    )
+    .orderBy(desc(tasks.dueDate));
+
+  return NextResponse.json({ success: true, data: taskList });
+}
 
 // POST /api/tasks - Create task
 export const POST = withMonitoring(

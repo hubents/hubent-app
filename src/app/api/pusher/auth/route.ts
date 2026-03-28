@@ -199,7 +199,7 @@ async function verifyTaskAccess(userId: string, taskId: number): Promise<boolean
   if (participant) return true;
 
   // Check if user is an org member with planner+ role (can access all tasks)
-  const highRoles = ["planner", "admin", "owner", "super_admin", "provider_owner", "provider_admin"];
+  const highRoles = ["manager", "admin", "owner", "super_admin"];
   const [member] = await db
     .select({ roleId: organizationMembers.roleId })
     .from(organizationMembers)

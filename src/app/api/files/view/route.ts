@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     const r2PublicUrl = process.env.R2_PUBLIC_URL;
-    if (!r2PublicUrl || !url.startsWith(r2PublicUrl + "/")) {
+    if (!r2PublicUrl || !url.startsWith(r2PublicUrl)) {
       return NextResponse.json(
         { success: false, error: "Invalid file URL" },
         { status: 403 }

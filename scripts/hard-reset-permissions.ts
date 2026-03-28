@@ -47,10 +47,10 @@ const BASE_PERMISSIONS = [
 // ============================================
 // CANONICAL ROLE → PERMISSIONS MAPPING
 // ============================================
-// owner, admin, provider_owner have bypass — no rolePermissions needed
+// owner, admin have bypass — no rolePermissions needed
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  planner: [
+  manager: [
     "events:read", "events:create", "events:update",
     "tasks:read", "tasks:create", "tasks:update", "tasks:delete",
     "vendors:read", "vendors:create", "vendors:update",
@@ -60,18 +60,20 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "settings:read",
     "forms:read", "forms:create", "forms:update", "forms:delete",
   ],
-  assistant: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "forms:read",
-  ],
   accountant: [
     "events:read",
     "vendors:read",
     "finance:read", "finance:create", "finance:manage",
     "crm:read",
     "settings:read",
+  ],
+  staff: [
+    "events:read",
+    "tasks:read", "tasks:create", "tasks:update",
+    "vendors:read",
+    "finance:read",
+    "forms:read",
+    "team:read",
   ],
   viewer: [
     "events:read",
@@ -84,25 +86,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "events:read",
     "tasks:read",
   ],
-  provider_admin: [
-    "events:read",
-    "tasks:read", "tasks:create", "tasks:update",
-    "vendors:read",
-    "team:read",
-    "finance:read", "finance:create", "finance:manage",
-    "crm:read",
-    "settings:read",
-    "forms:read",
-  ],
-  provider_tech: [
-    "events:read",
-    "tasks:read", "tasks:update",
-    "forms:read",
-  ],
 };
 
 // Roles that should have eventScoped = true
-const EVENT_SCOPED_ROLES = ["assistant", "viewer", "client"];
+const EVENT_SCOPED_ROLES = ["staff", "viewer", "client"];
 
 // ============================================
 // MAIN
