@@ -23,6 +23,8 @@ import {
   RiMoreLine,
   RiFileCopyLine,
   RiFileList3Line,
+  RiEyeLine,
+  RiDownloadLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,6 +60,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileUploader } from "@/components/ui/file-uploader";
+import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 
 interface Event {
   id: number;
@@ -113,7 +116,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null)
   const [vendorService, setVendorService] = useState("")
   const [addingVendor, setAddingVendor] = useState(false);
-  const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string }>>([]);
+  const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string; type?: string; mimeType?: string | null }>>([]);
   const [guests, setGuests] = useState<Array<{ id: number; firstName: string; lastName: string }>>([]);
   const [showAddGuestDialog, setShowAddGuestDialog] = useState(false);
   const [showAddDocDialog, setShowAddDocDialog] = useState(false);
@@ -138,6 +141,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   }>>([]);
   const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
   const [eventForms, setEventForms] = useState<Array<{ id: number; formId: number; formName?: string; type: string; slug: string | null; submissionCount: number }>>([]);
+  const [docPreviewOpen, setDocPreviewOpen] = useState(false);
+  const [docPreviewIndex, setDocPreviewIndex] = useState(0);
+  const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
 
   // Set active event when loaded
   useEffect(() => {
@@ -350,6 +356,30 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       setAddingDoc(false);
     }
   };
+
+  const handleDeleteDocument = async (docId: number) => {
+    if (!confirm("¿Eliminar este documento?")) return;
+    setDeletingDocId(docId);
+    try {
+      const res = await fetch(`/api/events/${eventId}/documents?id=${docId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchDocuments();
+      }
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+
+  const docPreviewFiles = documents.map((d) => ({
+    id: d.id,
+    name: d.name,
+    url: d.url,
+    type: d.type || "file",
+    mimeType: d.mimeType ?? null,
+  }));
 
   if (loading) {
     return (
@@ -937,15 +967,46 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardContent>
             {documents.length > 0 ? (
               <div className="space-y-2">
-                {documents.map((doc) => (
-                  <button
+                {documents.map((doc, idx) => (
+                  <div
                     key={doc.id}
-                    onClick={() => downloadFile(doc.url, doc.name)}
-                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted transition-colors w-full text-left"
+                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted/50 transition-colors"
                   >
-                    <RiFileTextLine className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{doc.name}</span>
-                  </button>
+                    <RiFileTextLine className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-medium flex-1 min-w-0 truncate">{doc.name}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => { setDocPreviewIndex(idx); setDocPreviewOpen(true); }}
+                        title="Vista previa"
+                      >
+                        <RiEyeLine className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => downloadFile(doc.url, doc.name)}
+                        title="Descargar"
+                      >
+                        <RiDownloadLine className="h-3.5 w-3.5" />
+                      </Button>
+                      {canEdit("general") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          disabled={deletingDocId === doc.id}
+                          title="Eliminar"
+                        >
+                          <RiDeleteBinLine className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -955,6 +1016,14 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             )}
           </CardContent>
         </Card>
+
+        <FilePreviewDialog
+          open={docPreviewOpen}
+          onOpenChange={setDocPreviewOpen}
+          files={docPreviewFiles}
+          currentIndex={docPreviewIndex}
+          onIndexChange={setDocPreviewIndex}
+        />
 
         {/* Formularios */}
         <Card>

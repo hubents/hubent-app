@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { taskAttachments, tasks } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { deleteR2ByUrl } from "@/lib/r2";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -147,6 +148,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const [attachment] = await db
+      .select({ url: taskAttachments.url })
+      .from(taskAttachments)
+      .where(
+        and(
+          eq(taskAttachments.id, parseInt(attachmentId, 10)),
+          eq(taskAttachments.taskId, parseInt(taskId, 10))
+        )
+      );
+
     await db.delete(taskAttachments)
       .where(
         and(
@@ -154,6 +165,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           eq(taskAttachments.taskId, parseInt(taskId, 10))
         )
       );
+
+    if (attachment?.url) {
+      deleteR2ByUrl(attachment.url);
+    }
 
     return NextResponse.json({
       success: true,

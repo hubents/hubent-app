@@ -44,6 +44,10 @@ function isImage(file: PreviewFile): boolean {
   );
 }
 
+function getViewUrl(url: string): string {
+  return `/api/files/view?url=${encodeURIComponent(url)}`;
+}
+
 export function FilePreviewDialog({
   open,
   onOpenChange,
@@ -191,7 +195,7 @@ export function FilePreviewDialog({
           )}
           {fileIsPdf && (
             <iframe
-              src={file.url}
+              src={getViewUrl(file.url)}
               title={file.name}
               className="w-full max-w-5xl h-full rounded-lg shadow-2xl bg-white animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}

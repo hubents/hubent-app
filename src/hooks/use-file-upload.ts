@@ -134,7 +134,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
 
   const deleteFile = useCallback(async (url: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/upload?key=${encodeURIComponent(url)}`, {
+      // Extract R2 object key from the full public URL (e.g. "uploads/123-file.pdf")
+      const key = url.includes("/uploads/")
+        ? "uploads/" + url.split("/uploads/").pop()
+        : url;
+      const response = await fetch(`/api/upload?key=${encodeURIComponent(key)}`, {
         method: "DELETE",
       });
       const data = await response.json();

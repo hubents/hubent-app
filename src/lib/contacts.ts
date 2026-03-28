@@ -16,6 +16,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, isNull, ilike, or, sql, inArray } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
+import { deleteR2ByUrl } from "@/lib/r2";
 
 // ============================================
 // CONTACTS
@@ -521,7 +522,16 @@ export async function addContactDocument(
 }
 
 export async function deleteContactDocument(documentId: number) {
+  const [doc] = await db
+    .select({ url: contactDocuments.url })
+    .from(contactDocuments)
+    .where(eq(contactDocuments.id, documentId));
+
   await db.delete(contactDocuments).where(eq(contactDocuments.id, documentId));
+
+  if (doc?.url) {
+    deleteR2ByUrl(doc.url);
+  }
 }
 
 // ============================================
@@ -562,7 +572,16 @@ export async function addContactPhoto(
 }
 
 export async function deleteContactPhoto(photoId: number) {
+  const [photo] = await db
+    .select({ url: contactPhotos.url })
+    .from(contactPhotos)
+    .where(eq(contactPhotos.id, photoId));
+
   await db.delete(contactPhotos).where(eq(contactPhotos.id, photoId));
+
+  if (photo?.url) {
+    deleteR2ByUrl(photo.url);
+  }
 }
 
 // ============================================

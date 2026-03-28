@@ -36,7 +36,7 @@ interface FileUploaderProps {
   maxSize?: number;
   multiple?: boolean;
   blockVideos?: boolean;
-  onUpload: (result: { url: string; name: string; type: string; size: number }) => void;
+  onUpload: (result: { url: string; name: string; type: string; size: number; contentType: string }) => void;
   onError?: (error: string) => void;
   className?: string;
   variant?: "default" | "compact" | "dropzone";
@@ -67,6 +67,7 @@ export function FileUploader({
         name: result.name,
         type: result.type,
         size: result.size,
+        contentType: result.contentType,
       });
     },
     onError,

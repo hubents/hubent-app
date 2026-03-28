@@ -3,6 +3,7 @@ import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { events, eventDocuments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { deleteR2ByUrl } from "@/lib/r2";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -140,9 +141,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const [doc] = await db
+      .select({ url: eventDocuments.url })
+      .from(eventDocuments)
+      .where(eq(eventDocuments.id, parseInt(documentId, 10)));
+
     await db
       .delete(eventDocuments)
       .where(eq(eventDocuments.id, parseInt(documentId, 10)));
+
+    if (doc?.url) {
+      deleteR2ByUrl(doc.url);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

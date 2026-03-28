@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUploader } from "@/components/ui/file-uploader";
+import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 import {
   RiFolderLine,
   RiImageLine,
@@ -12,6 +13,7 @@ import {
   RiDeleteBinLine,
   RiAddLine,
   RiDownloadLine,
+  RiEyeLine,
   RiFilePdfLine,
   RiFileWordLine,
   RiFileExcelLine,
@@ -35,6 +37,14 @@ interface ContactDocument {
   size: number | null;
   mimeType: string | null;
   uploadedAt: string | null;
+}
+
+interface PreviewFile {
+  id: number;
+  name: string;
+  url: string;
+  type: string;
+  mimeType?: string | null;
 }
 
 interface ContactFilesTabProps {
@@ -63,6 +73,26 @@ function getFileIcon(mimeType: string | null) {
   return RiFileTextLine;
 }
 
+function photosToPreviewFiles(photos: ContactPhoto[]): PreviewFile[] {
+  return photos.map((p) => ({
+    id: p.id,
+    name: p.caption || `Foto ${p.id}`,
+    url: p.url,
+    type: "image",
+    mimeType: "image/jpeg",
+  }));
+}
+
+function docsToPreviewFiles(documents: ContactDocument[]): PreviewFile[] {
+  return documents.map((d) => ({
+    id: d.id,
+    name: d.name,
+    url: d.url,
+    type: d.type || "file",
+    mimeType: d.mimeType,
+  }));
+}
+
 export function ContactFilesTab({
   photos,
   documents,
@@ -78,16 +108,20 @@ export function ContactFilesTab({
   const [deletingPhoto, setDeletingPhoto] = useState<number | null>(null);
   const [deletingDoc, setDeletingDoc] = useState<number | null>(null);
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFiles, setPreviewFiles] = useState<PreviewFile[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
   const handlePhotoUpload = async (result: { url: string; name: string }) => {
     await onAddPhoto({ url: result.url });
     setShowPhotoUploader(false);
   };
 
-  const handleDocUpload = async (result: { url: string; name: string; type: string; size: number }) => {
+  const handleDocUpload = async (result: { url: string; name: string; type: string; size: number; contentType: string }) => {
     await onAddDocument({
       name: result.name,
       url: result.url,
-      mimeType: result.type,
+      mimeType: result.contentType,
       size: result.size,
     });
     setShowDocUploader(false);
@@ -105,6 +139,18 @@ export function ContactFilesTab({
     setDeletingDoc(docId);
     await onDeleteDocument(docId);
     setDeletingDoc(null);
+  };
+
+  const openPhotoPreview = (index: number) => {
+    setPreviewFiles(photosToPreviewFiles(photos));
+    setPreviewIndex(index);
+    setPreviewOpen(true);
+  };
+
+  const openDocPreview = (index: number) => {
+    setPreviewFiles(docsToPreviewFiles(documents));
+    setPreviewIndex(index);
+    setPreviewOpen(true);
   };
 
   if (loading) {
@@ -178,22 +224,43 @@ export function ContactFilesTab({
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-4">
-              {photos.map((photo) => (
+              {photos.map((photo, idx) => (
                 <div
                   key={photo.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border"
+                  className="relative group aspect-square rounded-lg overflow-hidden border cursor-pointer"
+                  onClick={() => openPhotoPreview(idx)}
                 >
                   <img
                     src={photo.thumbnail || photo.url}
                     alt={photo.caption || "Foto"}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => { e.stopPropagation(); openPhotoPreview(idx); }}
+                      title="Vista previa"
+                    >
+                      <RiEyeLine className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => { e.stopPropagation(); downloadFile(photo.url, photo.caption || `foto-${photo.id}.jpg`); }}
+                      title="Descargar"
+                    >
+                      <RiDownloadLine className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="destructive"
                       size="icon"
-                      onClick={() => handleDeletePhoto(photo.id)}
+                      className="h-8 w-8"
+                      onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id); }}
                       disabled={deletingPhoto === photo.id}
+                      title="Eliminar"
                     >
                       <RiDeleteBinLine className="h-4 w-4" />
                     </Button>
@@ -245,7 +312,7 @@ export function ContactFilesTab({
             </div>
           ) : (
             <div className="space-y-2">
-              {documents.map((doc) => {
+              {documents.map((doc, idx) => {
                 const FileIcon = getFileIcon(doc.mimeType);
                 return (
                   <div
@@ -262,16 +329,32 @@ export function ContactFilesTab({
                         {doc.uploadedAt && ` • ${new Date(doc.uploadedAt).toLocaleDateString()}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => downloadFile(doc.url, doc.name)}>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openDocPreview(idx)}
+                        title="Vista previa"
+                      >
+                        <RiEyeLine className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => downloadFile(doc.url, doc.name)}
+                        title="Descargar"
+                      >
                         <RiDownloadLine className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => handleDeleteDoc(doc.id)}
                         disabled={deletingDoc === doc.id}
-                        className="text-destructive hover:text-destructive"
+                        title="Eliminar"
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
@@ -283,6 +366,14 @@ export function ContactFilesTab({
           )}
         </TabsContent>
       </Tabs>
+
+      <FilePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        files={previewFiles}
+        currentIndex={previewIndex}
+        onIndexChange={setPreviewIndex}
+      />
     </div>
   );
 }

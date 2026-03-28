@@ -180,6 +180,15 @@ export function TaskChatMessage({ message, isOwnMessage = false, onDelete, onEma
                         <RiImageLine className="h-3 w-3" />
                         <span className="truncate">{attachment.name}</span>
                         {attachment.size && <span>({formatFileSize(attachment.size)})</span>}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs"
+                          onClick={() => downloadFile(attachment.url, attachment.name)}
+                        >
+                          <RiDownloadLine className="h-3 w-3 mr-0.5" />
+                          Descargar
+                        </Button>
                       </div>
                     </div>
                   );

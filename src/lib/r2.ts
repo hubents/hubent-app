@@ -55,7 +55,6 @@ export async function uploadToR2(
   const key = `uploads/${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
 
   try {
-    console.log("R2 uploading to:", config.bucketName, "key:", key);
     await client.send(
       new PutObjectCommand({
         Bucket: config.bucketName,
@@ -65,9 +64,7 @@ export async function uploadToR2(
       })
     );
 
-    // Return public URL
     const url = `${config.publicUrl}/${key}`;
-    console.log("R2 upload success:", url);
     return { url, key };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -97,6 +94,28 @@ export async function deleteFromR2(key: string): Promise<boolean> {
   } catch (error) {
     console.error("R2 delete error:", error);
     return false;
+  }
+}
+
+/**
+ * Extract the R2 object key from a full public URL.
+ * e.g. "https://pub-xxx.r2.dev/uploads/123-file.pdf" → "uploads/123-file.pdf"
+ */
+export function extractR2Key(url: string): string | null {
+  const publicUrl = process.env.R2_PUBLIC_URL;
+  if (!publicUrl || !url.startsWith(publicUrl)) return null;
+  return url.slice(publicUrl.length + 1); // +1 for the trailing "/"
+}
+
+/**
+ * Delete an R2 object by its public URL (fire-and-forget safe).
+ */
+export async function deleteR2ByUrl(url: string): Promise<void> {
+  const key = extractR2Key(url);
+  if (key) {
+    deleteFromR2(key).catch((err) =>
+      console.error("R2 cleanup failed for key:", key, err)
+    );
   }
 }
 
