@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
+import { organizations, organizationMembers, users, subscriptions, subscriptionPlans, events } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
 import { getConfigByDbOrgType } from "@/lib/tenant-type";
@@ -56,6 +56,12 @@ export async function GET(
       .from(organizationMembers)
       .where(eq(organizationMembers.organizationId, tenantId));
 
+    // Get events count
+    const [eventsCount] = await db
+      .select({ count: count() })
+      .from(events)
+      .where(eq(events.organizationId, tenantId));
+
     // Get subscription info
     const [subscription] = await db
       .select({
@@ -79,6 +85,7 @@ export async function GET(
       owner: owner ? { id: owner.id, name: owner.name, email: owner.email } : null,
       verifiedByUser,
       membersCount: membersCount?.count || 0,
+      eventsCount: eventsCount?.count || 0,
       subscription,
       typeConfig: typeConfig
         ? {

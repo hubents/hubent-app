@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, platformAdmins, verificationTokens } from "@/db/schema";
+import { users, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { requirePlatformAdmin } from "@/lib/session";
+import { sendVerificationEmail } from "@/lib/email";
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
+}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    await requirePlatformAdmin();
 
     const { id } = await params;
 
@@ -41,7 +33,6 @@ export async function POST(
       );
     }
 
-    // Create verification token
     const token = crypto.randomUUID();
     const expires = new Date();
     expires.setHours(expires.getHours() + 24);
@@ -52,10 +43,9 @@ export async function POST(
       expires,
     });
 
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
+    const verifyUrl = `${getAppUrl()}/auth/verify?token=${token}`;
 
-    // Send verification email
-    await sendPasswordResetEmail(user.email, verifyUrl);
+    await sendVerificationEmail(user.email, verifyUrl);
 
     return NextResponse.json({ 
       success: true, 

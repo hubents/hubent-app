@@ -16,6 +16,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Building2,
   Store,
   Users,
@@ -35,9 +42,12 @@ import {
   MapPin,
   ShieldCheck,
   User,
+  UserMinus,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
+import { toast, Toaster } from "sonner";
 
 interface Tenant {
   id: number;
@@ -79,6 +89,25 @@ interface Subscription {
   currentPeriodEnd: string | null;
 }
 
+interface Member {
+  membershipId: number;
+  userId: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  userStatus: string;
+  roleId: number;
+  roleName: string;
+  roleSlug: string;
+  joinedAt: string | null;
+}
+
+interface AvailableRole {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 interface TypeConfig {
   slug: string;
   label: string;
@@ -110,6 +139,7 @@ export default function TenantDetailPage() {
   const [owner, setOwner] = useState<{ id: string; name: string | null; email: string } | null>(null);
   const [verifiedByUser, setVerifiedByUser] = useState<{ id: string; name: string | null; email: string } | null>(null);
   const [membersCount, setMembersCount] = useState(0);
+  const [eventsCount, setEventsCount] = useState(0);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [typeConfig, setTypeConfig] = useState<TypeConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +149,16 @@ export default function TenantDetailPage() {
 
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Members state
+  const [members, setMembers] = useState<Member[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<AvailableRole[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [memberActionLoading, setMemberActionLoading] = useState<number | null>(null);
+  const [removeMemberDialog, setRemoveMemberDialog] = useState<{ open: boolean; member: Member | null }>({
+    open: false,
+    member: null,
+  });
 
   useEffect(() => {
     fetchTenant();
@@ -138,12 +178,84 @@ export default function TenantDetailPage() {
       setOwner(data.owner);
       setVerifiedByUser(data.verifiedByUser);
       setMembersCount(data.membersCount || 0);
+      setEventsCount(data.eventsCount || 0);
       setSubscription(data.subscription);
       setTypeConfig(data.typeConfig);
     } catch {
       setError("Error de conexión");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    setMembersLoading(true);
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}/members`);
+      const data = await res.json();
+      if (res.ok) {
+        setMembers(data.members || []);
+        setAvailableRoles(data.availableRoles || []);
+      }
+    } catch {
+      // silent — members section is supplementary
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tenant) {
+      fetchMembers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenant?.id]);
+
+  const handleChangeRole = async (membershipId: number, roleId: number) => {
+    setMemberActionLoading(membershipId);
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membershipId, roleId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Error al cambiar rol");
+        return;
+      }
+      toast.success(data.message || "Rol actualizado");
+      fetchMembers();
+      fetchTenant();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setMemberActionLoading(null);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!removeMemberDialog.member) return;
+    setMemberActionLoading(removeMemberDialog.member.membershipId);
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}/members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membershipId: removeMemberDialog.member.membershipId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Error al remover miembro");
+        return;
+      }
+      toast.success("Miembro removido");
+      setRemoveMemberDialog({ open: false, member: null });
+      fetchMembers();
+      fetchTenant();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setMemberActionLoading(null);
     }
   };
 
@@ -364,7 +476,7 @@ export default function TenantDetailPage() {
                 <Calendar className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">-</p>
+                <p className="text-2xl font-bold">{eventsCount}</p>
                 <p className="text-sm text-muted-foreground">Eventos</p>
               </div>
             </div>
@@ -613,6 +725,140 @@ export default function TenantDetailPage() {
         )}
       </div>
 
+      {/* Members section */}
+      <Card className="mt-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Miembros ({members.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {membersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : members.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No hay miembros en esta organización
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left p-3 font-medium text-muted-foreground text-sm">Usuario</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground text-sm">Email</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground text-sm">Rol</th>
+                  <th className="text-left p-3 font-medium text-muted-foreground text-sm">Desde</th>
+                  <th className="text-right p-3 font-medium text-muted-foreground text-sm">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((member) => {
+                  const isOwner = tenant?.ownerId === member.userId;
+                  return (
+                    <tr key={member.membershipId} className="border-b border-border last:border-0 hover:bg-muted/50">
+                      <td className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                            {member.image ? (
+                              <img src={member.image} alt={member.name || ""} className="w-8 h-8 rounded-full object-cover" />
+                            ) : (
+                              <User className="h-4 w-4 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">
+                              {member.name || "Sin nombre"}
+                              {isOwner && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium">
+                                  Owner
+                                </span>
+                              )}
+                            </p>
+                            {member.userStatus === "suspended" && (
+                              <Badge variant="destructive" className="text-[10px] px-1 py-0">Suspendido</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                          {member.email}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        {memberActionLoading === member.membershipId ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Select
+                            value={member.roleId.toString()}
+                            onValueChange={(val) => handleChangeRole(member.membershipId, parseInt(val))}
+                          >
+                            <SelectTrigger className="w-[160px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableRoles.map((role) => (
+                                <SelectItem key={role.id} value={role.id.toString()}>
+                                  {role.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </td>
+                      <td className="p-3 text-sm text-muted-foreground">
+                        {member.joinedAt
+                          ? new Date(member.joinedAt).toLocaleDateString("es-AR")
+                          : "-"}
+                      </td>
+                      <td className="p-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          disabled={isOwner || memberActionLoading === member.membershipId}
+                          onClick={() => setRemoveMemberDialog({ open: true, member })}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Remove member dialog */}
+      <AlertDialog
+        open={removeMemberDialog.open}
+        onOpenChange={(open) => setRemoveMemberDialog({ ...removeMemberDialog, open })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover miembro</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de remover a <strong>{removeMemberDialog.member?.name || removeMemberDialog.member?.email}</strong> de esta organización?
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveMember}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Reject dialog */}
       <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <AlertDialogContent>
@@ -648,6 +894,8 @@ export default function TenantDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Toaster position="top-right" />
     </div>
   );
 }

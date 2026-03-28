@@ -15,12 +15,15 @@ import {
   Shield,
   Calendar,
   Building2,
+  Store,
   CheckCircle2,
   XCircle,
   Clock,
   AlertTriangle,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 interface UserDetail {
   id: string;
@@ -42,6 +45,8 @@ interface UserDetail {
     name: string;
     slug: string;
     logo: string | null;
+    orgType: string;
+    orgStatus: string;
     role: string;
     joinedAt: string | null;
   }[];
@@ -52,6 +57,18 @@ interface UserDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const ORG_TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof Building2 }> = {
+  tenant: { label: "Planificador", color: "bg-blue-500/10 text-blue-600", icon: Building2 },
+  provider: { label: "Proveedor", color: "bg-purple-500/10 text-purple-600", icon: Store },
+  client: { label: "Cliente", color: "bg-gray-500/10 text-gray-600", icon: Users },
+};
+
+const ORG_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  active: { label: "Activo", color: "bg-green-500/10 text-green-600" },
+  suspended: { label: "Suspendido", color: "bg-yellow-500/10 text-yellow-600" },
+  deleted: { label: "Eliminado", color: "bg-red-500/10 text-red-600" },
+};
 
 export function UserDetailDrawer({
   userId,
@@ -73,18 +90,18 @@ export function UserDetailDrawer({
 
   const fetchUserDetail = async () => {
     if (!userId) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch(`/api/admin/users/${userId}`);
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || "Error al cargar usuario");
       }
-      
+
       setUser(data.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
@@ -158,7 +175,6 @@ export function UserDetailDrawer({
                   <span className="truncate">{user.email}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {/* Status badge */}
                   {user.status === "suspended" ? (
                     <Badge variant="destructive" className="gap-1">
                       <XCircle className="h-3 w-3" />
@@ -170,7 +186,6 @@ export function UserDetailDrawer({
                       Activo
                     </Badge>
                   )}
-                  {/* Verification badge */}
                   {user.emailVerified ? (
                     <Badge variant="secondary" className="gap-1">
                       <CheckCircle2 className="h-3 w-3" />
@@ -182,7 +197,6 @@ export function UserDetailDrawer({
                       Pendiente
                     </Badge>
                   )}
-                  {/* Admin badge */}
                   {user.isAdmin && (
                     <Badge className="gap-1 bg-red-500/10 text-red-500">
                       <Shield className="h-3 w-3" />
@@ -260,38 +274,57 @@ export function UserDetailDrawer({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {user.organizations.map((org) => (
-                    <div
-                      key={org.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-                          {org.logo ? (
-                            <img
-                              src={org.logo}
-                              alt={org.name}
-                              className="w-10 h-10 object-cover"
-                            />
-                          ) : (
-                            <Building2 className="h-5 w-5 text-primary" />
-                          )}
+                  {user.organizations.map((org) => {
+                    const typeConfig = ORG_TYPE_CONFIG[org.orgType] || ORG_TYPE_CONFIG.tenant;
+                    const statusConfig = ORG_STATUS_CONFIG[org.orgStatus] || ORG_STATUS_CONFIG.active;
+                    const TypeIcon = typeConfig.icon;
+                    return (
+                      <div
+                        key={org.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+                            {org.logo ? (
+                              <img
+                                src={org.logo}
+                                alt={org.name}
+                                className="w-10 h-10 object-cover"
+                              />
+                            ) : (
+                              <TypeIcon className="h-5 w-5 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <Link
+                              href={`/admin/tenants/${org.id}`}
+                              className="font-medium hover:underline inline-flex items-center gap-1"
+                            >
+                              {org.name}
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            </Link>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-muted-foreground">/{org.slug}</p>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${typeConfig.color}`}>
+                                {typeConfig.label}
+                              </span>
+                              {org.orgStatus !== "active" && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusConfig.color}`}>
+                                  {statusConfig.label}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{org.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            /{org.slug}
+                        <div className="text-right">
+                          <Badge variant="secondary">{org.role}</Badge>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Desde {formatDate(org.joinedAt)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="secondary">{org.role}</Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Desde {formatDate(org.joinedAt)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

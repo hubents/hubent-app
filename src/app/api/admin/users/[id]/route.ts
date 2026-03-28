@@ -2,26 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins, organizationMembers, organizations, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/session";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    await requirePlatformAdmin();
 
     const { id } = await params;
 
@@ -33,18 +21,18 @@ export async function GET(
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
 
-    // Get admin info
     const adminInfo = await db.query.platformAdmins.findFirst({
       where: eq(platformAdmins.userId, id),
     });
 
-    // Get organizations
     const memberships = await db
       .select({
         orgId: organizations.id,
         orgName: organizations.name,
         orgSlug: organizations.slug,
         orgLogo: organizations.logo,
+        orgType: organizations.orgType,
+        orgStatus: organizations.status,
         roleId: roles.id,
         roleName: roles.name,
         joinedAt: organizationMembers.joinedAt,
@@ -61,10 +49,10 @@ export async function GET(
         email: user.email,
         image: user.image,
         emailVerified: user.emailVerified?.toISOString() || null,
-        status: (user as any).status || "active",
-        suspendedAt: (user as any).suspendedAt?.toISOString() || null,
-        suspendedBy: (user as any).suspendedBy || null,
-        suspendedReason: (user as any).suspendedReason || null,
+        status: user.status || "active",
+        suspendedAt: user.suspendedAt?.toISOString() || null,
+        suspendedBy: user.suspendedBy || null,
+        suspendedReason: user.suspendedReason || null,
         onboardingCompleted: user.onboardingCompleted,
         createdAt: user.createdAt?.toISOString() || null,
         updatedAt: user.updatedAt?.toISOString() || null,
@@ -75,6 +63,8 @@ export async function GET(
           name: m.orgName,
           slug: m.orgSlug,
           logo: m.orgLogo,
+          orgType: m.orgType || "tenant",
+          orgStatus: m.orgStatus || "active",
           role: m.roleName,
           joinedAt: m.joinedAt?.toISOString() || null,
         })),
@@ -94,17 +84,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const session = await requirePlatformAdmin();
 
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin || isAdmin.level !== "super_admin") {
+    if (session.user.platformLevel !== "super_admin") {
       return NextResponse.json(
         { error: "Solo super admins pueden editar usuarios" },
         { status: 403 }
@@ -123,7 +105,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
 
-    // Check if email is already taken by another user
     if (email && email !== user.email) {
       const existingUser = await db.query.users.findFirst({
         where: eq(users.email, email.toLowerCase()),
@@ -160,17 +141,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const session = await requirePlatformAdmin();
 
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin || isAdmin.level !== "super_admin") {
+    if (session.user.platformLevel !== "super_admin") {
       return NextResponse.json(
         { error: "Solo super admins pueden eliminar usuarios" },
         { status: 403 }
@@ -179,8 +152,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Prevent self-deletion
-    if (id === session.user.id) {
+    if (id === session.user.userId) {
       return NextResponse.json(
         { error: "No puedes eliminarte a ti mismo" },
         { status: 400 }

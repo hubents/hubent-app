@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,17 +22,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
-import { 
-  Users, 
-  Search, 
+import {
+  Users,
+  Search,
   Shield,
   Mail,
   UserPlus,
   Loader2,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
+import Link from "next/link";
 import { UserActionsDropdown } from "@/components/admin/user-actions-dropdown";
 import { UserDetailDrawer } from "@/components/admin/user-detail-drawer";
 import { EditUserDrawer } from "@/components/admin/edit-user-drawer";
@@ -65,30 +67,71 @@ interface PendingAdminInvitation {
   expiresAt: string;
 }
 
+interface Meta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  globalTotal: number;
+  adminCount: number;
+  verifiedCount: number;
+  pendingCount: number;
+  suspendedCount: number;
+  noOrgCount: number;
+}
+
 export default function UsersPage() {
   const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingAdminInvitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
+  const [meta, setMeta] = useState<Meta>({
+    page: 1, limit: 50, total: 0, totalPages: 0,
+    globalTotal: 0, adminCount: 0, verifiedCount: 0,
+    pendingCount: 0, suspendedCount: 0, noOrgCount: 0,
+  });
+
+  // Server-side filters
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [verifiedFilter, setVerifiedFilter] = useState("");
+  const [adminFilter, setAdminFilter] = useState("");
+  const [orgTypeFilter, setOrgTypeFilter] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(value), 350);
+  };
+
+  // Invite admin state
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", level: "support" });
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState(false);
+
+  // Detail/Edit drawers
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [page]);
+  const buildParams = useCallback(() => {
+    const params = new URLSearchParams({ page: page.toString() });
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (statusFilter) params.set("status", statusFilter);
+    if (verifiedFilter) params.set("verified", verifiedFilter);
+    if (adminFilter) params.set("admin", adminFilter);
+    if (orgTypeFilter) params.set("orgType", orgTypeFilter);
+    return params;
+  }, [page, debouncedSearch, statusFilter, verifiedFilter, adminFilter, orgTypeFilter]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams({ page: page.toString() });
-      const res = await fetch(`/api/admin/users?${params}`);
+      const res = await fetch(`/api/admin/users?${buildParams()}`);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users || []);
@@ -100,7 +143,15 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [buildParams]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, verifiedFilter, adminFilter, orgTypeFilter]);
 
   const handleInviteAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +172,7 @@ export default function UsersPage() {
 
       setInviteSuccess(true);
       fetchData();
-      
+
       setTimeout(() => {
         setInviteOpen(false);
         setInviteSuccess(false);
@@ -134,12 +185,6 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const getLevelLabel = (level: string) => {
     switch (level) {
       case "super_admin": return "Super Admin";
@@ -148,7 +193,61 @@ export default function UsersPage() {
     }
   };
 
-  if (loading) {
+  const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setStatusFilter("");
+    setVerifiedFilter("");
+    setAdminFilter("");
+    setOrgTypeFilter("");
+  };
+
+  const hasActiveFilters = debouncedSearch || statusFilter || verifiedFilter || adminFilter || orgTypeFilter;
+
+  const statCards = [
+    {
+      label: "Total usuarios",
+      value: meta.globalTotal,
+      icon: Users,
+      color: "bg-blue-500/10 text-blue-500",
+      onClick: clearFilters,
+      active: !hasActiveFilters,
+    },
+    {
+      label: "Admins",
+      value: meta.adminCount,
+      icon: Shield,
+      color: "bg-red-500/10 text-red-500",
+      onClick: () => { clearFilters(); setAdminFilter("admin"); },
+      active: adminFilter === "admin" && !statusFilter && !verifiedFilter && !orgTypeFilter,
+    },
+    {
+      label: "Verificados",
+      value: meta.verifiedCount,
+      icon: CheckCircle2,
+      color: "bg-green-500/10 text-green-500",
+      onClick: () => { clearFilters(); setVerifiedFilter("verified"); },
+      active: verifiedFilter === "verified" && !statusFilter && !adminFilter && !orgTypeFilter,
+    },
+    {
+      label: "Suspendidos",
+      value: meta.suspendedCount,
+      icon: XCircle,
+      color: "bg-yellow-500/10 text-yellow-600",
+      onClick: () => { clearFilters(); setStatusFilter("suspended"); },
+      active: statusFilter === "suspended" && !verifiedFilter && !adminFilter && !orgTypeFilter,
+    },
+    {
+      label: "Sin organización",
+      value: meta.noOrgCount,
+      icon: AlertTriangle,
+      color: "bg-orange-500/10 text-orange-500",
+      onClick: () => { clearFilters(); setOrgTypeFilter("none"); },
+      active: orgTypeFilter === "none" && !statusFilter && !verifiedFilter && !adminFilter,
+    },
+  ];
+
+  if (loading && users.length === 0) {
     return (
       <div className="p-8 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-red-400" />
@@ -159,7 +258,7 @@ export default function UsersPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Usuarios</h1>
           <p className="text-[var(--muted-foreground)]">
@@ -169,7 +268,7 @@ export default function UsersPage() {
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="gap-1">
             <Users className="h-3 w-3" />
-            {users.length} usuarios
+            {meta.globalTotal} usuarios
           </Badge>
           <Button className="gap-2 bg-red-600 hover:bg-red-700" onClick={() => setInviteOpen(true)}>
             <UserPlus className="h-4 w-4" />
@@ -183,7 +282,7 @@ export default function UsersPage() {
                   Envía una invitación para unirse como administrador de la plataforma
                 </SheetDescription>
               </SheetHeader>
-              
+
               {inviteSuccess ? (
                 <div className="py-8 text-center space-y-4">
                   <div className="flex justify-center">
@@ -191,7 +290,7 @@ export default function UsersPage() {
                       <CheckCircle2 className="h-8 w-8 text-green-500" />
                     </div>
                   </div>
-                  <p className="font-medium">¡Invitación enviada!</p>
+                  <p className="font-medium">Invitación enviada!</p>
                   <p className="text-sm text-[var(--muted-foreground)]">
                     Se ha enviado un email a {inviteForm.email}
                   </p>
@@ -203,7 +302,7 @@ export default function UsersPage() {
                       {inviteError}
                     </div>
                   )}
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -247,7 +346,7 @@ export default function UsersPage() {
                   </div>
 
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-sm">
-                    <p className="font-medium">⚠️ Acceso de administrador</p>
+                    <p className="font-medium">Acceso de administrador</p>
                     <p className="text-xs mt-1">
                       Esta persona tendrá acceso al panel de administración de la plataforma.
                     </p>
@@ -273,6 +372,32 @@ export default function UsersPage() {
             </SheetContent>
           </Sheet>
         </div>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={stat.label}
+              className={`cursor-pointer transition-all hover:shadow-md ${stat.active ? "ring-2 ring-primary" : ""}`}
+              onClick={stat.onClick}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${stat.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{stat.value}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">{stat.label}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Pending Admin Invitations */}
@@ -306,16 +431,67 @@ export default function UsersPage() {
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
               <Input
                 placeholder="Buscar por nombre o email..."
                 className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
+
+            <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="suspended">Suspendido</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={verifiedFilter || "all"} onValueChange={(v) => setVerifiedFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Verificación" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="verified">Verificado</SelectItem>
+                <SelectItem value="pending">Pendiente</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={adminFilter || "all"} onValueChange={(v) => setAdminFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">Usuario</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={orgTypeFilter || "all"} onValueChange={(v) => setOrgTypeFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Organización" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="tenant">Planificador</SelectItem>
+                <SelectItem value="provider">Proveedor</SelectItem>
+                <SelectItem value="none">Sin organización</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[var(--muted-foreground)]">
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -323,12 +499,16 @@ export default function UsersPage() {
       {/* Users Table */}
       <Card>
         <CardContent className="p-0">
-          {filteredUsers.length === 0 ? (
+          {loading ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--muted-foreground)]" />
+            </div>
+          ) : users.length === 0 ? (
             <div className="p-8 text-center">
               <Users className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-4" />
               <h3 className="font-medium mb-2">No hay usuarios</h3>
               <p className="text-sm text-[var(--muted-foreground)]">
-                {searchQuery ? "No se encontraron resultados" : "Aún no se han registrado usuarios"}
+                {hasActiveFilters ? "No se encontraron resultados con los filtros actuales" : "Aún no se han registrado usuarios"}
               </p>
             </div>
           ) : (
@@ -345,7 +525,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <tr
                     key={user.id}
                     className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)]/50"
@@ -368,7 +548,7 @@ export default function UsersPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-[var(--muted-foreground)]" />
-                        <span>{user.email}</span>
+                        <span className="text-sm">{user.email}</span>
                       </div>
                     </td>
                     <td className="p-4">
@@ -399,22 +579,26 @@ export default function UsersPage() {
                       {user.organizations.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {user.organizations.map((org) => (
-                            <span key={org.id} className="text-sm">
+                            <Link
+                              key={org.id}
+                              href={`/admin/tenants/${org.id}`}
+                              className="text-sm hover:underline inline-flex items-center gap-1"
+                            >
                               {org.name}
-                              <span className={`ml-1 text-[10px] px-1 py-0.5 rounded ${
+                              <span className={`text-[10px] px-1 py-0.5 rounded ${
                                 org.orgType === "provider" ? "bg-purple-500/10 text-purple-600" : "bg-blue-500/10 text-blue-600"
                               }`}>
                                 {org.orgType === "provider" ? "Proveedor" : "Planner"}
                               </span>
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       ) : (
                         <span className="text-sm text-[var(--muted-foreground)]">—</span>
                       )}
                     </td>
-                    <td className="p-4 text-[var(--muted-foreground)]">
-                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
+                    <td className="p-4 text-sm text-[var(--muted-foreground)]">
+                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString("es-AR") : "-"}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end">
@@ -434,7 +618,8 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
-      {/* Modals */}
+
+      {/* Drawers */}
       <UserDetailDrawer
         userId={detailUserId}
         open={!!detailUserId}
@@ -448,8 +633,9 @@ export default function UsersPage() {
         onSuccess={fetchData}
       />
 
+      {/* Pagination */}
       {meta.totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-muted-foreground">
             Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
           </p>

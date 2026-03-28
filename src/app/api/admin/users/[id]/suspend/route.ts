@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, platformAdmins } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/session";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const session = await requirePlatformAdmin();
 
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin || isAdmin.level !== "super_admin") {
+    if (session.user.platformLevel !== "super_admin") {
       return NextResponse.json(
         { error: "Solo super admins pueden suspender usuarios" },
         { status: 403 }
@@ -30,8 +22,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const { reason } = body;
 
-    // Prevent self-suspension
-    if (id === session.user.id) {
+    if (id === session.user.userId) {
       return NextResponse.json(
         { error: "No puedes suspenderte a ti mismo" },
         { status: 400 }
@@ -49,10 +40,10 @@ export async function POST(
     await db
       .update(users)
       .set({
-        status: "suspended" as any,
-        suspendedAt: new Date() as any,
-        suspendedBy: session.user.id as any,
-        suspendedReason: reason || null as any,
+        status: "suspended",
+        suspendedAt: new Date(),
+        suspendedBy: session.user.userId,
+        suspendedReason: reason || null,
         updatedAt: new Date(),
       })
       .where(eq(users.id, id));

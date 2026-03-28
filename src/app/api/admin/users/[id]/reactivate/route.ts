@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, platformAdmins } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/session";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
+    const session = await requirePlatformAdmin();
 
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin || isAdmin.level !== "super_admin") {
+    if (session.user.platformLevel !== "super_admin") {
       return NextResponse.json(
         { error: "Solo super admins pueden reactivar usuarios" },
         { status: 403 }
@@ -39,10 +31,10 @@ export async function POST(
     await db
       .update(users)
       .set({
-        status: "active" as any,
-        suspendedAt: null as any,
-        suspendedBy: null as any,
-        suspendedReason: null as any,
+        status: "active",
+        suspendedAt: null,
+        suspendedBy: null,
+        suspendedReason: null,
         updatedAt: new Date(),
       })
       .where(eq(users.id, id));

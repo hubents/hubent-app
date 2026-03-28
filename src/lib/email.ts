@@ -348,6 +348,41 @@ export async function sendPasswordResetEmail(
 }
 
 // ============================================
+// EMAIL VERIFICATION EMAIL
+// ============================================
+
+export async function sendVerificationEmail(
+  to: string,
+  verifyUrl: string
+) {
+  const content = `
+    ${heading("Verifica tu email")}
+    ${paragraph("Necesitamos verificar tu dirección de email para completar tu cuenta en HubEnts.")}
+    ${paragraph("Haz clic en el botón para verificar tu email:")}
+    ${primaryButton("Verificar email", verifyUrl)}
+    ${infoBox("Este enlace expira en <strong>24 horas</strong> por seguridad.", "warning")}
+    <p style="margin: 24px 0 0; font-size: 14px; color: ${COLORS.textSecondary};">
+      Si no creaste una cuenta, puedes ignorar este email.
+    </p>
+    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid ${COLORS.border};">
+      <p style="margin: 0 0 8px; font-size: 13px; color: ${COLORS.textMuted};">
+        ¿Problemas con el botón? Copia y pega este enlace:
+      </p>
+      <p style="margin: 0; font-size: 12px; color: ${COLORS.textMuted}; word-break: break-all;">
+        ${verifyUrl}
+      </p>
+    </div>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Verifica tu email - HubEnts`,
+    html: emailWrapper(content),
+    text: `Verifica tu dirección de email visitando este enlace: ${verifyUrl}. El enlace expira en 24 horas.`,
+  });
+}
+
+// ============================================
 // CONTACT TASK NOTIFICATION EMAIL
 // ============================================
 

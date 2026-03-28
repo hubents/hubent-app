@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, platformAdmins, verificationTokens } from "@/db/schema";
+import { users, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/session";
 import { sendPasswordResetEmail } from "@/lib/email";
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
+}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const isAdmin = await db.query.platformAdmins.findFirst({
-      where: eq(platformAdmins.userId, session.user.id),
-    });
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    await requirePlatformAdmin();
 
     const { id } = await params;
 
@@ -34,7 +26,6 @@ export async function POST(
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
 
-    // Create reset token
     const token = crypto.randomUUID();
     const expires = new Date();
     expires.setHours(expires.getHours() + 1);
@@ -45,7 +36,7 @@ export async function POST(
       expires,
     });
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
+    const resetUrl = `${getAppUrl()}/auth/reset-password?token=${token}`;
 
     await sendPasswordResetEmail(user.email, resetUrl);
 
