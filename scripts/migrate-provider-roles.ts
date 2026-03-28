@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 /**
  * migrate-provider-roles.ts
  *
