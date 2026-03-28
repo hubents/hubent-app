@@ -26,8 +26,16 @@ When they change **`/api/v1`**, **OpenAPI**, **MCP tools**, **webhook event type
 ## Domain skills (examples)
 
 - **`create-drawer`** — new Sheet/drawer UI
-- **`provider-portal`** — vendor/provider flows
+- **`provider-portal`** — unified provider flows (NO /vendor portal, cross-org collaboration)
 - **`pdf-download`** — client-side PDF pattern
 - **`clickup-integration`** — ClickUp comments (use env vars; never commit secrets)
+
+## Critical architecture notes
+
+- **NO `/vendor` portal** — all org types use `/dashboard`. See `hubents-unified-portal.mdc`.
+- **7 universal roles** — owner, admin, manager, accountant, staff, viewer, client. No provider-specific roles.
+- **Plan-driven features** — event creation, portfolio, public profile gated by plan, not orgType.
+- After role/permission changes: run `scripts/hard-reset-permissions.ts`.
+- After plan/feature changes: run `scripts/seed-plans.ts`.
 
 See **`AGENTS.md`** at repo root for the full map.

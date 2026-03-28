@@ -1,59 +1,71 @@
 ---
 name: provider-portal
 description: >-
-  HubEnts Provider Portal registration, verification, event collaboration, vendor
-  APIs, and data model. Use when working on /vendor, /provider/register, admin
-  providers, planner directory, or providerEventAccess flows.
+  HubEnts unified portal for providers — registration, onboarding, event
+  collaboration, cross-org task sync, marketplace profile. Use when working on
+  provider registration, providerEventAccess, cross-org collaboration, or
+  marketplace features. There is NO separate /vendor portal.
 ---
 
-# Skill: Provider Portal
+# Skill: Provider Portal (Unified)
 
-## Overview
+## Architecture Overview
 
-The Provider Portal allows service providers (DJ, catering, photography, etc.) to register on HubEnts, get verified by an admin, appear in a public directory, and collaborate on events with planners.
+Providers and planners share a SINGLE portal at `/dashboard`. There is NO `/vendor` route tree. The sidebar, events, tasks, finance, and settings pages adapt dynamically based on `orgType` and plan features.
+
+- `orgType = "tenant"` — Planner organizations
+- `orgType = "provider"` — Provider organizations
+- Both use the same 7 universal roles: owner, admin, manager, accountant, staff, viewer, client
+- Sidebar sections configured per orgType in `src/config/tenant-types.ts` via `getSidebarSections()`
+- Middleware at `src/middleware.ts` redirects any `/vendor/*` request to `/dashboard/*`
 
 ## Registration Flow
 
 1. Provider fills form at `/provider/register` (name, email, password, category, Instagram, phone, service radius)
-2. API: `POST /api/auth/provider-register` creates user + organization (orgType='provider') + membership (role=provider_owner)
-3. Provider logs in at `/provider/login` → redirected to `/vendor` dashboard
-4. Admin sees new provider at `/admin/providers` → verifies or rejects
-5. Verified providers appear in planner directory at `/dashboard/providers`
+2. API: `POST /api/auth/provider-register` creates user + organization (orgType='provider') + membership (role=owner) + provider-free plan
+3. Auto-login redirects to `/onboarding?welcome=true` (provider-specific steps: profile, company-public-profile, profile-preview, team)
+4. After onboarding: provider lands at `/dashboard`
+5. Admin sees new provider at `/admin/tenants` (filter by orgType=provider) and verifies
+6. Verified providers appear in marketplace at `/dashboard/marketplace` and `/providers`
 
 ## Event Collaboration Flow
 
-1. Planner invites provider from event's vendor page → `POST /api/events/[eventId]/providers`
-2. Provider receives email notification
-3. Provider sees invitation at `/vendor/events` → accepts or rejects
-4. If accepted: provider can see event tasks at `/vendor/tasks`
-5. Table: `providerEventAccess` tracks status (pending/active/rejected/revoked)
+1. Planner invites provider from event vendor page → `POST /api/events/[eventId]/providers`
+2. Creates `providerEventAccess` row (status: pending) + local vendor record + eventVendors link
+3. Provider receives email notification
+4. Provider sees invitation in their events list at `/dashboard/events` (scope=accessible)
+5. Provider accepts/rejects via `PATCH /api/events/collaborations/[accessId]`
+6. If accepted: tasks appear in provider's task board automatically via `useTasks` hook (merges scope=collaborated)
+
+## Auto Provider Event Access (Critical)
+
+When a planner adds a vendor (linked to a provider org) as a task participant, `ensureProviderEventAccess()` in `src/lib/cross-org.ts` automatically creates the `providerEventAccess` row. This means:
+
+- Planner assigns task to vendor → provider AUTOMATICALLY gets event access
+- No need for explicit "invite provider" step just for task assignment
+- Provider's task board shows the task immediately via scope=collaborated merge
+
+Implementation: `src/lib/invitations.ts` → `addTaskParticipant()` calls `ensureProviderEventAccess()` when `vendorId` has a linked `providerOrgId`.
 
 ## Key APIs
 
 ### Provider Auth
+- `POST /api/auth/provider-register` — Register new provider org (role=owner, plan=provider-free)
 
-- `POST /api/auth/provider-register` — Register new provider org
-- Middleware handles `/vendor/*` routes for provider auth
-
-### Provider Portal
-
-- `GET /api/vendor/dashboard` — Dashboard stats
-- `GET /api/vendor/events` — List event invitations
-- `POST /api/vendor/events/[eventId]/respond` — Accept/reject invitation
-- `GET /api/vendor/tasks` — Tasks from shared events
-- `GET|PUT /api/vendor/profile` — Organization profile CRUD
-- `GET /api/vendor/finance/*` — Financial module
+### Unified APIs with scope params
+- `GET /api/events?scope=collaborated` — Events where org has active providerEventAccess
+- `GET /api/events?scope=accessible` — Both owned + collaborated events (for DocumentDrawer dropdowns)
+- `GET /api/tasks?scope=collaborated` — Tasks from collaborated events where org's vendor is a participant
+- `PATCH /api/events/collaborations/[accessId]` — Accept/reject collaboration invitation
+- `GET|PATCH /api/organizations/profile` — Organization public profile CRUD
 
 ### Admin
-
-- `GET /api/admin/providers` — List all providers with filters
-- `POST /api/admin/providers/[id]/verify` — Verify or reject provider
+- `/admin/tenants` — Unified org management (filter by orgType)
+- `POST /api/admin/tenants/[id]/verify` — Verify or reject provider
 
 ### Planner-facing
-
 - `GET /api/providers` — Directory of verified providers
 - `GET /api/providers/[slug]` — Public provider profile
-- `GET /api/events/[eventId]/providers` — Providers assigned to event
 - `POST /api/events/[eventId]/providers` — Invite provider to event
 
 ## Database Tables
@@ -61,49 +73,76 @@ The Provider Portal allows service providers (DJ, catering, photography, etc.) t
 ```text
 organizations (orgType='provider')
 ├── verificationStatus: unverified | verified | rejected | suspended
-├── providerCategory: text
-├── instagramHandle: text
-├── serviceRadius: integer
-└── serviceAreas: json
+├── providerCategory, instagramHandle, serviceRadius, serviceAreas
+├── description, tagline, coverImage, city, region, publicEmail
+├── profileCompleteness, services, instagramPosts, brochureUrl
+└── planId → subscriptionPlans
 
 providerEventAccess
 ├── providerOrgId → organizations.id
 ├── eventId → events.id
 ├── plannerOrgId → organizations.id
-├── vendorId → vendors.id (optional link)
+├── vendorId → vendors.id (optional)
 ├── status: pending | active | rejected | revoked
-└── invitedBy → users.id
+├── invitedBy → users.id
+└── invitedAt, acceptedAt
 
-vendors (internal to planner)
-contacts (isVendor, vendorId, ...)
+vendors (planner's internal CRM, may link to provider org)
+├── organizationId — belongs to the planner org
+├── providerOrgId → organizations.id (links to platform provider)
+└── name, category, email, phone
 ```
 
-## File Structure
+## Cross-Org Helpers (`src/lib/cross-org.ts`)
 
-```text
-src/app/vendor/
-src/app/provider/register|login
-src/app/admin/providers/
-src/app/dashboard/providers/
-src/components/layout/provider-sidebar.tsx
-src/lib/system-init.ts, vendors.ts, contacts.ts
-```
+- `ensureProviderEventAccess(providerOrgId, eventId, plannerOrgId, invitedBy)` — upsert access row
+- `ensureVendorForProviderOrg(plannerOrgId, providerOrgId, createdBy)` — create local vendor record
+- `ensureEventVendor(eventId, vendorId)` — link vendor to event
+- `autoLinkVendorToEventTasks(eventId, vendorId, addedBy)` — bulk add task participation
+- `getProviderOrgForVendor(vendorId)` — resolve provider org from vendor record
 
-## Email Templates
+## UI Patterns
 
-- `provider-verified`, `provider-rejected`, `provider-event-invitation`
-- Resend, non-blocking with `.catch()` logging
+### Events Page (`src/app/dashboard/events/page.tsx`)
+- Provider orgs fetch `scope=accessible` to see both owned and collaborated events
+- "Nuevo evento" button visible for ALL orgs with `events:create` permission (no orgType guard)
+- Event creation gated by plan limits via `requireLimit("events")`
 
-## Related project rules
+### Tasks Hook (`src/hooks/use-tasks.ts`)
+- For provider orgs: fetches BOTH `/api/tasks` (own) and `/api/tasks?scope=collaborated` in parallel
+- Merges and deduplicates by task ID
+- Stats calculated from merged list
 
-- `.cursor/rules/hubents-rbac-provider.mdc`
-- `.cursor/rules/hubents-project-architecture.mdc`
+### Finance DocumentDrawer
+- Uses `eventsEndpoint="/api/events?scope=accessible"` by default (shows owned + collaborated events)
+- Provider-specific endpoint overrides no longer needed
 
-## See also
+### Sidebar (`src/components/layout/main-sidebar.tsx`)
+- Sections driven by `getSidebarSections(orgType)` from `tenant-types.ts`
+- Provider config includes: dashboard, marketplace, public-profile, contacts, events, crm, finance, productivity, team, ai
+- Each item has a `permission` field checked via `can()` hook
 
-- `hubents-deploy` — emails and env on production
-- `create-drawer` — UI patterns for vendor/planner drawers
+## Plans and Feature Flags
 
-## Source
+- `provider-free` — 1 user, 1 event, 200MB storage, free
+- `provider-pro` — 3 users, unlimited events, 2000MB, 14.50 EUR/mo
+- Feature flags in `feature_flags` table:
+  - `public_profile` — all plans
+  - `portfolio` — provider-free, provider-pro
+  - `custom_roles` — provider-pro, agency
+  - `smart_date_block` — provider-pro
+  - `recommended` — provider-pro
 
-Copied from `.windsurf/skills/provider-portal/SKILL.md` (Windsurf copy unchanged).
+## NEVER DO
+
+- NEVER create routes under `/vendor/` — they will be redirected to `/dashboard/`
+- NEVER use `provider_owner`, `provider_admin`, `provider_tech` role slugs — they were removed
+- NEVER gate UI by `!isProvider` or `orgType !== "provider"` — use `can()` permission checks
+- NEVER hardcode orgType checks for capabilities — use plan limits (`requireLimit`) or feature flags (`requireFeature`)
+- NEVER create a separate sidebar/layout for providers — use the unified `MainSidebar` with `getSidebarSections()`
+
+## Related
+
+- `.cursor/rules/hubents-rbac-provider.mdc` — Unified RBAC reference
+- `.cursor/rules/hubents-project-architecture.mdc` — Full architecture
+- `.cursor/rules/hubents-saas-billing.mdc` — Plans and billing

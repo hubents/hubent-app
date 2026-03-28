@@ -31,14 +31,14 @@ alwaysApply: true
 - `/providers` — Provider directory
 - `/payment/success`, `/payment/cancel` — Stripe payment results
 
-### Tenant Portal (`/dashboard`)
+### Unified Portal (`/dashboard`) — ALL org types
 
-- `/dashboard` — Home with stats cards
-- `/dashboard/events` — Events list + CRUD
+- `/dashboard` — Home with stats cards (adapts to orgType)
+- `/dashboard/events` — Events list + CRUD (providers see owned + collaborated)
 - `/dashboard/events/[id]` — Event detail (tasks, guests, rsvp, finances, vendors, schedule, run-sheet, settings)
 - `/dashboard/contacts` — Contact CRM
 - `/dashboard/crm` — Sales pipeline (Kanban)
-- `/dashboard/tasks` — Global task board
+- `/dashboard/tasks` — Global task board (providers auto-merge collaborated tasks)
 - `/dashboard/documents` — Document manager
 - `/dashboard/forms` — Form builder
 - `/dashboard/calendar` — Calendar view
@@ -48,14 +48,12 @@ alwaysApply: true
 - `/dashboard/menus` — Menu management
 - `/dashboard/payments` — Client Stripe payments
 - `/dashboard/providers` — Provider directory
+- `/dashboard/marketplace` — Marketplace (browse providers/planners)
+- `/dashboard/public-profile` — Organization public profile
 - `/dashboard/team` — Team management
 - `/dashboard/settings` — Org settings (roles, integrations, developers, templates)
 
-### Vendor Portal (`/vendor`)
-
-- Same structure as dashboard but for provider organizations
-- `/vendor/profile` — Provider public profile
-- `/vendor/events/[accessId]` — Event access via `providerEventAccess`
+**NO separate `/vendor` portal** — middleware redirects `/vendor/*` to `/dashboard/*`.
 
 ### Admin Panel (`/admin`)
 
@@ -113,8 +111,23 @@ sendEmail(to, subject, html).catch((err) =>
 - `src/db/schema.ts` — All Drizzle table definitions
 - `src/db/index.ts` — DB connection (Neon HTTP)
 - `src/lib/session.ts` — Auth helpers (requireAuth, requirePermission, etc.)
-- `src/lib/tenant.ts` — Tenant context helpers (canAccessEvent, canAccessTask)
+- `src/lib/tenant.ts` — Tenant context, role hierarchy, permission helpers
 - `src/lib/event-permissions.ts` — Event-scoped permission helpers
-- `src/middleware.ts` — Route protection + org context
+- `src/lib/cross-org.ts` — Cross-org collaboration (ensureProviderEventAccess, ensureVendorForProviderOrg)
+- `src/config/tenant-types.ts` — Org type config (sidebar sections, roles, routing, onboarding)
+- `src/config/provider-constants.ts` — Provider categories, profile completeness, org type labels
+- `src/middleware.ts` — Route protection + org context + /vendor redirect
 - `src/lib/stripe-platform.ts` — Stripe SaaS billing helpers
 - `src/lib/monitoring/api-monitor.ts` — API monitoring wrapper
+
+## RBAC — Unified Roles (7 roles, all org types)
+
+- `owner` / `admin` — bypass all permissions
+- `manager` — events CRUD, tasks, vendors, CRM, forms, finance read
+- `accountant` — finance full, CRM read, vendors read, settings read
+- `staff` — eventScoped, tasks CRUD, events read, vendors read, forms read
+- `viewer` — eventScoped, read-only
+- `client` — eventScoped, events read + tasks read only
+- **NO provider-specific roles** — use the same 7 roles for any orgType
+- Capabilities (event creation, portfolio) are gated by plan feature flags, not orgType
+- Scripts: `scripts/hard-reset-permissions.ts`, `scripts/migrate-provider-roles.ts`

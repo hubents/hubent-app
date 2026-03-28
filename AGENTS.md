@@ -10,9 +10,10 @@ Windsurf configuration remains in **`.windsurf/`** (unchanged). **Cursor** uses 
 | ---------------------------------- | ------------------------------------------------------------------ |
 | `hubents-project-architecture.mdc` | Stack, routes, API patterns, key files — **always on**             |
 | `hubents-workflow-skills.mdc`      | Points agents to workflow skills + suggested order — **always on** |
+| `hubents-unified-portal.mdc`       | Unified portal rules, universal roles, plan features — **always on** |
 | `hubents-api-changelog.mdc`        | When/how to update public API changelog and related libs           |
 | `hubents-api-changelog-dates.mdc`  | Real dates (AR), `CURRENT_API_VERSION`, `SUPPORTED_VERSIONS`       |
-| `hubents-rbac-provider.mdc`        | RBAC, roles, vendor vs provider architecture                       |
+| `hubents-rbac-provider.mdc`        | Unified RBAC (7 roles), provider architecture, cross-org patterns  |
 | `hubents-saas-billing.mdc`         | Dual Stripe, plans, webhooks                                       |
 | `hubents-ui-drawers.mdc`           | Sheet/drawer vs Dialog, sizing grid                                |
 
@@ -33,7 +34,7 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 | Skill (`name`)        | When to use                                                                      |
 | --------------------- | -------------------------------------------------------------------------------- |
 | `create-drawer`       | New `Sheet` drawer component patterns                                            |
-| `provider-portal`     | `/vendor`, provider register/login, admin providers, collaboration               |
+| `provider-portal`     | Unified provider flows: registration, onboarding, collaboration, cross-org tasks |
 | `pdf-download`        | Client-side PDF via `downloadPDFFromHTML` (no Puppeteer for user-triggered PDFs) |
 | `clickup-integration` | ClickUp env (Vercel/Windsurf parity), comments, `error-reporter` — ver abajo     |
 

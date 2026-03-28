@@ -1,0 +1,48 @@
+---
+description: Unified portal conventions — NO /vendor, universal roles, plan-driven features
+alwaysApply: true
+---
+
+# Unified Portal Conventions
+
+## Portal unification (CRITICAL)
+
+- ALL org types (tenant, provider) use `/dashboard` — there is NO `/vendor` portal
+- Middleware redirects `/vendor/*` to `/dashboard/*` automatically
+- MainSidebar adapts per orgType via `getSidebarSections()` from `tenant-types.ts`
+- NEVER create pages or API routes under `/vendor/` or `/api/vendor/`
+
+## Universal roles (7 total)
+
+- `owner`, `admin` — bypass all permission checks
+- `manager` — main working role (replaces old "planner" and "provider_admin")
+- `accountant` — finance specialist
+- `staff` — eventScoped (replaces old "assistant" and "provider_tech")
+- `viewer` — eventScoped, read-only
+- `client` — eventScoped, minimal access
+- NEVER use `provider_owner`, `provider_admin`, `provider_tech`, `planner`, `assistant` — they were removed
+- NEVER gate features with `!isProvider` or `orgType !== "provider"` — use `can("resource:action")` instead
+
+## Plan-driven capabilities
+
+- Event creation: gated by `requireLimit("events")`, NOT by orgType
+- Public profile: plan feature flag `public_profile`
+- Portfolio: plan feature flag `portfolio`
+- `canCreateEvents`, `hasPortfolio`, `hasPublicProfile` in `tenant-types.ts` are DEPRECATED — use plan features
+- Use `requireFeature("feature_key")` for server-side gating, `session.plan.features.includes("key")` for client
+
+## Cross-org collaboration
+
+- `ensureProviderEventAccess()` in `src/lib/cross-org.ts` auto-creates access when vendor gets task participation
+- API scope params: `?scope=collaborated` for cross-org data, `?scope=accessible` for owned + collaborated
+- `useTasks` hook auto-merges collaborated tasks for provider orgs
+- `DocumentDrawer` defaults to `scope=accessible` for event dropdown
+
+## Adding new features checklist
+
+When adding a new feature:
+1. Gate with `can("resource:action")` in UI and `requirePermission()` in API
+2. Add permission to `scripts/hard-reset-permissions.ts` for the correct roles
+3. If plan-gated: add feature flag in `scripts/seed-plans.ts`, enforce with `requireFeature()`
+4. If sidebar section: add to `sidebarSections` in `tenant-types.ts` for relevant orgTypes
+5. NEVER add orgType-specific code paths for UI visibility — permissions handle this
