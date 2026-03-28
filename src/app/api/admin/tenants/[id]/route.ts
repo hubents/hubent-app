@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { getConfigByDbOrgType } from "@/lib/tenant-type";
 
 // GET single tenant with details
 export async function GET(
@@ -38,6 +39,17 @@ export async function GET(
       });
     }
 
+    // Get who verified this org (if verified)
+    let verifiedByUser = null;
+    if (tenant.verifiedBy) {
+      const verifier = await db.query.users.findFirst({
+        where: eq(users.id, tenant.verifiedBy),
+      });
+      if (verifier) {
+        verifiedByUser = { id: verifier.id, name: verifier.name, email: verifier.email };
+      }
+    }
+
     // Get member count
     const [membersCount] = await db
       .select({ count: count() })
@@ -59,11 +71,26 @@ export async function GET(
       .where(eq(subscriptions.organizationId, tenantId))
       .limit(1);
 
+    // Derive tenant type config for capabilities
+    const typeConfig = getConfigByDbOrgType(tenant.orgType || "");
+
     return NextResponse.json({
       tenant,
       owner: owner ? { id: owner.id, name: owner.name, email: owner.email } : null,
+      verifiedByUser,
       membersCount: membersCount?.count || 0,
       subscription,
+      typeConfig: typeConfig
+        ? {
+            slug: typeConfig.slug,
+            label: typeConfig.label,
+            color: typeConfig.color,
+            isMarketplaceVisible: typeConfig.isMarketplaceVisible,
+            hasPublicProfile: typeConfig.hasPublicProfile,
+            hasPortfolio: typeConfig.hasPortfolio,
+            canCreateEvents: typeConfig.canCreateEvents,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Error fetching tenant:", error);

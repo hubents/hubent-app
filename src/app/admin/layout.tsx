@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, 
   Building2, 
-  Store,
   Users, 
   CreditCard, 
   Settings, 
@@ -38,8 +37,7 @@ const sidebarGroups: SidebarGroup[] = [
   {
     label: "GESTIÓN",
     items: [
-      { href: "/admin/tenants", label: "Tenants", icon: Building2 },
-      { href: "/admin/providers", label: "Proveedores", icon: Store },
+      { href: "/admin/tenants", label: "Organizaciones", icon: Building2 },
       { href: "/admin/users", label: "Usuarios", icon: Users },
       { href: "/admin/plans", label: "Planes", icon: CreditCard },
     ],
