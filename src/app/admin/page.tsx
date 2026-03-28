@@ -39,8 +39,7 @@ import {
 
 interface DashboardData {
   kpis: {
-    tenants: { value: number; delta: number };
-    providers: { value: number };
+    organizations: { value: number; delta: number };
     users: { value: number; delta: number };
     activeSubscriptions: { value: number; delta: number };
     mrr: { value: number };
@@ -55,7 +54,7 @@ interface DashboardData {
       error?: string;
     }[];
   };
-  recentTenants: {
+  recentOrganizations: {
     id: number;
     name: string;
     slug: string;
@@ -65,6 +64,7 @@ interface DashboardData {
   }[];
   dailySignups: { date: string; count: number }[];
   planDistribution: { name: string; slug: string; count: number; mrr: number }[];
+  orgTypeDistribution: { type: string; count: number; label: string }[];
   recentErrors: {
     timestamp: string;
     level: string;
@@ -82,7 +82,25 @@ const SERVICE_LABELS: Record<string, string> = {
   resend_email: "Resend",
 };
 
-const PIE_COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
+const PLAN_PIE_COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
+
+const ORG_TYPE_COLORS: Record<string, string> = {
+  tenant: "#3b82f6",
+  provider: "#a855f7",
+  client: "#10b981",
+};
+
+const ORG_TYPE_ICONS: Record<string, React.ElementType> = {
+  tenant: Building2,
+  provider: Store,
+  client: Users,
+};
+
+const ORG_TYPE_BADGE_CLASSES: Record<string, string> = {
+  tenant: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  provider: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
+  client: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+};
 
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -108,14 +126,14 @@ export default function AdminDashboardPage() {
     return (
       <div className="p-8 space-y-6">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
         <Skeleton className="h-16" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="h-72" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-72 lg:col-span-2" />
           <Skeleton className="h-72" />
         </div>
       </div>
@@ -137,19 +155,12 @@ export default function AdminDashboardPage() {
 
   const kpiCards = [
     {
-      title: "Tenants",
-      value: data.kpis.tenants.value,
-      delta: data.kpis.tenants.delta,
+      title: "Organizaciones",
+      value: data.kpis.organizations.value,
+      delta: data.kpis.organizations.delta,
       icon: Building2,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
-    },
-    {
-      title: "Proveedores",
-      value: data.kpis.providers.value,
-      icon: Store,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
     },
     {
       title: "Usuarios",
@@ -199,8 +210,8 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* KPI Grid — 5 cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {kpiCards.map((kpi) => (
           <Card key={kpi.title}>
             <CardContent className="p-4">
@@ -269,7 +280,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Charts Row */}
+      {/* Charts Row: Area chart (2/3) + stacked donuts (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Signups Area Chart */}
         <Card className="lg:col-span-2">
@@ -296,12 +307,26 @@ export default function AdminDashboardPage() {
                   <XAxis
                     dataKey="date"
                     tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => new Date(v).toLocaleDateString("es", { day: "2-digit", month: "short" })}
+                    tickFormatter={(v) =>
+                      new Date(v).toLocaleDateString("es", {
+                        day: "2-digit",
+                        month: "short",
+                      })
+                    }
                   />
                   <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                   <Tooltip
-                    labelFormatter={(v) => new Date(v).toLocaleDateString("es", { day: "2-digit", month: "long" })}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                    labelFormatter={(v) =>
+                      new Date(v).toLocaleDateString("es", {
+                        day: "2-digit",
+                        month: "long",
+                      })
+                    }
+                    contentStyle={{
+                      fontSize: 12,
+                      borderRadius: 8,
+                      border: "1px solid hsl(var(--border))",
+                    }}
                   />
                   <Area
                     type="monotone"
@@ -317,97 +342,231 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Plan Distribution Pie */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Distribución de Planes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.planDistribution.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">
-                Sin suscripciones activas
-              </div>
-            ) : (
-              <div className="flex flex-col items-center">
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={data.planDistribution}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={65}
-                      paddingAngle={3}
-                    >
-                      {data.planDistribution.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-3 mt-2 justify-center">
-                  {data.planDistribution.map((plan, i) => (
-                    <div key={plan.slug} className="flex items-center gap-1.5 text-xs">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                      />
-                      {plan.name} ({plan.count})
-                    </div>
-                  ))}
+        {/* Right column: stacked donuts */}
+        <div className="flex flex-col gap-4">
+          {/* Org Type Donut */}
+          <Card className="flex-1">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Organizaciones por Tipo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {data.orgTypeDistribution.length === 0 ? (
+                <div className="h-32 flex items-center justify-center text-sm text-muted-foreground">
+                  Sin datos
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={120}>
+                    <PieChart>
+                      <Pie
+                        data={data.orgTypeDistribution}
+                        dataKey="count"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={50}
+                        paddingAngle={3}
+                      >
+                        {data.orgTypeDistribution.map((entry, i) => (
+                          <Cell
+                            key={i}
+                            fill={
+                              ORG_TYPE_COLORS[entry.type] ||
+                              PLAN_PIE_COLORS[i % PLAN_PIE_COLORS.length]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(val, name) => [`${val}`, name]}
+                        contentStyle={{
+                          fontSize: 11,
+                          borderRadius: 8,
+                          border: "1px solid hsl(var(--border))",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {data.orgTypeDistribution.map((entry) => (
+                      <div
+                        key={entry.type}
+                        className="flex items-center gap-1.5 text-xs"
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{
+                            backgroundColor:
+                              ORG_TYPE_COLORS[entry.type] || "#6366f1",
+                          }}
+                        />
+                        {entry.label}{" "}
+                        <span className="text-muted-foreground">
+                          ({entry.count})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Plan Distribution Donut */}
+          <Card className="flex-1">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Distribución de Planes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {data.planDistribution.length === 0 ? (
+                <div className="h-32 flex items-center justify-center text-sm text-muted-foreground">
+                  Sin suscripciones activas
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={120}>
+                    <PieChart>
+                      <Pie
+                        data={data.planDistribution}
+                        dataKey="count"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={50}
+                        paddingAngle={3}
+                      >
+                        {data.planDistribution.map((_, i) => (
+                          <Cell
+                            key={i}
+                            fill={PLAN_PIE_COLORS[i % PLAN_PIE_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          fontSize: 11,
+                          borderRadius: 8,
+                          border: "1px solid hsl(var(--border))",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {data.planDistribution.map((plan, i) => (
+                      <div
+                        key={plan.slug}
+                        className="flex items-center gap-1.5 text-xs"
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{
+                            backgroundColor:
+                              PLAN_PIE_COLORS[i % PLAN_PIE_COLORS.length],
+                          }}
+                        />
+                        {plan.name}{" "}
+                        <span className="text-muted-foreground">
+                          ({plan.count})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Bottom Row: Tenants + Errors + Quick Actions */}
+      {/* Bottom Row: Recent Orgs + Errors + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Tenants */}
+        {/* Recent Organizations */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tenants Recientes</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Registros Recientes
+            </CardTitle>
             <Link href="/admin/tenants">
-              <Button variant="ghost" size="sm" className="text-xs h-7">Ver todos</Button>
+              <Button variant="ghost" size="sm" className="text-xs h-7">
+                Ver todos
+              </Button>
             </Link>
           </CardHeader>
           <CardContent>
-            {data.recentTenants.length === 0 ? (
+            {data.recentOrganizations.length === 0 ? (
               <p className="text-muted-foreground text-sm py-4 text-center">
-                No hay tenants registrados
+                No hay organizaciones registradas
               </p>
             ) : (
               <div className="space-y-2">
-                {data.recentTenants.map((tenant) => (
-                  <div
-                    key={tenant.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Building2 className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{tenant.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{tenant.slug}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={tenant.status === "active" ? "default" : "secondary"}
-                      className="text-[10px] shrink-0"
+                {data.recentOrganizations.map((org) => {
+                  const OrgIcon = ORG_TYPE_ICONS[org.orgType] || Building2;
+                  const badgeClass =
+                    ORG_TYPE_BADGE_CLASSES[org.orgType] ||
+                    ORG_TYPE_BADGE_CLASSES["tenant"];
+                  return (
+                    <Link
+                      key={org.id}
+                      href={`/admin/tenants/${org.id}`}
+                      className="block"
                     >
-                      {tenant.status}
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{
+                              backgroundColor: `${ORG_TYPE_COLORS[org.orgType] || "#6366f1"}18`,
+                            }}
+                          >
+                            <OrgIcon
+                              className="h-4 w-4"
+                              style={{
+                                color:
+                                  ORG_TYPE_COLORS[org.orgType] || "#6366f1",
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {org.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {org.slug}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={cn(
+                              "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                              badgeClass
+                            )}
+                          >
+                            {org.orgType === "tenant"
+                              ? "Planif."
+                              : org.orgType === "provider"
+                                ? "Prov."
+                                : org.orgType}
+                          </span>
+                          <Badge
+                            variant={
+                              org.status === "active" ? "default" : "secondary"
+                            }
+                            className="text-[10px]"
+                          >
+                            {org.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -416,9 +575,13 @@ export default function AdminDashboardPage() {
         {/* Recent Errors */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Errores Recientes</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Errores Recientes
+            </CardTitle>
             <Link href="/admin/audit">
-              <Button variant="ghost" size="sm" className="text-xs h-7">Ver logs</Button>
+              <Button variant="ghost" size="sm" className="text-xs h-7">
+                Ver logs
+              </Button>
             </Link>
           </CardHeader>
           <CardContent>
@@ -448,7 +611,9 @@ export default function AdminDashboardPage() {
                       </span>
                     </div>
                     <p className="text-xs truncate text-muted-foreground">
-                      {err.path && <span className="font-mono">{err.path} — </span>}
+                      {err.path && (
+                        <span className="font-mono">{err.path} — </span>
+                      )}
                       {err.message}
                     </p>
                   </div>
@@ -461,15 +626,52 @@ export default function AdminDashboardPage() {
         {/* Quick Actions */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Acciones Rápidas</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Acciones Rápidas
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {[
-              { href: "/admin/status", label: "Health Check", desc: "Estado de servicios", icon: Activity, color: "text-green-500", bg: "bg-green-500/10" },
-              { href: "/admin/billing", label: "Billing", desc: "Revenue y suscripciones", icon: Wallet, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-              { href: "/admin/api-platform", label: "API Platform", desc: "Requests y API keys", icon: Globe, color: "text-blue-500", bg: "bg-blue-500/10" },
-              { href: "/admin/audit", label: "Auditoría", desc: "Logs de actividad", icon: ScrollText, color: "text-orange-500", bg: "bg-orange-500/10" },
-              { href: "/admin/settings", label: "Configuración", desc: "Ajustes de plataforma", icon: Settings, color: "text-slate-500", bg: "bg-slate-500/10" },
+              {
+                href: "/admin/status",
+                label: "Health Check",
+                desc: "Estado de servicios",
+                icon: Activity,
+                color: "text-green-500",
+                bg: "bg-green-500/10",
+              },
+              {
+                href: "/admin/billing",
+                label: "Billing",
+                desc: "Revenue y suscripciones",
+                icon: Wallet,
+                color: "text-emerald-500",
+                bg: "bg-emerald-500/10",
+              },
+              {
+                href: "/admin/api-platform",
+                label: "API Platform",
+                desc: "Requests y API keys",
+                icon: Globe,
+                color: "text-blue-500",
+                bg: "bg-blue-500/10",
+              },
+              {
+                href: "/admin/audit",
+                label: "Auditoría",
+                desc: "Logs de actividad",
+                icon: ScrollText,
+                color: "text-orange-500",
+                bg: "bg-orange-500/10",
+              },
+              {
+                href: "/admin/settings",
+                label: "Configuración",
+                desc: "Ajustes de plataforma",
+                icon: Settings,
+                color: "text-slate-500",
+                bg: "bg-slate-500/10",
+              },
             ].map((action) => (
               <Link key={action.href} href={action.href}>
                 <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
@@ -478,7 +680,9 @@ export default function AdminDashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">{action.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{action.desc}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {action.desc}
+                    </p>
                   </div>
                 </div>
               </Link>

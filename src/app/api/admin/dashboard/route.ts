@@ -7,7 +7,7 @@ import {
   subscriptionPlans,
 } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/session";
-import { eq, count, and, lt, desc, sql, ne } from "drizzle-orm";
+import { eq, count, and, lt, desc, sql } from "drizzle-orm";
 import { runHealthChecks } from "@/lib/monitoring/health-checks";
 import { logger } from "@/lib/monitoring/logger";
 
@@ -24,27 +24,25 @@ export async function GET() {
     const [
       health,
       recentErrors,
-      tenantsNow,
-      tenantsPrev,
-      providersNow,
+      orgsNow,
+      orgsPrev,
       usersNow,
       usersPrev,
       activeSubsNow,
       activeSubsPrev,
       revenue,
-      recentTenants,
+      recentOrganizations,
       dailySignups,
       planDistribution,
+      orgTypeDistribution,
     ] = await Promise.all([
       runHealthChecks(),
       Promise.resolve(logger.getErrorLogs(5)),
 
-      // Current counts
-      db.select({ count: count() }).from(organizations).where(ne(organizations.orgType, "provider")),
-      db.select({ count: count() }).from(organizations).where(
-        and(ne(organizations.orgType, "provider"), lt(organizations.createdAt, thirtyDaysAgo))
-      ),
-      db.select({ count: count() }).from(organizations).where(eq(organizations.orgType, "provider")),
+      // All organizations (unified — no type filter)
+      db.select({ count: count() }).from(organizations),
+      db.select({ count: count() }).from(organizations).where(lt(organizations.createdAt, thirtyDaysAgo)),
+
       db.select({ count: count() }).from(users),
       db.select({ count: count() }).from(users).where(lt(users.createdAt, thirtyDaysAgo)),
       db.select({ count: count() }).from(subscriptions).where(eq(subscriptions.status, "active")),
@@ -59,7 +57,7 @@ export async function GET() {
         .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
         .where(eq(subscriptions.status, "active")),
 
-      // Recent tenants
+      // Recent organizations — ALL types (planners + providers)
       db
         .select({
           id: organizations.id,
@@ -70,11 +68,10 @@ export async function GET() {
           createdAt: organizations.createdAt,
         })
         .from(organizations)
-        .where(ne(organizations.orgType, "provider"))
         .orderBy(desc(organizations.createdAt))
-        .limit(5),
+        .limit(6),
 
-      // Daily signups last 30 days
+      // Daily signups last 30 days (all org types)
       db.execute(sql`
         SELECT 
           DATE(created_at) as date,
@@ -97,36 +94,52 @@ export async function GET() {
         .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
         .where(eq(subscriptions.status, "active"))
         .groupBy(subscriptionPlans.name, subscriptionPlans.slug, subscriptionPlans.priceMonthly),
+
+      // Org type distribution for the donut chart
+      db
+        .select({ orgType: organizations.orgType, count: count() })
+        .from(organizations)
+        .groupBy(organizations.orgType),
     ]);
 
     const mrr = revenue.reduce((t, s) => t + Number(s.priceMonthly || 0), 0);
 
-    // Calculate deltas
     function calcDelta(current: number, previous: number): number {
       if (previous === 0) return current > 0 ? 100 : 0;
       return Math.round(((current - previous) / previous) * 100);
     }
 
-    const tenantsCount = tenantsNow[0]?.count || 0;
-    const tenantsPrevCount = tenantsPrev[0]?.count || 0;
+    const orgsCount = orgsNow[0]?.count || 0;
+    const orgsPrevCount = orgsPrev[0]?.count || 0;
     const usersCount = usersNow[0]?.count || 0;
     const usersPrevCount = usersPrev[0]?.count || 0;
     const activeSubsCount = activeSubsNow[0]?.count || 0;
     const activeSubsPrevCount = activeSubsPrev[0]?.count || 0;
 
+    // Build org type distribution with labels
+    const ORG_TYPE_LABELS: Record<string, string> = {
+      tenant: "Planificadores",
+      provider: "Proveedores",
+      client: "Clientes",
+    };
+    const orgTypeDistributionMapped = orgTypeDistribution.map((row) => ({
+      type: row.orgType || "tenant",
+      count: row.count,
+      label: ORG_TYPE_LABELS[row.orgType || "tenant"] || row.orgType || "Otro",
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         kpis: {
-          tenants: { value: tenantsCount, delta: calcDelta(tenantsCount, tenantsPrevCount) },
-          providers: { value: providersNow[0]?.count || 0 },
+          organizations: { value: orgsCount, delta: calcDelta(orgsCount, orgsPrevCount) },
           users: { value: usersCount, delta: calcDelta(usersCount, usersPrevCount) },
           activeSubscriptions: { value: activeSubsCount, delta: calcDelta(activeSubsCount, activeSubsPrevCount) },
           mrr: { value: mrr },
           arr: { value: mrr * 12 },
         },
         health,
-        recentTenants: recentTenants.map((t) => ({
+        recentOrganizations: recentOrganizations.map((t) => ({
           id: t.id,
           name: t.name,
           slug: t.slug,
@@ -144,6 +157,7 @@ export async function GET() {
           count: p.count,
           mrr: Number(p.priceMonthly || 0) * p.count,
         })),
+        orgTypeDistribution: orgTypeDistributionMapped,
         recentErrors: recentErrors.map((e) => ({
           timestamp: e.timestamp,
           level: e.level,
