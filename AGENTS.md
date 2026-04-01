@@ -55,7 +55,7 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 
 - **Branch `production` is PROTECTED** — cannot be deleted, reset, or archived. NEVER remove protection.
 - **History retention: 30 days** — allows PITR for any point in the last month.
-- **Daily backups:** GitHub Action [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) runs `pg_dump` daily at 06:00 UTC → Cloudflare R2 (`backups/db/`) + GitHub artifact.
+- **Daily backups:** GitHub Action [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) runs `pg_dump` via `docker postgres:16` daily at 06:00 UTC → Cloudflare R2 (`backups/db/`) + GitHub artifact (`upload-artifact@v5`). **Do NOT use `apt-get` for pg client or awscli** (exit 100 on Ubuntu 24+ runners).
 - **Neon-Vercel integration WARNING:** The marketplace integration can `delete_timeline` on unprotected branches during setup. This caused total data loss on 2026-03-31. The protected branch flag now prevents this. Always ensure branches with production data are protected BEFORE connecting any integration.
 - **Disaster recovery:** Full rebuild procedure documented in skill `hubents-database-migration` (12-step process from `drizzle-kit push` through seeds and audit).
 

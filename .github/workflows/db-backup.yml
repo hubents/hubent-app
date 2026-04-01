@@ -36,7 +36,7 @@ jobs:
           echo "Backup uploaded to R2: backups/db/${BACKUP_FILE}"
 
       - name: Upload as GitHub artifact (redundancy)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: db-backup-${{ github.run_id }}
           path: ${{ env.BACKUP_FILE }}

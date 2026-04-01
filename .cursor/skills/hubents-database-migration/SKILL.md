@@ -89,10 +89,13 @@ History retention is set to **30 days** (2592000 seconds). This allows PITR (Poi
 ### Backups
 
 A daily backup runs via GitHub Action (`.github/workflows/db-backup.yml`):
-- Executes `pg_dump` every day at 06:00 UTC
+- Runs `pg_dump` via `docker run postgres:16` (NOT apt-get — fails with exit 100 on Ubuntu 24+)
+- Uses pre-installed AWS CLI v2 on the runner (NOT `apt-get install awscli`)
+- Credentials: `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` mapped from `R2_*` secrets
 - Uploads compressed backup to Cloudflare R2 (`backups/db/`)
-- Also stored as GitHub artifact (30-day retention)
+- Also stored as GitHub artifact via `actions/upload-artifact@v5` (30-day retention)
 - Keeps last 30 backups in R2, auto-deletes older ones
+- Executes daily at 06:00 UTC + supports `workflow_dispatch` for manual trigger
 
 ### Neon-Vercel integration WARNING
 
