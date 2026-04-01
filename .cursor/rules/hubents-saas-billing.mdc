@@ -35,18 +35,20 @@ alwaysApply: false
 
 ## Registro de organizaciones
 
-- **Tenant**: auto-assign Starter + trial `plan.trialDays` → `src/app/api/auth/register/route.ts`
-- **Provider**: auto-assign provider-free + active → `src/app/api/auth/provider-register/route.ts`
-- **OAuth/magic-link**: auto-create org + starter plan + trial `plan.trialDays` → `src/app/api/user/profile/route.ts`
+- **Unified**: `/auth/register` accepts `orgType` ("tenant" | "provider") → `src/app/api/auth/register/route.ts`
+  - Tenant: auto-assign Starter + trial `plan.trialDays`
+  - Provider: auto-assign provider-free + active (no trial)
+- **OAuth/magic-link**: auto-create org as tenant → `src/app/api/user/profile/route.ts`; onboarding complete can convert to provider if user selected it during registration
 - **Admin-created**: trial usa `plan.trialDays` del plan seleccionado → `src/app/api/admin/tenants/route.ts`
 - Siempre crear subscription + actualizar org.planId (AMBOS, nunca solo uno)
 - Starter plan DEBE existir en DB antes de cualquier registro (fail ruidoso si falta)
 - Provider-free plan DEBE existir para registro de proveedores (rollback si falta)
+- `/provider/register` is DEPRECATED — middleware redirects to `/auth/register`
 
 ### Checkout/Portal URLs
 
 - Checkout y Billing Portal usan `org.orgType` para determinar la URL de retorno
-- Providers → `/vendor/settings`, Tenants → `/dashboard/settings`
+- All org types → `/dashboard/settings` (unified portal)
 
 ## Planes activos (sincronizados con Stripe live Mar 2026)
 

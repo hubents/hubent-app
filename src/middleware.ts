@@ -10,7 +10,7 @@ const PUBLIC_ROUTES = ["/", "/api/auth", "/api/public", "/api/v1", "/components"
 
 const TENANT_AUTH_ROUTES = ["/auth"];
 
-const PROVIDER_AUTH_ROUTES = ["/provider/register"];
+const PROVIDER_AUTH_ROUTES: string[] = [];
 
 const ADMIN_AUTH_ROUTES = ["/admin/login", "/admin/invite"];
 
@@ -109,6 +109,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/auth/login", nextUrl));
   }
 
+  // Redirect /provider/register → /auth/register (unified registration)
+  if (pathname === "/provider/register" || pathname.startsWith("/provider/register/")) {
+    return NextResponse.redirect(new URL("/auth/register", nextUrl));
+  }
+
   // Redirect /vendor/* → /dashboard/* (portal unification)
   if (isVendorPortal) {
     const dashboardPath = pathname.replace(/^\/vendor/, "/dashboard");
@@ -131,7 +136,7 @@ export default auth((req) => {
 
 
 
-  // Provider auth routes (/provider/register, /provider/login) - allow public access
+  // Provider auth routes (legacy, now empty — /provider/* handled by redirects above)
 
   if (isProviderAuthRoute) {
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, events, invitations, roles } from "@/db/schema";
+import { users, organizations, events, invitations, roles, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrganizationInviteEmail } from "@/lib/email";
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { profile, company, event, teamEmails, providerProfile } = body;
+    const { profile, company, event, teamEmails, providerProfile, orgType: requestedOrgType } = body;
 
     // Mark user as onboarded + save profile data
     const userUpdate: Record<string, unknown> = {
@@ -41,7 +41,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    const isProvider = userOrg.orgType === "provider";
+    // Handle orgType conversion (Google OAuth auto-created as tenant but user selected provider)
+    let isProvider = userOrg.orgType === "provider";
+
+    if (requestedOrgType === "provider" && userOrg.orgType !== "provider") {
+      const providerPlan = await db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.slug, "provider-free"),
+      });
+
+      if (providerPlan) {
+        await db
+          .update(organizations)
+          .set({
+            orgType: "provider",
+            planId: providerPlan.id,
+            verificationStatus: "unverified",
+            updatedAt: new Date(),
+          })
+          .where(eq(organizations.id, userOrg.id));
+
+        await db
+          .update(subscriptions)
+          .set({
+            planId: providerPlan.id,
+            status: "active",
+            trialEndsAt: null,
+          })
+          .where(eq(subscriptions.organizationId, userOrg.id));
+
+        isProvider = true;
+      }
+    }
 
     if (isProvider) {
       // ─── Provider Onboarding ──────────────────────────────────

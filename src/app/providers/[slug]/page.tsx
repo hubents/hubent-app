@@ -133,7 +133,7 @@ export default function ProviderPublicProfilePage() {
             <span className="font-bold text-lg">hubents</span>
           </Link>
           <Button asChild variant="outline" size="sm">
-            <Link href="/provider/register">Soy Proveedor</Link>
+            <Link href="/auth/register">Soy Proveedor</Link>
           </Button>
         </div>
       </div>

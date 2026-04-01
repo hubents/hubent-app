@@ -32,8 +32,8 @@ describe("Fix 1: Toaster in root layout", () => {
 // FIX 2: Provider slug uses hyphens not underscores
 // ============================================
 describe("Fix 2: Provider slug normalization", () => {
-  it("provider-register uses provider-free (hyphen)", () => {
-    const route = readSrc("app/api/auth/provider-register/route.ts");
+  it("unified register uses provider-free (hyphen) for provider orgType", () => {
+    const route = readSrc("app/api/auth/register/route.ts");
     expect(route).toContain('"provider-free"');
     expect(route).not.toContain('"provider_free"');
   });
@@ -75,13 +75,13 @@ describe("Fix 3: Auto-login after tenant registration", () => {
 });
 
 // ============================================
-// FIX 4: Provider emailVerified + email lowercase
+// FIX 4: Unified register emailVerified + email lowercase
 // ============================================
-describe("Fix 4: Provider emailVerified + email lowercase", () => {
-  const route = readSrc("app/api/auth/provider-register/route.ts");
+describe("Fix 4: Unified register emailVerified + email lowercase", () => {
+  const route = readSrc("app/api/auth/register/route.ts");
 
   it("normalizes email to lowercase", () => {
-    expect(route).toContain("parsed.data.email.toLowerCase()");
+    expect(route).toContain("email.toLowerCase()");
   });
 
   it("sets emailVerified on user creation", () => {
@@ -132,13 +132,13 @@ describe("Fix 6: No fallback plan in register API", () => {
     expect(route).not.toContain('"50 invitados RSVP"');
   });
 
-  it("returns 500 if starter plan not found", () => {
+  it("returns 500 if plan not found", () => {
     expect(route).toContain("El sistema no está configurado correctamente");
     expect(route).toContain("status: 500");
   });
 
   it("logs error when plan is missing", () => {
-    expect(route).toContain("starter plan not found in DB");
+    expect(route).toContain("plan not found in DB");
   });
 });
 
@@ -172,9 +172,9 @@ describe("Fix 8: Trial days dynamic", () => {
     expect(route).not.toMatch(/getDate\(\)\s*\+\s*7/);
   });
 
-  it("auth layout shows 14 days not 7", () => {
+  it("auth layout shows neutral 'Comienza gratis' (unified for both types)", () => {
     const layout = readSrc("app/auth/layout.tsx");
-    expect(layout).toContain("14 días de prueba gratis");
+    expect(layout).toContain("Comienza gratis");
     expect(layout).not.toContain("7 días de prueba gratis");
   });
 
@@ -319,30 +319,32 @@ describe("Fix 13: Custom error pages", () => {
 // CROSS-CUTTING: Consistency checks
 // ============================================
 describe("Cross-cutting consistency", () => {
-  it("no provider_free slug anywhere in src (except test files checking for absence)", () => {
+  it("no provider_free slug anywhere in key files", () => {
     const flagsFile = readSrc("lib/api/api-feature-flags.ts");
     const seedFile = readRoot("scripts/seed-plans.ts");
-    const providerRegister = readSrc("app/api/auth/provider-register/route.ts");
+    const register = readSrc("app/api/auth/register/route.ts");
 
-    // These files should NOT contain the old underscore format
     expect(flagsFile).not.toContain("provider_free");
     expect(flagsFile).not.toContain("provider_pro");
     expect(seedFile).not.toContain("provider_free");
     expect(seedFile).not.toContain("provider_pro");
-    expect(providerRegister).not.toContain("provider_free");
+    expect(register).not.toContain("provider_free");
   });
 
-  it("both register routes normalize email to lowercase", () => {
-    const tenantRegister = readSrc("app/api/auth/register/route.ts");
-    const providerRegister = readSrc("app/api/auth/provider-register/route.ts");
-    expect(tenantRegister).toContain("email.toLowerCase()");
-    expect(providerRegister).toContain(".email.toLowerCase()");
+  it("unified register normalizes email to lowercase", () => {
+    const register = readSrc("app/api/auth/register/route.ts");
+    expect(register).toContain("email.toLowerCase()");
   });
 
-  it("both register routes set emailVerified", () => {
-    const tenantRegister = readSrc("app/api/auth/register/route.ts");
-    const providerRegister = readSrc("app/api/auth/provider-register/route.ts");
-    expect(tenantRegister).toContain("emailVerified: new Date()");
-    expect(providerRegister).toContain("emailVerified: new Date()");
+  it("unified register sets emailVerified", () => {
+    const register = readSrc("app/api/auth/register/route.ts");
+    expect(register).toContain("emailVerified: new Date()");
+  });
+
+  it("unified register handles both orgTypes (tenant + provider)", () => {
+    const register = readSrc("app/api/auth/register/route.ts");
+    expect(register).toContain('"provider-free"');
+    expect(register).toContain('"starter"');
+    expect(register).toContain('orgType === "provider"');
   });
 });

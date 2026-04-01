@@ -17,12 +17,12 @@ export default function AuthLayout({
           </h1>
           <p className="text-white/80 text-lg max-w-md">
             CRM, tareas, finanzas, invitados y proveedores. 
-            Todo en una sola plataforma diseñada para planificadores de eventos.
+            Todo en una sola plataforma diseñada para profesionales de eventos.
           </p>
           <div className="flex items-center gap-4 text-white/60 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>14 días de prueba gratis</span>
+              <span>Comienza gratis</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-400" />

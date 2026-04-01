@@ -99,6 +99,7 @@ function OnboardingContent() {
   });
 
   // ─── Detect orgType ─────────────────────────────────────────────────────────
+  // Priority: org data from API > URL param (Google OAuth) > default "tenant"
 
   useEffect(() => {
     async function detectOrgType() {
@@ -110,17 +111,24 @@ function OnboardingContent() {
             const org = data[0];
             if (org.orgType === "provider") {
               setOrgType("provider");
+              setOrgTypeLoading(false);
+              return;
             }
           }
         }
       } catch {
-        // Default to planner
-      } finally {
-        setOrgTypeLoading(false);
+        // fall through to URL param check
       }
+
+      const urlOrgType = searchParams.get("orgType");
+      if (urlOrgType === "provider") {
+        setOrgType("provider");
+      }
+
+      setOrgTypeLoading(false);
     }
     detectOrgType();
-  }, []);
+  }, [searchParams]);
 
   const isProvider = orgType === "provider";
   const steps = buildSteps(orgType);
@@ -166,6 +174,7 @@ function OnboardingContent() {
       const payload: Record<string, unknown> = {
         profile,
         company,
+        orgType,
         teamEmails: team.emails ? team.emails.split(",").map(e => e.trim()).filter(Boolean) : [],
       };
 
@@ -745,10 +754,12 @@ function OnboardingContent() {
           </CardContent>
         </Card>
 
-        {/* Trial reminder */}
+        {/* Plan reminder */}
         <div className="text-center">
           <p className="text-sm text-[var(--muted-foreground)]">
-            Tienes <strong>14 días de prueba gratis</strong> con acceso completo
+            {isProvider
+              ? <>Tu <strong>plan gratuito</strong> está activo</>
+              : <>Tienes <strong>14 días de prueba gratis</strong> con acceso completo</>}
           </p>
         </div>
       </div>

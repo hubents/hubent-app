@@ -13,9 +13,9 @@ function readSrc(relativePath: string): string {
 // ============================================
 
 describe("P0: Critical billing fixes", () => {
-  it("tenant register sets organizations.planId", () => {
+  it("unified register sets organizations.planId", () => {
     const route = readSrc("app/api/auth/register/route.ts");
-    expect(route).toContain("planId: starterPlan.id");
+    expect(route).toContain("planId: plan.id");
   });
 
   it("system-init only has starter and provider-free plans", () => {
@@ -56,8 +56,8 @@ describe("P1: High priority fixes", () => {
     expect(portal).toContain('org?.orgType === "provider" ? "vendor" : "dashboard"');
   });
 
-  it("provider register uses validatePassword", () => {
-    const route = readSrc("app/api/auth/provider-register/route.ts");
+  it("unified register uses validatePassword for all org types", () => {
+    const route = readSrc("app/api/auth/register/route.ts");
     expect(route).toContain("validatePassword");
     expect(route).toContain("import { hashPassword, validatePassword }");
   });
@@ -77,9 +77,9 @@ describe("P1: High priority fixes", () => {
     expect(route).toContain('requireFeature("auto_processes")');
   });
 
-  it("provider register fails if provider-free plan not found", () => {
-    const route = readSrc("app/api/auth/provider-register/route.ts");
-    expect(route).toContain("provider-free plan not found");
+  it("unified register fails if plan not found in DB", () => {
+    const route = readSrc("app/api/auth/register/route.ts");
+    expect(route).toContain("plan not found in DB");
   });
 
   it("api-feature-flags documents dual system", () => {

@@ -50,7 +50,7 @@ alwaysApply: false
 ### 2. Provider Organizations (Platform)
 
 - Table: `organizations` where `orgType = 'provider'`
-- Created by: Self-registration at `/provider/register`
+- Created by: Unified registration at `/auth/register` (user selects "Proveedor" org type)
 - Visibility: Public directory (after admin verification)
 - Purpose: Event collaboration, marketplace profile, team management
 - Both planners and providers use `/dashboard` — NO separate `/vendor` portal

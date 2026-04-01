@@ -19,14 +19,17 @@ Providers and planners share a SINGLE portal at `/dashboard`. There is NO `/vend
 - Sidebar sections configured per orgType in `src/config/tenant-types.ts` via `getSidebarSections()`
 - Middleware at `src/middleware.ts` redirects any `/vendor/*` request to `/dashboard/*`
 
-## Registration Flow
+## Registration Flow (Unified)
 
-1. Provider fills form at `/provider/register` (name, email, password, category, Instagram, phone, service radius)
-2. API: `POST /api/auth/provider-register` creates user + organization (orgType='provider') + membership (role=owner) + provider-free plan
+1. User fills unified form at `/auth/register`, selects "Proveedor" as org type (name, email, password, company name)
+2. API: `POST /api/auth/register` with `orgType: "provider"` creates user + organization (orgType='provider') + membership (role=owner) + provider-free plan
 3. Auto-login redirects to `/onboarding?welcome=true` (provider-specific steps: profile, company-public-profile, profile-preview, team)
-4. After onboarding: provider lands at `/dashboard`
-5. Admin sees new provider at `/admin/tenants` (filter by orgType=provider) and verifies
-6. Verified providers appear in marketplace at `/dashboard/marketplace` and `/providers`
+4. Provider-specific fields (category, Instagram, city, etc.) are collected during onboarding step `company-public-profile`
+5. After onboarding: provider lands at `/dashboard`
+6. Admin sees new provider at `/admin/tenants` (filter by orgType=provider) and verifies
+7. Verified providers appear in marketplace at `/dashboard/marketplace` and `/providers`
+
+**NOTE:** `/provider/register` is DEPRECATED — middleware redirects to `/auth/register`. The separate API `/api/auth/provider-register` has been removed.
 
 ## Event Collaboration Flow
 
@@ -50,7 +53,7 @@ Implementation: `src/lib/invitations.ts` → `addTaskParticipant()` calls `ensur
 ## Key APIs
 
 ### Provider Auth
-- `POST /api/auth/provider-register` — Register new provider org (role=owner, plan=provider-free)
+- `POST /api/auth/register` with `orgType: "provider"` — Register new provider org (role=owner, plan=provider-free)
 
 ### Unified APIs with scope params
 - `GET /api/events?scope=collaborated` — Events where org has active providerEventAccess
