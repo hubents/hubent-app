@@ -105,15 +105,22 @@ git push origin main
 1. `https://app.hubents.com/terms` — loads without login
 2. `https://app.hubents.com/privacy` — loads without login
 3. Register new tenant → auto-login → onboarding → dashboard
-4. Register new provider → auto-login → vendor portal
+4. Register new provider → auto-login → onboarding → dashboard (unified portal)
 5. Checkout billing from tenant settings
-6. Upgrade vendor settings (free → pro)
+6. Upgrade provider settings (free → pro)
 7. Non-existent route → custom 404
 8. Toasts on actions
 
+## Post-deploy infrastructure check
+
+After every deploy, verify:
+1. Neon `production` branch is still **protected** (Neon Console → Branches → shield icon)
+2. `DATABASE_URL` in Vercel matches `ep-floral-sea-ahusfae7-pooler` endpoint
+3. Daily backup GitHub Action is enabled and last run succeeded
+
 ## Environment variables required in Vercel
 
-- `DATABASE_URL` — Neon PostgreSQL
+- `DATABASE_URL` — Neon PostgreSQL pooler (`ep-floral-sea-ahusfae7-pooler.c-3.us-east-1.aws.neon.tech`)
 - `NEXTAUTH_SECRET`, `NEXTAUTH_URL` — `https://app.hubents.com`
 - `NEXT_PUBLIC_APP_URL` — `https://app.hubents.com`
 - `STRIPE_PLATFORM_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PLATFORM_KEY`, `STRIPE_PLATFORM_WEBHOOK_SECRET`
@@ -123,6 +130,11 @@ git push origin main
 - `COMPOSIO_API_KEY`
 - `CRON_SECRET`
 - `AI_GATEWAY_API_KEY`
+
+## GitHub Secrets required (for daily backup Action)
+
+- `DATABASE_URL` — same Neon pooler URL as Vercel
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`
 
 ## Related project rules
 

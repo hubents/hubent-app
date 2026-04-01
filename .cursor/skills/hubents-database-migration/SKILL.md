@@ -72,6 +72,53 @@ npx vitest run
 - Seed data: prefer upsert / check-then-insert
 - Verify in Neon console if needed: https://console.neon.tech
 
+## Neon branch protection (CRITICAL)
+
+The `production` branch is **protected** in Neon (Scale plan). This means:
+- It **cannot be deleted** — not by users, not by integrations
+- It **cannot be reset** from a parent branch
+- The project **cannot be deleted** while it has protected branches
+- Computes associated with it **cannot be deleted**
+
+**NEVER remove branch protection.** If you need to test schema changes, create a child branch.
+
+### History retention
+
+History retention is set to **30 days** (2592000 seconds). This allows PITR (Point-in-Time Recovery) for any point within the last 30 days.
+
+### Backups
+
+A daily backup runs via GitHub Action (`.github/workflows/db-backup.yml`):
+- Executes `pg_dump` every day at 06:00 UTC
+- Uploads compressed backup to Cloudflare R2 (`backups/db/`)
+- Also stored as GitHub artifact (30-day retention)
+- Keeps last 30 backups in R2, auto-deletes older ones
+
+### Neon-Vercel integration WARNING
+
+The Neon-Vercel marketplace integration can **delete branches** during setup. On 2026-03-31 it ran `delete_timeline` on the production data branch, causing total data loss. The protected branch flag now prevents this. If you ever need to reconnect the integration:
+1. Ensure the target branch is **protected** BEFORE connecting
+2. Verify `DATABASE_URL` in Vercel points to the correct pooler endpoint
+3. Do NOT let the integration create/manage branches that hold production data
+
+### Disaster recovery checklist
+
+If the DB needs to be rebuilt from scratch:
+```
+1. Fix DATABASE_URL in .env, .env.local, Vercel
+2. npx drizzle-kit push (creates 107 tables)
+3. npx tsx src/db/seed-roles.ts (creates legacy roles)
+4. npx tsx scripts/migrate-provider-roles.ts (unifies to 7 roles)
+5. npx tsx scripts/hard-reset-permissions.ts (canonical permissions)
+6. npx tsx scripts/seed-plans.ts (5 plans + 9 feature flags)
+7. npx tsx scripts/sync-stripe-products.ts (Stripe products/prices)
+8. npx tsx scripts/create-admin.ts (super admin)
+9. npx tsx scripts/seed-wedding-template.ts (optional)
+10. npx tsx scripts/seed-all-templates.ts (optional)
+11. Delete residual vendor/member roles from DB
+12. npx tsx scripts/full-audit.ts (verify)
+```
+
 ## Related project rules
 
 - `.cursor/rules/hubents-project-architecture.mdc` — `db.transaction()` prohibition

@@ -48,8 +48,16 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 
 - **GitHub:** repo conectado a Vercel; push a `main` despliega producción; PRs → preview.
 - **Vercel:** build Next.js + env (`DATABASE_URL`, ClickUp, `CRON_SECRET`, etc.); crons en [`vercel.json`](vercel.json) (`/api/cron/*`).
-- **Neon:** `DATABASE_URL` apunta al pooler/serverless; integración Neon↔Vercel recomendada en dashboards.
+- **Neon:** `DATABASE_URL` apunta al pooler `ep-floral-sea-ahusfae7-pooler`; proyecto `late-dream-83661145`.
 - Checklist previo a `main`: skill `hubents-deploy` (`tsc`, `vitest`, migraciones si hubo schema).
+
+### Data protection (CRITICAL)
+
+- **Branch `production` is PROTECTED** — cannot be deleted, reset, or archived. NEVER remove protection.
+- **History retention: 30 days** — allows PITR for any point in the last month.
+- **Daily backups:** GitHub Action [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) runs `pg_dump` daily at 06:00 UTC → Cloudflare R2 (`backups/db/`) + GitHub artifact.
+- **Neon-Vercel integration WARNING:** The marketplace integration can `delete_timeline` on unprotected branches during setup. This caused total data loss on 2026-03-31. The protected branch flag now prevents this. Always ensure branches with production data are protected BEFORE connecting any integration.
+- **Disaster recovery:** Full rebuild procedure documented in skill `hubents-database-migration` (12-step process from `drizzle-kit push` through seeds and audit).
 
 ## Session routine (Cursor)
 
