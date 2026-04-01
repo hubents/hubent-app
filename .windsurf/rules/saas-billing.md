@@ -14,9 +14,11 @@
 - `TenantSession.subscriptionStatus` disponible: active/trialing/canceled/past_due/null
 
 ## Registro de organizaciones
-- **Tenant**: auto-assign Starter (id=5) + trial 14d → `src/app/api/auth/register/route.ts`
-- **Provider**: auto-assign provider_free (id=8) + active → `src/app/api/auth/provider-register/route.ts`
+- **Unified**: `/auth/register` accepts `orgType` ("tenant" | "provider") → `src/app/api/auth/register/route.ts`
+  - Tenant: auto-assign Starter (id=5) + trial 14d
+  - Provider: auto-assign provider-free (id=8) + active (no trial)
 - Siempre crear subscription + actualizar org.planId
+- `/provider/register` is DEPRECATED — middleware redirects to `/auth/register`
 
 ## Planes activos (sincronizados con Stripe live Mar 2026)
 | Plan | ID | Slug | Tipo | €/mes | Stripe Product |

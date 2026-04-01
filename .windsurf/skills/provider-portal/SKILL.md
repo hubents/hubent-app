@@ -1,114 +1,94 @@
 ---
-description: Provider Portal architecture, APIs, and flows
+description: >-
+  HubEnts unified portal for providers — registration, onboarding, event
+  collaboration, cross-org task sync, marketplace profile. Use when working on
+  provider registration, providerEventAccess, cross-org collaboration, or
+  marketplace features. There is NO separate /vendor portal.
 ---
 
-# Skill: Provider Portal
+# Skill: Provider Portal (Unified)
 
-## Overview
-The Provider Portal allows service providers (DJ, catering, photography, etc.) to register on HubEnts, get verified by an admin, appear in a public directory, and collaborate on events with planners.
+## Architecture Overview
 
-## Registration Flow
-1. Provider fills form at `/provider/register` (name, email, password, category, Instagram, phone, service radius)
-2. API: `POST /api/auth/provider-register` creates user + organization (orgType='provider') + membership (role=provider_owner)
-3. Provider logs in at `/provider/login` → redirected to `/vendor` dashboard
-4. Admin sees new provider at `/admin/providers` → verifies or rejects
-5. Verified providers appear in planner directory at `/dashboard/providers`
+Providers and planners share a SINGLE portal at `/dashboard`. There is NO `/vendor` route tree. The sidebar, events, tasks, finance, and settings pages adapt dynamically based on `orgType` and plan features.
+
+- `orgType = "tenant"` — Planner organizations
+- `orgType = "provider"` — Provider organizations
+- Both use the same 7 universal roles: owner, admin, manager, accountant, staff, viewer, client
+- Sidebar sections configured per orgType in `src/config/tenant-types.ts` via `getSidebarSections()`
+- Middleware at `src/middleware.ts` redirects any `/vendor/*` request to `/dashboard/*`
+
+## Registration Flow (Unified)
+
+1. User fills unified form at `/auth/register`, selects "Proveedor" as org type (name, email, password, company name)
+2. API: `POST /api/auth/register` with `orgType: "provider"` creates user + organization (orgType='provider') + membership (role=owner) + provider-free plan
+3. Auto-login redirects to `/onboarding?welcome=true` (provider-specific steps: profile, company-public-profile, profile-preview, team)
+4. Provider-specific fields (category, Instagram, city, etc.) are collected during onboarding step `company-public-profile`
+5. After onboarding: provider lands at `/dashboard`
+6. Admin sees new provider at `/admin/tenants` (filter by orgType=provider) and verifies
+7. Verified providers appear in marketplace at `/dashboard/marketplace` and `/providers`
+
+**NOTE:** `/provider/register` is DEPRECATED — middleware redirects to `/auth/register`. The separate API `/api/auth/provider-register` has been removed.
 
 ## Event Collaboration Flow
-1. Planner invites provider from event's vendor page → `POST /api/events/[eventId]/providers`
-2. Provider receives email notification
-3. Provider sees invitation at `/vendor/events` → accepts or rejects
-4. If accepted: provider can see event tasks at `/vendor/tasks`
-5. Table: `providerEventAccess` tracks status (pending/active/rejected/revoked)
+
+1. Planner invites provider from event vendor page → `POST /api/events/[eventId]/providers`
+2. Creates `providerEventAccess` row (status: pending) + local vendor record + eventVendors link
+3. Provider receives email notification
+4. Provider sees invitation in their events list at `/dashboard/events` (scope=accessible)
+5. Provider accepts/rejects via `PATCH /api/events/collaborations/[accessId]`
+6. If accepted: tasks appear in provider's task board automatically via `useTasks` hook (merges scope=collaborated)
 
 ## Key APIs
 
 ### Provider Auth
-- `POST /api/auth/provider-register` — Register new provider org
-- Middleware handles `/vendor/*` routes for provider auth
+- `POST /api/auth/register` with `orgType: "provider"` — Register new provider org (role=owner, plan=provider-free)
 
-### Provider Portal
-- `GET /api/vendor/dashboard` — Dashboard stats
-- `GET /api/vendor/events` — List event invitations
-- `POST /api/vendor/events/[eventId]/respond` — Accept/reject invitation
-- `GET /api/vendor/tasks` — Tasks from shared events
-- `GET|PUT /api/vendor/profile` — Organization profile CRUD
-- `GET /api/vendor/finance/*` — Financial module
+### Unified APIs with scope params
+- `GET /api/events?scope=collaborated` — Events where org has active providerEventAccess
+- `GET /api/events?scope=accessible` — Both owned + collaborated events
+- `GET /api/tasks?scope=collaborated` — Tasks from collaborated events where org's vendor is a participant
+- `PATCH /api/events/collaborations/[accessId]` — Accept/reject collaboration invitation
+- `GET|PATCH /api/organizations/profile` — Organization public profile CRUD
 
 ### Admin
-- `GET /api/admin/providers` — List all providers with filters
-- `POST /api/admin/providers/[id]/verify` — Verify or reject provider
+- `/admin/tenants` — Unified org management (filter by orgType)
+- `POST /api/admin/tenants/[id]/verify` — Verify or reject provider
 
 ### Planner-facing
 - `GET /api/providers` — Directory of verified providers
 - `GET /api/providers/[slug]` — Public provider profile
-- `GET /api/events/[eventId]/providers` — Providers assigned to event
 - `POST /api/events/[eventId]/providers` — Invite provider to event
 
 ## Database Tables
 
-```
+```text
 organizations (orgType='provider')
 ├── verificationStatus: unverified | verified | rejected | suspended
-├── providerCategory: text
-├── instagramHandle: text
-├── serviceRadius: integer
-└── serviceAreas: json
+├── providerCategory, instagramHandle, serviceRadius, serviceAreas
+├── description, tagline, coverImage, city, region, publicEmail
+├── profileCompleteness, services, instagramPosts, brochureUrl
+└── planId → subscriptionPlans
 
 providerEventAccess
 ├── providerOrgId → organizations.id
 ├── eventId → events.id
 ├── plannerOrgId → organizations.id
-├── vendorId → vendors.id (optional link)
+├── vendorId → vendors.id (optional)
 ├── status: pending | active | rejected | revoked
-└── invitedBy → users.id
+├── invitedBy → users.id
+└── invitedAt, acceptedAt
 
-vendors (internal to planner)
-├── organizationId → organizations.id (planner's org)
-├── contactId → contacts.id (bidirectional link)
-├── name, category, email, phone, website, address
-└── rating
-
-contacts
-├── isVendor: boolean
-├── vendorCategory: text
-└── vendorId → vendors.id
+vendors (planner's internal CRM, may link to provider org)
+├── organizationId — belongs to the planner org
+├── providerOrgId → organizations.id (links to platform provider)
+└── name, category, email, phone
 ```
 
-## File Structure
+## NEVER DO
 
-```
-src/app/vendor/           — Provider portal pages
-  layout.tsx              — Provider layout with sidebar
-  page.tsx                — Dashboard
-  events/page.tsx         — Event invitations
-  tasks/page.tsx          — Tasks from shared events
-  finance/                — Financial module
-  profile/page.tsx        — Org profile editor
-  team/page.tsx           — Team management
-  settings/page.tsx       — Settings
-
-src/app/provider/
-  register/page.tsx       — Registration form
-  login/page.tsx          — Login page
-
-src/app/admin/providers/
-  page.tsx                — Admin provider management
-
-src/app/dashboard/providers/
-  page.tsx                — Planner directory
-
-src/components/layout/
-  provider-sidebar.tsx    — Provider portal sidebar
-
-src/lib/
-  system-init.ts          — Roles and base permissions
-  vendors.ts              — Internal vendors + public profiles
-  contacts.ts             — Contact CRUD with vendor sync
-```
-
-## Email Templates
-- `provider-verified` — Sent when admin verifies provider
-- `provider-rejected` — Sent when admin rejects (includes reason)
-- `provider-event-invitation` — Sent when planner invites to event
-- All emails use Resend, non-blocking with `.catch()` error logging
+- NEVER create routes under `/vendor/` — they will be redirected to `/dashboard/`
+- NEVER create routes under `/provider/` — `/provider/register` redirects to `/auth/register`
+- NEVER use `provider_owner`, `provider_admin`, `provider_tech` role slugs — they were removed
+- NEVER gate UI by `!isProvider` or `orgType !== "provider"` — use `can()` permission checks
+- NEVER hardcode orgType checks for capabilities — use plan limits (`requireLimit`) or feature flags (`requireFeature`)

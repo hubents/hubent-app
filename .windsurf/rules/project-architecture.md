@@ -20,8 +20,7 @@ description: HubEnts project architecture, route structure, and coding patterns
 ## Route Structure
 
 ### Public Routes (no auth)
-- `/auth/login`, `/auth/register` — Auth pages
-- `/provider/register` — Provider self-registration
+- `/auth/login`, `/auth/register` — Auth pages (unified: planners + providers)
 - `/terms`, `/privacy` — Legal pages
 - `/rsvp/[slug]` — Public RSVP page
 - `/f/[slug]` — Public form landing pages

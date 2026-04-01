@@ -30,7 +30,7 @@ Plataforma SaaS integral para gestión de bodas y eventos. Multi-tenant con sopo
 - Lista de invitados con check-in, grupos y estadísticas
 - Calendario integrado
 - Chat y equipo con roles y permisos granulares
-- Portal de proveedores independiente (`/vendor`)
+- Portal unificado para planificadores y proveedores (`/dashboard`)
 - Panel de administración de plataforma (`/admin`)
 
 ### Public API (`/api/v1`)

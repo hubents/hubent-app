@@ -144,7 +144,7 @@ HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos
 
 ### APIs Disponibles (80+ endpoints)
 ```
-/api/auth/*              - Autenticación (register, provider-register, login)
+/api/auth/*              - Autenticación (register con orgType, login)
 /api/crm/*               - CRM (leads, companies, people)
 /api/tasks/*             - Tareas + chat + attachments
 /api/events/*            - Eventos + guests + templates
@@ -188,8 +188,7 @@ hubents-new/
 │   │   ├── api/               # 80+ API endpoints
 │   │   ├── dashboard/         # Panel principal (tenant)
 │   │   ├── admin/             # Panel administrador (platform)
-│   │   ├── auth/              # Login, register, provider-register
-│   │   └── provider/          # Portal de proveedores
+│   │   ├── auth/              # Login, register (unified: planners + providers)
 │   ├── components/            # Componentes React
 │   │   ├── ui/               # shadcn/ui components
 │   │   ├── crm/              # LeadKanban

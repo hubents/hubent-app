@@ -50,11 +50,10 @@ description: Rules for RBAC system and Provider Portal architecture
 
 ### 2. Provider Organizations (Platform)
 - Table: `organizations` where `orgType = 'provider'`
-- Created by: Self-registration at `/provider/register`
+- Created by: Unified registration at `/auth/register` (user selects "Proveedor" org type)
 - Visibility: Public directory (after admin verification)
-- Purpose: Own portal, event collaboration, team management
-- Verification: Admin verifies → appears in directory
-- Files: `src/app/vendor/` (portal), `src/app/admin/providers/` (admin)
+- Purpose: Event collaboration, marketplace profile, team management
+- Both planners and providers use `/dashboard` — NO separate `/vendor` portal
 
 ### Event Vendor Page (`/dashboard/events/[id]/vendors`)
 - Shows BOTH types side by side
@@ -62,15 +61,11 @@ description: Rules for RBAC system and Provider Portal architecture
 - "Proveedores Locales" = assigned vendor contacts from CRM
 - Table: `providerEventAccess` for platform providers, `eventVendors` for local vendors
 
-## Provider Portal Routes
-- `/provider/register` — Registration
-- `/provider/login` — Login
-- `/vendor` — Dashboard
-- `/vendor/events` — Event invitations
-- `/vendor/tasks` — Tasks from shared events
-- `/vendor/finance` — Own financial module
-- `/vendor/profile` — Organization profile
-- `/vendor/team` — Team management
+## Unified Portal (all at /dashboard)
+- All org types use `/dashboard` layout with `MainSidebar`
+- Sidebar sections configured per orgType via `tenant-types.ts` → `getSidebarSections()`
+- `/vendor/*` redirected to `/dashboard/*` by middleware
+- `/provider/register` redirected to `/auth/register` by middleware
 - `/vendor/settings` — Settings
 
 ## Email Templates
