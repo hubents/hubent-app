@@ -37,6 +37,7 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 | `provider-portal`     | Unified provider flows: registration, onboarding, collaboration, cross-org tasks |
 | `pdf-download`        | Client-side PDF via `downloadPDFFromHTML` (no Puppeteer for user-triggered PDFs) |
 | `clickup-integration` | ClickUp env (Vercel/Windsurf parity), comments, `error-reporter` — ver abajo     |
+| `neon-data-protection` | Neon branch protection, backups, disaster recovery, incident 2026-03-31           |
 
 ### ClickUp env (Vercel / Windsurf parity)
 
@@ -48,16 +49,23 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 
 - **GitHub:** repo conectado a Vercel; push a `main` despliega producción; PRs → preview.
 - **Vercel:** build Next.js + env (`DATABASE_URL`, ClickUp, `CRON_SECRET`, etc.); crons en [`vercel.json`](vercel.json) (`/api/cron/*`).
-- **Neon:** `DATABASE_URL` apunta al pooler `ep-floral-sea-ahusfae7-pooler`; proyecto `late-dream-83661145`.
+- **Neon:** `DATABASE_URL` apunta al pooler `ep-gentle-moon-ahp5x11a-pooler` (branch `vercel-dev-recovered`); proyecto `late-dream-83661145`.
 - Checklist previo a `main`: skill `hubents-deploy` (`tsc`, `vitest`, migraciones si hubo schema).
 
-### Data protection (CRITICAL)
+### Data protection (CRITICAL) — see skill `neon-data-protection`
 
-- **Branch `production` is PROTECTED** — cannot be deleted, reset, or archived. NEVER remove protection.
+**Neon project:** `late-dream-83661145` (hubents-app), org NapsixAI, 2 branches only:
+
+| Branch | ID | Endpoint | Role |
+|--------|----|----------|------|
+| `vercel-dev-recovered` | `br-little-surf-ahyce57i` | `ep-gentle-moon-ahp5x11a-pooler` | **PRODUCTION DATA** — PROTECTED |
+| `production` | `br-noisy-band-ahvj6vrk` | `ep-floral-sea-ahusfae7-pooler` | Emergency backup — PROTECTED |
+
+- **Both branches are PROTECTED** — cannot be deleted, reset, or archived. NEVER remove protection.
 - **History retention: 30 days** — allows PITR for any point in the last month.
-- **Daily backups:** GitHub Action [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) runs `pg_dump` via `docker postgres:16` daily at 06:00 UTC → Cloudflare R2 (`backups/db/`) + GitHub artifact (`upload-artifact@v5`). **Do NOT use `apt-get` for pg client or awscli** (exit 100 on Ubuntu 24+ runners).
-- **Neon-Vercel integration WARNING:** The marketplace integration can `delete_timeline` on unprotected branches during setup. This caused total data loss on 2026-03-31. The protected branch flag now prevents this. Always ensure branches with production data are protected BEFORE connecting any integration.
-- **Disaster recovery:** Full rebuild procedure documented in skill `hubents-database-migration` (12-step process from `drizzle-kit push` through seeds and audit).
+- **Daily backups:** GitHub Action [`.github/workflows/db-backup.yml`](.github/workflows/db-backup.yml) runs `pg_dump` daily at 06:00 UTC → Cloudflare R2 (`backups/db/`) + GitHub artifact (30-day retention).
+- **Neon-Vercel integration WARNING:** The marketplace integration ran `delete_timeline` on an unprotected branch on 2026-03-31, causing total data loss. Protected branches prevent this. ALWAYS protect branches BEFORE connecting any integration.
+- **Disaster recovery:** Full rebuild in skill `hubents-database-migration` (12-step). Full incident and lessons in skill `neon-data-protection`.
 
 ## Session routine (Cursor)
 

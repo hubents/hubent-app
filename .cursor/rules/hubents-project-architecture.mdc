@@ -134,9 +134,11 @@ sendEmail(to, subject, html).catch((err) =>
 ## Neon Database Protection (CRITICAL)
 
 - **Project:** `late-dream-83661145` (hubents-app), org NapsixAI
-- **Branch `production`** (`br-noisy-band-ahvj6vrk`) is **PROTECTED** — NEVER remove protection
-- **Endpoint:** `ep-floral-sea-ahusfae7-pooler.c-3.us-east-1.aws.neon.tech`
+- **Production data branch:** `vercel-dev-recovered` (`br-little-surf-ahyce57i`) — **PROTECTED**
+- **Production endpoint:** `ep-gentle-moon-ahp5x11a-pooler.c-3.us-east-1.aws.neon.tech`
+- **Backup branch:** `production` (`br-noisy-band-ahvj6vrk`) — **PROTECTED** (emergency rebuild)
 - **History retention:** 30 days (allows PITR)
-- **Daily backups:** `.github/workflows/db-backup.yml` → R2 `backups/db/` (pg_dump via `docker postgres:16`, NOT apt-get; AWS CLI v2 preinstalled; `actions/upload-artifact@v5`)
+- **Daily backups:** `.github/workflows/db-backup.yml` → R2 `backups/db/`
 - **Neon-Vercel integration** can delete unprotected branches — always protect first
+- **Full incident and protection guide:** see skill `neon-data-protection`
 - **Disaster recovery:** see `hubents-database-migration` skill for 12-step rebuild
