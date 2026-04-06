@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { withApiAuth } from "@/lib/api/api-wrapper";
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, eventCollaborations, providerEventAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notFoundError, validationError } from "@/lib/api/api-errors";
 import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
@@ -31,9 +31,38 @@ export const GET = withApiAuth(
       .where(and(eq(events.id, id), eq(events.organizationId, session.organizationId)))
       .limit(1);
 
-    if (!event) throw notFoundError("Event", params.id);
+    if (!event) {
+      // Check cross-org collaboration access
+      const [collab] = await db
+        .select({ id: eventCollaborations.id })
+        .from(eventCollaborations)
+        .where(and(
+          eq(eventCollaborations.eventId, id),
+          eq(eventCollaborations.guestOrgId, session.organizationId),
+          eq(eventCollaborations.status, "active"),
+        ))
+        .limit(1);
 
-    return { data: { object: "event", ...event } };
+      if (!collab) {
+        const [legacy] = await db
+          .select({ id: providerEventAccess.id })
+          .from(providerEventAccess)
+          .where(and(
+            eq(providerEventAccess.eventId, id),
+            eq(providerEventAccess.providerOrgId, session.organizationId),
+            eq(providerEventAccess.status, "active"),
+          ))
+          .limit(1);
+        if (!legacy) throw notFoundError("Event", params.id);
+      }
+
+      const [crossOrgEvent] = await db.select().from(events).where(eq(events.id, id)).limit(1);
+      if (!crossOrgEvent) throw notFoundError("Event", params.id);
+
+      return { data: { object: "event", ...crossOrgEvent, isCollaborator: true } };
+    }
+
+    return { data: { object: "event", ...event, isCollaborator: false } };
   },
   { scope: "events:read" }
 );

@@ -128,6 +128,8 @@ export function NotificationCenter() {
       case "new_contact": return "👤";
       case "new_lead": return "🎯";
       case "new_event": return "🎉";
+      case "collaboration_invitation": return "🤝";
+      case "collaboration_accepted": return "🤝";
       default: return "📌";
     }
   };

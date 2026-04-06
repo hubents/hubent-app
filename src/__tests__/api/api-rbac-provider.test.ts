@@ -18,19 +18,16 @@ describe("Provider RBAC: Scope definitions", () => {
   });
 
   it("PROVIDER_ALLOWED_SCOPES has exactly 7 scopes", () => {
-    expect(PROVIDER_ALLOWED_SCOPES.length).toBe(7);
+    expect(PROVIDER_ALLOWED_SCOPES.length).toBe(10);
   });
 
-  it("provider cannot access contacts:write", () => {
-    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).not.toContain("contacts:write");
+  it("provider can now access contacts:read and contacts:write", () => {
+    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).toContain("contacts:read");
+    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).toContain("contacts:write");
   });
 
-  it("provider cannot access contacts:read", () => {
-    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).not.toContain("contacts:read");
-  });
-
-  it("provider cannot access guests:read", () => {
-    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).not.toContain("guests:read");
+  it("provider can now access guests:read", () => {
+    expect(PROVIDER_ALLOWED_SCOPES as readonly string[]).toContain("guests:read");
   });
 
   it("provider cannot access guests:write", () => {
@@ -94,19 +91,18 @@ describe("Provider RBAC: Wrapper enforcement logic", () => {
   });
 
   it("PROVIDER_ALLOWED_SCOPES.includes rejects forbidden scopes", () => {
-    expect(PROVIDER_ALLOWED_SCOPES.includes("contacts:write" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
-    expect(PROVIDER_ALLOWED_SCOPES.includes("guests:write" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
     expect(PROVIDER_ALLOWED_SCOPES.includes("crm:write" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
     expect(PROVIDER_ALLOWED_SCOPES.includes("vendors:write" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
     expect(PROVIDER_ALLOWED_SCOPES.includes("webhooks:manage" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
+    expect(PROVIDER_ALLOWED_SCOPES.includes("guests:write" as typeof PROVIDER_ALLOWED_SCOPES[number])).toBe(false);
   });
 
   it("forbidden scopes detection works correctly for API key creation", () => {
-    const requestedScopes = ["events:read", "contacts:write", "guests:write"];
+    const requestedScopes = ["events:read", "crm:write", "vendors:write"];
     const forbidden = requestedScopes.filter(
       (s) => !PROVIDER_ALLOWED_SCOPES.includes(s as typeof PROVIDER_ALLOWED_SCOPES[number])
     );
-    expect(forbidden).toEqual(["contacts:write", "guests:write"]);
+    expect(forbidden).toEqual(["crm:write", "vendors:write"]);
   });
 
   it("all-allowed scopes pass validation", () => {

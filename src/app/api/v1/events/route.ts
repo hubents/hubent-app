@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { withApiAuth } from "@/lib/api/api-wrapper";
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, eventCollaborations, providerEventAccess, organizations } from "@/db/schema";
 import { eq, and, desc, gt, lt, count, ilike, sql } from "drizzle-orm";
 import { parsePaginationParams, buildPaginatedResponse, parseFilterParams } from "@/lib/api/api-utils";
 import { validationError } from "@/lib/api/api-errors";
@@ -24,6 +24,74 @@ const createEventSchema = z.object({
 export const GET = withApiAuth(
   async (request: NextRequest, { session }) => {
     const { searchParams } = new URL(request.url);
+    const scope = searchParams.get("scope");
+
+    // scope=collaborated: return events where this org is a guest collaborator
+    if (scope === "collaborated") {
+      const collabEvents = await db
+        .select({
+          id: events.id,
+          name: events.name,
+          description: events.description,
+          type: events.type,
+          status: events.status,
+          date: events.date,
+          endDate: events.endDate,
+          location: events.location,
+          hostOrgName: organizations.name,
+          collaborationStatus: eventCollaborations.status,
+        })
+        .from(eventCollaborations)
+        .innerJoin(events, eq(events.id, eventCollaborations.eventId))
+        .innerJoin(organizations, eq(organizations.id, eventCollaborations.hostOrgId))
+        .where(
+          and(
+            eq(eventCollaborations.guestOrgId, session.organizationId),
+            eq(eventCollaborations.status, "active"),
+          ),
+        )
+        .orderBy(desc(events.date));
+
+      // Legacy fallback
+      const legacyEvents = await db
+        .select({
+          id: events.id,
+          name: events.name,
+          description: events.description,
+          type: events.type,
+          status: events.status,
+          date: events.date,
+          endDate: events.endDate,
+          location: events.location,
+          hostOrgName: organizations.name,
+          collaborationStatus: providerEventAccess.status,
+        })
+        .from(providerEventAccess)
+        .innerJoin(events, eq(events.id, providerEventAccess.eventId))
+        .innerJoin(organizations, eq(organizations.id, providerEventAccess.plannerOrgId))
+        .where(
+          and(
+            eq(providerEventAccess.providerOrgId, session.organizationId),
+            eq(providerEventAccess.status, "active"),
+          ),
+        )
+        .orderBy(desc(events.date));
+
+      const seenIds = new Set(collabEvents.map(e => e.id));
+      const merged = [
+        ...collabEvents,
+        ...legacyEvents.filter(e => !seenIds.has(e.id)),
+      ];
+
+      return {
+        data: {
+          object: "list",
+          data: merged.map(e => ({ object: "event" as const, ...e })),
+          total_count: merged.length,
+        },
+      };
+    }
+
     const { limit, startingAfter } = parsePaginationParams(searchParams);
     const filters = parseFilterParams(searchParams, ["status", "type", "search", "date"]);
 

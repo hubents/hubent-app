@@ -61,6 +61,7 @@ export const GET = withApiAuth(
         assignedTo: tasks.assignedTo,
         category: tasks.category,
         sortOrder: tasks.sortOrder,
+        sharedWithHost: tasks.sharedWithHost,
         createdAt: tasks.createdAt,
         updatedAt: tasks.updatedAt,
         eventName: events.name,

@@ -13,6 +13,7 @@ import {
   leads,
   eventScheduleItems,
   providerEventAccess,
+  eventCollaborations,
   contacts,
   vendors,
 } from "@/db/schema";
@@ -111,27 +112,53 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Vendor support: providers access events via providerEventAccess
-    const isVendor = session.orgType === "provider";
+    // Cross-org collaboration: find events where this org is a guest (bilateral)
+    const collabAccess = await db
+      .select({ eventId: eventCollaborations.eventId })
+      .from(eventCollaborations)
+      .where(and(
+        eq(eventCollaborations.guestOrgId, orgId),
+        eq(eventCollaborations.status, "active")
+      ));
+    const legacyAccess = await db
+      .select({ eventId: providerEventAccess.eventId, accessId: providerEventAccess.id })
+      .from(providerEventAccess)
+      .where(and(
+        eq(providerEventAccess.providerOrgId, orgId),
+        eq(providerEventAccess.status, "active")
+      ));
+
+    const collabEventIdSet = new Set([
+      ...collabAccess.map(a => a.eventId),
+      ...legacyAccess.map(a => a.eventId),
+    ]);
+    const isCollaborator = collabEventIdSet.size > 0;
     let accessIdMap: Record<number, number> = {};
+    legacyAccess.forEach((a) => { accessIdMap[a.eventId] = a.accessId; });
 
-    if (isVendor) {
-      const vendorAccess = await db
-        .select({ eventId: providerEventAccess.eventId, accessId: providerEventAccess.id })
-        .from(providerEventAccess)
-        .where(and(
-          eq(providerEventAccess.providerOrgId, orgId),
-          eq(providerEventAccess.status, "active")
-        ));
+    if (isCollaborator && !session.eventScoped) {
+      const collabEventIds = Array.from(collabEventIdSet);
+      if (allowedEventIds === null) {
+        allowedEventIds = collabEventIds;
+      } else {
+        collabEventIds.forEach(id => { if (!allowedEventIds!.includes(id)) allowedEventIds!.push(id); });
+      }
+      if (taskEventIds === null) {
+        taskEventIds = [...collabEventIds];
+      } else {
+        collabEventIds.forEach(id => { if (!taskEventIds!.includes(id)) taskEventIds!.push(id); });
+      }
+      if (financeEventIds === null) {
+        financeEventIds = [...collabEventIds];
+      } else {
+        collabEventIds.forEach(id => { if (!financeEventIds!.includes(id)) financeEventIds!.push(id); });
+      }
+      if (scheduleEventFilter === null) {
+        scheduleEventFilter = [...collabEventIds];
+      } else {
+        collabEventIds.forEach(id => { if (!scheduleEventFilter!.includes(id)) scheduleEventFilter!.push(id); });
+      }
 
-      allowedEventIds = vendorAccess.map((a) => a.eventId);
-      taskEventIds = [...allowedEventIds];
-      financeEventIds = [...allowedEventIds];
-
-      vendorAccess.forEach((a) => { accessIdMap[a.eventId] = a.accessId; });
-      scheduleEventFilter = [...allowedEventIds];
-
-      // Vendors never see leads
       const leadIdx = allowedTypes.indexOf("lead");
       if (leadIdx >= 0) allowedTypes.splice(leadIdx, 1);
     }
@@ -164,7 +191,7 @@ export async function GET(request: NextRequest) {
           .from(events)
           .where(
             and(
-              ...(isVendor ? [] : [eq(events.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(events.organizationId, orgId)]),
               isNotNull(events.date),
               gte(events.date, fromDate),
               lte(events.date, toDate),
@@ -188,7 +215,7 @@ export async function GET(request: NextRequest) {
           .from(tasks)
           .where(
             and(
-              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(tasks.organizationId, orgId)]),
               isNotNull(tasks.dueDate),
               gte(tasks.dueDate, fromDate),
               lte(tasks.dueDate, toDate),
@@ -214,7 +241,7 @@ export async function GET(request: NextRequest) {
           .innerJoin(tasks, eq(taskMeetings.taskId, tasks.id))
           .where(
             and(
-              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(tasks.organizationId, orgId)]),
               gte(taskMeetings.date, fromDate),
               lte(taskMeetings.date, toDate),
               ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : []),
@@ -237,7 +264,7 @@ export async function GET(request: NextRequest) {
           .from(paymentSchedules)
           .where(
             and(
-              ...(isVendor ? [] : [eq(paymentSchedules.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(paymentSchedules.organizationId, orgId)]),
               gte(paymentSchedules.dueDate, fromDate),
               lte(paymentSchedules.dueDate, toDate),
               ...(financeEventIds !== null ? [inArray(paymentSchedules.eventId, financeEventIds)] : []),
@@ -261,7 +288,7 @@ export async function GET(request: NextRequest) {
           .innerJoin(tasks, eq(taskPayments.taskId, tasks.id))
           .where(
             and(
-              ...(isVendor ? [] : [eq(tasks.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(tasks.organizationId, orgId)]),
               gte(taskPayments.date, fromDate),
               lte(taskPayments.date, toDate),
               ...(financeEventIds !== null ? [inArray(tasks.eventId, financeEventIds)] : []),
@@ -270,7 +297,7 @@ export async function GET(request: NextRequest) {
           ),
 
       // 6. Financial documents — exclude entirely if no finance access or vendor with no events
-      (!hasFinanceAccess || (isVendor && allowedEventIds !== null && allowedEventIds.length === 0))
+      (!hasFinanceAccess || (isCollaborator && allowedEventIds !== null && allowedEventIds.length === 0))
         ? Promise.resolve([])
         : db
           .select({
@@ -286,17 +313,17 @@ export async function GET(request: NextRequest) {
           .from(financialDocuments)
           .where(
             and(
-              ...(isVendor ? [] : [eq(financialDocuments.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(financialDocuments.organizationId, orgId)]),
               isNotNull(financialDocuments.dueDate),
               gte(financialDocuments.dueDate, fromDate),
               lte(financialDocuments.dueDate, toDate),
-              ...(isVendor && allowedEventIds !== null ? [inArray(financialDocuments.eventId, allowedEventIds)] : []),
+              ...(isCollaborator && allowedEventIds !== null ? [inArray(financialDocuments.eventId, allowedEventIds)] : []),
               ...(filterEventId !== null ? [eq(financialDocuments.eventId, filterEventId)] : [])
             )
           ),
 
       // 7. Leads — exclude for eventScoped, vendors, when filtering by event, or without crm:read
-      (isVendor || session.eventScoped || filterEventId !== null || !canOrg("crm:read"))
+      (isCollaborator || session.eventScoped || filterEventId !== null || !canOrg("crm:read"))
         ? Promise.resolve([])
         : db
           .select({
@@ -332,7 +359,7 @@ export async function GET(request: NextRequest) {
           .from(eventScheduleItems)
           .where(
             and(
-              ...(isVendor ? [] : [eq(eventScheduleItems.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(eventScheduleItems.organizationId, orgId)]),
               gte(eventScheduleItems.date, fromDate),
               lte(eventScheduleItems.date, toDate),
               ...(scheduleEventFilter !== null ? [inArray(eventScheduleItems.eventId, scheduleEventFilter)] : []),
@@ -363,7 +390,7 @@ export async function GET(request: NextRequest) {
           .leftJoin(vendors, eq(paymentRecords.vendorId, vendors.id))
           .where(
             and(
-              ...(isVendor ? [] : [eq(paymentRecords.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(paymentRecords.organizationId, orgId)]),
               isNotNull(paymentRecords.paymentDate),
               gte(paymentRecords.paymentDate, fromDate),
               lte(paymentRecords.paymentDate, toDate),
@@ -389,7 +416,7 @@ export async function GET(request: NextRequest) {
           .innerJoin(events, eq(eventPayments.eventId, events.id))
           .where(
             and(
-              ...(isVendor ? [] : [eq(events.organizationId, orgId)]),
+              ...(isCollaborator ? [] : [eq(events.organizationId, orgId)]),
               sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate}) IS NOT NULL`,
               gte(sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate})`, fromDate),
               lte(sql`COALESCE(${eventPayments.dueDate}, ${eventPayments.paidDate})`, toDate),
@@ -413,7 +440,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString().split("T")[0],
         endDate: row.endDate?.toISOString().split("T")[0],
         color: CALENDAR_COLORS.event,
-        href: isVendor ? vendorHref(row.id) : `/dashboard/events/${row.id}`,
+        href: isCollaborator ? vendorHref(row.id) : `/dashboard/events/${row.id}`,
         meta: {
           status: row.status ?? undefined,
           location: row.location ?? undefined,
@@ -430,7 +457,7 @@ export async function GET(request: NextRequest) {
         title: row.title,
         date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.task,
-        href: isVendor ? vendorHref(row.eventId) : `/dashboard/tasks?taskId=${row.id}`,
+        href: isCollaborator ? vendorHref(row.eventId) : `/dashboard/tasks?taskId=${row.id}`,
         meta: {
           status: row.status ?? undefined,
           priority: row.priority ?? undefined,
@@ -447,7 +474,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString().split("T")[0],
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.meeting,
-        href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
+        href: isCollaborator ? `/dashboard/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
         meta: {
           location: row.location ?? undefined,
         },
@@ -462,7 +489,7 @@ export async function GET(request: NextRequest) {
         title: row.name,
         date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.payment,
-        href: isVendor ? vendorHref(row.eventId) : `/dashboard/finance/payments`,
+        href: isCollaborator ? vendorHref(row.eventId) : `/dashboard/finance/payments`,
         meta: {
           status: row.isPaid ? "paid" : "pending",
           amount: row.amount ? parseFloat(row.amount) : undefined,
@@ -478,7 +505,7 @@ export async function GET(request: NextRequest) {
         title: row.description,
         date: row.date.toISOString().split("T")[0],
         color: CALENDAR_COLORS.task_payment,
-        href: isVendor ? `/vendor/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
+        href: isCollaborator ? `/dashboard/tasks` : `/dashboard/tasks?taskId=${row.taskId}`,
         meta: {
           status: row.status ?? undefined,
           amount: row.amount ? parseFloat(row.amount) : undefined,
@@ -510,7 +537,7 @@ export async function GET(request: NextRequest) {
         title: `${label} ${row.number}`,
         date: row.dueDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.document,
-        href: isVendor ? `/vendor/finance/${row.type === "invoice" ? "invoices" : "quotes"}` : (docTypeRoutes[row.type] || "/dashboard/finance"),
+        href: isCollaborator ? `/dashboard/finance/${row.type === "invoice" ? "invoices" : "quotes"}` : (docTypeRoutes[row.type] || "/dashboard/finance"),
         meta: {
           status: row.status ?? undefined,
           amount: row.total ? parseFloat(row.total) : undefined,
@@ -546,7 +573,7 @@ export async function GET(request: NextRequest) {
         date: row.date.toISOString().split("T")[0],
         time: row.startTime ?? undefined,
         color: CALENDAR_COLORS.schedule,
-        href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/schedule`,
+        href: isCollaborator ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/schedule`,
         meta: {},
       });
     }
@@ -566,7 +593,7 @@ export async function GET(request: NextRequest) {
         title,
         date: row.paymentDate.toISOString().split("T")[0],
         color: CALENDAR_COLORS.payment,
-        href: isVendor ? `/vendor/finance/payments` : `/dashboard/finance/payments`,
+        href: isCollaborator ? `/dashboard/finance/payments` : `/dashboard/finance/payments`,
         meta: {
           status: row.status ?? undefined,
           amount: amt || undefined,
@@ -586,7 +613,7 @@ export async function GET(request: NextRequest) {
         title: row.description || `Pago (${amt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)`,
         date: dateVal.toISOString().split("T")[0],
         color: CALENDAR_COLORS.payment,
-        href: isVendor ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/finances/payments`,
+        href: isCollaborator ? vendorHref(row.eventId) : `/dashboard/events/${row.eventId}/finances/payments`,
         meta: {
           status: row.status ?? undefined,
           amount: amt || undefined,

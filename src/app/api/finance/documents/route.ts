@@ -8,7 +8,7 @@ import {
   getProviderOrgForVendor,
 } from "@/lib/cross-org";
 import { db } from "@/db";
-import { organizations, providerEventAccess } from "@/db/schema";
+import { organizations, providerEventAccess, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // GET /api/finance/documents - List documents
@@ -128,49 +128,62 @@ async function autoCreateMirror(
   eventId: number,
   vendorId?: number,
 ) {
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, orgId),
-    columns: { orgType: true },
+  // Scenario A: This org is a GUEST collaborator on the event -> mirror to host org
+  const collabAsGuest = await db.query.eventCollaborations.findFirst({
+    where: and(
+      eq(eventCollaborations.eventId, eventId),
+      eq(eventCollaborations.guestOrgId, orgId),
+      eq(eventCollaborations.status, "active"),
+    ),
+    columns: { hostOrgId: true },
   });
-  if (!org) return;
 
-  if (org.orgType === "provider") {
-    // Scenario A: Provider → find planner org via providerEventAccess
-    const access = await db.query.providerEventAccess.findFirst({
-      where: and(
-        eq(providerEventAccess.providerOrgId, orgId),
-        eq(providerEventAccess.eventId, eventId),
-        eq(providerEventAccess.status, "active"),
-      ),
-      columns: { plannerOrgId: true },
-    });
-    if (!access) return;
+  if (collabAsGuest) {
+    const localVendorId = await getVendorForProviderOrg(collabAsGuest.hostOrgId, orgId);
+    await createMirrorDocument(documentId, collabAsGuest.hostOrgId, eventId, localVendorId);
+    return;
+  }
 
-    const localVendorId = await getVendorForProviderOrg(
-      access.plannerOrgId,
-      orgId,
-    );
-    await createMirrorDocument(
-      documentId,
-      access.plannerOrgId,
-      eventId,
-      localVendorId,
-    );
-  } else if (org.orgType === "tenant" && vendorId) {
-    // Scenario B: Planner → check if vendor is linked to a provider org
+  // Legacy fallback: provider org via providerEventAccess
+  const legacyAsGuest = await db.query.providerEventAccess.findFirst({
+    where: and(
+      eq(providerEventAccess.providerOrgId, orgId),
+      eq(providerEventAccess.eventId, eventId),
+      eq(providerEventAccess.status, "active"),
+    ),
+    columns: { plannerOrgId: true },
+  });
+
+  if (legacyAsGuest) {
+    const localVendorId = await getVendorForProviderOrg(legacyAsGuest.plannerOrgId, orgId);
+    await createMirrorDocument(documentId, legacyAsGuest.plannerOrgId, eventId, localVendorId);
+    return;
+  }
+
+  // Scenario B: This org is the HOST -> mirror to guest orgs with active collaboration
+  if (vendorId) {
     const providerOrgId = await getProviderOrgForVendor(vendorId);
-    if (!providerOrgId) return;
+    if (providerOrgId) {
+      const collabActive = await db.query.eventCollaborations.findFirst({
+        where: and(
+          eq(eventCollaborations.eventId, eventId),
+          eq(eventCollaborations.guestOrgId, providerOrgId),
+          eq(eventCollaborations.status, "active"),
+        ),
+      });
 
-    // Verify the provider has access to this event
-    const access = await db.query.providerEventAccess.findFirst({
-      where: and(
-        eq(providerEventAccess.providerOrgId, providerOrgId),
-        eq(providerEventAccess.eventId, eventId),
-        eq(providerEventAccess.status, "active"),
-      ),
-    });
-    if (!access) return;
+      if (!collabActive) {
+        const legacyActive = await db.query.providerEventAccess.findFirst({
+          where: and(
+            eq(providerEventAccess.providerOrgId, providerOrgId),
+            eq(providerEventAccess.eventId, eventId),
+            eq(providerEventAccess.status, "active"),
+          ),
+        });
+        if (!legacyActive) return;
+      }
 
-    await createMirrorDocument(documentId, providerOrgId, eventId, null);
+      await createMirrorDocument(documentId, providerOrgId, eventId, null);
+    }
   }
 }

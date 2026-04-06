@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { eventCollaborations, providerEventAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -56,6 +57,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           .set({ status: "revoked", updatedAt: new Date() })
           .where(eq(eventCollaborations.id, aid));
 
+        void dispatchWebhookEvent(session.organizationId, "collaboration.revoked", {
+          id: aid, eventId: collab.eventId, guestOrgId: collab.guestOrgId,
+        }).catch(() => {});
+
         return NextResponse.json({ success: true, data: { id: aid, status: "revoked" } });
       }
 
@@ -83,6 +88,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           updatedAt: new Date(),
         })
         .where(eq(eventCollaborations.id, aid));
+
+      const webhookType = action === "accept" ? "collaboration.accepted" : "collaboration.rejected";
+      void dispatchWebhookEvent(collab.hostOrgId, webhookType, {
+        id: aid, eventId: collab.eventId, guestOrgId: collab.guestOrgId,
+      }).catch(() => {});
 
       return NextResponse.json({ success: true, data: { id: aid, status: newStatus } });
     }

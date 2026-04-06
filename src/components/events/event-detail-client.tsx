@@ -25,6 +25,7 @@ import {
   RiFileList3Line,
   RiEyeLine,
   RiDownloadLine,
+  RiTeamLine,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -72,6 +73,7 @@ interface Event {
   guestCount: number;
   budget: string | null;
   description: string | null;
+  isCollaborator?: boolean;
 }
 
 interface Task {
@@ -415,6 +417,13 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
 
   return (
     <div className="space-y-[var(--gap-cards-lg)]">
+      {/* Collaboration banner */}
+      {event.isCollaborator && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+          <RiTeamLine className="h-4 w-4 shrink-0" />
+          <span>Estas colaborando en este evento</span>
+        </div>
+      )}
       {/* Back Button */}
       <Link href="/dashboard/events">
         <Button variant="ghost" className="gap-2">

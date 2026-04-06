@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { requireAuth } from "@/lib/session";
-import { events, tasks, organizations, providerEventAccess, financialDocuments, organizationFinanceSettings, vendors, taskParticipants } from "@/db/schema";
+import { events, tasks, organizations, providerEventAccess, eventCollaborations, financialDocuments, organizationFinanceSettings, vendors, taskParticipants } from "@/db/schema";
 import { eq, and, count, inArray, sum, sql } from "drizzle-orm";
 import { getUserEventAccess } from "@/lib/event-permissions";
 import { withMonitoring } from "@/lib/monitoring";
@@ -103,7 +103,18 @@ async function getProviderStats(
   orgId: number,
   org: { name: string; verificationStatus: string | null; instagramHandle: string | null; providerCategory: string | null }
 ) {
-  const [eventCount] = await db
+  // Count collaborated events from new table + legacy table
+  const [collabCount] = await db
+    .select({ count: count() })
+    .from(eventCollaborations)
+    .where(
+      and(
+        eq(eventCollaborations.guestOrgId, orgId),
+        sql`${eventCollaborations.status} IN ('active', 'pending')`
+      )
+    );
+
+  const [legacyCount] = await db
     .select({ count: count() })
     .from(providerEventAccess)
     .where(
@@ -113,7 +124,19 @@ async function getProviderStats(
       )
     );
 
-  const activeAccess = await db
+  const totalCollabEvents = (collabCount?.count ?? 0) + (legacyCount?.count ?? 0);
+
+  // Get active event IDs from both tables
+  const collabActive = await db
+    .select({ eventId: eventCollaborations.eventId })
+    .from(eventCollaborations)
+    .where(
+      and(
+        eq(eventCollaborations.guestOrgId, orgId),
+        eq(eventCollaborations.status, "active")
+      )
+    );
+  const legacyActive = await db
     .select({ eventId: providerEventAccess.eventId })
     .from(providerEventAccess)
     .where(
@@ -122,16 +145,20 @@ async function getProviderStats(
         eq(providerEventAccess.status, "active")
       )
     );
-  const activeEventIds = activeAccess.map((a) => a.eventId);
+  const activeEventIds = [...new Set([
+    ...collabActive.map(a => a.eventId),
+    ...legacyActive.map(a => a.eventId),
+  ])];
 
-  const linkedVendors = await db
-    .select({ id: vendors.id })
-    .from(vendors)
-    .where(eq(vendors.providerOrgId, orgId));
-  const vendorIds = linkedVendors.map((v) => v.id);
-
+  // Count pending tasks via collaboratorOrgId + legacy vendorId
   let taskCountValue = 0;
-  if (activeEventIds.length > 0 && vendorIds.length > 0) {
+  if (activeEventIds.length > 0) {
+    const linkedVendors = await db
+      .select({ id: vendors.id })
+      .from(vendors)
+      .where(eq(vendors.providerOrgId, orgId));
+    const vendorIds = linkedVendors.map((v) => v.id);
+
     const [taskCount] = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${tasks.id})` })
       .from(tasks)
@@ -139,8 +166,11 @@ async function getProviderStats(
       .where(
         and(
           inArray(tasks.eventId, activeEventIds),
-          inArray(taskParticipants.vendorId, vendorIds),
-          sql`${tasks.status} NOT IN ('completed', 'cancelled')`
+          sql`${tasks.status} NOT IN ('completed', 'cancelled')`,
+          sql`(
+            ${taskParticipants.collaboratorOrgId} = ${orgId}
+            ${vendorIds.length > 0 ? sql`OR ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})` : sql``}
+          )`
         )
       );
     taskCountValue = Number(taskCount?.count ?? 0);
@@ -184,7 +214,7 @@ async function getProviderStats(
       providerCategory: org.providerCategory,
     },
     stats: {
-      activeEvents: eventCount?.count ?? 0,
+      activeEvents: totalCollabEvents,
       pendingTasks: taskCountValue,
       totalRevenue: Number(revenue?.total ?? 0),
       pendingInvoices: pendingInvoices?.count ?? 0,

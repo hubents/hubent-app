@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, events, invitations, roles, subscriptions, subscriptionPlans } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, organizations, events, invitations, roles, subscriptions, subscriptionPlans, eventCollaborations } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrganizationInviteEmail } from "@/lib/email";
 import { calculateProfileCompleteness } from "@/config/provider-constants";
@@ -195,6 +195,27 @@ export async function POST(request: NextRequest) {
         if (memberRole) {
           await sendTeamInvitations(teamEmails, userOrg as { id: number; name: string }, memberRole, session.user!.id!);
         }
+      }
+    }
+
+    // Auto-link pending collaboration invitations by email
+    if (session.user?.email && userOrg) {
+      try {
+        const linked = await db
+          .update(eventCollaborations)
+          .set({ guestOrgId: userOrg.id, status: "pending", updatedAt: new Date() })
+          .where(
+            and(
+              eq(eventCollaborations.invitationEmail, session.user.email),
+              eq(eventCollaborations.status, "pending_registration"),
+            ),
+          )
+          .returning({ id: eventCollaborations.id });
+        if (linked.length > 0) {
+          console.log(`Auto-linked ${linked.length} collaboration invitations for ${session.user.email}`);
+        }
+      } catch (err) {
+        console.error("Auto-link collaboration invitations failed:", err);
       }
     }
 

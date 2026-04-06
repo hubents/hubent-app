@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess, requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { eventCollaborations, organizations, events, users } from "@/db/schema";
+import { eventCollaborations, organizations, events, users, notifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
 import { notifyProviderInvited } from "@/lib/push-notifications";
+import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
 import { randomBytes } from "crypto";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -202,6 +203,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           hostOrg?.name || "Un organizador",
           newCollab.id,
         ).catch((e) => console.error("Push notify partner invited failed:", e));
+
+        // Dispatch webhook
+        void dispatchWebhookEvent(session.organizationId, "collaboration.invited", {
+          id: newCollab.id, eventId: eid, guestOrgId, guestOrgName: guestOrg.name,
+        }).catch(() => {});
+
+        // Insert notification for guest org owner
+        if (guestOrg.ownerId) {
+          db.insert(notifications).values({
+            userId: guestOrg.ownerId,
+            organizationId: guestOrgId,
+            type: "collaboration_invitation",
+            title: "Invitación a colaborar",
+            body: `${hostOrg?.name || "Un organizador"} te invitó a colaborar en ${event.name || "un evento"}`,
+            data: { eventId: String(eid), collaborationId: String(newCollab.id) },
+          }).execute().catch((e) => console.error("Insert collaboration notification failed:", e));
+        }
 
         return NextResponse.json({ success: true, data: newCollab }, { status: 201 });
       } catch (err: unknown) {

@@ -263,6 +263,25 @@ export function TaskGeneralTab({
 
   return (
     <div className="p-6 space-y-6">
+      {/* Shared with host toggle (only for guest tasks in collaborated events) */}
+      {task && task.eventId && "sharedWithHost" in task && (
+        <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">Compartir con el organizador</p>
+            <p className="text-xs text-muted-foreground">Permite al organizador del evento ver esta tarea</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!(task as Record<string, unknown>).sharedWithHost}
+            disabled={readOnly}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${(task as Record<string, unknown>).sharedWithHost ? "bg-primary" : "bg-input"} ${readOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={() => onUpdateTask({ sharedWithHost: !(task as Record<string, unknown>).sharedWithHost })}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition-transform ${(task as Record<string, unknown>).sharedWithHost ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+      )}
       {/* Task Fields Grid */}
       <div className="grid grid-cols-2 gap-4">
         {/* Asignado a */}
