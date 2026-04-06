@@ -32,6 +32,11 @@ const nextConfig: NextConfig = {
         destination: "/dashboard/partners/:path*",
         permanent: true,
       },
+      {
+        source: "/dashboard/events/:id/vendors",
+        destination: "/dashboard/events/:id/partners",
+        permanent: true,
+      },
     ];
   },
 

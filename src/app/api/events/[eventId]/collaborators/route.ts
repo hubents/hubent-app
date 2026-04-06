@@ -13,7 +13,7 @@ const addCollaboratorSchema = z.object({
   contactId: z.number().int().positive().optional(),
   vendorId: z.number().int().positive().optional(),
   type: z.enum(["planner", "vendor", "client", "assistant", "guest", "contact"]).default("planner"),
-  role: z.string().min(1, "El rol es obligatorio"),
+  role: z.string().optional(),
   permissions: z.record(z.string(), z.string()).optional(),
 }).refine(d => d.userId || d.contactId || d.vendorId, {
   message: "Se requiere userId, contactId o vendorId",
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Auto-invite contact to the platform (truly non-blocking — don't delay response)
     if (contactId && (type === "contact" || type === "client")) {
-      inviteCollaboratorContact(session, contactId, id, role)
+      inviteCollaboratorContact(session, contactId, id, role || type)
         .then(result => console.log(`Auto-invite contact ${contactId} result:`, result.status))
         .catch(err => console.error("Auto-invite failed:", err));
     }
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               evt.name,
               org.name,
               session.user.name || null,
-              role
+              role || "colaborador"
             );
             console.log(`Collaborator notification sent to ${user.email} for event ${evt.name}`);
           }

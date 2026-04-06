@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { buildUserContext, createTenantSession } from "@/lib/tenant";
 import { getUsage } from "@/lib/entitlements";
-import { checkEventSectionAccess } from "@/lib/event-permissions";
+import { checkEventSectionAccess, checkCollaborationSectionAccess } from "@/lib/event-permissions";
 import type { TenantSession, TenantRole, UserContext, EventSectionPermissions } from "@/types";
 
 /**
@@ -247,6 +247,7 @@ const SECTION_ORG_PERMISSION: Record<keyof EventSectionPermissions, { view: stri
   guests:   { view: "events:read",  edit: "events:update" },
   rsvp:     { view: "events:read",  edit: "events:update" },
   vendors:  { view: "vendors:read", edit: "vendors:read" },
+  partners: { view: "vendors:read", edit: "vendors:read" },
   finances: { view: "finance:read", edit: "finance:read" },
   runsheet: { view: "events:read",  edit: "events:update" },
   calendar: { view: "events:read",  edit: "events:update" },
@@ -289,7 +290,12 @@ export async function requireEventSectionAccess(
     if (!session.permissions.includes(orgPerm)) {
       const [resource] = orgPerm.split(":");
       if (!session.permissions.includes(`${resource}:*`)) {
-        throw new Error(`Forbidden: Missing permission ${orgPerm}`);
+        // Fallback: check if this org is a guest collaborator on this event
+        const collabAccess = await checkCollaborationSectionAccess(session, eventId, section, level);
+        if (!collabAccess.allowed) {
+          throw new Error(`Forbidden: Missing permission ${orgPerm}`);
+        }
+        return session;
       }
     }
   }

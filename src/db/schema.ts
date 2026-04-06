@@ -1201,6 +1201,59 @@ export const providerEventAccess = pgTable("provider_event_access", {
 
 });
 
+// Cross-tenant collaboration: org-to-org event partnerships (replaces provider_event_access)
+export const eventCollaborations = pgTable("event_collaborations", {
+
+  id: serial("id").primaryKey(),
+
+  eventId: integer("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+
+  hostOrgId: integer("host_org_id")
+    .notNull()
+    .references(() => organizations.id),
+
+  guestOrgId: integer("guest_org_id").references(() => organizations.id),
+
+  invitationEmail: text("invitation_email"),
+
+  invitationToken: text("invitation_token").unique(),
+
+  permissions: json("permissions").$type<{
+    general?: "view" | "edit" | "none";
+    calendar?: "view" | "edit" | "none";
+    tasks?: "view" | "edit" | "none";
+    partners?: "view" | "none";
+    finances?: "view" | "none";
+    rsvp?: "view" | "edit" | "none";
+    guests?: "view" | "edit" | "none";
+    runsheet?: "view" | "edit" | "none";
+  }>().default({
+    general: "view",
+    calendar: "view",
+    tasks: "view",
+    partners: "none",
+    finances: "none",
+    rsvp: "none",
+    guests: "none",
+    runsheet: "none",
+  }),
+
+  status: text("status").notNull().default("pending"),
+
+  invitedBy: text("invited_by").references(() => users.id),
+
+  invitedAt: timestamp("invited_at").defaultNow(),
+
+  acceptedAt: timestamp("accepted_at"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+});
+
 
 
 export const tasks = pgTable("tasks", {
@@ -1232,6 +1285,8 @@ export const tasks = pgTable("tasks", {
   createdBy: text("created_by").references(() => users.id),
 
   sortOrder: integer("sort_order").default(0),
+
+  sharedWithHost: boolean("shared_with_host").default(false),
 
   createdAt: timestamp("created_at").defaultNow(),
 
@@ -2419,6 +2474,10 @@ export const taskParticipants = pgTable("task_participants", {
 
   }),
 
+  collaboratorOrgId: integer("collaborator_org_id").references(
+    () => organizations.id,
+  ),
+
   type: participantTypeEnum("type").default("planner"),
 
   canEdit: boolean("can_edit").default(false),
@@ -2920,6 +2979,8 @@ export const eventParticipants = pgTable("event_participants", {
     rsvp?: "view" | "edit" | "none";
 
     vendors?: "view" | "none";
+
+    partners?: "view" | "none";
 
     finances?: "view" | "none";
 

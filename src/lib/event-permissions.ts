@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { eventParticipants, taskParticipants } from "@/db/schema";
+import { eventParticipants, eventCollaborations, taskParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { TenantSession, EventSectionPermissions, EventSectionLevel } from "@/types";
 
@@ -128,6 +128,46 @@ export async function getTaskParticipantAccess(userId: string, taskId: number) {
 }
 
 /**
+ * Check if a guest org has section access via event_collaborations.
+ * Used as fallback when event_participants check fails (cross-org access).
+ */
+export async function checkCollaborationSectionAccess(
+  session: TenantSession,
+  eventId: number,
+  section: keyof EventSectionPermissions,
+  requiredLevel: "view" | "edit" = "view",
+): Promise<{ allowed: boolean; reason?: string }> {
+  const [collab] = await db
+    .select({ permissions: eventCollaborations.permissions })
+    .from(eventCollaborations)
+    .where(
+      and(
+        eq(eventCollaborations.eventId, eventId),
+        eq(eventCollaborations.guestOrgId, session.organizationId),
+        eq(eventCollaborations.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!collab) {
+    return { allowed: false, reason: "No tienes acceso a este evento como colaborador" };
+  }
+
+  const perms = (collab.permissions || {}) as Record<string, string>;
+  const sectionLevel = perms[section] || "none";
+
+  if (sectionLevel === "none") {
+    return { allowed: false, reason: `No tienes acceso a la sección ${section}` };
+  }
+
+  if (requiredLevel === "edit" && sectionLevel === "view") {
+    return { allowed: false, reason: `Solo tienes acceso de lectura a ${section}` };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Default full permissions (for participants without explicit permissions)
  */
 function defaultFullPermissions(): EventSectionPermissions {
@@ -137,6 +177,7 @@ function defaultFullPermissions(): EventSectionPermissions {
     guests: "none",
     rsvp: "none",
     vendors: "none",
+    partners: "none",
     finances: "none",
     runsheet: "none",
     calendar: "none",
@@ -152,7 +193,8 @@ export const EVENT_SECTION_LABELS: Record<keyof EventSectionPermissions, string>
   tasks: "Tareas",
   guests: "Lista de Invitados",
   rsvp: "RSVP",
-  vendors: "Proveedores",
+  vendors: "Partners",
+  partners: "Partners",
   finances: "Finanzas",
   runsheet: "Orden del día",
   calendar: "Calendario",
@@ -168,6 +210,7 @@ export const EVENT_SECTION_LEVELS: Record<keyof EventSectionPermissions, EventSe
   guests: ["none", "view", "edit"],
   rsvp: ["none", "view", "edit"],
   vendors: ["none", "view"],
+  partners: ["none", "view"],
   finances: ["none", "view"],
   runsheet: ["none", "view", "edit"],
   calendar: ["none", "view", "edit"],

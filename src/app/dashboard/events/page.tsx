@@ -99,8 +99,7 @@ const statusLabels: Record<string, string> = {
 type SortOption = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "budget_desc" | "budget_asc";
 
 export default function EventsPage() {
-  const { can, orgType } = useUserSessionContext();
-  const isProvider = orgType === "provider";
+  const { can } = useUserSessionContext();
   const canCreate = can("events:create");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,49 +117,19 @@ export default function EventsPage() {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      if (isProvider) {
-        const res = await fetch("/api/events?scope=accessible");
-        if (res.ok) {
-          const data = await res.json();
-          // Map accessible events to the Event shape for display
-          const mapped = (data.data || []).map((e: any) => ({
-            id: e.id,
-            name: e.name,
-            type: "other",
-            date: null,
-            endDate: null,
-            location: e.plannerOrgName || null,
-            guestCount: null,
-            status: "active",
-            budget: null,
-            description: null,
-            createdAt: null,
-            progress: 0,
-            totalTasks: 0,
-            completedTasks: 0,
-            participantCount: 0,
-            participants: [],
-            _accessId: e.accessId,
-            _plannerOrgName: e.plannerOrgName,
-          }));
-          setEvents(mapped);
-          setMeta({ page: 1, limit: 50, total: mapped.length, totalPages: 1 });
-        }
-      } else {
-        const params = new URLSearchParams({ page: page.toString() });
-        const res = await fetch(`/api/events?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setEvents(data.data || []);
-          if (data.meta) setMeta(data.meta);
-        }
+      const params = new URLSearchParams({ page: page.toString() });
+      const res = await fetch(`/api/events?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data.data || []);
+        if (data.meta) setMeta(data.meta);
       }
     } catch (error) {
       console.error("Error loading events:", error);
     } finally {
       setLoading(false);
     }
-  }, [page, isProvider]);
+  }, [page]);
 
   useEffect(() => {
     loadEvents();
@@ -555,9 +524,7 @@ export default function EventsPage() {
               <p className="text-muted-foreground mb-4">
                 {searchTerm || filterType || filterStatus
                   ? "Intenta con otra búsqueda o ajusta los filtros"
-                  : isProvider
-                    ? "Aún no te han invitado a ningún evento"
-                    : "Crea tu primer evento para comenzar a organizar"
+                  : "Crea tu primer evento para comenzar a organizar"
                 }
               </p>
               {!searchTerm && !filterType && !filterStatus && canCreate && (

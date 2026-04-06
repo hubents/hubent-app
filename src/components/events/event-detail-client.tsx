@@ -579,7 +579,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
                   const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
                   const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
-                  const roleLabel: Record<string, string> = { client: "Cliente", organizer: "Organizador", assistant: "Asistente", sponsor: "Patrocinador", speaker: "Ponente", vendor: "Proveedor", other: "Otro" };
+                  const typeLabel: Record<string, string> = { planner: "Miembro", contact: "Contacto", vendor: "Partner", client: "Cliente", assistant: "Asistente", guest: "Invitado" };
                   return (
                     <div key={collab.id} className="flex items-center gap-3 p-2 rounded border">
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${colorClass}`}>
@@ -588,11 +588,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm truncate">{name}</span>
-                          {collab.role && (
-                            <Badge variant="outline" className="text-[10px] shrink-0">
-                              {roleLabel[collab.role] || collab.role}
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {typeLabel[collab.type] || collab.type}
+                          </Badge>
                         </div>
                         {subtext && (
                           <p className="text-xs text-muted-foreground truncate">{subtext}</p>
@@ -707,7 +705,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiStore2Line className="h-5 w-5" />
-              Proveedores ({vendors.length})
+              Partners ({vendors.length})
             </CardTitle>
             <div className="flex gap-2">
               {canEdit("vendors") && (

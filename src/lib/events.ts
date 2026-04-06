@@ -6,6 +6,7 @@ import {
   taskTemplateChecklists,
   taskTemplateForms,
   eventParticipants,
+  eventCollaborations,
   tasks,
   taskChecklistItems,
   taskHtmlContent,
@@ -19,7 +20,7 @@ import {
   paymentRecords,
   formInstances,
 } from "@/db/schema";
-import { eq, and, ne, desc, sql, asc } from "drizzle-orm";
+import { eq, and, ne, desc, sql, asc, or } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 
 // ============================================
@@ -159,15 +160,43 @@ export async function getEvents(
 }
 
 export async function getEvent(session: TenantSession, eventId: number) {
-  const event = await db.query.events.findFirst({
+  // Try loading as owned event first
+  let event = await db.query.events.findFirst({
     where: (e, { eq, and }) =>
       and(eq(e.id, eventId), eq(e.organizationId, session.organizationId)),
   });
 
-  if (!event) return null;
+  let isCollaborator = false;
 
-  // For eventScoped roles, verify user is a participant of this event
-  if (session.eventScoped) {
+  // If not owned, check if guest via event_collaborations
+  if (!event) {
+    const [collab] = await db
+      .select({
+        id: eventCollaborations.id,
+        permissions: eventCollaborations.permissions,
+      })
+      .from(eventCollaborations)
+      .where(
+        and(
+          eq(eventCollaborations.eventId, eventId),
+          eq(eventCollaborations.guestOrgId, session.organizationId),
+          eq(eventCollaborations.status, "active"),
+        ),
+      )
+      .limit(1);
+
+    if (!collab) return null;
+
+    event = await db.query.events.findFirst({
+      where: (e, { eq }) => eq(e.id, eventId),
+    });
+
+    if (!event) return null;
+    isCollaborator = true;
+  }
+
+  // For eventScoped roles on owned events, verify user is a participant
+  if (!isCollaborator && session.eventScoped) {
     const [isParticipant] = await db
       .select({ id: eventParticipants.id })
       .from(eventParticipants)
@@ -181,25 +210,27 @@ export async function getEvent(session: TenantSession, eventId: number) {
     if (!isParticipant) return null;
   }
 
-  // Get participants
-  const participants = await db
-    .select({
-      id: eventParticipants.id,
-      userId: eventParticipants.userId,
-      vendorId: eventParticipants.vendorId,
-      clientId: eventParticipants.clientId,
-      type: eventParticipants.type,
-      role: eventParticipants.role,
-      permissions: eventParticipants.permissions,
-      invitedAt: eventParticipants.invitedAt,
-      acceptedAt: eventParticipants.acceptedAt,
-      userName: users.name,
-      userEmail: users.email,
-      userImage: users.image,
-    })
-    .from(eventParticipants)
-    .leftJoin(users, eq(eventParticipants.userId, users.id))
-    .where(eq(eventParticipants.eventId, eventId));
+  // Get participants (only for owned events; collaborators see limited info)
+  const participants = isCollaborator
+    ? []
+    : await db
+        .select({
+          id: eventParticipants.id,
+          userId: eventParticipants.userId,
+          vendorId: eventParticipants.vendorId,
+          clientId: eventParticipants.clientId,
+          type: eventParticipants.type,
+          role: eventParticipants.role,
+          permissions: eventParticipants.permissions,
+          invitedAt: eventParticipants.invitedAt,
+          acceptedAt: eventParticipants.acceptedAt,
+          userName: users.name,
+          userEmail: users.email,
+          userImage: users.image,
+        })
+        .from(eventParticipants)
+        .leftJoin(users, eq(eventParticipants.userId, users.id))
+        .where(eq(eventParticipants.eventId, eventId));
 
   // Get tasks count
   const [{ taskCount }] = await db
@@ -219,6 +250,7 @@ export async function getEvent(session: TenantSession, eventId: number) {
     participants,
     taskCount: Number(taskCount),
     client,
+    isCollaborator,
   };
 }
 

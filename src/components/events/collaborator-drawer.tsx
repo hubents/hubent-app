@@ -76,7 +76,6 @@ interface CollaboratorDrawerProps {
     contactName: string | null;
     vendorName: string | null;
     type: string;
-    role: string | null;
     permissions: Record<string, string> | null;
   } | null;
 }
@@ -85,7 +84,7 @@ const SECTIONS = [
   { key: "general", label: "General", levels: ["none", "view", "edit"] },
   { key: "calendar", label: "Calendario", levels: ["none", "view", "edit"] },
   { key: "tasks", label: "Tareas", levels: ["none", "view", "edit"] },
-  { key: "vendors", label: "Proveedores", levels: ["none", "view"] },
+  { key: "partners", label: "Partners", levels: ["none", "view"] },
   { key: "finances", label: "Finanzas", levels: ["none", "view"] },
   { key: "rsvp", label: "RSVP", levels: ["none", "view", "edit"] },
   { key: "guests", label: "Lista de Invitados", levels: ["none", "view", "edit"] },
@@ -101,9 +100,9 @@ const LEVEL_LABELS: Record<string, string> = {
 const BYPASS_ROLES = ["owner", "admin"];
 
 const PRESETS = [
-  { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", vendors: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },
-  { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", vendors: "view", finances: "view", runsheet: "view", calendar: "view", settings: "none" } },
-  { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", vendors: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
+  { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", partners: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },
+  { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", partners: "view", finances: "view", runsheet: "view", calendar: "view", settings: "none" } },
+  { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", partners: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, string> = {
@@ -111,22 +110,12 @@ const DEFAULT_PERMISSIONS: Record<string, string> = {
   tasks: "view",
   guests: "view",
   rsvp: "view",
-  vendors: "none",
+  partners: "none",
   finances: "view",
   runsheet: "view",
   calendar: "view",
   settings: "none",
 };
-
-const ROLE_OPTIONS = [
-  { label: "Cliente", value: "client" },
-  { label: "Organizador", value: "organizer" },
-  { label: "Asistente", value: "assistant" },
-  { label: "Patrocinador", value: "sponsor" },
-  { label: "Ponente", value: "speaker" },
-  { label: "Proveedor", value: "vendor" },
-  { label: "Otro", value: "other" },
-];
 
 function getDisplayName(p: CollaboratorDrawerProps["editingParticipant"]) {
   if (!p) return "";
@@ -157,9 +146,6 @@ export function CollaboratorDrawer({
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [invitingProviderId, setInvitingProviderId] = useState<number | null>(null);
 
-  const [role, setRole] = useState<string>("");
-  const [roleError, setRoleError] = useState(false);
-  const roleRef = useRef<HTMLDivElement>(null);
   const [permissions, setPermissions] = useState<Record<string, string>>(DEFAULT_PERMISSIONS);
   const [saving, setSaving] = useState(false);
 
@@ -227,13 +213,10 @@ export function CollaboratorDrawer({
   useEffect(() => {
     if (editingParticipant) {
       setPermissions(editingParticipant.permissions || DEFAULT_PERMISSIONS);
-      setRole(editingParticipant.role || "");
     } else {
       setSelectedUserId("");
       setSelectedContactId(null);
       setSelectedVendorId(null);
-      setRole("");
-      setRoleError(false);
       setSearch("");
       setDirectorySearch("");
       setDirectoryProviders([]);
@@ -290,29 +273,29 @@ export function CollaboratorDrawer({
     [directoryProviders, linkedProviderOrgIds]
   );
 
-  async function handleInviteProvider(providerOrgId: number) {
-    setInvitingProviderId(providerOrgId);
+  async function handleInvitePartner(guestOrgId: number) {
+    setInvitingProviderId(guestOrgId);
     try {
-      const res = await fetch(`/api/events/${eventId}/providers`, {
+      const res = await fetch(`/api/events/${eventId}/partners`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerOrgId }),
+        body: JSON.stringify({ guestOrgId }),
       });
       const data = await res.json();
 
       if (data.success) {
-        toast.success("Proveedor invitado al evento y agregado como colaborador");
+        toast.success("Invitación enviada al Partner");
         onOpenChange(false);
         onSuccess();
       } else if (data.error?.code === "DUPLICATE") {
-        toast.info("Este proveedor ya está asignado al evento");
+        toast.info("Este Partner ya fue invitado a este evento");
         onOpenChange(false);
         onSuccess();
       } else {
-        toast.error(data.error?.message || "Error al invitar proveedor");
+        toast.error(data.error?.message || "Error al invitar Partner");
       }
     } catch {
-      toast.error("Error de conexión al invitar proveedor");
+      toast.error("Error de conexión al invitar Partner");
     } finally {
       setInvitingProviderId(null);
     }
@@ -337,7 +320,6 @@ export function CollaboratorDrawer({
   function selectVendor(id: number) {
     clearSelection();
     setSelectedVendorId(id);
-    setRole("vendor");
   }
 
   function setSectionLevel(section: string, level: string) {
@@ -361,20 +343,13 @@ export function CollaboratorDrawer({
       return;
     }
 
-    if (!role) {
-      setRoleError(true);
-      toast.error("Seleccioná un rol para el colaborador");
-      roleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-
     setSaving(true);
     try {
       if (isEditing && editingParticipant) {
         const res = await fetch(`/api/events/${eventId}/collaborators/${editingParticipant.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ permissions, role }),
+          body: JSON.stringify({ permissions }),
         });
         const data = await res.json();
         if (data.success) {
@@ -387,7 +362,6 @@ export function CollaboratorDrawer({
       } else {
         const body: Record<string, unknown> = {
           type: getParticipantType(),
-          role,
           permissions,
         };
         if (selectedUserId) body.userId = selectedUserId;
@@ -443,7 +417,7 @@ export function CollaboratorDrawer({
   const TABS: { key: SourceTab; label: string; icon: typeof RiTeamLine; count: number }[] = [
     { key: "members", label: "Miembros", icon: RiTeamLine, count: filteredMembers.length },
     { key: "contacts", label: "Contactos", icon: RiContactsLine, count: filteredContacts.length },
-    { key: "vendors", label: "Proveedores", icon: RiStore2Line, count: filteredVendors.length },
+    { key: "vendors", label: "Partners", icon: RiStore2Line, count: filteredVendors.length },
   ];
 
   return (
@@ -457,7 +431,7 @@ export function CollaboratorDrawer({
           <SheetDescription>
             {isEditing
               ? `Editando: ${getDisplayName(editingParticipant)}`
-              : "Selecciona un miembro, contacto o proveedor y configura sus permisos"}
+              : "Selecciona un miembro, contacto o partner y configura sus permisos"}
           </SheetDescription>
         </SheetHeader>
 
@@ -561,7 +535,7 @@ export function CollaboratorDrawer({
                       {/* Partners directory results (favorites auto-loaded, or search results) */}
                       {!directoryLoading && filteredDirectoryProviders.length === 0 && directorySearch && (
                         <p className="text-xs text-muted-foreground text-center py-2 px-3">
-                          No se encontraron proveedores
+                          No se encontraron Partners
                         </p>
                       )}
                       {filteredDirectoryProviders.map((p) => (
@@ -584,7 +558,7 @@ export function CollaboratorDrawer({
                             variant="outline"
                             className="h-7 text-xs shrink-0"
                             disabled={invitingProviderId !== null}
-                            onClick={() => handleInviteProvider(p.id)}
+                            onClick={() => handleInvitePartner(p.id)}
                           >
                             {invitingProviderId === p.id ? "..." : "Invitar"}
                           </Button>
@@ -654,25 +628,6 @@ export function CollaboratorDrawer({
               </div>
             );
           })()}
-
-          {/* Role in event */}
-          <div ref={roleRef} className="space-y-2">
-            <label className="text-sm font-medium">Rol en el evento <span className="text-destructive">*</span></label>
-            <Select value={role} onValueChange={(v) => { setRole(v); setRoleError(false); }}>
-              <SelectTrigger aria-invalid={roleError || undefined}>
-                <SelectValue placeholder="Seleccionar rol..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_OPTIONS.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {roleError && <p className="text-xs text-destructive">Seleccioná un rol para continuar</p>}
-            <p className="text-xs text-muted-foreground">Etiqueta organizativa (no afecta permisos de acceso).</p>
-          </div>
 
           {/* Bypass role warning */}
           {isBypassRole && !isEditing && (

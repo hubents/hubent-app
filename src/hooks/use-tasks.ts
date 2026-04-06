@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useUserSession } from "@/hooks/use-user-session";
-
 interface Task {
   id: number;
   title: string;
@@ -39,8 +37,6 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { orgType } = useUserSession();
-
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
@@ -55,8 +51,8 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
       const fetches: Promise<Response>[] = [fetch(url)];
 
-      // For provider orgs, also fetch collaborated tasks (from events they're invited to)
-      if (orgType === "provider" && !eventId) {
+      // For any org with active collaborations, also fetch collaborated tasks
+      if (!eventId) {
         fetches.push(fetch("/api/tasks?scope=collaborated"));
       }
 
@@ -101,7 +97,7 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
     } finally {
       setLoading(false);
     }
-  }, [eventId, scope, orgType]);
+  }, [eventId, scope]);
 
   useEffect(() => {
     fetchTasks();

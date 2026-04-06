@@ -52,7 +52,7 @@ export function BottomNav() {
   ];
 
   const getEventMoreItems = (eventId: number) => [
-    { name: "Proveedores", href: `/dashboard/events/${eventId}/vendors`, icon: RiStore2Line },
+    { name: "Partners", href: `/dashboard/events/${eventId}/partners`, icon: RiStore2Line },
     { name: "Finanzas", href: `/dashboard/events/${eventId}/finances`, icon: RiMoneyDollarCircleLine },
     { name: "Configuración", href: `/dashboard/events/${eventId}/settings`, icon: RiSettings4Line },
   ];

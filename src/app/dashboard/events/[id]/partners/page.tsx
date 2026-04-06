@@ -38,23 +38,17 @@ interface EventVendor {
   contactPhone: string | null;
 }
 
-interface Vendor {
+interface EventPartner {
   id: number;
-  name: string;
-  category: string | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
-}
-
-interface PlatformProvider {
-  id: number;
-  providerOrgId: number;
-  vendorId: number | null;
+  guestOrgId: number | null;
+  invitationEmail: string | null;
   status: string;
   invitedAt: string;
   acceptedAt: string | null;
-  providerName: string;
-  providerSlug: string;
+  guestName: string | null;
+  guestSlug: string | null;
+  guestOrgType: string | null;
+  guestCategory: string | null;
 }
 
 interface DirectoryProvider {
@@ -65,21 +59,19 @@ interface DirectoryProvider {
   instagramHandle: string | null;
 }
 
-export default function EventVendorsPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EventPartnersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
   const { eventScoped } = useUserSessionContext();
   const { canEdit } = useEventPermissions(eventId, eventScoped);
-  const canEditVendors = canEdit("vendors");
+  const canEditPartners = canEdit("vendors");
 
   const [vendors, setVendors] = useState<EventVendor[]>([]);
-  const [allVendors, setAllVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Platform providers state
-  const [platformProviders, setPlatformProviders] = useState<PlatformProvider[]>([]);
+  const [partners, setPartners] = useState<EventPartner[]>([]);
   const [directoryProviders, setDirectoryProviders] = useState<DirectoryProvider[]>([]);
   const [providerSearch, setProviderSearch] = useState("");
   const [showInviteDrawer, setShowInviteDrawer] = useState(false);
@@ -112,27 +104,15 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const fetchAllVendors = async () => {
+  const fetchPartners = async () => {
     try {
-      const res = await fetch("/api/vendors");
+      const res = await fetch(`/api/events/${eventId}/partners`);
       const data = await res.json();
       if (data.success) {
-        setAllVendors(data.data || []);
+        setPartners(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch all vendors:", error);
-    }
-  };
-
-  const fetchPlatformProviders = async () => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/providers`);
-      const data = await res.json();
-      if (data.success) {
-        setPlatformProviders(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch platform providers:", error);
+      console.error("Failed to fetch partners:", error);
     }
   };
 
@@ -154,28 +134,28 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const handleInviteProvider = async (providerOrgId: number) => {
+  const handleInvitePartner = async (guestOrgId: number) => {
     setInviting(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/providers`, {
+      const res = await fetch(`/api/events/${eventId}/partners`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerOrgId }),
+        body: JSON.stringify({ guestOrgId }),
       });
       const data = await res.json();
       if (data.success) {
-        await fetchPlatformProviders();
+        await fetchPartners();
         setShowInviteDrawer(false);
       }
     } catch (error) {
-      console.error("Failed to invite provider:", error);
+      console.error("Failed to invite partner:", error);
     } finally {
       setInviting(false);
     }
   };
 
   useEffect(() => {
-    Promise.all([fetchVendors(), fetchAllVendors(), fetchPlatformProviders()]).finally(() => setLoading(false));
+    Promise.all([fetchVendors(), fetchPartners()]).finally(() => setLoading(false));
   }, [eventId]);
 
   useEffect(() => {
@@ -222,18 +202,18 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         <div>
           <h1 className="text-2xl font-bold">Partners</h1>
           <p className="text-[var(--muted-foreground)]">
-            {vendors.length} partners asignados
+            {partners.length} partners colaborando
           </p>
         </div>
         <div className="flex gap-2">
-          {canEditVendors && (
+          {canEditPartners && (
             <Button className="gap-2" onClick={() => setShowInviteDrawer(true)}>
               <RiAddLine className="h-4 w-4" />
               Invitar Partner
             </Button>
           )}
           <Link href="/dashboard/partners">
-            <Button variant="outline">Partners</Button>
+            <Button variant="outline">Directorio</Button>
           </Link>
         </div>
       </div>
@@ -249,22 +229,24 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         />
       </div>
 
-      {/* Platform Providers Section */}
-      {platformProviders.length > 0 && (
+      {/* Partners (event_collaborations) */}
+      {partners.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <RiShieldCheckLine className="h-5 w-5 text-green-600" />
-            Partners de Plataforma
+            Partners del Evento
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {platformProviders.map((pp) => {
+            {partners.map((pp) => {
               const statusMap: Record<string, { label: string; variant: "success" | "warning" | "secondary" | "destructive" }> = {
                 active: { label: "Activo", variant: "success" },
                 pending: { label: "Pendiente", variant: "warning" },
+                pending_registration: { label: "Sin registrar", variant: "secondary" },
                 rejected: { label: "Rechazado", variant: "destructive" },
                 revoked: { label: "Revocado", variant: "secondary" },
               };
               const st = statusMap[pp.status] || statusMap.pending;
+              const displayName = pp.guestName || pp.invitationEmail || "Partner";
               return (
                 <Card key={pp.id}>
                   <CardContent className="p-4">
@@ -273,8 +255,13 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                         <RiShieldCheckLine className="h-5 w-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{pp.providerName}</p>
-                        <Badge variant={st.variant} className="mt-0.5">{st.label}</Badge>
+                        <p className="font-semibold truncate">{displayName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge variant={st.variant}>{st.label}</Badge>
+                          {pp.guestOrgType && (
+                            <span className="text-xs text-muted-foreground capitalize">{pp.guestOrgType}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -285,7 +272,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Add Provider Drawer (Partners) */}
+      {/* Invite Partner Drawer */}
       <Sheet open={showInviteDrawer} onOpenChange={setShowInviteDrawer}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
@@ -311,7 +298,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
             ) : (
               <div className="space-y-2">
                 {directoryProviders.map((dp) => {
-                  const alreadyInvited = platformProviders.some((pp) => pp.providerOrgId === dp.id);
+                  const alreadyInvited = partners.some((pp) => pp.guestOrgId === dp.id);
                   return (
                     <div key={dp.id} className="flex items-center justify-between p-3 rounded-lg border">
                       <div className="flex items-center gap-3">
@@ -330,7 +317,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                       ) : (
                         <Button
                           size="sm"
-                          onClick={() => handleInviteProvider(dp.id)}
+                          onClick={() => handleInvitePartner(dp.id)}
                           disabled={inviting}
                         >
                           <RiSendPlaneLine className="h-3.5 w-3.5 mr-1" />
@@ -346,71 +333,77 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </SheetContent>
       </Sheet>
 
-      {/* Local Vendors Grid */}
-      {filteredVendors.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredVendors.map((vendor) => (
-            <Card key={vendor.id} className="group">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
-                      <RiStore2Line className="h-5 w-5 text-[var(--primary)]" />
+      {/* CRM Vendors Grid (legacy local vendors) */}
+      {filteredVendors.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold">Vendors CRM</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredVendors.map((vendor) => (
+              <Card key={vendor.id} className="group">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
+                        <RiStore2Line className="h-5 w-5 text-[var(--primary)]" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{vendor.vendorName}</h3>
+                        {vendor.category && (
+                          <Badge variant="secondary" className="mt-1">
+                            {vendor.category}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">{vendor.vendorName}</h3>
-                      {vendor.category && (
-                        <Badge variant="secondary" className="mt-1">
-                          {vendor.category}
-                        </Badge>
-                      )}
-                    </div>
+                    {canEditPartners && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 text-[var(--destructive)]"
+                      onClick={() => handleRemoveVendor(vendor.id)}
+                    >
+                      <RiDeleteBinLine className="h-4 w-4" />
+                    </Button>
+                    )}
                   </div>
-                  {canEditVendors && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 text-[var(--destructive)]"
-                    onClick={() => handleRemoveVendor(vendor.id)}
-                  >
-                    <RiDeleteBinLine className="h-4 w-4" />
-                  </Button>
-                  )}
-                </div>
 
-                {vendor.service && (
-                  <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-                    {vendor.service}
-                  </p>
-                )}
+                  {vendor.service && (
+                    <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+                      {vendor.service}
+                    </p>
+                  )}
 
-                <div className="mt-3 pt-3 border-t space-y-1 text-sm">
-                  {vendor.contactEmail && (
-                    <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                      <RiMailLine className="h-4 w-4" />
-                      <span>{vendor.contactEmail}</span>
-                    </div>
-                  )}
-                  {vendor.contactPhone && (
-                    <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                      <RiPhoneLine className="h-4 w-4" />
-                      <span>{vendor.contactPhone}</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
+                  <div className="mt-3 pt-3 border-t space-y-1 text-sm">
+                    {vendor.contactEmail && (
+                      <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                        <RiMailLine className="h-4 w-4" />
+                        <span>{vendor.contactEmail}</span>
+                      </div>
+                    )}
+                    {vendor.contactPhone && (
+                      <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                        <RiPhoneLine className="h-4 w-4" />
+                        <span>{vendor.contactPhone}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Empty state */}
+      {partners.length === 0 && filteredVendors.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <RiStore2Line className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-4" />
-            <h3 className="font-semibold mb-2">No hay partners asignados</h3>
+            <h3 className="font-semibold mb-2">No hay partners en este evento</h3>
             <p className="text-[var(--muted-foreground)] mb-4">
-              Invita partners a este evento para colaborar
+              Invita partners para colaborar en este evento
             </p>
-            {canEditVendors && (
+            {canEditPartners && (
             <Button onClick={() => setShowInviteDrawer(true)}>
               <RiAddLine className="h-4 w-4 mr-2" />
               Invitar primer Partner

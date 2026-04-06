@@ -151,6 +151,7 @@ export interface EventSectionPermissions {
   guests?: EventSectionLevel;
   rsvp?: EventSectionLevel;
   vendors?: "view" | "none";
+  partners?: "view" | "none";
   finances?: "view" | "none";
   runsheet?: EventSectionLevel;
   calendar?: EventSectionLevel;
@@ -164,7 +165,7 @@ export const EVENT_PERMISSION_PRESETS = {
     tasks: "edit" as const,
     guests: "edit" as const,
     rsvp: "edit" as const,
-    vendors: "view" as const,
+    partners: "view" as const,
     finances: "view" as const,
     runsheet: "edit" as const,
     calendar: "edit" as const,
@@ -175,7 +176,7 @@ export const EVENT_PERMISSION_PRESETS = {
     tasks: "view" as const,
     guests: "view" as const,
     rsvp: "view" as const,
-    vendors: "view" as const,
+    partners: "view" as const,
     finances: "view" as const,
     runsheet: "view" as const,
     calendar: "view" as const,
@@ -186,7 +187,7 @@ export const EVENT_PERMISSION_PRESETS = {
     tasks: "none" as const,
     guests: "view" as const,
     rsvp: "view" as const,
-    vendors: "none" as const,
+    partners: "none" as const,
     finances: "none" as const,
     runsheet: "none" as const,
     calendar: "none" as const,

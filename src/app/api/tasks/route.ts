@@ -8,6 +8,7 @@ import {
   eventParticipants,
   taskParticipants,
   providerEventAccess,
+  eventCollaborations,
   vendors,
   organizationMembers,
 } from "@/db/schema";
@@ -43,7 +44,32 @@ export const GET = withMonitoring(
     let whereClause = eq(tasks.organizationId, session.organizationId);
 
     if (eventId) {
-      whereClause = and(whereClause, eq(tasks.eventId, parseInt(eventId, 10)))!;
+      const eid = parseInt(eventId, 10);
+      // Check if session org owns the event or is a guest collaborator
+      const event = await db.query.events.findFirst({
+        where: eq(events.id, eid),
+        columns: { id: true, organizationId: true },
+      });
+
+      if (event && event.organizationId === session.organizationId) {
+        // Host viewing own event: own tasks + guest shared tasks
+        whereClause = and(
+          eq(tasks.eventId, eid),
+          sql`(${tasks.organizationId} = ${session.organizationId} OR ${tasks.sharedWithHost} = true)`,
+        )!;
+      } else {
+        // Guest viewing collaborated event: own tasks + tasks assigned to this org
+        whereClause = and(
+          eq(tasks.eventId, eid),
+          sql`(
+            ${tasks.organizationId} = ${session.organizationId}
+            OR ${tasks.id} IN (
+              SELECT ${taskParticipants.taskId} FROM ${taskParticipants}
+              WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
+            )
+          )`,
+        )!;
+      }
     } else if (scope === "standalone") {
       whereClause = and(whereClause, isNull(tasks.eventId))!;
     } else if (scope === "event") {
@@ -116,21 +142,39 @@ export const GET = withMonitoring(
 );
 
 async function getCollaboratedTasks(session: { organizationId: number; user: { userId: string } }) {
-  const accessList = await db
+  // Get event IDs from new event_collaborations table
+  const collabAccess = await db
+    .select({ eventId: eventCollaborations.eventId })
+    .from(eventCollaborations)
+    .where(
+      and(
+        eq(eventCollaborations.guestOrgId, session.organizationId),
+        eq(eventCollaborations.status, "active"),
+      ),
+    );
+
+  // Fallback: also check legacy provider_event_access
+  const legacyAccess = await db
     .select({ eventId: providerEventAccess.eventId })
     .from(providerEventAccess)
     .where(
       and(
         eq(providerEventAccess.providerOrgId, session.organizationId),
-        eq(providerEventAccess.status, "active")
-      )
+        eq(providerEventAccess.status, "active"),
+      ),
     );
-  const eventIds = accessList.map((a) => a.eventId);
+
+  const eventIdSet = new Set([
+    ...collabAccess.map((a) => a.eventId),
+    ...legacyAccess.map((a) => a.eventId),
+  ]);
+  const eventIds = Array.from(eventIdSet);
 
   if (eventIds.length === 0) {
     return NextResponse.json({ success: true, data: [] });
   }
 
+  // Get legacy vendor IDs for backward compat
   const linkedVendors = await db
     .select({ id: vendors.id })
     .from(vendors)
@@ -149,6 +193,7 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       eventName: events.name,
       eventDate: events.date,
       createdAt: tasks.createdAt,
+      sharedWithHost: tasks.sharedWithHost,
     })
     .from(tasks)
     .innerJoin(events, eq(events.id, tasks.eventId))
@@ -156,18 +201,24 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       and(
         inArray(tasks.eventId, eventIds),
         sql`(
-          ${vendorIds.length > 0 ? sql`${tasks.id} IN (
+          ${tasks.organizationId} = ${session.organizationId}
+          OR ${tasks.id} IN (
+            SELECT ${taskParticipants.taskId}
+            FROM ${taskParticipants}
+            WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
+          )
+          ${vendorIds.length > 0 ? sql`OR ${tasks.id} IN (
             SELECT ${taskParticipants.taskId}
             FROM ${taskParticipants}
             WHERE ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
-          )` : sql`FALSE`}
+          )` : sql``}
           OR ${tasks.createdBy} IN (
             SELECT ${organizationMembers.userId}
             FROM ${organizationMembers}
             WHERE ${organizationMembers.organizationId} = ${session.organizationId}
           )
-        )`
-      )
+        )`,
+      ),
     )
     .orderBy(desc(tasks.dueDate));
 
@@ -175,17 +226,13 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
 }
 
 // POST /api/tasks - Create task
+// Supports guest org creating private tasks in collaborated events
 export const POST = withMonitoring(
   async (request: NextRequest) => {
     const session = await requirePermission("tasks:create");
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;
-
-    // For eventScoped roles, verify section-level permissions on the target event
-    if (eventId && session.eventScoped) {
-      await requireEventSectionAccess(eventId, "tasks", "edit");
-    }
 
     if (!title) {
       return NextResponse.json(
@@ -195,6 +242,60 @@ export const POST = withMonitoring(
         },
         { status: 400 },
       );
+    }
+
+    let isGuestTask = false;
+
+    if (eventId) {
+      // Check if event belongs to session org (host) or if session org is a guest collaborator
+      const event = await db.query.events.findFirst({
+        where: eq(events.id, eventId),
+        columns: { id: true, organizationId: true },
+      });
+
+      if (!event) {
+        return NextResponse.json(
+          { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
+          { status: 404 },
+        );
+      }
+
+      if (event.organizationId === session.organizationId) {
+        // Host creating task in own event
+        if (session.eventScoped) {
+          await requireEventSectionAccess(eventId, "tasks", "edit");
+        }
+      } else {
+        // Guest org creating task in host's event -- verify active collaboration
+        const [collab] = await db
+          .select({ id: eventCollaborations.id, permissions: eventCollaborations.permissions })
+          .from(eventCollaborations)
+          .where(
+            and(
+              eq(eventCollaborations.eventId, eventId),
+              eq(eventCollaborations.guestOrgId, session.organizationId),
+              eq(eventCollaborations.status, "active"),
+            ),
+          )
+          .limit(1);
+
+        if (!collab) {
+          return NextResponse.json(
+            { success: false, error: { code: "FORBIDDEN", message: "No collaboration access to this event" } },
+            { status: 403 },
+          );
+        }
+
+        const perms = (collab.permissions || {}) as Record<string, string>;
+        if (perms.tasks === "none") {
+          return NextResponse.json(
+            { success: false, error: { code: "FORBIDDEN", message: "No task access in this collaboration" } },
+            { status: 403 },
+          );
+        }
+
+        isGuestTask = true;
+      }
     }
 
     // Get max sortOrder for the event/status to place new task at end
@@ -223,13 +324,47 @@ export const POST = withMonitoring(
         assignedTo: assignedTo || session.user.userId,
         createdBy: session.user.userId,
         sortOrder: nextSortOrder,
+        sharedWithHost: false,
       })
       .returning();
 
-    // Auto-add vendor participants for active providers in this event (non-blocking)
-    if (eventId) {
+    // Auto-add collaborator participants for active event_collaborations (non-blocking)
+    if (eventId && !isGuestTask) {
       (async () => {
         try {
+          // New: auto-link collaborator orgs
+          const activeCollabs = await db
+            .select({ guestOrgId: eventCollaborations.guestOrgId })
+            .from(eventCollaborations)
+            .where(
+              and(
+                eq(eventCollaborations.eventId, eventId),
+                eq(eventCollaborations.status, "active"),
+              ),
+            );
+
+          let collabsLinked = 0;
+          for (const c of activeCollabs) {
+            if (!c.guestOrgId) continue;
+            const exists = await db.query.taskParticipants.findFirst({
+              where: and(
+                eq(taskParticipants.taskId, task.id),
+                eq(taskParticipants.collaboratorOrgId, c.guestOrgId),
+              ),
+            });
+            if (exists) continue;
+            await db.insert(taskParticipants).values({
+              taskId: task.id,
+              collaboratorOrgId: c.guestOrgId,
+              type: "vendor",
+              canEdit: false,
+              canComment: true,
+              addedBy: session.user.userId,
+            });
+            collabsLinked++;
+          }
+
+          // Legacy: auto-add vendor participants from provider_event_access
           const activeProviders = await db
             .select({ vendorId: providerEventAccess.vendorId })
             .from(providerEventAccess)
@@ -240,7 +375,6 @@ export const POST = withMonitoring(
               ),
             );
 
-          let vendorsLinked = 0;
           for (const p of activeProviders) {
             if (!p.vendorId) continue;
             const exists = await db.query.taskParticipants.findFirst({
@@ -258,18 +392,9 @@ export const POST = withMonitoring(
               canComment: true,
               addedBy: session.user.userId,
             });
-            vendorsLinked++;
-          }
-          if (vendorsLinked > 0) {
-            console.log(
-              `[createTask] taskId=${task.id} eventId=${eventId} vendorsLinked=${vendorsLinked}`,
-            );
           }
         } catch (err) {
-          console.error(
-            "[createTask] auto-add vendor participants failed:",
-            err,
-          );
+          console.error("[createTask] auto-add participants failed:", err);
         }
       })();
     }

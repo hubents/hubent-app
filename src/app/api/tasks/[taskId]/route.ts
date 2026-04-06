@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, users, eventParticipants } from "@/db/schema";
+import { tasks, users, eventParticipants, taskParticipants, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/push-notifications";
 import { canAccessTask } from "@/lib/tenant";
@@ -15,13 +15,54 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
 
-    const task = await db.query.tasks.findFirst({
+    // First try loading task owned by session org
+    let task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) => 
         and(
           eq(t.id, taskIdNum),
           eq(t.organizationId, session.organizationId)
         ),
     });
+
+    // If not found, check cross-org access (shared task or assigned via collaboration)
+    if (!task) {
+      const crossOrgTask = await db.query.tasks.findFirst({
+        where: (t, { eq }) => eq(t.id, taskIdNum),
+      });
+
+      if (crossOrgTask?.eventId) {
+        const [collab] = await db
+          .select({ id: eventCollaborations.id })
+          .from(eventCollaborations)
+          .where(
+            and(
+              eq(eventCollaborations.eventId, crossOrgTask.eventId),
+              eq(eventCollaborations.guestOrgId, session.organizationId),
+              eq(eventCollaborations.status, "active"),
+            ),
+          )
+          .limit(1);
+
+        if (collab) {
+          // Check if task is shared with host or assigned to this org
+          const isShared = crossOrgTask.sharedWithHost;
+          const [isAssigned] = await db
+            .select({ id: taskParticipants.id })
+            .from(taskParticipants)
+            .where(
+              and(
+                eq(taskParticipants.taskId, taskIdNum),
+                eq(taskParticipants.collaboratorOrgId, session.organizationId),
+              ),
+            )
+            .limit(1);
+
+          if (isShared || isAssigned) {
+            task = crossOrgTask;
+          }
+        }
+      }
+    }
 
     if (!task) {
       return NextResponse.json(
@@ -30,8 +71,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // For eventScoped roles, verify access via event_participants or task_participants
-    if (session.eventScoped) {
+    // For eventScoped roles on owned tasks, verify access
+    if (session.eventScoped && task.organizationId === session.organizationId) {
       const access = await canAccessTask(session, taskIdNum);
       if (!access.allowed) {
         return NextResponse.json(
@@ -75,14 +116,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Get current task to compare changes
-    const currentTask = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) => and(
-        eq(t.id, parseInt(taskId, 10)),
+    const taskIdNum = parseInt(taskId, 10);
+
+    // Get current task (owned by session org, or cross-org)
+    let currentTask = await db.query.tasks.findFirst({
+      where: (t, { eq, and: a }) => a(
+        eq(t.id, taskIdNum),
         eq(t.organizationId, session.organizationId)
       ),
-      columns: { assignedTo: true, status: true, title: true, eventId: true },
+      columns: { assignedTo: true, status: true, title: true, eventId: true, organizationId: true },
     });
+
+    // Cross-org: guest updating own task in collaborated event
+    if (!currentTask) {
+      const crossTask = await db.query.tasks.findFirst({
+        where: (t, { eq }) => eq(t.id, taskIdNum),
+        columns: { assignedTo: true, status: true, title: true, eventId: true, organizationId: true },
+      });
+      if (crossTask && crossTask.organizationId === session.organizationId) {
+        currentTask = crossTask;
+      }
+    }
 
     // For eventScoped roles, verify section-level permissions
     if (session.eventScoped && currentTask?.eventId) {
@@ -93,7 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .set({ ...cleanBody, updatedAt: new Date() })
       .where(
         and(
-          eq(tasks.id, parseInt(taskId, 10)),
+          eq(tasks.id, taskIdNum),
           eq(tasks.organizationId, session.organizationId)
         )
       )
@@ -107,7 +161,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Send push notifications for relevant changes (async, don't wait)
-    const taskIdNum = parseInt(taskId, 10);
     const userName = session.user.name || "Alguien";
 
     // Notify if assignee changed

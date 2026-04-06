@@ -57,9 +57,9 @@ describe("Bottom-nav: Proveedores points to directory", () => {
     expect(generalMore).not.toContain("contacts?segment=vendors");
   });
 
-  it("event-specific vendors still point to event vendors page", () => {
+  it("event-specific partners point to event partners page", () => {
     const eventMore = content.split("getEventMoreItems")[1]?.split("];")[0] || "";
-    expect(eventMore).toContain("/vendors");
+    expect(eventMore).toContain("/partners");
   });
 });
 
@@ -87,15 +87,15 @@ describe("Collaborator drawer: directory integration", () => {
     expect(content).toContain("v.providerOrgId");
   });
 
-  it("invites provider via POST /api/events/[eventId]/providers", () => {
-    expect(content).toContain("handleInviteProvider");
-    expect(content).toContain("/api/events/${eventId}/providers");
+  it("invites partner via POST /api/events/[eventId]/partners", () => {
+    expect(content).toContain("handleInvitePartner");
+    expect(content).toContain("/api/events/${eventId}/partners");
     expect(content).toContain('method: "POST"');
   });
 
-  it("handles DUPLICATE error code when provider already invited", () => {
+  it("handles DUPLICATE error code when partner already invited", () => {
     expect(content).toContain('"DUPLICATE"');
-    expect(content).toContain("ya está asignado al evento");
+    expect(content).toContain("ya fue invitado");
   });
 
   it("resets directory state on drawer close", () => {
@@ -140,10 +140,10 @@ describe("Collaborator drawer: audit gap fixes", () => {
     expect(content).toContain("return freshVendors");
   });
 
-  it("handleInviteProvider calls the providers API", () => {
-    const inviteBlock = content.split("handleInviteProvider")[1]?.split("async function")[0] || "";
+  it("handleInvitePartner calls the partners API", () => {
+    const inviteBlock = content.split("handleInvitePartner")[1]?.split("async function")[0] || "";
     expect(inviteBlock).toContain("/api/events/");
-    expect(inviteBlock).toContain("providers");
+    expect(inviteBlock).toContain("partners");
   });
 
   it("uses per-item loading state (invitingProviderId) not global boolean", () => {
