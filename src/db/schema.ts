@@ -3505,7 +3505,7 @@ export const eventPayments = pgTable("event_payments", {
 
 // ============================================
 
-// VENDOR MARKETPLACE
+// VENDOR / PARTNERS DIRECTORY
 
 // ============================================
 
@@ -4845,7 +4845,7 @@ export type RsvpFaq = typeof rsvpFaqs.$inferSelect;
 
 
 
-// Vendor Marketplace Types
+// Vendor / Partners directory types
 
 export type VendorProfile = typeof vendorProfiles.$inferSelect;
 
@@ -4858,7 +4858,7 @@ export type VendorClaim = typeof vendorClaims.$inferSelect;
 
 
 // ============================================
-// MARKETPLACE FAVORITES
+// PARTNERS DIRECTORY FAVORITES (provider_favorites)
 // ============================================
 
 export const providerFavorites = pgTable("provider_favorites", {

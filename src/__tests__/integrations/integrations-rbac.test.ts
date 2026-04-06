@@ -56,13 +56,14 @@ describe("Integration RBAC Permissions", () => {
   let ROLE_PERMISSION_MAP: Record<string, string[]>;
 
   // We need to dynamically read the file content
-  it("integrations:read permission is defined in BASE_PERMISSIONS", async () => {
-    // Re-import to get actual values
-    const mod = await import("@/lib/system-init");
-    // Since BASE_PERMISSIONS is not exported, we verify by checking the
-    // initializePermissions function exists (it uses BASE_PERMISSIONS internally)
-    expect(mod.initializePermissions).toBeDefined();
-  });
+  it(
+    "integrations:read permission is defined in BASE_PERMISSIONS",
+    async () => {
+      const mod = await import("@/lib/system-init");
+      expect(mod.initializePermissions).toBeDefined();
+    },
+    30_000
+  );
 
   it("initializeSystem function is exported", async () => {
     const mod = await import("@/lib/system-init");

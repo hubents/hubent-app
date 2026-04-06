@@ -35,7 +35,7 @@ interface TeamMember {
   image?: string;
 }
 
-interface MarketplaceProvider {
+interface PartnersDirectoryRow {
   id: number;
   name: string;
   providerCategory: string | null;
@@ -64,7 +64,7 @@ interface ParticipantSelectorProps {
   disabled?: boolean;
 }
 
-type FilterType = "all" | "members" | "marketplace" | "contacts";
+type FilterType = "all" | "members" | "partners" | "contacts";
 
 export function ParticipantSelector({
   teamMembers,
@@ -79,8 +79,8 @@ export function ParticipantSelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
-  const [favorites, setFavorites] = useState<MarketplaceProvider[]>([]);
-  const [marketplaceProviders, setMarketplaceProviders] = useState<MarketplaceProvider[]>([]);
+  const [favorites, setFavorites] = useState<PartnersDirectoryRow[]>([]);
+  const [partnersProviders, setPartnersProviders] = useState<PartnersDirectoryRow[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,7 +99,7 @@ export function ParticipantSelector({
 
       const providersData = await providersRes.json();
       if (providersData.success && Array.isArray(providersData.data)) {
-        setMarketplaceProviders(providersData.data);
+        setPartnersProviders(providersData.data);
       }
 
       if (favoritesRes) {
@@ -127,7 +127,7 @@ export function ParticipantSelector({
       setSearch("");
       setTypeFilter("all");
       setFavorites([]);
-      setMarketplaceProviders([]);
+      setPartnersProviders([]);
       setContacts([]);
     }
   }, [open, fetchServerData]);
@@ -160,15 +160,15 @@ export function ParticipantSelector({
   }, [teamMembers, excludedMemberIds, search, typeFilter]);
 
   const filteredFavorites = useMemo(() => {
-    if (typeFilter !== "all" && typeFilter !== "marketplace") return [];
+    if (typeFilter !== "all" && typeFilter !== "partners") return [];
     return favorites.filter((p) => !excludedVendorIds.includes(p.id));
   }, [favorites, excludedVendorIds, typeFilter]);
 
-  const filteredMarketplace = useMemo(() => {
-    if (typeFilter !== "all" && typeFilter !== "marketplace") return [];
+  const filteredPartnersDirectory = useMemo(() => {
+    if (typeFilter !== "all" && typeFilter !== "partners") return [];
     const favIds = new Set(favorites.map((f) => f.id));
-    return marketplaceProviders.filter((p) => !excludedVendorIds.includes(p.id) && !favIds.has(p.id));
-  }, [marketplaceProviders, favorites, excludedVendorIds, typeFilter]);
+    return partnersProviders.filter((p) => !excludedVendorIds.includes(p.id) && !favIds.has(p.id));
+  }, [partnersProviders, favorites, excludedVendorIds, typeFilter]);
 
   const filteredContacts = useMemo(() => {
     if (typeFilter !== "all" && typeFilter !== "contacts") return [];
@@ -191,7 +191,7 @@ export function ParticipantSelector({
   };
 
   const totalAvailable =
-    filteredMembers.length + filteredFavorites.length + filteredMarketplace.length + filteredContacts.length;
+    filteredMembers.length + filteredFavorites.length + filteredPartnersDirectory.length + filteredContacts.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -248,7 +248,7 @@ export function ParticipantSelector({
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="members">Miembros</SelectItem>
-              <SelectItem value="marketplace">Marketplace</SelectItem>
+              <SelectItem value="partners">Partners</SelectItem>
               <SelectItem value="contacts">Contactos</SelectItem>
             </SelectContent>
           </Select>
@@ -338,16 +338,16 @@ export function ParticipantSelector({
                 </div>
               )}
 
-              {/* Marketplace Section */}
-              {filteredMarketplace.length > 0 && (
+              {/* Partners HubEnts directory */}
+              {filteredPartnersDirectory.length > 0 && (
                 <div>
                   <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 flex items-center gap-2">
                     <RiStore2Line className="h-3 w-3" />
-                    MARKETPLACE HUBENTS ({filteredMarketplace.length})
+                    PARTNERS HUBENTS ({filteredPartnersDirectory.length})
                   </div>
-                  {filteredMarketplace.map((provider) => (
+                  {filteredPartnersDirectory.map((provider) => (
                     <button
-                      key={`mkt-${provider.id}`}
+                      key={`prt-${provider.id}`}
                       onClick={() => handleSelectProvider(provider.id)}
                       className="w-full px-3 py-2 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
                     >

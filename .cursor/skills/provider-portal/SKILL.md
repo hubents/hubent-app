@@ -2,9 +2,9 @@
 name: provider-portal
 description: >-
   HubEnts unified portal for providers — registration, onboarding, event
-  collaboration, cross-org task sync, marketplace profile. Use when working on
+  collaboration, cross-org task sync, Partners public profile. Use when working on
   provider registration, providerEventAccess, cross-org collaboration, or
-  marketplace features. There is NO separate /vendor portal.
+  Partners directory features. There is NO separate /vendor portal.
 ---
 
 # Skill: Provider Portal (Unified)
@@ -27,7 +27,7 @@ Providers and planners share a SINGLE portal at `/dashboard`. There is NO `/vend
 4. Provider-specific fields (category, Instagram, city, etc.) are collected during onboarding step `company-public-profile`
 5. After onboarding: provider lands at `/dashboard`
 6. Admin sees new provider at `/admin/tenants` (filter by orgType=provider) and verifies
-7. Verified providers appear in marketplace at `/dashboard/marketplace` and `/providers`
+7. Verified providers appear in Partners at `/dashboard/partners` and `/providers`
 
 **NOTE:** `/provider/register` is DEPRECATED — middleware redirects to `/auth/register`. The separate API `/api/auth/provider-register` has been removed.
 
@@ -122,7 +122,7 @@ vendors (planner's internal CRM, may link to provider org)
 
 ### Sidebar (`src/components/layout/main-sidebar.tsx`)
 - Sections driven by `getSidebarSections(orgType)` from `tenant-types.ts`
-- Provider config includes: dashboard, marketplace, public-profile, contacts, events, crm, finance, productivity, team, ai
+- Provider config includes: dashboard, partners, public-profile, contacts, events, crm, finance, productivity, team, ai
 - Each item has a `permission` field checked via `can()` hook
 
 ## Plans and Feature Flags

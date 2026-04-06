@@ -21,7 +21,7 @@ export const PARTICIPANT_TYPE_VENDOR_LEGACY = "vendor" as const;
 
 // ─── Permission Slugs ─────────────────────────────────────────────────────────
 
-/** Read/list providers in marketplace. Replaces "vendors:read". */
+/** Read/list providers in Partners directory. Replaces "vendors:read". */
 export const PERMISSION_PROVIDERS_READ = "providers:read" as const;
 
 /** View provider details. Replaces "vendors:view". */

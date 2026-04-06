@@ -551,7 +551,7 @@ export default function TenantDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Verification section — only for marketplace-visible orgs */}
+        {/* Verification section — only for orgs visible in Partners */}
         {isMarketplace && (
           <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">

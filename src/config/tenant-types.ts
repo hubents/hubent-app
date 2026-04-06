@@ -29,10 +29,10 @@ export interface TenantTypeConfig {
   /** Where to redirect after registration/onboarding */
   postRegisterRedirect: string;
 
-  // --- Marketplace ---
-  /** Whether this type appears in the HubEnts Marketplace */
+  // --- Partners (directory) ---
+  /** Whether this type appears in Partners HubEnts (public directory) */
   isMarketplaceVisible: boolean;
-  /** Whether this type can browse and interact with the Marketplace */
+  /** Whether this type can browse and interact with Partners */
   canBrowseMarketplace: boolean;
 
   // --- Billing ---
@@ -95,7 +95,7 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
 
     sidebarSections: [
       "dashboard",
-      "marketplace",
+      "partners",
       "public-profile",
       "contacts",
       "events",
@@ -134,7 +134,7 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
 
     sidebarSections: [
       "dashboard",
-      "marketplace",
+      "partners",
       "public-profile",
       "contacts",
       "events",

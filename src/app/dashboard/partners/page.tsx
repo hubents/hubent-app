@@ -53,7 +53,10 @@ import {
   getOrgTypeBadgeVariant,
 } from "@/config/provider-constants";
 
-interface MarketplaceProvider {
+const PARTNERS_VIEW_STORAGE = "partners-view";
+const LEGACY_MARKETPLACE_VIEW_STORAGE = "marketplace-view";
+
+interface PartnersListing {
   id: number;
   name: string;
   slug: string;
@@ -82,12 +85,21 @@ interface MarketplaceProvider {
   isMyProvider: boolean;
 }
 
-export default function MarketplacePage() {
-  return <EventScopedGuard><MarketplaceContent /></EventScopedGuard>;
+function readStoredViewMode(): "cards" | "list" {
+  if (typeof window === "undefined") return "cards";
+  const next = localStorage.getItem(PARTNERS_VIEW_STORAGE) as "cards" | "list" | null;
+  if (next === "cards" || next === "list") return next;
+  const legacy = localStorage.getItem(LEGACY_MARKETPLACE_VIEW_STORAGE) as "cards" | "list" | null;
+  if (legacy === "cards" || legacy === "list") return legacy;
+  return "cards";
 }
 
-function MarketplaceContent() {
-  const [providers, setProviders] = useState<MarketplaceProvider[]>([]);
+export default function PartnersPage() {
+  return <EventScopedGuard><PartnersContent /></EventScopedGuard>;
+}
+
+function PartnersContent() {
+  const [providers, setProviders] = useState<PartnersListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -98,14 +110,9 @@ function MarketplaceContent() {
   const [myProvidersOnly, setMyProvidersOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [total, setTotal] = useState(0);
-  const [viewMode, setViewMode] = useState<"cards" | "list">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("marketplace-view") as "cards" | "list") || "cards";
-    }
-    return "cards";
-  });
+  const [viewMode, setViewMode] = useState<"cards" | "list">(readStoredViewMode);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
-  const [inviteTarget, setInviteTarget] = useState<MarketplaceProvider | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<PartnersListing | null>(null);
   const [events, setEvents] = useState<{ id: number; name: string }[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [inviting, setInviting] = useState(false);
@@ -181,10 +188,10 @@ function MarketplaceContent() {
 
   const toggleViewMode = (mode: "cards" | "list") => {
     setViewMode(mode);
-    localStorage.setItem("marketplace-view", mode);
+    localStorage.setItem(PARTNERS_VIEW_STORAGE, mode);
   };
 
-  const toggleFavorite = async (provider: MarketplaceProvider) => {
+  const toggleFavorite = async (provider: PartnersListing) => {
     try {
       let res: Response;
       if (provider.isFavorite) {
@@ -232,7 +239,7 @@ function MarketplaceContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Marketplace HubEnts</h1>
+          <h1 className="text-2xl font-bold">Partners HubEnts</h1>
           <p className="text-muted-foreground">
             Encuentra y gestiona proveedores para tus eventos
           </p>
@@ -493,7 +500,7 @@ function MarketplaceContent() {
 
 // ─── Avatar with verified badge overlay ─────────────────────────────────────
 
-function ProviderAvatar({ provider, size = "md" }: { provider: MarketplaceProvider; size?: "sm" | "md" }) {
+function ProviderAvatar({ provider, size = "md" }: { provider: PartnersListing; size?: "sm" | "md" }) {
   const isProvider = provider.orgType === "provider";
   const dim = size === "sm" ? "h-10 w-10" : "h-14 w-14";
   const iconDim = size === "sm" ? "h-5 w-5" : "h-7 w-7";
@@ -532,9 +539,9 @@ function ProviderCard({
   onToggleFavorite,
   onInviteToEvent,
 }: {
-  provider: MarketplaceProvider;
-  onToggleFavorite: (p: MarketplaceProvider) => void;
-  onInviteToEvent: (p: MarketplaceProvider) => void;
+  provider: PartnersListing;
+  onToggleFavorite: (p: PartnersListing) => void;
+  onInviteToEvent: (p: PartnersListing) => void;
 }) {
   return (
     <Card className="hover:shadow-md transition-shadow overflow-hidden relative group flex flex-col">
@@ -652,9 +659,9 @@ function ProviderRow({
   onToggleFavorite,
   onInviteToEvent,
 }: {
-  provider: MarketplaceProvider;
-  onToggleFavorite: (p: MarketplaceProvider) => void;
-  onInviteToEvent: (p: MarketplaceProvider) => void;
+  provider: PartnersListing;
+  onToggleFavorite: (p: PartnersListing) => void;
+  onInviteToEvent: (p: PartnersListing) => void;
 }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
@@ -773,7 +780,7 @@ function CreateProviderDrawer({
       toast.success(
         data.data.invitationSent
           ? `Se envió invitación por email a ${form.email}`
-          : `${form.name} fue agregado al marketplace`
+          : `${form.name} fue agregado a Partners`
       );
       setForm({ name: "", email: "", phone: "", category: "", instagram: "", city: "" });
       onCreated();
@@ -790,7 +797,7 @@ function CreateProviderDrawer({
         <SheetHeader>
           <SheetTitle>Crear Proveedor</SheetTitle>
           <SheetDescription>
-            Agrega un proveedor al Marketplace. Si tiene email, recibirá una invitación para reclamar su perfil.
+            Agrega un proveedor a Partners. Si tiene email, recibirá una invitación para reclamar su perfil.
           </SheetDescription>
         </SheetHeader>
 

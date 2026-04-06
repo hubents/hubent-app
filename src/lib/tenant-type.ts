@@ -51,7 +51,7 @@ export function dbOrgTypeToSlug(dbOrgType: string): string | undefined {
 }
 
 /**
- * Whether this orgType is visible in the HubEnts Marketplace.
+ * Whether this orgType is visible in Partners HubEnts (public directory).
  * Use instead of: orgType === "provider"
  */
 export function isMarketplaceType(dbOrgType: string): boolean {
@@ -164,7 +164,7 @@ export function getTenantTypeLabelPlural(dbOrgType: string): string {
 }
 
 /**
- * Whether this orgType can browse and search the Marketplace.
+ * Whether this orgType can browse and search Partners.
  */
 export function canBrowseMarketplace(dbOrgType: string): boolean {
   const config = getConfigByDbOrgType(dbOrgType);
@@ -180,7 +180,7 @@ export function getAllTenantTypes(): TenantTypeConfig[] {
 }
 
 /**
- * Get all marketplace-visible tenant type configs.
+ * Get all tenant type configs visible in Partners (public directory).
  * Currently only "provider", but extensible to venue, photographer, etc.
  */
 export function getMarketplaceTypes(): TenantTypeConfig[] {

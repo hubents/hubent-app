@@ -86,7 +86,7 @@ HubEnts es una plataforma SaaS multi-tenant para la gestión integral de eventos
 - Estadísticas de confirmaciones
 - Restricciones dietéticas y notas
 
-#### 🏪 Marketplace de Proveedores
+#### 🏪 Partners (proveedores)
 - Perfiles públicos de proveedores
 - Portfolio con imágenes
 - Sistema de reseñas y calificaciones

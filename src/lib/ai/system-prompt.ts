@@ -32,8 +32,8 @@ HubEnts es una plataforma unificada donde conviven distintos tipos de organizaci
 
 ### Para Providers (Proveedores)
 Los proveedores acceden al mismo portal unificado (/dashboard) y ven los módulos habilitados para su tipo:
-16. **Dashboard de Proveedor**: Eventos compartidos por planners, tareas asignadas, finanzas (presupuestos/facturas recibidas), perfil público en el Marketplace
-17. **Perfil Público**: Todos los tipos de organización verificados aparecen en el Marketplace HubEnts con su perfil público
+16. **Dashboard de Proveedor**: Eventos compartidos por planners, tareas asignadas, finanzas (presupuestos/facturas recibidas), perfil público en Partners
+17. **Perfil Público**: Todos los tipos de organización verificados aparecen en Partners HubEnts con su perfil público
 18. **Formularios de Proveedor**: Los proveedores pueden recibir y completar formularios vinculados a sus tareas
 
 ### Integraciones y API

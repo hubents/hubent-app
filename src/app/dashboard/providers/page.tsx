@@ -25,7 +25,7 @@ import {
 import Link from "next/link";
 import { PROVIDER_CATEGORIES, PLANNER_CATEGORIES, getOrgTypeLabel } from "@/config/provider-constants";
 
-interface MarketplaceOrg {
+interface PartnersDirectoryOrg {
   id: number;
   name: string;
   slug: string;
@@ -49,7 +49,7 @@ export default function ProvidersDirectoryPage() {
 }
 
 function ProvidersDirectoryContent() {
-  const [orgs, setOrgs] = useState<MarketplaceOrg[]>([]);
+  const [orgs, setOrgs] = useState<PartnersDirectoryOrg[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -72,7 +72,7 @@ function ProvidersDirectoryContent() {
         setTotal(data.meta?.total ?? data.data.length);
       }
     } catch {
-      console.error("Error fetching marketplace");
+      console.error("Error fetching Partners directory");
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ function ProvidersDirectoryContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Marketplace</h1>
+        <h1 className="text-2xl font-bold">Partners</h1>
         <p className="text-muted-foreground">
           Proveedores y planificadores verificados en la plataforma
         </p>

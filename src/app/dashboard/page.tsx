@@ -220,7 +220,7 @@ export default function DashboardPage() {
                 </div>
                 {ps?.organization.verificationStatus !== "verified" && (
                   <p className="text-sm text-[var(--muted-foreground)]">
-                    Completa tu perfil para solicitar la verificación y aumentar tu visibilidad en el Marketplace.
+                    Completa tu perfil para solicitar la verificación y aumentar tu visibilidad en Partners.
                   </p>
                 )}
               </CardContent>

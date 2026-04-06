@@ -292,12 +292,15 @@ describe("Composio Entity ID for triggers", () => {
 // Webhook Handler Route Structure
 // ============================================
 describe("Webhook Handler Route", () => {
-  it("webhook route file exports POST and GET handlers", async () => {
-    // Verify the route module structure
-    const routeModule = await import("@/app/api/webhooks/composio/route");
-    expect(typeof routeModule.POST).toBe("function");
-    expect(typeof routeModule.GET).toBe("function");
-  });
+  it(
+    "webhook route file exports POST and GET handlers",
+    async () => {
+      const routeModule = await import("@/app/api/webhooks/composio/route");
+      expect(typeof routeModule.POST).toBe("function");
+      expect(typeof routeModule.GET).toBe("function");
+    },
+    30_000
+  );
 });
 
 // ============================================

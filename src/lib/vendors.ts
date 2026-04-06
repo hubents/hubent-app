@@ -149,7 +149,7 @@ export async function deleteVendor(session: TenantSession, vendorId: number) {
 }
 
 // ============================================
-// VENDOR PROFILES (Public Marketplace)
+// VENDOR PROFILES (Partners HubEnts / public directory)
 // ============================================
 
 export async function getPublicVendorProfiles(

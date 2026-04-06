@@ -294,7 +294,7 @@ export default function RegisterPage() {
               <ul className="text-sm text-[var(--muted-foreground)] space-y-1 ml-7">
                 {isProvider ? (
                   <>
-                    <li>• Perfil público en el marketplace</li>
+                    <li>• Perfil público en Partners</li>
                     <li>• Gestión de eventos y tareas</li>
                     <li>• Sin tarjeta de crédito requerida</li>
                   </>

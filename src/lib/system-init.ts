@@ -46,7 +46,7 @@ const DEFAULT_PLANS = [
   {
     name: "Free",
     slug: "provider-free",
-    description: "Perfil gratuito para proveedores. Visibilidad básica en el marketplace.",
+    description: "Perfil gratuito para proveedores. Visibilidad básica en Partners.",
     orgType: "provider" as const,
     priceMonthly: "0",
     priceYearly: "0",

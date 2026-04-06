@@ -25,8 +25,9 @@ describe("Sidebar: Unified main sidebar for all org types", () => {
     expect(content).toContain('href: "/dashboard/events"');
   });
 
-  it("supports marketplace section", () => {
-    expect(content).toContain("marketplace");
+  it("supports partners section", () => {
+    expect(content).toContain("partners");
+    expect(content).toContain("/dashboard/partners");
   });
 
   it("filteredNavAfterProductivity is hidden when eventScoped", () => {
@@ -119,7 +120,7 @@ describe("Task participant-selector: no changes needed", () => {
     "utf-8"
   );
 
-  it("fetches from /api/providers for marketplace search", () => {
+  it("fetches from /api/providers for Partners directory search", () => {
     expect(content).toContain("/api/providers");
   });
 

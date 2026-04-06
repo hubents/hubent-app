@@ -10,7 +10,7 @@ import { isMarketplaceType } from "@/lib/tenant-type";
 /**
  * Unified dashboard stats endpoint.
  * Returns planner-style stats by default, or provider-style stats
- * when the org is a marketplace/provider type.
+ * when the org is a Partners-visible / provider type.
  */
 export const GET = withMonitoring(async (_request: NextRequest) => {
   const session = await requireAuth();
@@ -20,7 +20,7 @@ export const GET = withMonitoring(async (_request: NextRequest) => {
     where: eq(organizations.id, orgId),
   });
 
-  // Provider/marketplace org: return collaboration-focused stats
+  // Provider org (Partners-visible): return collaboration-focused stats
   if (org && isMarketplaceType(org.orgType || "") && org.orgType === "provider") {
     return getProviderStats(orgId, {
       name: org.name,

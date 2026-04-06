@@ -242,7 +242,7 @@ export function CollaboratorDrawer({
     }
   }, [editingParticipant, open]);
 
-  // Load marketplace favorites + search when vendors tab is active
+  // Load Partners favorites + search when vendors tab is active
   const directoryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!open || isEditing || activeTab !== "vendors") return;
@@ -270,7 +270,7 @@ export function CollaboratorDrawer({
         const data = await res.json();
         if (data.success) setDirectoryProviders(data.data || []);
       } catch {
-        console.error("Error fetching marketplace providers");
+        console.error("Error fetching Partners directory providers");
       } finally {
         setDirectoryLoading(false);
       }
@@ -539,15 +539,15 @@ export function CollaboratorDrawer({
 
                   {activeTab === "vendors" && (
                     <>
-                      {/* Marketplace search */}
+                      {/* Partners HubEnts search */}
                       <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 flex items-center gap-1.5">
-                        Marketplace HubEnts
+                        Partners HubEnts
                       </div>
                       <div className="px-3 py-2">
                         <div className="relative">
                           <RiSearchLine className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                           <Input
-                            placeholder="Buscar en marketplace..."
+                            placeholder="Buscar en Partners..."
                             value={directorySearch}
                             onChange={(e) => setDirectorySearch(e.target.value)}
                             className="h-8 pl-8 text-xs"
@@ -558,7 +558,7 @@ export function CollaboratorDrawer({
                         </div>
                       </div>
 
-                      {/* Marketplace results (favorites auto-loaded, or search results) */}
+                      {/* Partners directory results (favorites auto-loaded, or search results) */}
                       {!directoryLoading && filteredDirectoryProviders.length === 0 && directorySearch && (
                         <p className="text-xs text-muted-foreground text-center py-2 px-3">
                           No se encontraron proveedores

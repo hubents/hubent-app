@@ -6,7 +6,7 @@ import { eq, and, ilike, desc, sql, inArray, or } from "drizzle-orm";
 
 /**
  * GET /api/providers
- * Search organizations for the marketplace (providers + planners).
+ * Search organizations for Partners (providers + planners).
  * Query params: ?search=X&category=Y&city=Z&verified=true&favorites=true&myProviders=true&type=provider|planner&page=1&limit=50
  */
 export async function GET(request: NextRequest) {

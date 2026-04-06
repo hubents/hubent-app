@@ -37,8 +37,8 @@ const STEP_REGISTRY: Record<string, { title: string; description: string; icon: 
   company:                { title: "Tu empresa", description: "Personaliza tu espacio de trabajo", icon: Building2 },
   "first-event":          { title: "Primer evento", description: "Crea tu primer evento (opcional)", icon: Calendar },
   team:                   { title: "Tu equipo", description: "Invita a tu equipo (opcional)", icon: Users },
-  "company-public-profile": { title: "Tu empresa y perfil público", description: "Configura cómo te verán en el marketplace", icon: Building2 },
-  "profile-preview":      { title: "Vista previa", description: "Así se verá tu perfil en el marketplace", icon: Eye },
+  "company-public-profile": { title: "Tu empresa y perfil público", description: "Configura cómo te verán en Partners", icon: Building2 },
+  "profile-preview":      { title: "Vista previa", description: "Así se verá tu perfil en Partners", icon: Eye },
 };
 
 function buildSteps(orgType: string) {
@@ -408,7 +408,7 @@ function OnboardingContent() {
       {/* Separator */}
       <div className="border-t pt-4 mt-2">
         <p className="text-sm font-medium text-[var(--muted-foreground)] mb-3">
-          Perfil público en Marketplace
+          Perfil público en Partners
         </p>
       </div>
 
@@ -670,7 +670,7 @@ function OnboardingContent() {
           <h1 className="text-2xl font-bold">Configura tu espacio de trabajo</h1>
           <p className="text-[var(--muted-foreground)]">
             {isProvider
-              ? "Configuremos tu perfil de proveedor en el marketplace"
+              ? "Configuremos tu perfil de proveedor en Partners"
               : "Solo te tomará unos minutos"}
           </p>
         </div>

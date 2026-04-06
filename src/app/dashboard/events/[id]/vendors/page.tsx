@@ -150,7 +150,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         setDirectoryProviders(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch marketplace:", error);
+      console.error("Failed to fetch Partners directory:", error);
     }
   };
 
@@ -232,8 +232,8 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
               Agregar Proveedor
             </Button>
           )}
-          <Link href="/dashboard/marketplace">
-            <Button variant="outline">Marketplace</Button>
+          <Link href="/dashboard/partners">
+            <Button variant="outline">Partners</Button>
           </Link>
         </div>
       </div>
@@ -285,7 +285,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Add Provider Drawer (Marketplace) */}
+      {/* Add Provider Drawer (Partners) */}
       <Sheet open={showInviteDrawer} onOpenChange={setShowInviteDrawer}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
@@ -293,14 +293,14 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <p className="text-sm text-muted-foreground">
-              Busca en el Marketplace HubEnts. Tus favoritos aparecen primero.
+              Busca en Partners HubEnts. Tus favoritos aparecen primero.
             </p>
             <div className="relative">
               <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={providerSearch}
                 onChange={(e) => setProviderSearch(e.target.value)}
-                placeholder="Buscar en marketplace..."
+                placeholder="Buscar en Partners..."
                 className="pl-10"
               />
             </div>

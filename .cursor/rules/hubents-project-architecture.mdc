@@ -47,7 +47,7 @@ alwaysApply: true
 - `/dashboard/menus` — Menu management
 - `/dashboard/payments` — Client Stripe payments
 - `/dashboard/providers` — Provider directory
-- `/dashboard/marketplace` — Marketplace (browse providers/planners)
+- `/dashboard/partners` — Partners (browse providers/planners); `/dashboard/marketplace` redirects here
 - `/dashboard/public-profile` — Organization public profile
 - `/dashboard/team` — Team management
 - `/dashboard/settings` — Org settings (roles, integrations, developers, templates)

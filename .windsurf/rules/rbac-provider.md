@@ -52,7 +52,7 @@ description: Rules for RBAC system and Provider Portal architecture
 - Table: `organizations` where `orgType = 'provider'`
 - Created by: Unified registration at `/auth/register` (user selects "Proveedor" org type)
 - Visibility: Public directory (after admin verification)
-- Purpose: Event collaboration, marketplace profile, team management
+- Purpose: Event collaboration, Partners / public profile, team management
 - Both planners and providers use `/dashboard` — NO separate `/vendor` portal
 
 ### Event Vendor Page (`/dashboard/events/[id]/vendors`)

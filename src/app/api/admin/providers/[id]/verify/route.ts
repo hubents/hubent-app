@@ -19,7 +19,7 @@ const verifySchema = z.object({
 
 /**
  * POST /api/admin/providers/[id]/verify
- * Verify or reject any marketplace-visible organization (provider, planner, venue, etc.).
+ * Verify or reject any organization visible in Partners (provider, planner, venue, etc.).
  * Not restricted to orgType=provider -- any orgType that has isMarketplaceVisible=true
  * in tenant-types config can be verified.
  */
@@ -59,11 +59,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Any marketplace-visible orgType can be verified (not just providers)
+    // Any orgType visible in Partners can be verified (not just providers)
     const typeConfig = getConfigByDbOrgType(provider.orgType || "");
     if (!typeConfig?.isMarketplaceVisible) {
       return NextResponse.json(
-        { success: false, error: { code: "NOT_VERIFIABLE", message: `Organization type '${provider.orgType}' is not marketplace-visible` } },
+        { success: false, error: { code: "NOT_VERIFIABLE", message: `Organization type '${provider.orgType}' is not visible in Partners` } },
         { status: 400 }
       );
     }

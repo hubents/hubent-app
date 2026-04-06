@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      // Provider marketplace fields
+      // Provider public profile / Partners directory fields
       if (providerProfile) {
         if (providerProfile.description) updateData.description = providerProfile.description;
         if (providerProfile.tagline) updateData.tagline = providerProfile.tagline;

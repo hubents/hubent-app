@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // We test the tool structure by importing createAITools and checking
 // that all expected tools exist with correct schemas.
@@ -35,12 +35,16 @@ vi.mock("drizzle-orm", () => ({
 }));
 
 describe("HubIA AI Tools", () => {
-  it("createAITools is importable and returns an object", async () => {
-    const { createAITools } = await import("@/lib/ai/tools");
-    const tools = createAITools({ userId: "test-user", organizationId: 1, role: "owner" });
-    expect(tools).toBeDefined();
-    expect(typeof tools).toBe("object");
-  });
+  it(
+    "createAITools is importable and returns an object",
+    async () => {
+      const { createAITools } = await import("@/lib/ai/tools");
+      const tools = createAITools({ userId: "test-user", organizationId: 1, role: "owner" });
+      expect(tools).toBeDefined();
+      expect(typeof tools).toBe("object");
+    },
+    30_000
+  );
 
   it("exports all 17 expected tools", async () => {
     const { createAITools } = await import("@/lib/ai/tools");

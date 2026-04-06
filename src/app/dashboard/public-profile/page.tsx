@@ -201,7 +201,7 @@ export default function PublicProfilePage() {
               Mi Perfil Público
             </h1>
             <p className="text-[var(--muted-foreground)]">
-              Gestiona cómo apareces en el Marketplace HubEnts
+              Gestiona cómo apareces en Partners HubEnts
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function PublicProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <RiInstagramLine className="h-5 w-5" />
                 Instagram
-                <InfoTooltip text="Pegá las URLs de tus publicaciones de Instagram. Se mostrarán como previews interactivos en tu perfil público del Marketplace." />
+                <InfoTooltip text="Pegá las URLs de tus publicaciones de Instagram. Se mostrarán como previews interactivos en tu perfil público de Partners." />
               </CardTitle>
               <span className="text-xs text-[var(--muted-foreground)]">{getInstagramPosts().length}/6 posts</span>
             </div>

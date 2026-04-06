@@ -62,8 +62,8 @@ const contactsSubNav = [
   { name: "Empresas", href: "/dashboard/contacts?segment=companies", icon: RiBuilding2Line },
 ];
 
-const navigationMarketplace = [
-  { name: "Marketplace", href: "/dashboard/marketplace", icon: RiStore2Line, permission: null as string | null },
+const navigationPartners = [
+  { name: "Partners", href: "/dashboard/partners", icon: RiStore2Line, permission: null as string | null },
 ];
 
 
@@ -121,9 +121,9 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     return navigationDashboard.filter((item) => !item.permission || can(item.permission));
   }, [can, eventScoped, hasSection]);
 
-  const filteredMarketplace = useMemo(() => {
-    if (eventScoped || !hasSection("marketplace")) return [];
-    return navigationMarketplace.filter((item) => !item.permission || can(item.permission));
+  const filteredPartners = useMemo(() => {
+    if (eventScoped || !hasSection("partners")) return [];
+    return navigationPartners.filter((item) => !item.permission || can(item.permission));
   }, [can, eventScoped, hasSection]);
 
   const filteredAfterContacts = useMemo(() => {
@@ -242,8 +242,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               );
             })}
 
-            {/* Marketplace HubEnts (after Dashboard, before Contacts) */}
-            {filteredMarketplace.map((item) => {
+            {/* Partners HubEnts (after Dashboard, before Contacts) */}
+            {filteredPartners.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
               if (isCollapsed) {
@@ -286,7 +286,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               );
             })}
 
-            {/* Contactos Menu with Submenu (right after Marketplace) */}
+            {/* Contactos Menu with Submenu (right after Partners) */}
             {showContacts && (isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
