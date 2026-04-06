@@ -124,7 +124,13 @@ export function EventSidebar() {
   };
 
   return (
-    <aside className="fixed left-[72px] top-0 z-30 h-screen w-[200px] border-r border-[var(--border)] bg-[var(--card)] hidden md:block">
+    <aside
+      className="fixed left-[72px] z-30 w-[200px] border-r border-[var(--border)] bg-[var(--card)] hidden md:block"
+      style={{
+        top: "var(--banner-height, 0px)",
+        height: "calc(100vh - var(--banner-height, 0px))",
+      }}
+    >
       <div className="flex h-full flex-col">
         {/* Event Header */}
         <div className="border-b border-[var(--border)] p-4">

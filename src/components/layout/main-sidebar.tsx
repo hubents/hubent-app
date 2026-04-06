@@ -173,9 +173,13 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] transition-all duration-300 hidden md:block",
+          "fixed left-0 z-40 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] transition-all duration-300 hidden md:block",
           isCollapsed ? "w-[72px]" : "w-[260px]"
         )}
+        style={{
+          top: "var(--banner-height, 0px)",
+          height: "calc(100vh - var(--banner-height, 0px))",
+        }}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}

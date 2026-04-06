@@ -22,8 +22,9 @@ export function ImpersonationBanner() {
       .some((row) => row.startsWith("hubents-impersonating=true"));
 
     if (isImpersonating) {
+      document.documentElement.style.setProperty("--banner-height", "40px");
       document.body.style.paddingTop = "40px";
-      
+
       fetch("/api/user/context")
         .then((res) => res.json())
         .then((data) => {
@@ -41,6 +42,7 @@ export function ImpersonationBanner() {
     }
 
     return () => {
+      document.documentElement.style.removeProperty("--banner-height");
       document.body.style.paddingTop = "";
     };
   }, []);
@@ -50,6 +52,7 @@ export function ImpersonationBanner() {
     try {
       const res = await fetch("/api/admin/impersonate", { method: "DELETE" });
       if (res.ok) {
+        document.documentElement.style.removeProperty("--banner-height");
         document.body.style.paddingTop = "";
         window.location.href = "/admin/tenants";
       }
