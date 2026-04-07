@@ -324,10 +324,10 @@ export default function ProviderPublicProfilePage() {
               </div>
 
               <Carousel opts={{ align: "start", loop: false }} className="w-full">
-                <CarouselContent className="-ml-3">
+                <CarouselContent className="-ml-0">
                   {instagramPosts.map((url, idx) => (
-                    <CarouselItem key={idx} className="pl-3 basis-full sm:basis-1/2 lg:basis-1/3">
-                      <div className="overflow-hidden rounded-lg">
+                    <CarouselItem key={idx} className="pl-0 basis-full min-w-0 shrink-0">
+                      <div className="mx-auto w-full max-w-[540px] rounded-lg">
                         <InstagramEmbed url={url} width="100%" />
                       </div>
                     </CarouselItem>
