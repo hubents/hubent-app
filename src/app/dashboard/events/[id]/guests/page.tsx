@@ -74,6 +74,7 @@ interface GuestGroup {
   name: string;
   tableNumber: number | null;
   notes: string | null;
+  guestCount?: number;
 }
 
 interface Guest {
@@ -146,7 +147,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
     phone: "",
     menuPreference: "",
     ageGroup: "adult",
-    groupId: "",
+    groupId: "none",
   });
   const [newGroup, setNewGroup] = useState({ name: "", notes: "" });
   const [adding, setAdding] = useState(false);
@@ -338,6 +339,22 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       fetchGuests();
     } catch (error) {
       console.error("Failed to update table:", error);
+    }
+  };
+
+  // Handle group change
+  const handleGroupChange = async (guestId: number, groupId: string) => {
+    try {
+      const groupIdNum = groupId === "none" ? null : parseInt(groupId, 10);
+      await fetch(`/api/events/${eventId}/guests/${guestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId: groupIdNum }),
+      });
+      fetchGroups();
+      fetchGuests();
+    } catch (error) {
+      console.error("Failed to update group:", error);
     }
   };
 
@@ -784,7 +801,14 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                       ) : (
                         <span className="flex items-center gap-2">
                           <RiGroupLine className="h-4 w-4" />
-                          {groupName} ({groupGuests.length}{meta.totalPages > 1 ? " en esta página" : ""})
+                          {groupName} ({(() => {
+                            const serverGroup = groups.find(g => g.name === groupName);
+                            const serverCount = serverGroup?.guestCount;
+                            if (serverCount != null && serverCount !== groupGuests.length) {
+                              return `${serverCount} total`;
+                            }
+                            return groupGuests.length;
+                          })()})
                         </span>
                       )}
                       {canEditGuests && groupId && !editingGroup && (
@@ -818,9 +842,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                             key={guest.id} 
                             guest={guest} 
                             tables={tables}
+                            groups={groups}
                             onStatusChange={handleStatusChange}
                             onMenuChange={handleMenuChange}
                             onTableChange={handleTableChange}
+                            onGroupChange={handleGroupChange}
                             onNameChange={handleNameChange}
                             onDelete={handleDeleteGuest}
                             readOnly={!canEditGuests}
@@ -855,9 +881,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                     key={guest.id} 
                     guest={guest} 
                     tables={tables}
+                    groups={groups}
                     onStatusChange={handleStatusChange}
                     onMenuChange={handleMenuChange}
                     onTableChange={handleTableChange}
+                    onGroupChange={handleGroupChange}
                     onNameChange={handleNameChange}
                     onDelete={handleDeleteGuest}
                     readOnly={!canEditGuests}
@@ -891,9 +919,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           key={guest.id} 
                           guest={guest} 
                           tables={tables}
+                          groups={groups}
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
                           onTableChange={handleTableChange}
+                          onGroupChange={handleGroupChange}
                           onNameChange={handleNameChange}
                           onDelete={handleDeleteGuest}
                           readOnly={!canEditGuests}
@@ -930,9 +960,11 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           key={guest.id} 
                           guest={guest} 
                           tables={tables}
+                          groups={groups}
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
                           onTableChange={handleTableChange}
+                          onGroupChange={handleGroupChange}
                           onNameChange={handleNameChange}
                           onDelete={handleDeleteGuest}
                           readOnly={!canEditGuests}
@@ -1011,18 +1043,22 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
 function GuestRow({ 
   guest, 
   tables,
+  groups,
   onStatusChange, 
   onMenuChange,
   onTableChange,
+  onGroupChange,
   onNameChange,
   onDelete,
   readOnly = false,
 }: { 
   guest: Guest; 
   tables: EventTable[];
+  groups: GuestGroup[];
   onStatusChange: (guestId: number, status: string) => void;
   onMenuChange: (guestId: number, menu: string) => void;
   onTableChange: (guestId: number, tableId: string) => void;
+  onGroupChange: (guestId: number, groupId: string) => void;
   onNameChange: (guestId: number, firstName: string, lastName: string) => void;
   onDelete: (guestId: number) => void;
   readOnly?: boolean;
@@ -1124,6 +1160,25 @@ function GuestRow({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {/* Group Select */}
+        <Select
+          value={guest.groupId?.toString() || "none"}
+          onValueChange={(value) => onGroupChange(guest.id, value)}
+          disabled={readOnly}
+        >
+          <SelectTrigger className="w-32 h-8">
+            <SelectValue placeholder="Grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin grupo</SelectItem>
+            {groups.map((g) => (
+              <SelectItem key={g.id} value={g.id.toString()}>
+                {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Menu Select */}
         <Select
           value={guest.menuPreference || ""}

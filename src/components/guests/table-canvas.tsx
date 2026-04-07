@@ -72,8 +72,26 @@ const tableTemplates = [
   { name: "Presidencial (12)", shape: "rectangular", capacity: 12, width: 300, height: 60 },
 ];
 
+function getNextTableNumber(tables: TableData[]) {
+  const numbers = tables
+    .map((t) => {
+      const match = t.name.match(/^Mesa (\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+  for (let i = 0; i < numbers.length; i++) {
+    if (numbers[i] !== i + 1) return i + 1;
+  }
+  return numbers.length + 1;
+}
+
 export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasProps) {
-  const [tableCounter, setTableCounter] = useState(tables.length + 1);
+  const [tableCounter, setTableCounter] = useState(() => getNextTableNumber(tables));
+
+  useEffect(() => {
+    setTableCounter(getNextTableNumber(tables));
+  }, [tables]);
 
   const handleDeleteTable = useCallback(async (tableId: number) => {
     if (!confirm("¿Eliminar esta mesa? Los invitados asignados quedarán sin mesa.")) return;

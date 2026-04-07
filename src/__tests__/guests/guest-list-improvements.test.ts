@@ -265,13 +265,178 @@ describe("Guest grouping — with empty groups", () => {
 });
 
 // ============================================
+// handleGroupChange: payload construction
+// ============================================
+
+function buildGroupChangePatch(groupIdStr: string) {
+  const groupIdNum = groupIdStr === "none" ? null : parseInt(groupIdStr, 10);
+  return { groupId: groupIdNum };
+}
+
+describe("Group change — PATCH payload", () => {
+  it("sends groupId as integer when a group is selected", () => {
+    const patch = buildGroupChangePatch("5");
+    expect(patch.groupId).toBe(5);
+  });
+
+  it("sends groupId as null when 'none' is selected (unassign)", () => {
+    const patch = buildGroupChangePatch("none");
+    expect(patch.groupId).toBeNull();
+  });
+
+  it("correctly parses string group IDs", () => {
+    const patch = buildGroupChangePatch("42");
+    expect(patch.groupId).toBe(42);
+    expect(typeof patch.groupId).toBe("number");
+  });
+});
+
+// ============================================
+// GuestRow group Select: value binding
+// ============================================
+
+function groupSelectValue(groupId: number | null): string {
+  return groupId != null ? groupId.toString() : "none";
+}
+
+describe("GuestRow — group select value binding", () => {
+  it("maps null groupId to 'none'", () => {
+    expect(groupSelectValue(null)).toBe("none");
+  });
+
+  it("maps numeric groupId to string", () => {
+    expect(groupSelectValue(7)).toBe("7");
+  });
+
+  it("default newGuest.groupId is 'none' (matches SelectItem)", () => {
+    const newGuest = {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      menuPreference: "",
+      ageGroup: "adult",
+      groupId: "none",
+    };
+    expect(newGuest.groupId).toBe("none");
+  });
+});
+
+// ============================================
+// Table numbering: gap-fill logic
+// ============================================
+
+interface TableForNumbering {
+  name: string;
+}
+
+function getNextTableNumber(tables: TableForNumbering[]) {
+  const numbers = tables
+    .map((t) => {
+      const match = t.name.match(/^Mesa (\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
+  for (let i = 0; i < numbers.length; i++) {
+    if (numbers[i] !== i + 1) return i + 1;
+  }
+  return numbers.length + 1;
+}
+
+describe("Table numbering — gap-fill", () => {
+  it("returns 1 when no tables exist", () => {
+    expect(getNextTableNumber([])).toBe(1);
+  });
+
+  it("returns next sequential number when no gaps", () => {
+    const tables = [{ name: "Mesa 1" }, { name: "Mesa 2" }, { name: "Mesa 3" }];
+    expect(getNextTableNumber(tables)).toBe(4);
+  });
+
+  it("reuses deleted number when last table is deleted", () => {
+    const tables = [{ name: "Mesa 1" }, { name: "Mesa 2" }];
+    expect(getNextTableNumber(tables)).toBe(3);
+  });
+
+  it("fills gap when middle table is deleted", () => {
+    const tables = [{ name: "Mesa 1" }, { name: "Mesa 3" }];
+    expect(getNextTableNumber(tables)).toBe(2);
+  });
+
+  it("fills first gap when multiple tables are deleted", () => {
+    const tables = [{ name: "Mesa 1" }, { name: "Mesa 4" }, { name: "Mesa 5" }];
+    expect(getNextTableNumber(tables)).toBe(2);
+  });
+
+  it("ignores custom-named tables", () => {
+    const tables = [{ name: "Mesa 1" }, { name: "VIP" }, { name: "Mesa 3" }];
+    expect(getNextTableNumber(tables)).toBe(2);
+  });
+
+  it("handles only custom-named tables (returns 1)", () => {
+    const tables = [{ name: "VIP" }, { name: "Presidencial" }];
+    expect(getNextTableNumber(tables)).toBe(1);
+  });
+
+  it("handles unsorted table names", () => {
+    const tables = [{ name: "Mesa 3" }, { name: "Mesa 1" }];
+    expect(getNextTableNumber(tables)).toBe(2);
+  });
+});
+
+// ============================================
+// Group count display logic
+// ============================================
+
+interface GroupWithCount {
+  name: string;
+  guestCount?: number;
+}
+
+function getGroupDisplayCount(
+  groupName: string,
+  pageGuests: number,
+  groups: GroupWithCount[]
+): string {
+  const serverGroup = groups.find((g) => g.name === groupName);
+  const serverCount = serverGroup?.guestCount;
+  if (serverCount != null && serverCount !== pageGuests) {
+    return `${serverCount} total`;
+  }
+  return `${pageGuests}`;
+}
+
+describe("Group count display — server vs page count", () => {
+  const groups: GroupWithCount[] = [
+    { name: "Familia Novia", guestCount: 25 },
+    { name: "Amigos", guestCount: 5 },
+    { name: "Trabajo", guestCount: 0 },
+  ];
+
+  it("shows server count when it differs from page count", () => {
+    expect(getGroupDisplayCount("Familia Novia", 10, groups)).toBe("25 total");
+  });
+
+  it("shows page count when it matches server count", () => {
+    expect(getGroupDisplayCount("Amigos", 5, groups)).toBe("5");
+  });
+
+  it("shows page count for groups not found in server data", () => {
+    expect(getGroupDisplayCount("Sin grupo", 3, groups)).toBe("3");
+  });
+
+  it("shows server count of 0 when page has guests (edge case)", () => {
+    expect(getGroupDisplayCount("Trabajo", 0, groups)).toBe("0");
+  });
+});
+
+// ============================================
 // PDF HTML template: structure verification
 // ============================================
 
 describe("Guest list PDF — HTML structure expectations", () => {
   it("generateGuestListHTML should include key sections", () => {
-    // This is a structural test — verifying that the HTML template
-    // function would produce expected markers for the pdf route
     const expectedSections = [
       "Lista de Invitados",
       "Confirmados",

@@ -19,10 +19,21 @@ import type { TenantSession, PaginationParams } from "@/types";
 // ============================================
 
 export async function getGuestGroups(eventId: number) {
-  return db.query.guestGroups.findMany({
-    where: (g, { eq }) => eq(g.eventId, eventId),
-    orderBy: (g, { asc }) => [asc(g.tableNumber), asc(g.name)],
-  });
+  const groups = await db
+    .select({
+      id: guestGroups.id,
+      eventId: guestGroups.eventId,
+      name: guestGroups.name,
+      tableNumber: guestGroups.tableNumber,
+      notes: guestGroups.notes,
+      guestCount: sql<number>`count(${guests.id})::int`,
+    })
+    .from(guestGroups)
+    .leftJoin(guests, eq(guests.groupId, guestGroups.id))
+    .where(eq(guestGroups.eventId, eventId))
+    .groupBy(guestGroups.id)
+    .orderBy(guestGroups.tableNumber, guestGroups.name);
+  return groups;
 }
 
 export async function createGuestGroup(
