@@ -121,3 +121,94 @@ describe("Provider Task Sync: migration script exists", () => {
     expect(fs.existsSync(path.join(ROOT, "scripts/migrate-provider-roles.ts"))).toBe(true);
   });
 });
+
+// ============================================
+// useTasks: standalone scope excludes collaborated merge
+// ============================================
+
+describe("useTasks: scope-aware collaborated merge", () => {
+  it("useTasks does NOT fetch collaborated when scope is standalone", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/hooks/use-tasks.ts"), "utf-8");
+    expect(content).toContain('scope !== "standalone"');
+  });
+
+  it("useTasks still fetches collaborated when scope is not standalone", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/hooks/use-tasks.ts"), "utf-8");
+    expect(content).toContain("scope=collaborated");
+  });
+
+  it("scope filter condition combines eventId and standalone checks", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/hooks/use-tasks.ts"), "utf-8");
+    expect(content).toContain('!eventId && scope !== "standalone"');
+  });
+
+  it("no debug instrumentation remains in use-tasks.ts", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/hooks/use-tasks.ts"), "utf-8");
+    expect(content).not.toContain("#region agent log");
+    expect(content).not.toContain("127.0.0.1:7680");
+    expect(content).not.toContain("sessionId");
+  });
+});
+
+// ============================================
+// Task auto-participant: respects collaboration permissions
+// ============================================
+
+describe("Task creation: collaboration permission checks", () => {
+  it("auto-participant checks permissions.tasks before adding collaborator", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/api/tasks/route.ts"), "utf-8");
+    expect(content).toContain("taskPerm");
+    expect(content).toContain(".tasks");
+  });
+
+  it("skips collaborators with tasks permission set to none", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/api/tasks/route.ts"), "utf-8");
+    expect(content).toContain('taskPerm === "none"');
+  });
+
+  it("sets canEdit based on tasks edit permission", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/api/tasks/route.ts"), "utf-8");
+    expect(content).toContain('canEdit: taskPerm === "edit"');
+  });
+
+  it("fetches permissions field from event_collaborations", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/api/tasks/route.ts"), "utf-8");
+    expect(content).toContain("eventCollaborations.permissions");
+  });
+});
+
+// ============================================
+// Partners: bilateral API and pagination
+// ============================================
+
+describe("Partners page: bilateral API and pagination", () => {
+  it("global Partners page calls /partners API (not /providers)", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/dashboard/partners/page.tsx"), "utf-8");
+    const inviteSection = content.split("handleInviteToEvent")[1]?.split("finally")[0] || "";
+    expect(inviteSection).toContain("/partners");
+    expect(inviteSection).not.toContain("/providers");
+  });
+
+  it("sends guestOrgId (not providerOrgId) in invite payload", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/dashboard/partners/page.tsx"), "utf-8");
+    const inviteSection = content.split("handleInviteToEvent")[1]?.split("finally")[0] || "";
+    expect(inviteSection).toContain("guestOrgId");
+    expect(inviteSection).not.toContain("providerOrgId");
+  });
+
+  it("sends page parameter in fetchProviders", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/dashboard/partners/page.tsx"), "utf-8");
+    expect(content).toContain('params.set("page", page.toString())');
+  });
+
+  it("resets page to 1 on filter changes", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/dashboard/partners/page.tsx"), "utf-8");
+    expect(content).toContain("setPage(1)");
+  });
+
+  it("vendors API returns contactEmail and contactPhone aliases", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/app/api/events/[eventId]/vendors/route.ts"), "utf-8");
+    expect(content).toContain("contactEmail: vendors.email");
+    expect(content).toContain("contactPhone: vendors.phone");
+  });
+});
