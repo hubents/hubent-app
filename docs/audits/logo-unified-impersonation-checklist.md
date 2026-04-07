@@ -19,12 +19,14 @@ Plan de referencia: logos unificados + fix `/api/user/profile` (tenant activo).
 | 1.10 | Copy UX: título/ayuda logo en Datos fiscales | OK | "Logo de la organización" + texto PDF ~48px |
 | 1.11 | Sin `console.log` en rutas API de perfil | OK | Solo `console.error` donde aplica |
 | 1.12 | Cliente settings sin `console.log` de debug | OK | Removido "Profile loaded" |
+| 1.13 | `useSearchParams()` bajo `<Suspense>` (build Vercel/Next) | OK | `SettingsPageContent` envuelto en `Suspense` con fallback skeleton |
 
 ## 2. Gaps encontrados y resolución
 
 | Gap | Resolución |
 |-----|------------|
 | `console.log` en settings al cargar perfil | Eliminado |
+| Build Vercel fallaba: `useSearchParams` sin boundary de Suspense | `export default` renderiza `<Suspense fallback={...}><SettingsPageContent /></Suspense>` |
 | E2E automatizado (Playwright) | **No hay suite E2E en el repo** — sección 4 manual obligatoria |
 
 ## 3. Tests automatizados

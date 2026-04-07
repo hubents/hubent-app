@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUserSession } from "@/hooks/use-user-session";
@@ -161,7 +161,7 @@ const settingsSections = [
   },
 ];
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const { can } = useUserSession();
@@ -430,6 +430,47 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function SettingsPageFallback() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-8 w-56 mb-2" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-1 h-fit">
+          <CardContent className="p-2 space-y-2">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-md" />
+            ))}
+          </CardContent>
+        </Card>
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsPageFallback />}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }
 
