@@ -63,7 +63,10 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       const collabTasks: Task[] = results[1]?.success ? results[1].data || [] : [];
 
       // #region agent log
-      console.log(`[useTasks] scope=${scope} merge=${shouldMergeCollab} own=${ownTasks.length} collab=${collabTasks.length} url=${url}`);
+      const withEvt = ownTasks.filter(t => t.eventId).length;
+      const noEvt = ownTasks.filter(t => !t.eventId).length;
+      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} withEventId=${withEvt} noEventId=${noEvt} collab=${collabTasks.length}`);
+      if (ownTasks.length > 0) console.log(`[useTasks] sample:`, ownTasks.slice(0, 3).map(t => ({id:t.id,title:t.title,eventId:t.eventId,eventName:t.eventName})));
       // #endregion
 
       // Merge and deduplicate by task id
