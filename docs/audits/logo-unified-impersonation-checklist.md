@@ -62,4 +62,4 @@ Ejecutar en staging o producción tras deploy:
 ## 6. Sign-off
 
 - [ ] Revisor ejecutó sección 4 en entorno desplegado  
-- [ ] Commit y push a `main` registrados en ticket ClickUp  
+- [x] Commit y push a `main`: `77e95fe` (ticket ClickUp actualizado, estado Review)  
