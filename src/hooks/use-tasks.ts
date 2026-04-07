@@ -43,8 +43,9 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       const params = new URLSearchParams();
       if (eventId) {
         params.set("eventId", eventId.toString());
-      } else if (scope && scope !== "all") {
-        params.set("scope", scope);
+      } else {
+        if (scope && scope !== "all") params.set("scope", scope);
+        params.set("limit", "500");
       }
       const qs = params.toString();
       const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
@@ -63,10 +64,7 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       const collabTasks: Task[] = results[1]?.success ? results[1].data || [] : [];
 
       // #region agent log
-      const withEvt = ownTasks.filter(t => t.eventId).length;
-      const noEvt = ownTasks.filter(t => !t.eventId).length;
-      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} withEventId=${withEvt} noEventId=${noEvt} collab=${collabTasks.length}`);
-      if (ownTasks.length > 0) console.log(`[useTasks] sample:`, ownTasks.slice(0, 3).map(t => ({id:t.id,title:t.title,eventId:t.eventId,eventName:t.eventName})));
+      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} serverTotal=${results[0]?.meta?.total} collab=${collabTasks.length} merged=${taskList.length}`);
       // #endregion
 
       // Merge and deduplicate by task id
@@ -77,7 +75,8 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
       setTasks(taskList);
 
-      const total = taskList.length;
+      const serverTotal = results[0]?.meta?.total;
+      const total = serverTotal ?? taskList.length;
       const completed = taskList.filter(
         (t: Task) => t.status === "completed",
       ).length;

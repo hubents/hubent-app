@@ -110,32 +110,39 @@ export const GET = withMonitoring(
       )!;
     }
 
-    const results = await db
-      .select({
-        id: tasks.id,
-        title: tasks.title,
-        description: tasks.description,
-        status: tasks.status,
-        priority: tasks.priority,
-        dueDate: tasks.dueDate,
-        eventId: tasks.eventId,
-        assignedTo: tasks.assignedTo,
-        sortOrder: tasks.sortOrder,
-        createdAt: tasks.createdAt,
-        eventName: events.name,
-        assignedUserName: users.name,
-      })
-      .from(tasks)
-      .leftJoin(events, eq(tasks.eventId, events.id))
-      .leftJoin(users, eq(tasks.assignedTo, users.id))
-      .where(whereClause)
-      .orderBy(asc(tasks.sortOrder), desc(tasks.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const [results, [countResult]] = await Promise.all([
+      db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          description: tasks.description,
+          status: tasks.status,
+          priority: tasks.priority,
+          dueDate: tasks.dueDate,
+          eventId: tasks.eventId,
+          assignedTo: tasks.assignedTo,
+          sortOrder: tasks.sortOrder,
+          createdAt: tasks.createdAt,
+          eventName: events.name,
+          assignedUserName: users.name,
+        })
+        .from(tasks)
+        .leftJoin(events, eq(tasks.eventId, events.id))
+        .leftJoin(users, eq(tasks.assignedTo, users.id))
+        .where(whereClause)
+        .orderBy(asc(tasks.sortOrder), desc(tasks.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(tasks)
+        .where(whereClause),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: results,
+      meta: { total: countResult.count, page, limit },
     });
   },
   { name: "GET /api/tasks" },
