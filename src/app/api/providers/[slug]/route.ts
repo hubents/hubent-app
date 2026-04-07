@@ -31,12 +31,15 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const displayLogo = org.invoiceLogo || org.logo || null;
+
     return NextResponse.json({
       success: true,
       data: {
         name: org.name,
         slug: org.slug,
-        logo: org.logo,
+        // Same asset as fiscal "logo for documents" when logo column is empty (legacy)
+        logo: displayLogo,
         orgType: org.orgType,
         phone: org.phone,
         website: org.website,

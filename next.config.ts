@@ -1,11 +1,31 @@
 import type { NextConfig } from "next";
 
+function getR2RemotePatterns(): NonNullable<
+  NextConfig["images"]
+>["remotePatterns"] {
+  const raw = process.env.R2_PUBLIC_URL;
+  if (!raw?.trim()) return [];
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol !== "https:") return [];
+    return [
+      {
+        protocol: "https",
+        hostname: u.hostname,
+        pathname: "/**",
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 
   images: {
-    remotePatterns: [],
+    remotePatterns: getR2RemotePatterns(),
   },
   
   async headers() {

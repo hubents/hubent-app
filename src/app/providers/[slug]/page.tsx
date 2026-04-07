@@ -63,6 +63,11 @@ export default function ProviderPublicProfilePage() {
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [logoLoadError, setLogoLoadError] = useState(false);
+
+  useEffect(() => {
+    setLogoLoadError(false);
+  }, [slug, provider?.logo]);
 
   useEffect(() => {
     async function load() {
@@ -157,15 +162,18 @@ export default function ProviderPublicProfilePage() {
 
             {/* Logo */}
             <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
-              {provider.logo ? (
+              {provider.logo && !logoLoadError ? (
                 <div className="relative">
-                  <Image
-                    src={provider.logo}
-                    alt={provider.name}
-                    width={96}
-                    height={96}
-                    className="rounded-full border-4 border-white shadow-lg object-cover"
-                  />
+                  <div className="relative h-24 w-24 rounded-full border-4 border-white bg-white shadow-lg overflow-hidden">
+                    <Image
+                      src={provider.logo}
+                      alt={provider.name}
+                      fill
+                      sizes="96px"
+                      className="object-contain p-2"
+                      onError={() => setLogoLoadError(true)}
+                    />
+                  </div>
                   <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1 border-2 border-white">
                     <RiShieldCheckLine className="h-3.5 w-3.5 text-white" />
                   </div>
