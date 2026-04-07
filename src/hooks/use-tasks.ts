@@ -51,8 +51,7 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
       const fetches: Promise<Response>[] = [fetch(url)];
 
-      // For any org with active collaborations, also fetch collaborated tasks
-      if (!eventId) {
+      if (!eventId && scope !== "standalone") {
         fetches.push(fetch("/api/tasks?scope=collaborated"));
       }
 
