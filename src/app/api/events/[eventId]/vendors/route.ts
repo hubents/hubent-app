@@ -45,6 +45,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         vendorCategory: vendors.category,
         vendorEmail: vendors.email,
         vendorPhone: vendors.phone,
+        contactEmail: vendors.email,
+        contactPhone: vendors.phone,
       })
       .from(eventVendors)
       .leftJoin(vendors, eq(eventVendors.vendorId, vendors.id))

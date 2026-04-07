@@ -110,6 +110,7 @@ function PartnersContent() {
   const [myProvidersOnly, setMyProvidersOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"cards" | "list">(readStoredViewMode);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [inviteTarget, setInviteTarget] = useState<PartnersListing | null>(null);
@@ -132,16 +133,16 @@ function PartnersContent() {
     if (!inviteTarget || !selectedEventId) return;
     setInviting(true);
     try {
-      const res = await fetch(`/api/events/${selectedEventId}/providers`, {
+      const res = await fetch(`/api/events/${selectedEventId}/partners`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerOrgId: inviteTarget.id }),
+        body: JSON.stringify({ guestOrgId: inviteTarget.id }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(`${inviteTarget.name} invitado al evento`);
       } else if (data.error?.code === "DUPLICATE") {
-        toast.info("Este proveedor ya está asignado al evento");
+        toast.info("Este partner ya está invitado al evento");
       } else {
         toast.error(data.error?.message || "Error al invitar");
       }
@@ -166,6 +167,7 @@ function PartnersContent() {
       if (favoritesOnly) params.set("favorites", "true");
       if (myProvidersOnly) params.set("myProviders", "true");
       if (verifiedOnly) params.set("verified", "true");
+      params.set("page", page.toString());
       params.set("limit", "50");
 
       const res = await fetch(`/api/providers?${params}`);
@@ -179,6 +181,10 @@ function PartnersContent() {
     } finally {
       setLoading(false);
     }
+  }, [search, category, city, priceRange, typeFilter, favoritesOnly, myProvidersOnly, verifiedOnly, page]);
+
+  useEffect(() => {
+    setPage(1);
   }, [search, category, city, priceRange, typeFilter, favoritesOnly, myProvidersOnly, verifiedOnly]);
 
   useEffect(() => {
@@ -439,6 +445,36 @@ function PartnersContent() {
             </div>
           )}
         </>
+      )}
+
+      {/* Pagination */}
+      {total > 50 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            {Math.min((page - 1) * 50 + 1, total)}–{Math.min(page * 50, total)} de {total} organizaciones
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {page} de {Math.ceil(total / 50)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= Math.ceil(total / 50)}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Invite to Event Sheet */}

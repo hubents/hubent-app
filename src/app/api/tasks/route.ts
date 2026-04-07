@@ -332,9 +332,11 @@ export const POST = withMonitoring(
     if (eventId && !isGuestTask) {
       (async () => {
         try {
-          // New: auto-link collaborator orgs
           const activeCollabs = await db
-            .select({ guestOrgId: eventCollaborations.guestOrgId })
+            .select({
+              guestOrgId: eventCollaborations.guestOrgId,
+              permissions: eventCollaborations.permissions,
+            })
             .from(eventCollaborations)
             .where(
               and(
@@ -346,6 +348,8 @@ export const POST = withMonitoring(
           let collabsLinked = 0;
           for (const c of activeCollabs) {
             if (!c.guestOrgId) continue;
+            const taskPerm = (c.permissions as Record<string, string> | null)?.tasks;
+            if (taskPerm === "none") continue;
             const exists = await db.query.taskParticipants.findFirst({
               where: and(
                 eq(taskParticipants.taskId, task.id),
@@ -357,7 +361,7 @@ export const POST = withMonitoring(
               taskId: task.id,
               collaboratorOrgId: c.guestOrgId,
               type: "vendor",
-              canEdit: false,
+              canEdit: taskPerm === "edit",
               canComment: true,
               addedBy: session.user.userId,
             });
