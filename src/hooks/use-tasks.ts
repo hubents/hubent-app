@@ -69,10 +69,6 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       for (const t of collabTasks) if (!taskMap.has(t.id)) taskMap.set(t.id, t);
       const taskList = Array.from(taskMap.values());
 
-      // #region agent log
-      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} serverTotal=${results[0]?.meta?.total} collab=${collabTasks.length} merged=${taskList.length}`);
-      // #endregion
-
       setTasks(taskList);
 
       const serverTotal = results[0]?.meta?.total;
