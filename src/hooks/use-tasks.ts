@@ -51,7 +51,8 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
       const fetches: Promise<Response>[] = [fetch(url)];
 
-      if (!eventId && scope !== "standalone") {
+      const shouldMergeCollab = !eventId && scope !== "standalone";
+      if (shouldMergeCollab) {
         fetches.push(fetch("/api/tasks?scope=collaborated"));
       }
 
@@ -60,6 +61,10 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
       const ownTasks: Task[] = results[0]?.success ? results[0].data || [] : [];
       const collabTasks: Task[] = results[1]?.success ? results[1].data || [] : [];
+
+      // #region agent log
+      console.log(`[useTasks] scope=${scope} merge=${shouldMergeCollab} own=${ownTasks.length} collab=${collabTasks.length} url=${url}`);
+      // #endregion
 
       // Merge and deduplicate by task id
       const taskMap = new Map<number, Task>();
