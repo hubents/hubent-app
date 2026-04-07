@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,17 +33,20 @@ import {
   RiFileTextLine,
   RiCloseLine,
   RiAlertLine,
+  RiSettings3Line,
 } from "@remixicon/react";
 import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
 import { getCategoriesForOrgType, PRICE_RANGES, getOrgTypeLabel } from "@/config/provider-constants";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
+import { isInstagramPostUrl } from "@/lib/instagram-post-url";
 
 interface ProfileData {
   id: number;
   name: string;
   slug: string;
   logo: string | null;
+  invoiceLogo?: string | null;
   phone: string | null;
   website: string | null;
   orgType: string | null;
@@ -63,8 +67,6 @@ interface ProfileData {
   instagramPosts: string[] | null;
   brochureUrl: string | null;
 }
-
-const IG_URL_REGEX = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
 
 function InfoTooltip({ text }: { text: string }) {
   return (
@@ -343,14 +345,30 @@ export default function PublicProfilePage() {
                 maxLength={2000}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Logo URL</label>
-                <Input
-                  placeholder="https://..."
-                  value={getValue("logo")}
-                  onChange={(e) => updateField("logo", e.target.value)}
-                />
+                <label className="text-sm font-medium">Logo de la organización</label>
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  {profile.invoiceLogo || profile.logo ? (
+                    <img
+                      src={(profile.invoiceLogo || profile.logo) as string}
+                      alt="Logo"
+                      className="h-16 w-auto max-w-full object-contain object-left"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Aún no configuraste un logo.</p>
+                  )}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    El logo se sube en Configuración → Datos fiscales. Es el mismo para facturas, presupuestos y este
+                    perfil.
+                  </p>
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
+                    <Link href="/dashboard/settings?section=fiscal">
+                      <RiSettings3Line className="h-4 w-4 mr-2" />
+                      Ir a Datos fiscales
+                    </Link>
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Imagen de portada URL</label>
@@ -480,7 +498,7 @@ export default function PublicProfilePage() {
                     className="pl-10"
                   />
                 </div>
-                {url && !IG_URL_REGEX.test(url) && (
+                {url && !isInstagramPostUrl(url) && (
                   <span className="text-xs text-red-500 shrink-0">URL inválida</span>
                 )}
                 <Button

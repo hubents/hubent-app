@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { INSTAGRAM_POST_URL_REGEX } from "@/lib/instagram-post-url";
 
 /**
  * GET /api/organizations/profile
@@ -31,6 +32,8 @@ export async function GET() {
         name: org.name,
         slug: org.slug,
         logo: org.logo,
+        /** Same asset as fiscal "logo for documents"; exposed for UI preview (coalesce in client if needed) */
+        invoiceLogo: org.invoiceLogo,
         phone: org.phone,
         website: org.website,
         address: org.address,
@@ -66,8 +69,6 @@ export async function GET() {
   }
 }
 
-const instagramUrlRegex = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/;
-
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().optional().or(z.literal("")),
@@ -79,7 +80,6 @@ const updateSchema = z.object({
   description: z.string().max(2000).optional().or(z.literal("")),
   tagline: z.string().max(120).optional().or(z.literal("")),
   coverImage: z.string().optional().or(z.literal("")),
-  logo: z.string().optional().or(z.literal("")),
   city: z.string().optional().or(z.literal("")),
   region: z.string().optional().or(z.literal("")),
   country: z.string().optional().or(z.literal("")),
@@ -87,7 +87,7 @@ const updateSchema = z.object({
   priceRange: z.string().optional().or(z.literal("")),
   brochureUrl: z.string().optional().or(z.literal("")),
   instagramPosts: z.array(
-    z.string().regex(instagramUrlRegex, "URL de Instagram inválida")
+    z.string().regex(INSTAGRAM_POST_URL_REGEX, "URL de Instagram inválida")
   ).max(6).optional(),
   settings: z.object({
     timezone: z.string().optional(),
@@ -172,7 +172,6 @@ export async function PATCH(request: NextRequest) {
     if (data.description !== undefined) updates.description = data.description || null;
     if (data.tagline !== undefined) updates.tagline = data.tagline || null;
     if (data.coverImage !== undefined) updates.coverImage = data.coverImage || null;
-    if (data.logo !== undefined) updates.logo = data.logo || null;
     if (data.city !== undefined) updates.city = data.city || null;
     if (data.region !== undefined) updates.region = data.region || null;
     if (data.country !== undefined) updates.country = data.country || null;

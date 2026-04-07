@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { users, organizations, organizationMembers, roles, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -65,7 +66,7 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
   // Create organization
   const displayName = userName || userEmail.split("@")[0];
   const slug = `${displayName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${Date.now().toString(36)}`;
-  
+
   const [newOrg] = await db.insert(organizations).values({
     name: `${displayName}'s Workspace`,
     slug,
@@ -96,16 +97,42 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
   return newMembership;
 }
 
-export async function GET() {
-  const session = await auth();
+function profileErrorResponse(error: unknown): NextResponse {
+  const message = error instanceof Error ? error.message : "Internal Server Error";
+  if (message.includes("Unauthorized")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (message.includes("No organization found")) {
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+  console.error("GET/PATCH /api/user/profile:", error);
+  return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+}
 
-  if (!session || !session.user || !session.user.id) {
+export async function GET() {
+  const authSession = await auth();
+
+  if (!authSession?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id;
-  const userEmail = session.user.email || "";
-  const userName = session.user.name;
+  const userId = authSession.user.id;
+  const userEmail = authSession.user.email || "";
+  const userName = authSession.user.name;
+
+  try {
+    await ensureUserHasOrganization(userId, userEmail, userName ?? null);
+  } catch (error) {
+    console.error("Error ensuring organization:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+
+  let tenantSession;
+  try {
+    tenantSession = await requireAuth();
+  } catch (error) {
+    return profileErrorResponse(error);
+  }
 
   try {
     const user = await db.query.users.findFirst({
@@ -116,12 +143,8 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Ensure user has organization (auto-create if missing)
-    const membership = await ensureUserHasOrganization(userId, userEmail, userName ?? null);
-
-    // Get organization
     const organization = await db.query.organizations.findFirst({
-      where: eq(organizations.id, membership.organizationId),
+      where: eq(organizations.id, tenantSession.organizationId),
     });
 
     return NextResponse.json({
@@ -134,25 +157,27 @@ export async function GET() {
           image: user.image,
           phone: null, // Users table doesn't have phone, could add later
         },
-        organization: organization ? {
-          id: organization.id,
-          name: organization.name,
-          slug: organization.slug,
-          logo: organization.logo,
-          phone: organization.phone,
-          website: organization.website,
-          address: organization.address,
-          // Fiscal data
-          fiscalName: organization.fiscalName,
-          taxId: organization.taxId,
-          fiscalAddress: organization.fiscalAddress,
-          fiscalCity: organization.fiscalCity,
-          fiscalPostalCode: organization.fiscalPostalCode,
-          fiscalCountry: organization.fiscalCountry,
-          fiscalEmail: organization.fiscalEmail,
-          fiscalPhone: organization.fiscalPhone,
-          invoiceLogo: organization.invoiceLogo,
-        } : null,
+        organization: organization
+          ? {
+              id: organization.id,
+              name: organization.name,
+              slug: organization.slug,
+              logo: organization.logo,
+              phone: organization.phone,
+              website: organization.website,
+              address: organization.address,
+              // Fiscal data
+              fiscalName: organization.fiscalName,
+              taxId: organization.taxId,
+              fiscalAddress: organization.fiscalAddress,
+              fiscalCity: organization.fiscalCity,
+              fiscalPostalCode: organization.fiscalPostalCode,
+              fiscalCountry: organization.fiscalCountry,
+              fiscalEmail: organization.fiscalEmail,
+              fiscalPhone: organization.fiscalPhone,
+              invoiceLogo: organization.invoiceLogo,
+            }
+          : null,
       },
     });
   } catch (error) {
@@ -162,21 +187,35 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const session = await auth();
+  const authSession = await auth();
 
-  if (!session || !session.user || !session.user.id) {
+  if (!authSession?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id;
-  const userEmail = session.user.email || "";
-  const userName = session.user.name;
+  const userId = authSession.user.id;
+  const userEmail = authSession.user.email || "";
+  const userName = authSession.user.name;
+
+  try {
+    await ensureUserHasOrganization(userId, userEmail, userName ?? null);
+  } catch (error) {
+    console.error("Error ensuring organization:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+
+  let tenantSession;
+  try {
+    tenantSession = await requireAuth();
+  } catch (error) {
+    return profileErrorResponse(error);
+  }
 
   try {
     const body = await request.json();
     const { name, phone, organization: orgData } = body;
 
-    // Update user fields
+    // Update user fields (always the authenticated NextAuth user)
     if (name !== undefined) {
       await db
         .update(users)
@@ -187,10 +226,7 @@ export async function PATCH(request: Request) {
         .where(eq(users.id, userId));
     }
 
-    // Ensure user has organization before updating
-    const membership = await ensureUserHasOrganization(userId, userEmail, userName ?? null);
-
-    // Update organization if provided
+    // Update organization if provided — scoped to active tenant (cookie / impersonation)
     if (orgData) {
       const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
@@ -200,7 +236,6 @@ export async function PATCH(request: Request) {
       if (orgData.phone !== undefined) updateData.phone = orgData.phone;
       if (orgData.website !== undefined) updateData.website = orgData.website;
       if (orgData.address !== undefined) updateData.address = orgData.address;
-      if (orgData.logo !== undefined) updateData.logo = orgData.logo;
       // Fiscal data
       if (orgData.fiscalName !== undefined) updateData.fiscalName = orgData.fiscalName;
       if (orgData.taxId !== undefined) updateData.taxId = orgData.taxId;
@@ -210,15 +245,23 @@ export async function PATCH(request: Request) {
       if (orgData.fiscalCountry !== undefined) updateData.fiscalCountry = orgData.fiscalCountry;
       if (orgData.fiscalEmail !== undefined) updateData.fiscalEmail = orgData.fiscalEmail;
       if (orgData.fiscalPhone !== undefined) updateData.fiscalPhone = orgData.fiscalPhone;
-      if (orgData.invoiceLogo !== undefined) updateData.invoiceLogo = orgData.invoiceLogo;
+
+      // Single logo source of truth from UI: invoiceLogo keeps documents + public profile in sync
+      if (orgData.invoiceLogo !== undefined) {
+        const raw = orgData.invoiceLogo;
+        const normalized =
+          typeof raw === "string" && raw.trim() === "" ? null : typeof raw === "string" ? raw.trim() : raw;
+        updateData.invoiceLogo = normalized;
+        updateData.logo = normalized;
+      }
 
       await db
         .update(organizations)
         .set(updateData)
-        .where(eq(organizations.id, membership.organizationId));
+        .where(eq(organizations.id, tenantSession.organizationId));
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       message: "Perfil actualizado correctamente",
     });

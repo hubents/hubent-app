@@ -168,13 +168,21 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("billing")) return "billing";
+      if (params.get("section") === "fiscal") return "fiscal";
     }
     return "profile";
   });
+
+  useEffect(() => {
+    if (searchParams.get("section") === "fiscal") {
+      setActiveSection("fiscal");
+    }
+  }, [searchParams]);
 
   const filteredSections = useMemo(() =>
     settingsSections.filter((s) => !('requiredPermission' in s && s.requiredPermission) || can(s.requiredPermission as string)),
@@ -205,8 +213,6 @@ export default function SettingsPage() {
               email: data.data.user.email || "",
               phone: data.data.user.phone || "",
             });
-            // Organization was auto-created if it didn't exist
-            console.log("Profile loaded:", data.data);
           }
         }
       } catch (error) {
@@ -1486,9 +1492,9 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Logo para Documentos</CardTitle>
+          <CardTitle>Logo de la organización</CardTitle>
           <CardDescription>
-            Este logo aparecerá en el encabezado de tus facturas, presupuestos y albaranes
+            Mismo logo para facturas, presupuestos, albaranes, Partners y tu perfil público
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1533,7 +1539,7 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
                       <p className="text-sm text-muted-foreground">
                         <span className="font-medium text-primary">Subir logo</span> o arrastrar
                       </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG hasta 2MB</p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, WebP · máx. 2MB</p>
                     </>
                   )}
                 </div>
@@ -1546,15 +1552,17 @@ function FiscalSection({ organization, onSave }: FiscalSectionProps) {
                   disabled={uploadingLogo}
                 />
               </label>
-              <p className="text-xs text-muted-foreground">
-                Recomendado: Logo horizontal con fondo transparente (PNG)
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Formato recomendado: PNG o WebP con fondo transparente. Proporción horizontal (aprox. 3:1 a 4:1);
+                en PDF el alto visible es unos 48px, así que evitá logos muy altos o con texto diminuto. SVG no está
+                soportado en este uploader.
               </p>
             </div>
           </div>
 
           {formData.invoiceLogo && (
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Guardando..." : "Guardar Logo"}
+              {saving ? "Guardando..." : "Guardar logo"}
             </Button>
           )}
         </CardContent>
