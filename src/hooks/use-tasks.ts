@@ -63,15 +63,15 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       const ownTasks: Task[] = results[0]?.success ? results[0].data || [] : [];
       const collabTasks: Task[] = results[1]?.success ? results[1].data || [] : [];
 
-      // #region agent log
-      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} serverTotal=${results[0]?.meta?.total} collab=${collabTasks.length} merged=${taskList.length}`);
-      // #endregion
-
       // Merge and deduplicate by task id
       const taskMap = new Map<number, Task>();
       for (const t of ownTasks) taskMap.set(t.id, t);
       for (const t of collabTasks) if (!taskMap.has(t.id)) taskMap.set(t.id, t);
       const taskList = Array.from(taskMap.values());
+
+      // #region agent log
+      console.log(`[useTasks] scope=${scope} own=${ownTasks.length} serverTotal=${results[0]?.meta?.total} collab=${collabTasks.length} merged=${taskList.length}`);
+      // #endregion
 
       setTasks(taskList);
 
