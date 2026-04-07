@@ -35,7 +35,14 @@ Cuando insertes comentarios en tareas de ClickUp (via script, API, o `addClickUp
 NapsixAI
 ```
 
-## Reglas
+## Workflow de estados en ClickUp
+
+- Al finalizar una task, SIEMPRE mover a **review** (nunca a complete directamente)
+- El estado **review** es donde el cliente ve y aprueba el trabajo
+- Solo mover a **complete** si el usuario lo pide expresamente o si el ticket ya está en review y el usuario solicita que se cierre
+- NUNCA cerrar un ticket (mover a complete) por iniciativa propia — siempre requiere aprobación explícita del usuario
+
+## Reglas de formato
 
 - Secciones separadas con emoji + título en texto plano (no `#`)
 - Bullets con `•` (U+2022), no `-` ni `*`

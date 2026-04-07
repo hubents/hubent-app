@@ -31,6 +31,7 @@ import {
 } from "@remixicon/react";
 import { InstagramEmbed } from "react-social-media-embed";
 import { getOrgTypeLabel } from "@/config/provider-constants";
+import { isInstagramPostUrl } from "@/lib/instagram-post-url";
 
 interface ProviderProfile {
   name: string;
@@ -117,9 +118,7 @@ export default function ProviderPublicProfilePage() {
   }
 
   const location = [provider.city, provider.region, provider.country].filter(Boolean).join(", ");
-  const instagramPosts = (provider.instagramPosts || []).filter((url) =>
-    /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[\w-]+\/?/.test(url)
-  );
+  const instagramPosts = (provider.instagramPosts || []).filter((url) => isInstagramPostUrl(url));
   const hasInstagramPosts = instagramPosts.length > 0;
   const hasContactInfo = provider.instagramHandle || provider.publicEmail || provider.phone || provider.website || provider.address;
 

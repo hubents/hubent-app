@@ -4,6 +4,8 @@ Windsurf configuration remains in **`.windsurf/`** (unchanged). **Cursor** uses 
 
 **ClickUp MCP (IDE):** [`.cursor/mcp.json`](.cursor/mcp.json) registra `clickup-integration` → `https://mcp.clickup.com/mcp`. Tras abrir el repo, autentica en **Settings → MCP** y revisa [`.cursor/MCP-CLICKUP.md`](.cursor/MCP-CLICKUP.md) si OAuth pide redirect URL.
 
+**ClickUp workflow de estados:** Al finalizar una task, SIEMPRE mover a **review** (nunca a complete). Solo mover a **complete** con aprobación explícita del usuario. El estado review es donde el cliente valida el trabajo.
+
 ## Cursor rules (`.cursor/rules/`)
 
 | File                               | Purpose                                                            |
