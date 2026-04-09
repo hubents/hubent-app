@@ -82,6 +82,7 @@ const ROLE_LABELS: Record<string, string> = {
   sponsor: "Patrocinador",
   speaker: "Ponente",
   vendor: "Proveedor",
+  partner: "Partner",
   other: "Otro",
 };
 
@@ -98,7 +99,7 @@ function getCollabSubtext(c: Collaborator): string | null {
 
 function getCollabTypeColor(type: string): string {
   if (type === "contact") return "bg-green-100 text-green-700";
-  if (type === "vendor") return "bg-orange-100 text-orange-700";
+  if (type === "vendor" || type === "partner") return "bg-orange-100 text-orange-700";
   return "bg-blue-100 text-blue-700";
 }
 

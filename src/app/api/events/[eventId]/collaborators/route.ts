@@ -99,6 +99,59 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return { ...p, ...base, invitationStatus: "not_invited" };
     });
 
+    // Append event_collaborations rows that have no matching event_participant
+    const existingProviderOrgIds = new Set(
+      participants.filter(p => p.providerOrgId).map(p => p.providerOrgId!)
+    );
+
+    const orgCollabs = await db
+      .select({
+        id: eventCollaborations.id,
+        guestOrgId: eventCollaborations.guestOrgId,
+        status: eventCollaborations.status,
+        permissions: eventCollaborations.permissions,
+        invitedAt: eventCollaborations.invitedAt,
+        acceptedAt: eventCollaborations.acceptedAt,
+        guestName: organizations.name,
+        guestSlug: organizations.slug,
+        guestCategory: organizations.providerCategory,
+      })
+      .from(eventCollaborations)
+      .leftJoin(organizations, eq(organizations.id, eventCollaborations.guestOrgId))
+      .where(
+        and(
+          eq(eventCollaborations.eventId, id),
+          eq(eventCollaborations.hostOrgId, session.organizationId),
+        ),
+      );
+
+    for (const collab of orgCollabs) {
+      if (!collab.guestOrgId || existingProviderOrgIds.has(collab.guestOrgId)) continue;
+      enriched.push({
+        id: collab.id,
+        userId: null,
+        clientId: null,
+        contactId: null,
+        vendorId: null,
+        providerOrgId: collab.guestOrgId,
+        userName: null,
+        userEmail: null,
+        userImage: null,
+        contactName: null,
+        contactEmail: null,
+        vendorName: collab.guestName,
+        vendorCategory: collab.guestCategory,
+        type: "partner",
+        role: "partner",
+        permissions: collab.permissions as Record<string, string> | null,
+        invitedAt: collab.invitedAt ? collab.invitedAt.toISOString() : null,
+        acceptedAt: collab.acceptedAt ? collab.acceptedAt.toISOString() : null,
+        invitationStatus: collab.status === "active" ? "active" : collab.status === "pending" ? "collab_pending" : null,
+        invitationId: null,
+        invitationExpiresAt: null,
+      } as unknown as (typeof enriched)[number]);
+    }
+
     return NextResponse.json({ success: true, data: enriched });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al obtener colaboradores";

@@ -22,13 +22,15 @@ interface UseEventPermissionsReturn {
 
 export function useEventPermissions(
   eventId: number | string | undefined,
-  eventScoped: boolean
+  eventScoped: boolean,
+  isCollaborator?: boolean
 ): UseEventPermissionsReturn {
   const [data, setData] = useState<EventPermissionsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const shouldFetch = eventScoped || !!isCollaborator;
 
   const fetchPermissions = useCallback(async () => {
-    if (!eventId || !eventScoped) return;
+    if (!eventId || !shouldFetch) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/events/${eventId}/collaborators/me`);
@@ -48,7 +50,7 @@ export function useEventPermissions(
     } finally {
       setLoading(false);
     }
-  }, [eventId, eventScoped]);
+  }, [eventId, shouldFetch]);
 
   useEffect(() => {
     fetchPermissions();
@@ -56,29 +58,29 @@ export function useEventPermissions(
 
   const canView = useMemo(() => {
     return (section: keyof EventSectionPermissions): boolean => {
-      if (!eventScoped) return true;
+      if (!eventScoped && !isCollaborator) return true;
       if (!data?.permissions) return false;
       const level = data.permissions[section] || "none";
       return level !== "none";
     };
-  }, [data, eventScoped]);
+  }, [data, eventScoped, isCollaborator]);
 
   const canEdit = useMemo(() => {
     return (section: keyof EventSectionPermissions): boolean => {
-      if (!eventScoped) return true;
+      if (!eventScoped && !isCollaborator) return true;
       if (!data?.permissions) return false;
       const level = data.permissions[section] || "none";
       return level === "edit";
     };
-  }, [data, eventScoped]);
+  }, [data, eventScoped, isCollaborator]);
 
   const sectionLevel = useMemo(() => {
     return (section: keyof EventSectionPermissions): EventSectionLevel => {
-      if (!eventScoped) return "edit";
+      if (!eventScoped && !isCollaborator) return "edit";
       if (!data?.permissions) return "none";
       return data.permissions[section] || "none";
     };
-  }, [data, eventScoped]);
+  }, [data, eventScoped, isCollaborator]);
 
   return {
     loading,

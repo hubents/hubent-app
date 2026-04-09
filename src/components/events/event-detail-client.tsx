@@ -55,10 +55,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { FileUploader } from "@/components/ui/file-uploader";
 import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
@@ -102,8 +98,8 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const router = useRouter();
   const { setActiveEvent } = useEvent();
   const { eventScoped, can } = useUserSessionContext();
-  const { canEdit } = useEventPermissions(eventId, eventScoped);
   const [event, setEvent] = useState<Event | null>(null);
+  const { canView, canEdit } = useEventPermissions(eventId, eventScoped, event?.isCollaborator);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
@@ -112,12 +108,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
-  const [vendors, setVendors] = useState<Array<{ id: number; vendorId: number; vendorName: string; service: string }>>([])
-  const [allVendors, setAllVendors] = useState<Array<{ id: number; name: string; category: string | null }>>([])
-  const [showAddVendorDialog, setShowAddVendorDialog] = useState(false)
-  const [selectedVendorId, setSelectedVendorId] = useState<number | null>(null)
-  const [vendorService, setVendorService] = useState("")
-  const [addingVendor, setAddingVendor] = useState(false);
   const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string; type?: string; mimeType?: string | null }>>([]);
   const [guests, setGuests] = useState<Array<{ id: number; firstName: string; lastName: string }>>([]);
   const [showAddGuestDialog, setShowAddGuestDialog] = useState(false);
@@ -137,9 +127,21 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     contactEmail: string | null;
     vendorName: string | null;
     vendorCategory: string | null;
+    providerOrgId: number | null;
     type: string;
     role: string | null;
     permissions: Record<string, string> | null;
+  }>>([]);
+  const [partners, setPartners] = useState<Array<{
+    id: number;
+    guestOrgId: number | null;
+    guestName: string | null;
+    guestSlug: string | null;
+    guestOrgType: string | null;
+    guestCategory: string | null;
+    status: string;
+    invitedAt: string | null;
+    acceptedAt: string | null;
   }>>([]);
   const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
   const [eventForms, setEventForms] = useState<Array<{ id: number; formId: number; formName?: string; type: string; slug: string | null; submissionCount: number }>>([]);
@@ -154,17 +156,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   }, [event, setActiveEvent]);
 
-  const fetchAllVendors = async () => {
-    try {
-      const res = await fetch("/api/vendors");
-      const data = await res.json();
-      if (data.success) {
-        setAllVendors(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch all vendors:", error);
-    }
-  };
 
   const fetchEvent = async () => {
     try {
@@ -190,15 +181,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
-  const fetchVendors = async () => {
+  const fetchPartners = async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/vendors`);
+      const res = await fetch(`/api/events/${eventId}/partners`);
       const data = await res.json();
       if (data.success) {
-        setVendors(data.data || []);
+        setPartners(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch vendors:", error);
+      console.error("Failed to fetch partners:", error);
     }
   };
 
@@ -253,7 +244,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchVendors(), fetchDocuments(), fetchGuests(), fetchAllVendors(), fetchCollaborators(), fetchEventForms()]);
+      await Promise.all([fetchEvent(), fetchTasks(), fetchPartners(), fetchDocuments(), fetchGuests(), fetchCollaborators(), fetchEventForms()]);
       setLoading(false);
     }
     loadData();
@@ -276,47 +267,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     setDrawerMode("view");
     fetchTasks();
   };
-
-  const handleAddVendorToEvent = async () => {
-    if (!selectedVendorId) return;
-    setAddingVendor(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/vendors`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vendorId: selectedVendorId,
-          service: vendorService,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSelectedVendorId(null);
-        setVendorService("");
-        setShowAddVendorDialog(false);
-        fetchVendors();
-      }
-    } finally {
-      setAddingVendor(false);
-    }
-  };
-
-  const handleRemoveVendor = async (eventVendorId: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/vendors?id=${eventVendorId}`, {
-        method: "DELETE",
-      });
-      fetchVendors();
-    } catch (error) {
-      console.error("Failed to remove vendor:", error);
-    }
-  };
-
-  // Filter out vendors already assigned to this event
-  const availableVendors = allVendors.filter(
-    (v) => !vendors.some((ev) => ev.vendorId === v.id)
-  );
-
 
   const handleAddGuest = async () => {
     if (!newGuest.firstName) return;
@@ -522,7 +472,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Invitados</p>
-              <p className="font-semibold">{event.guestCount} personas</p>
+              <p className="font-semibold">{canView("guests") ? `${event.guestCount} personas` : "—"}</p>
             </div>
           </CardContent>
         </Card>
@@ -535,7 +485,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             <div>
               <p className="text-sm text-muted-foreground">Presupuesto</p>
               <p className="font-semibold">
-                {event.budget ? `$${parseFloat(event.budget).toLocaleString()}` : "Sin definir"}
+                {canView("finances")
+                  ? (event.budget ? `$${parseFloat(event.budget).toLocaleString()}` : "Sin definir")
+                  : "—"}
               </p>
             </div>
           </CardContent>
@@ -543,6 +495,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
       </div>
 
       {/* Progress Section */}
+      {canView("tasks") && (
       <Card>
         <CardHeader>
           <CardTitle>Progreso General</CardTitle>
@@ -557,6 +510,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <Progress value={completionRate} className="h-3" />
         </CardContent>
       </Card>
+      )}
 
       {/* Content Grid */}
       <div className="grid gap-[var(--gap-cards-lg)] lg:grid-cols-2">
@@ -565,7 +519,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiUserAddLine className="h-5 w-5" />
-              Equipo ({collaborators.length})
+              Equipo ({collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).length})
             </CardTitle>
             <div className="flex gap-2">
               {canEdit("settings") && (
@@ -582,9 +536,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             </div>
           </CardHeader>
           <CardContent>
-            {collaborators.length > 0 ? (
+            {collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).length > 0 ? (
               <div className="space-y-2">
-                {collaborators.slice(0, 6).map((collab) => {
+                {collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).slice(0, 6).map((collab) => {
                   const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
                   const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
                   const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
@@ -623,7 +577,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         </Card>
 
         {/* Tasks */}
-        <Card>
+        {canView("tasks") && <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiFileListLine className="h-5 w-5" />
@@ -707,117 +661,64 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
-        {/* Vendors */}
-        <Card>
+        {/* Partners (bilateral collaborations) */}
+        {canView("partners") && <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiStore2Line className="h-5 w-5" />
-              Partners ({vendors.length})
+              Partners ({partners.length})
             </CardTitle>
             <div className="flex gap-2">
-              {canEdit("vendors") && (
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddVendorDialog(true)}>
+              <Link href={`/dashboard/events/${eventId}/partners`}>
+                <Button variant="outline" size="sm" className="gap-1">
                   <RiAddLine className="h-4 w-4" />
                   Asignar
                 </Button>
-              )}
-              <Sheet open={showAddVendorDialog} onOpenChange={setShowAddVendorDialog}>
-                <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>Asignar Proveedor al Evento</SheetTitle>
-                  </SheetHeader>
-                  <div className="space-y-4 px-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Seleccionar Proveedor</Label>
-                      {availableVendors.length > 0 ? (
-                        <Select
-                          value={selectedVendorId?.toString() || ""}
-                          onValueChange={(value) => setSelectedVendorId(parseInt(value, 10))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Elegir proveedor..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableVendors.map((v) => (
-                              <SelectItem key={v.id} value={v.id.toString()}>
-                                {v.name} {v.category && `(${v.category})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No hay proveedores disponibles.{" "}
-                          <Link href="/dashboard/contacts?segment=vendors" className="text-primary underline">
-                            Crear nuevo proveedor
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Servicio a prestar</Label>
-                      <Input
-                        placeholder="Ej: Catering para 100 personas"
-                        value={vendorService}
-                        onChange={(e) => setVendorService(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowAddVendorDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleAddVendorToEvent} disabled={addingVendor || !selectedVendorId}>
-                        {addingVendor ? "Asignando..." : "Asignar Proveedor"}
-                      </Button>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-              {canEdit("vendors") && (
-                <Link href="/dashboard/contacts?segment=vendors">
-                  <Button variant="ghost" size="sm">
-                    + Nuevo
-                  </Button>
-                </Link>
-              )}
+              </Link>
+              <Link href={`/dashboard/events/${eventId}/partners`}>
+                <Button variant="ghost" size="sm">
+                  Ver todos
+                </Button>
+              </Link>
             </div>
           </CardHeader>
           <CardContent>
-            {vendors.length > 0 ? (
+            {partners.length > 0 ? (
               <div className="space-y-2">
-                {vendors.map((vendor) => (
-                  <div key={vendor.id} className="flex items-center justify-between p-2 rounded border group">
-                    <div>
-                      <span className="font-medium">{vendor.vendorName}</span>
-                      {vendor.service && (
-                        <span className="text-sm text-muted-foreground ml-2">- {vendor.service}</span>
+                {partners.map((partner) => (
+                  <div key={partner.id} className="flex items-center justify-between p-2 rounded border">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{partner.guestName || partner.guestSlug || "Partner"}</span>
+                      {partner.guestCategory && (
+                        <span className="text-sm text-muted-foreground">- {partner.guestCategory}</span>
                       )}
                     </div>
-                    {canEdit("vendors") && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
-                        onClick={() => handleRemoveVendor(vendor.id)}
-                      >
-                        <RiDeleteBinLine className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Badge
+                      className={`text-[10px] shrink-0 ${
+                        partner.status === "active"
+                          ? "bg-green-100 text-green-700 hover:bg-green-100"
+                          : partner.status === "pending"
+                          ? "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {partner.status === "active" ? "Activo" : partner.status === "pending" ? "Pendiente" : partner.status}
+                    </Badge>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No hay proveedores asignados
+                No hay partners asignados
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Guests / Invitados */}
-        <Card>
+        {canView("guests") && <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiGroupLine className="h-5 w-5" />
@@ -907,7 +808,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Documents */}
         <Card>

@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { getEventParticipant } from "@/lib/event-permissions";
+import { db } from "@/db";
+import { events, eventCollaborations, providerEventAccess } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
+
+const DEFAULT_COLLAB_PERMISSIONS = {
+  general: "view",
+  calendar: "view",
+  tasks: "view",
+  partners: "none",
+  finances: "none",
+  rsvp: "none",
+  guests: "none",
+  runsheet: "none",
+};
 
 /**
  * GET /api/events/[eventId]/collaborators/me
@@ -14,21 +28,106 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
 
-    // If user is not event-scoped, they have full access
     if (!session.eventScoped) {
+      // Check if event belongs to the user's org (host) or if they're a guest
+      const ownedEvent = await db.query.events.findFirst({
+        where: (e, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(e.id, id), eqFn(e.organizationId, session.organizationId)),
+        columns: { id: true },
+      });
+
+      if (ownedEvent) {
+        // Host org: full access
+        return NextResponse.json({
+          success: true,
+          data: {
+            isParticipant: true,
+            fullAccess: true,
+            isCollaborator: false,
+            permissions: {
+              general: "edit",
+              tasks: "edit",
+              guests: "edit",
+              rsvp: "edit",
+              vendors: "edit",
+              partners: "edit",
+              finances: "edit",
+              settings: "edit",
+              calendar: "edit",
+              runsheet: "edit",
+            },
+          },
+        });
+      }
+
+      // Guest org: return event_collaborations permissions
+      const [collab] = await db
+        .select({ permissions: eventCollaborations.permissions })
+        .from(eventCollaborations)
+        .where(
+          and(
+            eq(eventCollaborations.eventId, id),
+            eq(eventCollaborations.guestOrgId, session.organizationId),
+            eq(eventCollaborations.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (collab) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            isParticipant: true,
+            fullAccess: false,
+            isCollaborator: true,
+            permissions: collab.permissions || DEFAULT_COLLAB_PERMISSIONS,
+          },
+        });
+      }
+
+      // Legacy fallback: provider_event_access
+      const [legacyAccess] = await db
+        .select({ id: providerEventAccess.id })
+        .from(providerEventAccess)
+        .where(
+          and(
+            eq(providerEventAccess.eventId, id),
+            eq(providerEventAccess.providerOrgId, session.organizationId),
+            eq(providerEventAccess.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (legacyAccess) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            isParticipant: true,
+            fullAccess: false,
+            isCollaborator: true,
+            permissions: DEFAULT_COLLAB_PERMISSIONS,
+          },
+        });
+      }
+
+      // Not owner and not guest: full access (org user viewing unknown event -- API gates will handle)
       return NextResponse.json({
         success: true,
         data: {
           isParticipant: true,
           fullAccess: true,
+          isCollaborator: false,
           permissions: {
             general: "edit",
             tasks: "edit",
             guests: "edit",
             rsvp: "edit",
             vendors: "edit",
+            partners: "edit",
             finances: "edit",
             settings: "edit",
+            calendar: "edit",
+            runsheet: "edit",
           },
         },
       });
