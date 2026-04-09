@@ -1135,6 +1135,7 @@ export async function getEventParticipants(eventId: number) {
       contactEmail: contacts.email,
       vendorName: vendors.name,
       vendorCategory: vendors.category,
+      providerOrgId: vendors.providerOrgId,
     })
     .from(eventParticipants)
     .leftJoin(users, eq(eventParticipants.userId, users.id))

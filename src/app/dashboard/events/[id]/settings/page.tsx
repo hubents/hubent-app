@@ -70,7 +70,7 @@ interface Collaborator {
   permissions: Record<string, string> | null;
   invitedAt: string | null;
   acceptedAt: string | null;
-  invitationStatus: "active" | "pending" | "no_email" | "not_invited" | null;
+  invitationStatus: "active" | "pending" | "collab_pending" | "no_email" | "not_invited" | null;
   invitationId: number | null;
   invitationExpiresAt: string | null;
 }
@@ -543,6 +543,9 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
                         )}
                         {collab.invitationStatus === "active" && (
                           <Badge className="text-[10px] shrink-0 bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
+                        )}
+                        {collab.invitationStatus === "collab_pending" && (
+                          <Badge className="text-[10px] shrink-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Pendiente de aceptación</Badge>
                         )}
                         {collab.invitationStatus === "pending" && (() => {
                           const expires = collab.invitationExpiresAt ? new Date(collab.invitationExpiresAt) : null;

@@ -4,7 +4,7 @@ import { getEventParticipants, addEventParticipant } from "@/lib/events";
 import { inviteCollaboratorContact } from "@/lib/invitations";
 import { sendClientCollaboratorNotificationEmail } from "@/lib/email";
 import { db } from "@/db";
-import { events, organizationMembers, contacts, vendors, invitations, users, organizations } from "@/db/schema";
+import { events, organizationMembers, contacts, vendors, invitations, users, organizations, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -60,8 +60,35 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .where(eq(invitations.organizationId, session.organizationId));
     }
 
+    // Enrich vendor participants with event_collaborations status for partner orgs
+    const providerOrgIds = participants
+      .filter(p => p.vendorId && !p.contactId && p.providerOrgId)
+      .map(p => p.providerOrgId!);
+
+    let collabStatusMap = new Map<number, string>();
+    if (providerOrgIds.length > 0) {
+      const collabs = await db
+        .select({ guestOrgId: eventCollaborations.guestOrgId, status: eventCollaborations.status })
+        .from(eventCollaborations)
+        .where(eq(eventCollaborations.eventId, id));
+      for (const c of collabs) {
+        if (c.guestOrgId && providerOrgIds.includes(c.guestOrgId)) {
+          collabStatusMap.set(c.guestOrgId, c.status);
+        }
+      }
+    }
+
     const enriched = participants.map(p => {
       const base = { invitationStatus: null as string | null, invitationId: null as number | null, invitationExpiresAt: null as string | null };
+
+      // Vendor-backed partner org: derive status from event_collaborations
+      if (!p.contactId && p.vendorId && p.providerOrgId) {
+        const collabStatus = collabStatusMap.get(p.providerOrgId);
+        if (collabStatus === "active") return { ...p, ...base, invitationStatus: "active" };
+        if (collabStatus === "pending") return { ...p, ...base, invitationStatus: "collab_pending" };
+        return { ...p, ...base };
+      }
+
       if (!p.contactId) return { ...p, ...base };
       if (p.acceptedAt || p.userId) return { ...p, ...base, invitationStatus: "active" };
       if (!p.contactEmail) return { ...p, ...base, invitationStatus: "no_email" };
