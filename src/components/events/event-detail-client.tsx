@@ -542,7 +542,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                   const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
                   const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
                   const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
-                  const typeLabel: Record<string, string> = { planner: "Miembro", contact: "Contacto", vendor: "Partner", client: "Cliente", assistant: "Asistente", guest: "Invitado" };
+                  const typeLabel: Record<string, string> = { planner: "Miembro", contact: "Contacto", vendor: "Partner", partner: "Partner", client: "Cliente", assistant: "Asistente", guest: "Invitado" };
                   return (
                     <div key={collab.id} className="flex items-center gap-3 p-2 rounded border">
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${colorClass}`}>
@@ -987,7 +987,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         </Card>
 
         {/* Timeline Preview */}
-        <SchedulePreview eventId={eventId} />
+        {canView("calendar") && <SchedulePreview eventId={eventId} />}
       </div>
 
       {/* Task Drawer - for both view and create */}

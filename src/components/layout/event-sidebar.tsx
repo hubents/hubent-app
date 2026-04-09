@@ -40,7 +40,7 @@ const SECTION_MAP: Record<string, string> = {
   "Tareas": "tasks",
   "Lista de Invitados": "guests",
   "RSVP": "rsvp",
-  "Partners": "vendors",
+  "Partners": "partners",
   "Finanzas": "finances",
   "Orden del día": "runsheet",
   "Configuración": "settings",
@@ -55,9 +55,9 @@ export function EventSidebar() {
 
   const eventId = activeEvent?.id;
 
-  // Fetch event permissions for eventScoped users
+  // Fetch event permissions for all users (eventScoped + guest collaborators)
   useEffect(() => {
-    if (!eventScoped || !eventId) {
+    if (!eventId) {
       setEventPermissions(null);
       return;
     }
@@ -69,11 +69,11 @@ export function EventSidebar() {
           setEventPermissions(data.data.permissions);
         }
       } catch {
-        // Non-scoped users won't need this
+        setEventPermissions(null);
       }
     }
     fetchPermissions();
-  }, [eventScoped, eventId]);
+  }, [eventId]);
 
   const isFinancePage = activeEvent
     ? pathname.startsWith(`/dashboard/events/${activeEvent.id}/finances`)
@@ -99,16 +99,13 @@ export function EventSidebar() {
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];
 
-  // Filter navigation based on event permissions for scoped users
-  // If eventScoped but permissions haven't loaded yet, show nothing (loading state)
-  const navigation = eventScoped
-    ? eventPermissions
-      ? allNavigation.filter((item) => {
-          const section = SECTION_MAP[item.name];
-          if (!section) return true;
-          return eventPermissions[section] !== "none";
-        })
-      : [] // eventScoped but permissions not yet loaded — hide all until loaded
+  // Filter navigation based on event permissions (eventScoped users + guest collaborators)
+  const navigation = eventPermissions
+    ? allNavigation.filter((item) => {
+        const section = SECTION_MAP[item.name];
+        if (!section) return true;
+        return eventPermissions[section] !== "none";
+      })
     : allNavigation;
 
   const financeSubNav = [

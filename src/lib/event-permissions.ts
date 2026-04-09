@@ -128,6 +128,41 @@ export async function getTaskParticipantAccess(userId: string, taskId: number) {
 }
 
 /**
+ * Check if the current org is a guest collaborator on this event (has any event_collaborations row).
+ * Used by requireEventSectionAccess to decide whether collaboration permissions should override org permissions.
+ */
+export async function isGuestCollaborator(
+  organizationId: number,
+  eventId: number,
+): Promise<boolean> {
+  const [collab] = await db
+    .select({ id: eventCollaborations.id })
+    .from(eventCollaborations)
+    .where(
+      and(
+        eq(eventCollaborations.eventId, eventId),
+        eq(eventCollaborations.guestOrgId, organizationId),
+      ),
+    )
+    .limit(1);
+
+  if (collab) return true;
+
+  const [legacy] = await db
+    .select({ id: providerEventAccess.id })
+    .from(providerEventAccess)
+    .where(
+      and(
+        eq(providerEventAccess.eventId, eventId),
+        eq(providerEventAccess.providerOrgId, organizationId),
+      ),
+    )
+    .limit(1);
+
+  return !!legacy;
+}
+
+/**
  * Check if a guest org has section access via event_collaborations.
  * Used as fallback when event_participants check fails (cross-org access).
  */

@@ -27,9 +27,8 @@ interface EventSectionGuardProps {
 
 export function EventSectionGuard({ eventId, section, children }: EventSectionGuardProps) {
   const { eventScoped } = useUserSessionContext();
-  const { loading, canView } = useEventPermissions(eventId, eventScoped);
-
-  if (!eventScoped) return <>{children}</>;
+  // Always fetch permissions (both eventScoped and guest collaborators need gating)
+  const { loading, canView } = useEventPermissions(eventId, eventScoped, true);
 
   if (loading) {
     return (

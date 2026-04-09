@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { buildUserContext, createTenantSession } from "@/lib/tenant";
 import { getUsage } from "@/lib/entitlements";
-import { checkEventSectionAccess, checkCollaborationSectionAccess } from "@/lib/event-permissions";
+import { checkEventSectionAccess, checkCollaborationSectionAccess, isGuestCollaborator } from "@/lib/event-permissions";
 import type { TenantSession, TenantRole, UserContext, EventSectionPermissions } from "@/types";
 
 /**
@@ -287,15 +287,24 @@ export async function requireEventSectionAccess(
   // For non-eventScoped roles: use standard org-level permission check
   const orgPerm = SECTION_ORG_PERMISSION[section]?.[level] || SECTION_ORG_PERMISSION[section]?.view;
   if (orgPerm) {
-    if (!session.permissions.includes(orgPerm)) {
-      const [resource] = orgPerm.split(":");
-      if (!session.permissions.includes(`${resource}:*`)) {
-        // Fallback: check if this org is a guest collaborator on this event
-        const collabAccess = await checkCollaborationSectionAccess(session, eventId, section, level);
-        if (!collabAccess.allowed) {
-          throw new Error(`Forbidden: Missing permission ${orgPerm}`);
-        }
-        return session;
+    const hasOrgPerm = session.permissions.includes(orgPerm) ||
+      session.permissions.includes(`${orgPerm.split(":")[0]}:*`);
+
+    if (!hasOrgPerm) {
+      // No org perm: check if guest collaborator has section access
+      const collabAccess = await checkCollaborationSectionAccess(session, eventId, section, level);
+      if (!collabAccess.allowed) {
+        throw new Error(`Forbidden: Missing permission ${orgPerm}`);
+      }
+      return session;
+    }
+
+    // Org perm passes, but if this org is a GUEST on this event,
+    // collaboration permissions override org permissions
+    if (await isGuestCollaborator(session.organizationId, eventId)) {
+      const collabAccess = await checkCollaborationSectionAccess(session, eventId, section, level);
+      if (!collabAccess.allowed) {
+        throw new Error(`Forbidden: ${collabAccess.reason}`);
       }
     }
   }
