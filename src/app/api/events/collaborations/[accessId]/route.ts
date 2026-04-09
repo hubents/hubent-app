@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { eventCollaborations, providerEventAccess } from "@/db/schema";
+import { eventCollaborations, providerEventAccess, tasks, taskParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
@@ -88,6 +88,46 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           updatedAt: new Date(),
         })
         .where(eq(eventCollaborations.id, aid));
+
+      // On accept: retroactively link guest org to all existing tasks in this event
+      if (action === "accept" && collab.guestOrgId && collab.eventId) {
+        const permissions = (collab.permissions as Record<string, string> | null);
+        const taskPerm = permissions?.tasks;
+        if (taskPerm !== "none") {
+          (async () => {
+            try {
+              const eventTasks = await db
+                .select({ id: tasks.id })
+                .from(tasks)
+                .where(eq(tasks.eventId, collab.eventId));
+
+              let linked = 0;
+              for (const t of eventTasks) {
+                const exists = await db.query.taskParticipants.findFirst({
+                  where: and(
+                    eq(taskParticipants.taskId, t.id),
+                    eq(taskParticipants.collaboratorOrgId, collab.guestOrgId!),
+                  ),
+                });
+                if (exists) continue;
+                await db.insert(taskParticipants).values({
+                  taskId: t.id,
+                  collaboratorOrgId: collab.guestOrgId!,
+                  type: "vendor",
+                  canEdit: taskPerm === "edit",
+                  canComment: true,
+                });
+                linked++;
+              }
+              if (linked > 0) {
+                console.error(`[collab-accept] Linked ${linked} existing tasks to guest org ${collab.guestOrgId} on event ${collab.eventId}`);
+              }
+            } catch (err) {
+              console.error("[collab-accept] Failed to auto-link tasks:", err);
+            }
+          })();
+        }
+      }
 
       const webhookType = action === "accept" ? "collaboration.accepted" : "collaboration.rejected";
       void dispatchWebhookEvent(collab.hostOrgId, webhookType, {

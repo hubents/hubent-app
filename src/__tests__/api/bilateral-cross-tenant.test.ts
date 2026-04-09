@@ -167,6 +167,12 @@ describe("API: PATCH /api/events/collaborations/[accessId]", () => {
   it("maintains backward compat with legacy provider_event_access", () => {
     expect(content).toContain("providerEventAccess");
   });
+
+  it("auto-links existing tasks to guest org on acceptance", () => {
+    expect(content).toContain("taskParticipants");
+    expect(content).toContain("collaboratorOrgId: collab.guestOrgId");
+    expect(content).toContain("collab-accept");
+  });
 });
 
 describe("Tasks: cross-org guest task creation", () => {
