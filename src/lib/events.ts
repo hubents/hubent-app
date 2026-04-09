@@ -7,6 +7,7 @@ import {
   taskTemplateForms,
   eventParticipants,
   eventCollaborations,
+  providerEventAccess,
   tasks,
   taskChecklistItems,
   taskHtmlContent,
@@ -185,7 +186,22 @@ export async function getEvent(session: TenantSession, eventId: number) {
       )
       .limit(1);
 
-    if (!collab) return null;
+    // Legacy fallback: check provider_event_access for rows not yet migrated
+    if (!collab) {
+      const [legacyAccess] = await db
+        .select({ id: providerEventAccess.id })
+        .from(providerEventAccess)
+        .where(
+          and(
+            eq(providerEventAccess.eventId, eventId),
+            eq(providerEventAccess.providerOrgId, session.organizationId),
+            eq(providerEventAccess.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (!legacyAccess) return null;
+    }
 
     event = await db.query.events.findFirst({
       where: (e, { eq }) => eq(e.id, eventId),

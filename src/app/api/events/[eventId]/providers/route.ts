@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { providerEventAccess, organizations, events, users, eventParticipants } from "@/db/schema";
+import { providerEventAccess, eventCollaborations, organizations, events, users, eventParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
@@ -163,6 +163,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         acceptedAt: new Date(),
       })
       .returning();
+
+    // Ensure bilateral event_collaborations row exists (unified host<>guest model)
+    await db
+      .insert(eventCollaborations)
+      .values({
+        eventId: eid,
+        hostOrgId: session.organizationId,
+        guestOrgId: finalProviderOrgId,
+        status: "active",
+        invitedBy: session.user.userId,
+        acceptedAt: new Date(),
+        permissions: {
+          general: "view",
+          calendar: "view",
+          tasks: "view",
+          partners: "none",
+          finances: "none",
+          rsvp: "none",
+          guests: "none",
+          runsheet: "none",
+        },
+      })
+      .onConflictDoNothing({ target: [eventCollaborations.eventId, eventCollaborations.guestOrgId] });
 
     // Send event invitation email to provider owner (non-blocking)
     const plannerOrg = await db.query.organizations.findFirst({

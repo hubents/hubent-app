@@ -217,6 +217,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             type: "collaboration_invitation",
             title: "Invitación a colaborar",
             body: `${hostOrg?.name || "Un organizador"} te invitó a colaborar en ${event.name || "un evento"}`,
+            link: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com"}/dashboard/events`,
             data: { eventId: String(eid), collaborationId: String(newCollab.id) },
           }).execute().catch((e) => console.error("Insert collaboration notification failed:", e));
         }

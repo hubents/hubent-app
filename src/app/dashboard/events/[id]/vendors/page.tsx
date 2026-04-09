@@ -48,13 +48,13 @@ interface Vendor {
 
 interface PlatformProvider {
   id: number;
-  providerOrgId: number;
-  vendorId: number | null;
+  guestOrgId: number;
   status: string;
   invitedAt: string;
   acceptedAt: string | null;
-  providerName: string;
-  providerSlug: string;
+  guestName: string;
+  guestSlug: string;
+  guestCategory: string | null;
 }
 
 interface DirectoryProvider {
@@ -126,7 +126,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
 
   const fetchPlatformProviders = async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/providers`);
+      const res = await fetch(`/api/events/${eventId}/partners`);
       const data = await res.json();
       if (data.success) {
         setPlatformProviders(data.data || []);
@@ -273,7 +273,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                         <RiShieldCheckLine className="h-5 w-5 text-purple-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{pp.providerName}</p>
+                        <p className="font-semibold truncate">{pp.guestName}</p>
                         <Badge variant={st.variant} className="mt-0.5">{st.label}</Badge>
                       </div>
                     </div>
@@ -311,7 +311,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
             ) : (
               <div className="space-y-2">
                 {directoryProviders.map((dp) => {
-                  const alreadyInvited = platformProviders.some((pp) => pp.providerOrgId === dp.id);
+                  const alreadyInvited = platformProviders.some((pp) => pp.guestOrgId === dp.id);
                   return (
                     <div key={dp.id} className="flex items-center justify-between p-3 rounded-lg border">
                       <div className="flex items-center gap-3">

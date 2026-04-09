@@ -72,6 +72,36 @@ describe("Migration: 0059_event_collaborations.sql", () => {
   });
 });
 
+describe("API: POST /api/events/[eventId]/providers — dual-write bridge", () => {
+  const content = fs.readFileSync(
+    path.join(ROOT, "src/app/api/events/[eventId]/providers/route.ts"),
+    "utf-8"
+  );
+
+  it("imports eventCollaborations for dual-write", () => {
+    expect(content).toContain("eventCollaborations");
+  });
+
+  it("inserts into event_collaborations after provider_event_access", () => {
+    const peaInsertIdx = content.indexOf("insert(providerEventAccess)");
+    const ecInsertIdx = content.indexOf("insert(eventCollaborations)");
+    expect(peaInsertIdx).toBeGreaterThan(-1);
+    expect(ecInsertIdx).toBeGreaterThan(-1);
+    expect(ecInsertIdx).toBeGreaterThan(peaInsertIdx);
+  });
+
+  it("uses onConflictDoNothing for idempotent dual-write", () => {
+    expect(content).toContain("onConflictDoNothing");
+  });
+
+  it("sets active status and default permissions on event_collaborations insert", () => {
+    const ecBlock = content.split("insert(eventCollaborations)")[1]?.split("onConflictDoNothing")[0] || "";
+    expect(ecBlock).toContain('"active"');
+    expect(ecBlock).toContain("general");
+    expect(ecBlock).toContain("tasks");
+  });
+});
+
 describe("API: POST /api/events/[eventId]/partners", () => {
   const content = fs.readFileSync(
     path.join(ROOT, "src/app/api/events/[eventId]/partners/route.ts"),
@@ -168,16 +198,25 @@ describe("Tasks: cross-org guest task creation", () => {
   });
 });
 
-describe("getEvent: cross-org access via event_collaborations", () => {
+describe("getEvent: cross-org access via event_collaborations + legacy fallback", () => {
   const content = fs.readFileSync(path.join(ROOT, "src/lib/events.ts"), "utf-8");
 
   it("imports eventCollaborations", () => {
     expect(content).toContain("eventCollaborations");
   });
 
+  it("imports providerEventAccess for legacy fallback", () => {
+    expect(content).toContain("providerEventAccess");
+  });
+
   it("checks event_collaborations when event not owned", () => {
     expect(content).toContain("eventCollaborations.guestOrgId");
     expect(content).toContain("eventCollaborations.status");
+  });
+
+  it("falls back to provider_event_access when event_collaborations has no row", () => {
+    expect(content).toContain("providerEventAccess.providerOrgId");
+    expect(content).toContain("providerEventAccess.status");
   });
 
   it("returns isCollaborator flag", () => {
@@ -285,6 +324,98 @@ describe("Permission key migration: vendors -> partners", () => {
     expect(sql).toContain("partners");
     expect(sql).toContain("vendors");
     expect(sql).toContain("jsonb_build_object");
+  });
+});
+
+describe("Events page: dual-fetch + merge for collaborated events", () => {
+  const content = fs.readFileSync(
+    path.join(ROOT, "src/app/dashboard/events/page.tsx"),
+    "utf-8"
+  );
+
+  it("fetches both owned and collaborated events", () => {
+    expect(content).toContain('scope=collaborated');
+    expect(content).toContain("Promise.all");
+  });
+
+  it("maps collaborated events to Event interface with _isCollaborated flag", () => {
+    expect(content).toContain("_isCollaborated: true");
+  });
+
+  it("tracks collaboration status with _collabStatus", () => {
+    expect(content).toContain("_collabStatus");
+  });
+
+  it("includes both active and pending collaborations", () => {
+    expect(content).toContain('c.status === "active" || c.status === "pending"');
+  });
+
+  it("shows accept/reject buttons for pending collaborations", () => {
+    expect(content).toContain("handleCollabAction");
+    expect(content).toContain("Aceptar");
+    expect(content).toContain("/api/events/collaborations/");
+  });
+
+  it("pending events are not navigable (no Link wrapper)", () => {
+    expect(content).toContain('event._collabStatus === "pending" ?');
+  });
+
+  it("shows Colaborador badge for active collaborated events", () => {
+    expect(content).toContain("Colaborador");
+  });
+});
+
+describe("checkCollaborationSectionAccess: legacy fallback", () => {
+  const content = fs.readFileSync(
+    path.join(ROOT, "src/lib/event-permissions.ts"),
+    "utf-8"
+  );
+
+  it("imports providerEventAccess for legacy fallback", () => {
+    expect(content).toContain("providerEventAccess");
+  });
+
+  it("falls back to provider_event_access when event_collaborations has no row", () => {
+    expect(content).toContain("providerEventAccess.providerOrgId");
+    expect(content).toContain("providerEventAccess.status");
+  });
+
+  it("grants default view permissions for general/calendar/tasks in legacy fallback", () => {
+    expect(content).toContain('"general" || section === "calendar" || section === "tasks"');
+  });
+});
+
+describe("Vendors page: reads from partners endpoint", () => {
+  const content = fs.readFileSync(
+    path.join(ROOT, "src/app/dashboard/events/[id]/vendors/page.tsx"),
+    "utf-8"
+  );
+
+  it("fetches platform partners from /api/events/${eventId}/partners", () => {
+    expect(content).toContain("/api/events/${eventId}/partners");
+  });
+
+  it("uses guestOrgId (not providerOrgId) for already-invited check", () => {
+    expect(content).toContain("pp.guestOrgId");
+    expect(content).not.toContain("pp.providerOrgId");
+  });
+
+  it("uses guestName (not providerName) in UI", () => {
+    expect(content).toContain("pp.guestName");
+    expect(content).not.toContain("pp.providerName");
+  });
+});
+
+describe("Partners notification includes link", () => {
+  const content = fs.readFileSync(
+    path.join(ROOT, "src/app/api/events/[eventId]/partners/route.ts"),
+    "utf-8"
+  );
+
+  it("collaboration_invitation notification has a link field", () => {
+    const notifBlock = content.split("collaboration_invitation")[1]?.split(".execute()")[0] || "";
+    expect(notifBlock).toContain("link:");
+    expect(notifBlock).toContain("/dashboard/events");
   });
 });
 

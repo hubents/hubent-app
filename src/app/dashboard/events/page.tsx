@@ -21,6 +21,8 @@ import {
   RiFilter3Line,
   RiArrowUpDownLine,
   RiCheckLine,
+  RiTeamLine,
+  RiCloseLine,
 } from "@remixicon/react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
@@ -66,6 +68,24 @@ interface Event {
   participants: Participant[];
   _accessId?: number;
   _plannerOrgName?: string;
+  _isCollaborated?: boolean;
+  _collabStatus?: string;
+}
+
+interface CollaboratedEvent {
+  accessId: number;
+  status: string;
+  eventId: number;
+  eventName: string;
+  eventType: string;
+  eventDate: string | null;
+  eventEndDate: string | null;
+  eventStatus: string;
+  eventLocation: string | null;
+  eventGuestCount: number | null;
+  hostOrgName: string;
+  taskCount: number;
+  pendingTaskCount: number;
 }
 
 const typeLabels: Record<string, string> = {
@@ -118,18 +138,74 @@ export default function EventsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: page.toString() });
-      const res = await fetch(`/api/events?${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data.data || []);
-        if (data.meta) setMeta(data.meta);
+      const [ownedRes, collabRes] = await Promise.all([
+        fetch(`/api/events?${params}`),
+        fetch("/api/events?scope=collaborated"),
+      ]);
+
+      const ownedData = ownedRes.ok ? await ownedRes.json() : { data: [] };
+      const collabData = collabRes.ok ? await collabRes.json() : { data: [] };
+
+      const ownedEvents: Event[] = ownedData.data || [];
+      const collabEvents: CollaboratedEvent[] = collabData.data || [];
+
+      // Map collaborated events to the Event interface (active + pending)
+      const mappedCollab: Event[] = collabEvents
+        .filter((c) => c.status === "active" || c.status === "pending")
+        .map((c) => ({
+          id: c.eventId,
+          name: c.eventName,
+          type: c.eventType || "other",
+          date: c.eventDate,
+          endDate: c.eventEndDate,
+          location: c.eventLocation,
+          guestCount: c.eventGuestCount ?? 0,
+          status: c.eventStatus || "draft",
+          budget: null,
+          description: null,
+          createdAt: null,
+          progress: 0,
+          totalTasks: c.taskCount || 0,
+          completedTasks: 0,
+          participantCount: 0,
+          participants: [],
+          _accessId: c.accessId,
+          _plannerOrgName: c.hostOrgName,
+          _isCollaborated: true,
+          _collabStatus: c.status,
+        }));
+
+      // Merge: owned events win on ID conflict
+      const eventMap = new Map<number, Event>();
+      for (const e of ownedEvents) eventMap.set(e.id, e);
+      for (const e of mappedCollab) {
+        if (!eventMap.has(e.id)) eventMap.set(e.id, e);
       }
+      const merged = Array.from(eventMap.values());
+
+      setEvents(merged);
+      if (ownedData.meta) setMeta(ownedData.meta);
     } catch (error) {
       console.error("Error loading events:", error);
     } finally {
       setLoading(false);
     }
   }, [page]);
+
+  const handleCollabAction = async (accessId: number, action: "accept" | "reject") => {
+    try {
+      const res = await fetch(`/api/events/collaborations/${accessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        loadEvents();
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} collaboration:`, error);
+    }
+  };
 
   useEffect(() => {
     loadEvents();
@@ -367,8 +443,63 @@ export default function EventsPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
+                {event._collabStatus === "pending" ? (
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 rounded-md px-2 py-1">
+                        <RiTeamLine className="h-3.5 w-3.5" />
+                        <span>Invitación pendiente</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs text-green-600 border-green-200 hover:bg-green-50"
+                          onClick={() => handleCollabAction(event._accessId!, "accept")}
+                        >
+                          <RiCheckLine className="h-3 w-3 mr-1" />
+                          Aceptar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleCollabAction(event._accessId!, "reject")}
+                        >
+                          <RiCloseLine className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Nombre del evento</p>
+                      <h3 className="font-semibold text-base truncate">{event.name}</h3>
+                    </div>
+                    <div className="border-t pt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Organizador</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <RiMapPinLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{event._plannerOrgName || "—"}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Fecha del evento</p>
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <RiCalendarLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span>{formatDate(event.date)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                ) : (
                 <Link href={`/dashboard/events/${event.id}`}>
                   <CardContent className="p-5 space-y-4">
+                    {event._isCollaborated && event._collabStatus === "active" && (
+                      <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 rounded-md px-2 py-1 w-fit">
+                        <RiTeamLine className="h-3.5 w-3.5" />
+                        <span>Colaborador</span>
+                      </div>
+                    )}
                     {/* Name + Avatars */}
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Nombre del evento</p>
@@ -424,6 +555,7 @@ export default function EventsPage() {
                     </div>
                   </CardContent>
                 </Link>
+                )}
               </Card>
             ))}
           </div>
@@ -450,9 +582,27 @@ export default function EventsPage() {
                     return (
                       <tr key={event.id} className="group border-b hover:bg-muted/50 transition-colors relative">
                         <td className="p-4">
-                          <Link href={`/dashboard/events/${event.id}`} className="font-medium hover:text-primary">
-                            {event.name}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            {event._collabStatus === "pending" ? (
+                              <span className="font-medium text-muted-foreground">{event.name}</span>
+                            ) : (
+                              <Link href={`/dashboard/events/${event.id}`} className="font-medium hover:text-primary">
+                                {event.name}
+                              </Link>
+                            )}
+                            {event._isCollaborated && event._collabStatus === "pending" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 shrink-0">
+                                <RiTeamLine className="h-3 w-3" />
+                                Pendiente
+                              </span>
+                            )}
+                            {event._isCollaborated && event._collabStatus === "active" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 shrink-0">
+                                <RiTeamLine className="h-3 w-3" />
+                                Colaborador
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4 text-sm">{formatDate(event.date)}</td>
                         <td className="p-4 text-sm">{formatDate(event.endDate)}</td>
@@ -479,6 +629,27 @@ export default function EventsPage() {
                         </td>
                         {/* Hover actions */}
                         <td className="p-4 w-10">
+                          {event._collabStatus === "pending" && event._accessId ? (
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs text-green-600 border-green-200 hover:bg-green-50"
+                                onClick={() => handleCollabAction(event._accessId!, "accept")}
+                              >
+                                <RiCheckLine className="h-3.5 w-3.5 mr-1" />
+                                Aceptar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={() => handleCollabAction(event._accessId!, "reject")}
+                              >
+                                <RiCloseLine className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -504,6 +675,7 @@ export default function EventsPage() {
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          )}
                         </td>
                       </tr>
                     );
