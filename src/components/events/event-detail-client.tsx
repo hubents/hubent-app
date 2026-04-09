@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,6 +144,15 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     acceptedAt: string | null;
   }>>([]);
   const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
+
+  /** Equipo card: internal members + contacts only — not bilateral partners (Partners card). */
+  const equipoCollaborators = useMemo(
+    () =>
+      collaborators.filter(
+        (c) => c.type !== "partner" && !(c.type === "vendor" && c.providerOrgId),
+      ),
+    [collaborators],
+  );
   const [eventForms, setEventForms] = useState<Array<{ id: number; formId: number; formName?: string; type: string; slug: string | null; submissionCount: number }>>([]);
   const [docPreviewOpen, setDocPreviewOpen] = useState(false);
   const [docPreviewIndex, setDocPreviewIndex] = useState(0);
@@ -519,7 +528,7 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <RiUserAddLine className="h-5 w-5" />
-              Equipo ({collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).length})
+              Equipo ({equipoCollaborators.length})
             </CardTitle>
             <div className="flex gap-2">
               {canEdit("settings") && (
@@ -536,9 +545,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
             </div>
           </CardHeader>
           <CardContent>
-            {collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).length > 0 ? (
+            {equipoCollaborators.length > 0 ? (
               <div className="space-y-2">
-                {collaborators.filter(c => !(c.type === "vendor" && c.providerOrgId)).slice(0, 6).map((collab) => {
+                {equipoCollaborators.slice(0, 6).map((collab) => {
                   const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
                   const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
                   const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
@@ -562,9 +571,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
                     </div>
                   );
                 })}
-                {collaborators.length > 6 && (
+                {equipoCollaborators.length > 6 && (
                   <p className="text-xs text-muted-foreground text-center">
-                    +{collaborators.length - 6} más
+                    +{equipoCollaborators.length - 6} más
                   </p>
                 )}
               </div>
