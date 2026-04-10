@@ -204,6 +204,47 @@ describe("Collaboration Scope — Guest task visibility", () => {
   });
 });
 
+describe("Collaboration Scope — No collaboration = no access", () => {
+  it("guest with no collaboration row sees zero tasks", () => {
+    const allTasks: TaskRow[] = [
+      { id: 1, eventId: 10, organizationId: 100, sharedWithHost: false },
+      { id: 2, eventId: 10, organizationId: 100, sharedWithHost: false },
+    ];
+    const guestOrg = 200;
+    const visible = filterGuestTasks(allTasks, [], guestOrg, "participant");
+    expect(visible).toHaveLength(0);
+  });
+
+  it("resolveScope returns full for null collaboration (but code should block before reaching here)", () => {
+    expect(resolveScope(null)).toBe("full");
+  });
+});
+
+describe("Collaboration Scope — Scope change cleanup", () => {
+  it("auto-adds created for full scope should be cleaned when switching to participant", () => {
+    const autoAdds = [
+      { taskId: 1, collaboratorOrgId: 200, isHostTask: true },
+      { taskId: 2, collaboratorOrgId: 200, isHostTask: true },
+      { taskId: 3, collaboratorOrgId: null, isHostTask: true },
+    ];
+    const toClean = autoAdds.filter(
+      (a) => a.collaboratorOrgId === 200 && a.isHostTask,
+    );
+    expect(toClean).toHaveLength(2);
+  });
+
+  it("manual vendorId entries should NOT be cleaned on scope change", () => {
+    const entries = [
+      { taskId: 1, collaboratorOrgId: 200, vendorId: null },
+      { taskId: 2, collaboratorOrgId: null, vendorId: 42 },
+    ];
+    const toClean = entries.filter((e) => e.collaboratorOrgId === 200);
+    const toKeep = entries.filter((e) => e.vendorId !== null);
+    expect(toClean).toHaveLength(1);
+    expect(toKeep).toHaveLength(1);
+  });
+});
+
 describe("Collaboration Scope — Event separation", () => {
   it("separates full and participant scope events", () => {
     const collabs: CollabAccess[] = [

@@ -14,7 +14,7 @@ import { eq, and, desc, asc, sql, isNull, isNotNull, inArray } from "drizzle-orm
 import { withMonitoring } from "@/lib/monitoring";
 
 // GET /api/tasks - List tasks
-// Supports ?scope=collaborated (tasks from events invited via providerEventAccess)
+// Supports ?scope=collaborated (tasks from events invited via event_collaborations)
 export const GET = withMonitoring(
   async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
@@ -69,9 +69,9 @@ export const GET = withMonitoring(
           )
           .limit(1);
 
-        const collabScope = (collab?.permissions as Record<string, string> | null)?.scope || "full";
-
-        if (collabScope === "full") {
+        if (!collab) {
+          whereClause = sql`false`;
+        } else if (((collab.permissions as Record<string, string> | null)?.scope || "full") === "full") {
           whereClause = eq(tasks.eventId, eid);
         } else {
           const linkedVendors = await db

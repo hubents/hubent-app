@@ -44,8 +44,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
-    console.log("POST /api/tasks/[taskId]/participants - body:", JSON.stringify(body));
-
     const { userId, vendorId, contactId, providerOrgId, type, canEdit, canComment } = body;
 
     if (!userId && !vendorId && !contactId && !providerOrgId) {
