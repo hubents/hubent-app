@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { eventParticipants, eventCollaborations, providerEventAccess, taskParticipants } from "@/db/schema";
+import { eventParticipants, eventCollaborations, taskParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { TenantSession, EventSectionPermissions, EventSectionLevel } from "@/types";
 
@@ -146,20 +146,7 @@ export async function isGuestCollaborator(
     )
     .limit(1);
 
-  if (collab) return true;
-
-  const [legacy] = await db
-    .select({ id: providerEventAccess.id })
-    .from(providerEventAccess)
-    .where(
-      and(
-        eq(providerEventAccess.eventId, eventId),
-        eq(providerEventAccess.providerOrgId, organizationId),
-      ),
-    )
-    .limit(1);
-
-  return !!legacy;
+  return !!collab;
 }
 
 /**
@@ -185,32 +172,7 @@ export async function checkCollaborationSectionAccess(
     .limit(1);
 
   if (!collab) {
-    // Legacy fallback: check provider_event_access for rows not yet migrated
-    const [legacyAccess] = await db
-      .select({ id: providerEventAccess.id })
-      .from(providerEventAccess)
-      .where(
-        and(
-          eq(providerEventAccess.eventId, eventId),
-          eq(providerEventAccess.providerOrgId, session.organizationId),
-          eq(providerEventAccess.status, "active"),
-        ),
-      )
-      .limit(1);
-
-    if (!legacyAccess) {
-      return { allowed: false, reason: "No tienes acceso a este evento como colaborador" };
-    }
-
-    // Legacy access grants default view permissions
-    const defaultLevel = section === "general" || section === "calendar" || section === "tasks" ? "view" : "none";
-    if (defaultLevel === "none") {
-      return { allowed: false, reason: `No tienes acceso a la sección ${section}` };
-    }
-    if (requiredLevel === "edit" && defaultLevel === "view") {
-      return { allowed: false, reason: `Solo tienes acceso de lectura a ${section}` };
-    }
-    return { allowed: true };
+    return { allowed: false, reason: "No tienes acceso a este evento como colaborador" };
   }
 
   const perms = (collab.permissions || {}) as Record<string, string>;

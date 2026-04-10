@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updateEventParticipant, removeEventParticipant } from "@/lib/events";
 import { db } from "@/db";
-import { events, eventParticipants, eventCollaborations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { events, eventParticipants, eventCollaborations, taskParticipants, tasks } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const updateCollaboratorSchema = z.object({
@@ -76,15 +76,41 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const oldPerms = (existingCollab.permissions || {}) as Record<string, string>;
     const newPerms = parsed.data.permissions
-      ? { ...(existingCollab.permissions || {}), ...parsed.data.permissions }
-      : existingCollab.permissions;
+      ? { ...oldPerms, ...parsed.data.permissions }
+      : oldPerms;
+
+    const oldScope = oldPerms.scope || "full";
+    const newScope = (newPerms as Record<string, string>).scope || "full";
 
     const [updated] = await db
       .update(eventCollaborations)
       .set({ permissions: newPerms, updatedAt: new Date() })
       .where(eq(eventCollaborations.id, pId))
       .returning();
+
+    // When scope changes from full to participant, clean up auto-added task_participants
+    if (oldScope === "full" && newScope === "participant" && updated.guestOrgId) {
+      const guestOrgId = updated.guestOrgId;
+      db.delete(taskParticipants)
+        .where(
+          and(
+            eq(taskParticipants.collaboratorOrgId, guestOrgId),
+            sql`${taskParticipants.taskId} IN (
+              SELECT ${tasks.id} FROM ${tasks}
+              WHERE ${tasks.eventId} = ${eId}
+                AND ${tasks.organizationId} != ${guestOrgId}
+            )`,
+          ),
+        )
+        .then((result) => {
+          console.log(`[scope-change] Cleaned auto-adds for guestOrgId=${guestOrgId} eventId=${eId}:`, result.rowCount);
+        })
+        .catch((err) => {
+          console.error("[scope-change] Failed to clean auto-adds:", err);
+        });
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

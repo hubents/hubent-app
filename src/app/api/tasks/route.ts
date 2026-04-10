@@ -7,7 +7,6 @@ import {
   users,
   eventParticipants,
   taskParticipants,
-  providerEventAccess,
   eventCollaborations,
   vendors,
 } from "@/db/schema";
@@ -189,19 +188,6 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       ),
     );
 
-  // Fallback: legacy provider_event_access (always treated as scope: "full")
-  const legacyAccess = await db
-    .select({ eventId: providerEventAccess.eventId })
-    .from(providerEventAccess)
-    .where(
-      and(
-        eq(providerEventAccess.providerOrgId, session.organizationId),
-        eq(providerEventAccess.status, "active"),
-      ),
-    );
-
-  const collabEventIds = new Set(collabAccess.map((a) => a.eventId));
-
   const fullScopeEventIds: number[] = [];
   const participantScopeEventIds: number[] = [];
 
@@ -211,13 +197,6 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       participantScopeEventIds.push(c.eventId);
     } else {
       fullScopeEventIds.push(c.eventId);
-    }
-  }
-
-  // Legacy rows not in event_collaborations are treated as full scope
-  for (const l of legacyAccess) {
-    if (!collabEventIds.has(l.eventId)) {
-      fullScopeEventIds.push(l.eventId);
     }
   }
 
@@ -431,35 +410,6 @@ export const POST = withMonitoring(
             collabsLinked++;
           }
 
-          // Legacy: auto-add vendor participants from provider_event_access
-          const activeProviders = await db
-            .select({ vendorId: providerEventAccess.vendorId })
-            .from(providerEventAccess)
-            .where(
-              and(
-                eq(providerEventAccess.eventId, eventId),
-                eq(providerEventAccess.status, "active"),
-              ),
-            );
-
-          for (const p of activeProviders) {
-            if (!p.vendorId) continue;
-            const exists = await db.query.taskParticipants.findFirst({
-              where: and(
-                eq(taskParticipants.taskId, task.id),
-                eq(taskParticipants.vendorId, p.vendorId),
-              ),
-            });
-            if (exists) continue;
-            await db.insert(taskParticipants).values({
-              taskId: task.id,
-              vendorId: p.vendorId,
-              type: "vendor",
-              canEdit: false,
-              canComment: true,
-              addedBy: session.user.userId,
-            });
-          }
         } catch (err) {
           console.error("[createTask] auto-add participants failed:", err);
         }

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
-import { checkEventSectionAccess } from "@/lib/event-permissions";
+import { checkEventSectionAccess, isGuestCollaborator } from "@/lib/event-permissions";
 import type { TenantSession } from "@/types";
 import { db } from "@/db";
-import { eventScheduleItems, tasks, taskScheduleItems, vendors } from "@/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eventScheduleItems, tasks, taskScheduleItems, vendors, eventCollaborations, taskParticipants } from "@/db/schema";
+import { eq, and, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
@@ -61,19 +61,69 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get("limit");
 
-    // Fetch event-level schedule items
-    const eventItems = await db
-      .select()
-      .from(eventScheduleItems)
-      .where(
-        and(
-          eq(eventScheduleItems.eventId, eventId),
-          eq(eventScheduleItems.organizationId, session.organizationId)
-        )
-      )
-      .orderBy(asc(eventScheduleItems.date), asc(eventScheduleItems.sortOrder));
+    // Check if this is a guest collaborator and determine scope
+    const isGuest = await isGuestCollaborator(session.organizationId, eventId);
+    let collabScope: "full" | "participant" = "full";
+    let guestParticipantTaskIds: number[] = [];
+
+    if (isGuest) {
+      const [collab] = await db
+        .select({ permissions: eventCollaborations.permissions })
+        .from(eventCollaborations)
+        .where(and(
+          eq(eventCollaborations.eventId, eventId),
+          eq(eventCollaborations.guestOrgId, session.organizationId),
+          eq(eventCollaborations.status, "active"),
+        ))
+        .limit(1);
+
+      collabScope = (collab?.permissions as Record<string, string> | null)?.scope as "full" | "participant" || "full";
+
+      if (collabScope === "participant") {
+        const linkedVendors = await db
+          .select({ id: vendors.id })
+          .from(vendors)
+          .where(eq(vendors.providerOrgId, session.organizationId));
+        const vendorIds = linkedVendors.map((v) => v.id);
+
+        const ptasks = await db
+          .select({ taskId: taskParticipants.taskId })
+          .from(taskParticipants)
+          .innerJoin(tasks, eq(tasks.id, taskParticipants.taskId))
+          .where(and(
+            eq(tasks.eventId, eventId),
+            sql`(
+              ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
+              ${vendorIds.length > 0 ? sql`OR ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})` : sql``}
+            )`,
+          ));
+        guestParticipantTaskIds = ptasks.map((t) => t.taskId);
+      }
+    }
+
+    // Fetch event-level schedule items (skip for participant scope guests)
+    const eventItems = (isGuest && collabScope === "participant")
+      ? []
+      : await db
+          .select()
+          .from(eventScheduleItems)
+          .where(
+            and(
+              eq(eventScheduleItems.eventId, eventId),
+              ...(isGuest ? [] : [eq(eventScheduleItems.organizationId, session.organizationId)])
+            )
+          )
+          .orderBy(asc(eventScheduleItems.date), asc(eventScheduleItems.sortOrder));
 
     // Fetch task schedule items from tasks belonging to this event
+    const taskItemsWhere = isGuest
+      ? (collabScope === "participant"
+        ? (guestParticipantTaskIds.length > 0
+          ? and(eq(tasks.eventId, eventId), inArray(tasks.id, guestParticipantTaskIds))
+          : and(eq(tasks.eventId, eventId), sql`false`))
+        : eq(tasks.eventId, eventId))
+      : and(eq(tasks.eventId, eventId), eq(tasks.organizationId, session.organizationId));
+
     const taskItems = await db
       .select({
         id: taskScheduleItems.id,
@@ -95,12 +145,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from(taskScheduleItems)
       .innerJoin(tasks, eq(taskScheduleItems.taskId, tasks.id))
       .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
-      .where(
-        and(
-          eq(tasks.eventId, eventId),
-          eq(tasks.organizationId, session.organizationId)
-        )
-      )
+      .where(taskItemsWhere)
       .orderBy(asc(taskScheduleItems.date), asc(taskScheduleItems.sortOrder));
 
     // Combine and sort by date

@@ -371,23 +371,22 @@ describe("Events page: dual-fetch + merge for collaborated events", () => {
   });
 });
 
-describe("checkCollaborationSectionAccess: legacy fallback", () => {
+describe("checkCollaborationSectionAccess: event_collaborations only", () => {
   const content = fs.readFileSync(
     path.join(ROOT, "src/lib/event-permissions.ts"),
     "utf-8"
   );
 
-  it("imports providerEventAccess for legacy fallback", () => {
-    expect(content).toContain("providerEventAccess");
+  it("uses event_collaborations for section access", () => {
+    expect(content).toContain("eventCollaborations");
   });
 
-  it("falls back to provider_event_access when event_collaborations has no row", () => {
-    expect(content).toContain("providerEventAccess.providerOrgId");
-    expect(content).toContain("providerEventAccess.status");
+  it("does not use legacy providerEventAccess fallback", () => {
+    expect(content).not.toContain("providerEventAccess");
   });
 
-  it("grants default view permissions for general/calendar/tasks in legacy fallback", () => {
-    expect(content).toContain('"general" || section === "calendar" || section === "tasks"');
+  it("returns not allowed when no collaboration row exists", () => {
+    expect(content).toContain("No tienes acceso a este evento como colaborador");
   });
 });
 

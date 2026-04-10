@@ -12,8 +12,8 @@ import {
   financialDocuments,
   leads,
   eventScheduleItems,
-  providerEventAccess,
   eventCollaborations,
+  taskParticipants,
   contacts,
   vendors,
 } from "@/db/schema";
@@ -114,50 +114,62 @@ export async function GET(request: NextRequest) {
 
     // Cross-org collaboration: find events where this org is a guest (bilateral)
     const collabAccess = await db
-      .select({ eventId: eventCollaborations.eventId })
+      .select({
+        eventId: eventCollaborations.eventId,
+        permissions: eventCollaborations.permissions,
+      })
       .from(eventCollaborations)
       .where(and(
         eq(eventCollaborations.guestOrgId, orgId),
         eq(eventCollaborations.status, "active")
       ));
-    const legacyAccess = await db
-      .select({ eventId: providerEventAccess.eventId, accessId: providerEventAccess.id })
-      .from(providerEventAccess)
-      .where(and(
-        eq(providerEventAccess.providerOrgId, orgId),
-        eq(providerEventAccess.status, "active")
-      ));
 
-    const collabEventIdSet = new Set([
-      ...collabAccess.map(a => a.eventId),
-      ...legacyAccess.map(a => a.eventId),
-    ]);
+    const collabEventIdSet = new Set(collabAccess.map(a => a.eventId));
     const isCollaborator = collabEventIdSet.size > 0;
-    let accessIdMap: Record<number, number> = {};
-    legacyAccess.forEach((a) => { accessIdMap[a.eventId] = a.accessId; });
+
+    // Separate collaborated events by scope for participant-level filtering
+    const participantScopeEventIds = new Set<number>();
+    for (const c of collabAccess) {
+      const scope = (c.permissions as Record<string, string> | null)?.scope || "full";
+      if (scope === "participant") participantScopeEventIds.add(c.eventId);
+    }
+
+    // For participant-scope events, get specific task IDs the guest participates in
+    let collabParticipantTaskIds: number[] = [];
+    if (participantScopeEventIds.size > 0) {
+      const linkedVendors = await db
+        .select({ id: vendors.id })
+        .from(vendors)
+        .where(eq(vendors.providerOrgId, orgId));
+      const vendorIds = linkedVendors.map((v) => v.id);
+
+      const participantTasks = await db
+        .select({ taskId: taskParticipants.taskId })
+        .from(taskParticipants)
+        .innerJoin(tasks, eq(tasks.id, taskParticipants.taskId))
+        .where(
+          and(
+            inArray(tasks.eventId, Array.from(participantScopeEventIds)),
+            sql`(
+              ${taskParticipants.collaboratorOrgId} = ${orgId}
+              ${vendorIds.length > 0 ? sql`OR ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})` : sql``}
+            )`,
+          ),
+        );
+      collabParticipantTaskIds = participantTasks.map((t) => t.taskId);
+    }
 
     if (isCollaborator && !session.eventScoped) {
       const collabEventIds = Array.from(collabEventIdSet);
-      if (allowedEventIds === null) {
-        allowedEventIds = collabEventIds;
-      } else {
-        collabEventIds.forEach(id => { if (!allowedEventIds!.includes(id)) allowedEventIds!.push(id); });
-      }
-      if (taskEventIds === null) {
-        taskEventIds = [...collabEventIds];
-      } else {
-        collabEventIds.forEach(id => { if (!taskEventIds!.includes(id)) taskEventIds!.push(id); });
-      }
-      if (financeEventIds === null) {
-        financeEventIds = [...collabEventIds];
-      } else {
-        collabEventIds.forEach(id => { if (!financeEventIds!.includes(id)) financeEventIds!.push(id); });
-      }
-      if (scheduleEventFilter === null) {
-        scheduleEventFilter = [...collabEventIds];
-      } else {
-        collabEventIds.forEach(id => { if (!scheduleEventFilter!.includes(id)) scheduleEventFilter!.push(id); });
-      }
+      const addToList = (list: number[] | null, ids: number[]) => {
+        if (list === null) return [...ids];
+        ids.forEach(id => { if (!list.includes(id)) list.push(id); });
+        return list;
+      };
+      allowedEventIds = addToList(allowedEventIds, collabEventIds);
+      taskEventIds = addToList(taskEventIds, collabEventIds);
+      financeEventIds = addToList(financeEventIds, collabEventIds);
+      scheduleEventFilter = addToList(scheduleEventFilter, collabEventIds);
 
       const leadIdx = allowedTypes.indexOf("lead");
       if (leadIdx >= 0) allowedTypes.splice(leadIdx, 1);
@@ -215,7 +227,17 @@ export async function GET(request: NextRequest) {
           .from(tasks)
           .where(
             and(
-              ...(isCollaborator ? [] : [eq(tasks.organizationId, orgId)]),
+              ...(isCollaborator
+                ? (participantScopeEventIds.size > 0
+                  ? [sql`(
+                      ${tasks.organizationId} = ${orgId}
+                      OR NOT (${inArray(tasks.eventId, Array.from(participantScopeEventIds))})
+                      ${collabParticipantTaskIds.length > 0
+                        ? sql`OR ${inArray(tasks.id, collabParticipantTaskIds)}`
+                        : sql``}
+                    )`]
+                  : [])
+                : [eq(tasks.organizationId, orgId)]),
               isNotNull(tasks.dueDate),
               gte(tasks.dueDate, fromDate),
               lte(tasks.dueDate, toDate),
@@ -241,7 +263,17 @@ export async function GET(request: NextRequest) {
           .innerJoin(tasks, eq(taskMeetings.taskId, tasks.id))
           .where(
             and(
-              ...(isCollaborator ? [] : [eq(tasks.organizationId, orgId)]),
+              ...(isCollaborator
+                ? (participantScopeEventIds.size > 0
+                  ? [sql`(
+                      ${tasks.organizationId} = ${orgId}
+                      OR NOT (${inArray(tasks.eventId, Array.from(participantScopeEventIds))})
+                      ${collabParticipantTaskIds.length > 0
+                        ? sql`OR ${inArray(tasks.id, collabParticipantTaskIds)}`
+                        : sql``}
+                    )`]
+                  : [])
+                : [eq(tasks.organizationId, orgId)]),
               gte(taskMeetings.date, fromDate),
               lte(taskMeetings.date, toDate),
               ...(taskEventIds !== null ? [inArray(tasks.eventId, taskEventIds)] : []),
@@ -359,7 +391,11 @@ export async function GET(request: NextRequest) {
           .from(eventScheduleItems)
           .where(
             and(
-              ...(isCollaborator ? [] : [eq(eventScheduleItems.organizationId, orgId)]),
+              ...(isCollaborator
+                ? (participantScopeEventIds.size > 0
+                  ? [sql`NOT (${inArray(eventScheduleItems.eventId, Array.from(participantScopeEventIds))})`]
+                  : [])
+                : [eq(eventScheduleItems.organizationId, orgId)]),
               gte(eventScheduleItems.date, fromDate),
               lte(eventScheduleItems.date, toDate),
               ...(scheduleEventFilter !== null ? [inArray(eventScheduleItems.eventId, scheduleEventFilter)] : []),
@@ -428,7 +464,7 @@ export async function GET(request: NextRequest) {
 
     const items: CalendarItem[] = [];
     const vendorHref = (eventId: number | null) =>
-      eventId && accessIdMap[eventId] ? `/dashboard/events/${accessIdMap[eventId]}` : "/dashboard/events";
+      eventId ? `/dashboard/events/${eventId}` : "/dashboard/events";
 
     // Map events
     for (const row of eventRows) {

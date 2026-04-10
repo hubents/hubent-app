@@ -4,11 +4,11 @@ import { getEvents, createEvent } from "@/lib/events";
 import { notifyNewEvent } from "@/lib/push-notifications";
 import { withMonitoring } from "@/lib/monitoring";
 import { db } from "@/db";
-import { providerEventAccess, eventCollaborations, events, organizations, tasks, taskParticipants, vendors } from "@/db/schema";
+import { eventCollaborations, events, organizations, tasks, taskParticipants, vendors } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 // GET /api/events - List events
-// Supports ?scope=collaborated (events invited via providerEventAccess)
+// Supports ?scope=collaborated (events invited via event_collaborations)
 // and ?scope=accessible (both owned + collaborated, for document drawers)
 export const GET = withMonitoring(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
@@ -84,41 +84,7 @@ async function getCollaboratedEvents(session: { organizationId: number }) {
     .where(eq(eventCollaborations.guestOrgId, session.organizationId))
     .orderBy(desc(events.date));
 
-  // Fallback: also include legacy provider_event_access rows not yet migrated
-  const legacyList = await db
-    .select({
-      accessId: providerEventAccess.id,
-      status: providerEventAccess.status,
-      permissions: sql<null>`NULL`.as("permissions"),
-      invitedAt: providerEventAccess.invitedAt,
-      acceptedAt: providerEventAccess.acceptedAt,
-      eventId: events.id,
-      eventName: events.name,
-      eventType: events.type,
-      eventDate: events.date,
-      eventEndDate: events.endDate,
-      eventStatus: events.status,
-      eventLocation: events.location,
-      eventGuestCount: events.guestCount,
-      hostOrgName: organizations.name,
-      hostOrgLogo: organizations.logo,
-      taskCount: sql<number>`0`.as("task_count"),
-      pendingTaskCount: sql<number>`0`.as("pending_task_count"),
-    })
-    .from(providerEventAccess)
-    .innerJoin(events, eq(events.id, providerEventAccess.eventId))
-    .innerJoin(organizations, eq(organizations.id, providerEventAccess.plannerOrgId))
-    .where(eq(providerEventAccess.providerOrgId, session.organizationId))
-    .orderBy(desc(events.date));
-
-  // Merge and deduplicate by eventId (new table takes priority)
-  const seenEventIds = new Set(collabList.map(c => c.eventId));
-  const merged = [
-    ...collabList,
-    ...legacyList.filter(l => !seenEventIds.has(l.eventId)),
-  ];
-
-  return NextResponse.json({ success: true, data: merged });
+  return NextResponse.json({ success: true, data: collabList });
 }
 
 async function getAccessibleEvents(session: { organizationId: number }) {
@@ -148,33 +114,11 @@ async function getAccessibleEvents(session: { organizationId: number }) {
     )
     .orderBy(desc(events.date));
 
-  // Fallback: legacy provider_event_access
-  const legacyCollaborated = await db
-    .select({
-      id: events.id,
-      name: events.name,
-      hostOrgName: organizations.name,
-      accessId: providerEventAccess.id,
-    })
-    .from(providerEventAccess)
-    .innerJoin(events, eq(events.id, providerEventAccess.eventId))
-    .innerJoin(organizations, eq(organizations.id, providerEventAccess.plannerOrgId))
-    .where(eq(providerEventAccess.providerOrgId, session.organizationId))
-    .orderBy(desc(events.date));
-
-  const seenEventIds = new Set([
-    ...ownedEvents.map(e => e.id),
-    ...collaboratedEvents.map(e => e.id),
-  ]);
-
   return NextResponse.json({
     success: true,
     data: [
       ...ownedEvents.map(e => ({ ...e, type: "owned" as const })),
       ...collaboratedEvents.map(e => ({ ...e, type: "collaborated" as const })),
-      ...legacyCollaborated
-        .filter(e => !seenEventIds.has(e.id))
-        .map(e => ({ ...e, type: "collaborated" as const })),
     ],
   });
 }
