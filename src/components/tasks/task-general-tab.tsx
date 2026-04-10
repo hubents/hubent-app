@@ -404,7 +404,7 @@ export function TaskGeneralTab({
           <ParticipantSelector
             teamMembers={teamMembers}
             excludedMemberIds={safeParticipants.filter(p => p.userId).map(p => p.userId!)}
-            excludedVendorIds={safeParticipants.filter(p => p.vendorId).map(p => p.vendorId!)}
+            excludedVendorIds={[]}
             excludedContactIds={safeParticipants.filter(p => (p as any).contactId).map(p => (p as any).contactId)}
             onAddMember={handleAddParticipant}
             onAddVendor={(id) => handleAddVendorParticipant(id.toString())}

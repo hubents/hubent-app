@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, providerFavorites, vendors } from "@/db/schema";
-import { eq, and, ilike, desc, sql, inArray, or } from "drizzle-orm";
+import { eq, and, ilike, desc, asc, sql, inArray, or, ne } from "drizzle-orm";
 
 /**
  * GET /api/providers
@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     const conditions: ReturnType<typeof eq>[] = [];
+
+    // Never show the host's own organization
+    conditions.push(ne(organizations.id, session.organizationId));
 
     if (typeFilter === "provider") {
       conditions.push(eq(organizations.orgType, "provider"));
@@ -119,7 +122,7 @@ export async function GET(request: NextRequest) {
       })
       .from(organizations)
       .where(and(...conditions))
-      .orderBy(desc(organizations.verifiedAt))
+      .orderBy(sql`${organizations.verifiedAt} DESC NULLS LAST`, asc(organizations.name))
       .limit(limit)
       .offset(offset);
 
