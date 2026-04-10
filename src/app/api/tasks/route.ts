@@ -10,7 +10,6 @@ import {
   providerEventAccess,
   eventCollaborations,
   vendors,
-  organizationMembers,
 } from "@/db/schema";
 import { eq, and, desc, asc, sql, isNull, isNotNull, inArray } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
@@ -58,17 +57,35 @@ export const GET = withMonitoring(
           sql`(${tasks.organizationId} = ${session.organizationId} OR ${tasks.sharedWithHost} = true)`,
         )!;
       } else {
-        // Guest viewing collaborated event: own tasks + tasks assigned to this org
-        whereClause = and(
-          eq(tasks.eventId, eid),
-          sql`(
-            ${tasks.organizationId} = ${session.organizationId}
-            OR ${tasks.id} IN (
-              SELECT ${taskParticipants.taskId} FROM ${taskParticipants}
-              WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
-            )
-          )`,
-        )!;
+        // Guest viewing collaborated event: check scope to determine visibility
+        const [collab] = await db
+          .select({ permissions: eventCollaborations.permissions })
+          .from(eventCollaborations)
+          .where(
+            and(
+              eq(eventCollaborations.eventId, eid),
+              eq(eventCollaborations.guestOrgId, session.organizationId),
+              eq(eventCollaborations.status, "active"),
+            ),
+          )
+          .limit(1);
+
+        const collabScope = (collab?.permissions as Record<string, string> | null)?.scope || "full";
+
+        if (collabScope === "full") {
+          whereClause = eq(tasks.eventId, eid);
+        } else {
+          whereClause = and(
+            eq(tasks.eventId, eid),
+            sql`(
+              ${tasks.organizationId} = ${session.organizationId}
+              OR ${tasks.id} IN (
+                SELECT ${taskParticipants.taskId} FROM ${taskParticipants}
+                WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
+              )
+            )`,
+          )!;
+        }
       }
     } else if (scope === "standalone") {
       whereClause = and(whereClause, isNull(tasks.eventId))!;
@@ -149,9 +166,11 @@ export const GET = withMonitoring(
 );
 
 async function getCollaboratedTasks(session: { organizationId: number; user: { userId: string } }) {
-  // Get event IDs from new event_collaborations table
   const collabAccess = await db
-    .select({ eventId: eventCollaborations.eventId })
+    .select({
+      eventId: eventCollaborations.eventId,
+      permissions: eventCollaborations.permissions,
+    })
     .from(eventCollaborations)
     .where(
       and(
@@ -160,7 +179,7 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       ),
     );
 
-  // Fallback: also check legacy provider_event_access
+  // Fallback: legacy provider_event_access (always treated as scope: "full")
   const legacyAccess = await db
     .select({ eventId: providerEventAccess.eventId })
     .from(providerEventAccess)
@@ -171,22 +190,68 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       ),
     );
 
-  const eventIdSet = new Set([
-    ...collabAccess.map((a) => a.eventId),
-    ...legacyAccess.map((a) => a.eventId),
-  ]);
-  const eventIds = Array.from(eventIdSet);
+  const collabEventIds = new Set(collabAccess.map((a) => a.eventId));
 
-  if (eventIds.length === 0) {
+  const fullScopeEventIds: number[] = [];
+  const participantScopeEventIds: number[] = [];
+
+  for (const c of collabAccess) {
+    const scope = (c.permissions as Record<string, string> | null)?.scope || "full";
+    if (scope === "participant") {
+      participantScopeEventIds.push(c.eventId);
+    } else {
+      fullScopeEventIds.push(c.eventId);
+    }
+  }
+
+  // Legacy rows not in event_collaborations are treated as full scope
+  for (const l of legacyAccess) {
+    if (!collabEventIds.has(l.eventId)) {
+      fullScopeEventIds.push(l.eventId);
+    }
+  }
+
+  const allEventIds = [...fullScopeEventIds, ...participantScopeEventIds];
+
+  if (allEventIds.length === 0) {
     return NextResponse.json({ success: true, data: [] });
   }
 
-  // Get legacy vendor IDs for backward compat
   const linkedVendors = await db
     .select({ id: vendors.id })
     .from(vendors)
     .where(eq(vendors.providerOrgId, session.organizationId));
   const vendorIds = linkedVendors.map((v) => v.id);
+
+  const participantFilter = sql`(
+    ${tasks.organizationId} = ${session.organizationId}
+    OR ${tasks.id} IN (
+      SELECT ${taskParticipants.taskId}
+      FROM ${taskParticipants}
+      WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
+    )
+    ${vendorIds.length > 0 ? sql`OR ${tasks.id} IN (
+      SELECT ${taskParticipants.taskId}
+      FROM ${taskParticipants}
+      WHERE ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
+    )` : sql``}
+  )`;
+
+  let whereClause;
+
+  if (fullScopeEventIds.length > 0 && participantScopeEventIds.length > 0) {
+    whereClause = sql`(
+      (${inArray(tasks.eventId, fullScopeEventIds)})
+      OR (${inArray(tasks.eventId, participantScopeEventIds)} AND ${participantFilter})
+    )`;
+  } else if (fullScopeEventIds.length > 0) {
+    whereClause = inArray(tasks.eventId, fullScopeEventIds);
+  } else {
+    whereClause = and(
+      inArray(tasks.eventId, participantScopeEventIds),
+      participantFilter,
+    );
+  }
 
   const taskList = await db
     .select({
@@ -204,29 +269,7 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
     })
     .from(tasks)
     .innerJoin(events, eq(events.id, tasks.eventId))
-    .where(
-      and(
-        inArray(tasks.eventId, eventIds),
-        sql`(
-          ${tasks.organizationId} = ${session.organizationId}
-          OR ${tasks.id} IN (
-            SELECT ${taskParticipants.taskId}
-            FROM ${taskParticipants}
-            WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
-          )
-          ${vendorIds.length > 0 ? sql`OR ${tasks.id} IN (
-            SELECT ${taskParticipants.taskId}
-            FROM ${taskParticipants}
-            WHERE ${taskParticipants.vendorId} IN (${sql.join(vendorIds.map(id => sql`${id}`), sql`, `)})
-          )` : sql``}
-          OR ${tasks.createdBy} IN (
-            SELECT ${organizationMembers.userId}
-            FROM ${organizationMembers}
-            WHERE ${organizationMembers.organizationId} = ${session.organizationId}
-          )
-        )`,
-      ),
-    )
+    .where(whereClause)
     .orderBy(desc(tasks.dueDate));
 
   return NextResponse.json({ success: true, data: taskList });
@@ -355,7 +398,10 @@ export const POST = withMonitoring(
           let collabsLinked = 0;
           for (const c of activeCollabs) {
             if (!c.guestOrgId) continue;
-            const taskPerm = (c.permissions as Record<string, string> | null)?.tasks;
+            const perms = c.permissions as Record<string, string> | null;
+            const collabScope = perms?.scope || "full";
+            if (collabScope === "participant") continue;
+            const taskPerm = perms?.tasks;
             if (taskPerm === "none") continue;
             const exists = await db.query.taskParticipants.findFirst({
               where: and(

@@ -116,7 +116,7 @@ interface TaskGeneralTabProps {
   onAddVideo: (data: { youtubeUrl: string; title?: string }) => Promise<unknown>;
   onDeleteVideo: (videoId: number) => Promise<boolean>;
   onSaveHtmlContent: (content: string) => Promise<unknown>;
-  onAddParticipant: (data: { userId?: string; vendorId?: number; contactId?: number; type: string }) => Promise<unknown>;
+  onAddParticipant: (data: { userId?: string; vendorId?: number; contactId?: number; providerOrgId?: number; type: string }) => Promise<unknown>;
   onRemoveParticipant: (participantId: number) => Promise<boolean>;
   onAddChecklistItem: (data: { title: string; dueDate?: string; assigneeIds?: number[] }) => Promise<unknown>;
   onUpdateChecklistItem: (itemId: number, updates: { title?: string; isCompleted?: boolean; dueDate?: string | null }) => Promise<unknown>;
@@ -216,14 +216,13 @@ export function TaskGeneralTab({
     }
   };
 
-  const handleAddVendorParticipant = async (vendorId: string) => {
-    // Ignore placeholder values and prevent double-clicks
-    if (!vendorId || vendorId.startsWith("__") || addingParticipant) return;
-    const id = parseInt(vendorId, 10);
+  const handleAddVendorParticipant = async (providerOrgIdStr: string) => {
+    if (!providerOrgIdStr || providerOrgIdStr.startsWith("__") || addingParticipant) return;
+    const id = parseInt(providerOrgIdStr, 10);
     if (isNaN(id)) return;
     setAddingParticipant(true);
     try {
-      await onAddParticipant({ vendorId: id, type: "vendor" });
+      await onAddParticipant({ providerOrgId: id, type: "vendor" });
     } finally {
       setAddingParticipant(false);
     }

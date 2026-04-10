@@ -100,12 +100,14 @@ const LEVEL_LABELS: Record<string, string> = {
 const BYPASS_ROLES = ["owner", "admin"];
 
 const PRESETS = [
-  { label: "Acceso completo", value: { general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", partners: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },
-  { label: "Solo lectura", value: { general: "view", tasks: "view", guests: "view", rsvp: "view", partners: "view", finances: "view", runsheet: "view", calendar: "view", settings: "none" } },
-  { label: "Solo RSVP e Invitados", value: { general: "view", tasks: "none", guests: "view", rsvp: "view", partners: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
+  { label: "Acceso completo", value: { scope: "full", general: "edit", tasks: "edit", guests: "edit", rsvp: "edit", partners: "view", finances: "view", runsheet: "edit", calendar: "edit", settings: "none" } },
+  { label: "Solo lectura", value: { scope: "full", general: "view", tasks: "view", guests: "view", rsvp: "view", partners: "view", finances: "view", runsheet: "view", calendar: "view", settings: "none" } },
+  { label: "Solo RSVP e Invitados", value: { scope: "full", general: "view", tasks: "none", guests: "view", rsvp: "view", partners: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
+  { label: "Solo tareas invitado", value: { scope: "participant", general: "view", tasks: "view", guests: "none", rsvp: "none", partners: "none", finances: "none", runsheet: "none", calendar: "none", settings: "none" } },
 ];
 
 const DEFAULT_PERMISSIONS: Record<string, string> = {
+  scope: "full",
   general: "view",
   tasks: "view",
   guests: "view",
@@ -656,6 +658,42 @@ export function CollaboratorDrawer({
             </div>
           )}
 
+          {/* Scope toggle — hidden for bypass roles */}
+          {!isBypassRole && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Alcance de acceso</label>
+              <div className="flex rounded-lg border overflow-hidden">
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    (permissions.scope || "full") === "full"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background hover:bg-muted"
+                  }`}
+                  onClick={() => setPermissions((prev) => ({ ...prev, scope: "full" }))}
+                >
+                  Todo el evento
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                    permissions.scope === "participant"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background hover:bg-muted"
+                  }`}
+                  onClick={() => setPermissions((prev) => ({ ...prev, scope: "participant" }))}
+                >
+                  Solo donde participa
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(permissions.scope || "full") === "full"
+                  ? "El colaborador verá todas las secciones según los permisos configurados abajo."
+                  : "El colaborador solo verá tareas, finanzas y agenda de las tareas donde fue invitado."}
+              </p>
+            </div>
+          )}
+
           {/* Permission matrix — hidden for bypass roles */}
           {!isBypassRole && (
             <div className="space-y-2">
@@ -695,6 +733,9 @@ export function CollaboratorDrawer({
             <div className="space-y-2">
               <label className="text-sm font-medium">Resumen de acceso</label>
               <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline">
+                  {(permissions.scope || "full") === "full" ? "Todo el evento" : "Solo donde participa"}
+                </Badge>
                 {SECTIONS.filter(({ key }) => permissions[key] !== "none").map(({ key, label }) => (
                   <Badge key={key} variant={permissions[key] === "edit" ? "default" : "secondary"}>
                     {label} ({permissions[key] === "edit" ? "editar" : "ver"})

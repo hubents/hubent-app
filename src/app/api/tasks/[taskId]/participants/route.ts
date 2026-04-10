@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notifyAddedAsParticipant } from "@/lib/push-notifications";
+import { ensureVendorForProviderOrg } from "@/lib/cross-org";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -45,27 +46,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log("POST /api/tasks/[taskId]/participants - body:", JSON.stringify(body));
 
-    const { userId, vendorId, contactId, type, canEdit, canComment } = body;
+    const { userId, vendorId, contactId, providerOrgId, type, canEdit, canComment } = body;
 
-    if (!userId && !vendorId && !contactId) {
-      console.log("Validation failed: no userId, vendorId, or contactId");
+    if (!userId && !vendorId && !contactId && !providerOrgId) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "userId, vendorId, or contactId is required" } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "userId, vendorId, contactId, or providerOrgId is required" } },
         { status: 400 }
       );
     }
 
     if (!type) {
-      console.log("Validation failed: no type");
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "type is required" } },
         { status: 400 }
       );
     }
 
+    let resolvedVendorId = vendorId;
+
+    if (providerOrgId && !vendorId) {
+      resolvedVendorId = await ensureVendorForProviderOrg(
+        session.organizationId,
+        providerOrgId,
+        session.user.userId,
+      );
+    }
+
     const participant = await addTaskParticipant(session, parseInt(taskId, 10), {
       userId,
-      vendorId,
+      vendorId: resolvedVendorId,
       contactId,
       type,
       canEdit,

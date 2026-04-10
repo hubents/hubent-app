@@ -10,9 +10,10 @@ import {
   tasks,
   vendors,
   contacts,
-  organizations
+  organizations,
+  eventCollaborations,
 } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getAvailableRoles } from "@/lib/tenant-type";
 import type { TenantSession } from "@/types";
 import { canInviteRole } from "@/lib/tenant";
@@ -371,7 +372,7 @@ export async function addTaskParticipant(
     addedBy: session.user.userId,
   }).returning();
 
-  // Auto-create providerEventAccess when vendor linked to a provider org gets task participation
+  // Auto-create providerEventAccess + event_collaborations when vendor linked to a provider org gets task participation
   if (params.vendorId && task.eventId) {
     try {
       const { getProviderOrgForVendor, ensureProviderEventAccess } = await import("@/lib/cross-org");
@@ -383,6 +384,35 @@ export async function addTaskParticipant(
           session.organizationId,
           session.user.userId
         );
+
+        const existingCollab = await db.query.eventCollaborations.findFirst({
+          where: and(
+            eq(eventCollaborations.eventId, task.eventId),
+            eq(eventCollaborations.guestOrgId, providerOrgId),
+          ),
+        });
+
+        if (!existingCollab) {
+          await db.insert(eventCollaborations).values({
+            eventId: task.eventId,
+            hostOrgId: session.organizationId,
+            guestOrgId: providerOrgId,
+            permissions: {
+              scope: "participant",
+              tasks: "view",
+              general: "view",
+              calendar: "none",
+              partners: "none",
+              finances: "none",
+              rsvp: "none",
+              guests: "none",
+              runsheet: "none",
+            },
+            status: "active",
+            invitedBy: session.user.userId,
+            acceptedAt: new Date(),
+          });
+        }
       }
     } catch (accessError) {
       console.error("Failed to ensure provider event access:", accessError);
@@ -499,6 +529,7 @@ export async function getTaskParticipants(taskId: number) {
       userId: taskParticipants.userId,
       vendorId: taskParticipants.vendorId,
       contactId: taskParticipants.contactId,
+      collaboratorOrgId: taskParticipants.collaboratorOrgId,
       type: taskParticipants.type,
       canEdit: taskParticipants.canEdit,
       canComment: taskParticipants.canComment,
@@ -508,6 +539,10 @@ export async function getTaskParticipants(taskId: number) {
       userImage: users.image,
       vendorName: vendors.name,
       contactName: contacts.name,
+      collaboratorOrgName: sql<string | null>`(
+        SELECT o.name FROM organizations o
+        WHERE o.id = ${taskParticipants.collaboratorOrgId}
+      )`,
     })
     .from(taskParticipants)
     .leftJoin(users, eq(taskParticipants.userId, users.id))
@@ -517,8 +552,8 @@ export async function getTaskParticipants(taskId: number) {
 
   return allParticipants.map(p => ({
     ...p,
-    name: p.userName || p.vendorName || p.contactName,
-    isVendor: !!p.vendorId,
+    name: p.userName || p.vendorName || p.contactName || p.collaboratorOrgName,
+    isVendor: !!p.vendorId || !!p.collaboratorOrgId,
     isContact: !!p.contactId,
   }));
 }

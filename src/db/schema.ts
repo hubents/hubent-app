@@ -1221,6 +1221,7 @@ export const eventCollaborations = pgTable("event_collaborations", {
   invitationToken: text("invitation_token").unique(),
 
   permissions: json("permissions").$type<{
+    scope?: "full" | "participant";
     general?: "view" | "edit" | "none";
     calendar?: "view" | "edit" | "none";
     tasks?: "view" | "edit" | "none";
@@ -1230,6 +1231,7 @@ export const eventCollaborations = pgTable("event_collaborations", {
     guests?: "view" | "edit" | "none";
     runsheet?: "view" | "edit" | "none";
   }>().default({
+    scope: "full",
     general: "view",
     calendar: "view",
     tasks: "view",

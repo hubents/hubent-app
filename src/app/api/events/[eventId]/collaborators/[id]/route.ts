@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updateEventParticipant, removeEventParticipant } from "@/lib/events";
 import { db } from "@/db";
-import { events, eventParticipants } from "@/db/schema";
+import { events, eventParticipants, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -47,24 +47,44 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify participant exists for this event
-    const [existing] = await db
+    // Try event_participants first
+    const [existingParticipant] = await db
       .select({ id: eventParticipants.id })
       .from(eventParticipants)
       .where(and(eq(eventParticipants.id, pId), eq(eventParticipants.eventId, eId)))
       .limit(1);
 
-    if (!existing) {
+    if (existingParticipant) {
+      const updated = await updateEventParticipant(eId, pId, {
+        permissions: parsed.data.permissions,
+        role: parsed.data.role,
+      });
+      return NextResponse.json({ success: true, data: updated });
+    }
+
+    // Fallback: check event_collaborations (partner-type collaborators)
+    const [existingCollab] = await db
+      .select({ id: eventCollaborations.id, permissions: eventCollaborations.permissions })
+      .from(eventCollaborations)
+      .where(and(eq(eventCollaborations.id, pId), eq(eventCollaborations.eventId, eId)))
+      .limit(1);
+
+    if (!existingCollab) {
       return NextResponse.json(
         { success: false, error: { code: "NOT_FOUND", message: "Colaborador no encontrado" } },
         { status: 404 }
       );
     }
 
-    const updated = await updateEventParticipant(eId, pId, {
-      permissions: parsed.data.permissions,
-      role: parsed.data.role,
-    });
+    const newPerms = parsed.data.permissions
+      ? { ...(existingCollab.permissions || {}), ...parsed.data.permissions }
+      : existingCollab.permissions;
+
+    const [updated] = await db
+      .update(eventCollaborations)
+      .set({ permissions: newPerms, updatedAt: new Date() })
+      .where(eq(eventCollaborations.id, pId))
+      .returning();
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
