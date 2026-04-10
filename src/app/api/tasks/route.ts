@@ -75,6 +75,12 @@ export const GET = withMonitoring(
         if (collabScope === "full") {
           whereClause = eq(tasks.eventId, eid);
         } else {
+          const linkedVendors = await db
+            .select({ id: vendors.id })
+            .from(vendors)
+            .where(eq(vendors.providerOrgId, session.organizationId));
+          const guestVendorIds = linkedVendors.map((v) => v.id);
+
           whereClause = and(
             eq(tasks.eventId, eid),
             sql`(
@@ -83,6 +89,10 @@ export const GET = withMonitoring(
                 SELECT ${taskParticipants.taskId} FROM ${taskParticipants}
                 WHERE ${taskParticipants.collaboratorOrgId} = ${session.organizationId}
               )
+              ${guestVendorIds.length > 0 ? sql`OR ${tasks.id} IN (
+                SELECT ${taskParticipants.taskId} FROM ${taskParticipants}
+                WHERE ${taskParticipants.vendorId} IN (${sql.join(guestVendorIds.map(id => sql`${id}`), sql`, `)})
+              )` : sql``}
             )`,
           )!;
         }
