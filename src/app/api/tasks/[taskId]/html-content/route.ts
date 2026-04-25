@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { taskHtmlContent, tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -54,7 +54,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { content } = body;
 
-    // Verify task belongs to organization
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) =>
         and(
@@ -68,6 +67,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     // Check if content already exists

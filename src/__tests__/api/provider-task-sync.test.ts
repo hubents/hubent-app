@@ -51,16 +51,33 @@ describe("Provider Task Sync: cross-org helpers", () => {
 });
 
 describe("Provider Task Sync: chat permission cross-org fallback", () => {
-  it("canAccessTaskChat has vendorId cross-org fallback", () => {
-    const content = fs.readFileSync(path.join(ROOT, "src/lib/task-chat.ts"), "utf-8");
+  // After Plan V3 (urgent tickets fix), the cross-org access logic was extracted
+  // into the centralized canAccessTaskFor helper at src/lib/task-access.ts.
+  // task-chat.ts now delegates to it instead of duplicating the SQL.
+  it("canAccessTaskFor helper exists and includes vendor->providerOrg fallback", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/lib/task-access.ts"), "utf-8");
     expect(content).toContain("vendors.providerOrgId");
-    expect(content).toContain("vendorParticipant");
+    expect(content).toContain("participant-vendor");
   });
 
-  it("canCommentOnTask has vendorId cross-org fallback", () => {
+  it("canAccessTaskChat in task-chat.ts delegates to canAccessTaskFor", () => {
     const content = fs.readFileSync(path.join(ROOT, "src/lib/task-chat.ts"), "utf-8");
-    const canCommentSection = content.split("canCommentOnTask")[1] || "";
-    expect(canCommentSection).toContain("providerOrgId");
+    expect(content).toContain("canAccessTaskFor");
+    const accessSection = content.split("export async function canAccessTaskChat")[1] || "";
+    expect(accessSection).toContain("canAccessTaskFor");
+  });
+
+  it("canCommentOnTask in task-chat.ts delegates to canAccessTaskFor", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/lib/task-chat.ts"), "utf-8");
+    const canCommentSection = content.split("export async function canCommentOnTask")[1] || "";
+    expect(canCommentSection).toContain("canAccessTaskFor");
+  });
+
+  it("canAccessTaskFor includes the new collaboratorOrgId path (event_collaborations guest)", () => {
+    const content = fs.readFileSync(path.join(ROOT, "src/lib/task-access.ts"), "utf-8");
+    expect(content).toContain("collaboratorOrgId");
+    expect(content).toContain("eventCollaborations");
+    expect(content).toContain("sharedWithHost");
   });
 });
 

@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, taskChecklistItems, taskChecklistAssignees, taskParticipants, users, vendors, contacts } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 
+type RouteParams = { params: Promise<{ taskId: string }> };
+
 // GET /api/tasks/[taskId]/checklist - List all checklist items with assignees
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:read");
 
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -21,16 +20,31 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid task ID" }, { status: 400 });
     }
 
-    // Get checklist items
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, taskIdNum),
+          eq(t.organizationId, session.organizationId)
+        ),
+      columns: { id: true, eventId: true },
+    });
+
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "view");
+    }
+
     const items = await db
       .select()
       .from(taskChecklistItems)
       .where(eq(taskChecklistItems.taskId, taskIdNum))
       .orderBy(asc(taskChecklistItems.sortOrder), asc(taskChecklistItems.id));
 
-    // Get assignees for all items
     const itemIds = items.map(i => i.id);
-    
+
     let assigneesWithDetails: Array<{
       id: number;
       checklistItemId: number;
@@ -46,7 +60,6 @@ export async function GET(
     }> = [];
 
     if (itemIds.length > 0) {
-      // Get all assignees with participant details
       const assigneesRaw = await db
         .select({
           id: taskChecklistAssignees.id,
@@ -62,7 +75,6 @@ export async function GET(
         .innerJoin(taskParticipants, eq(taskChecklistAssignees.participantId, taskParticipants.id))
         .where(eq(taskParticipants.taskId, taskIdNum));
 
-      // Enrich with names
       for (const assignee of assigneesRaw) {
         let userName: string | null = null;
         let vendorName: string | null = null;
@@ -104,7 +116,6 @@ export async function GET(
       }
     }
 
-    // Group assignees by item
     const itemsWithAssignees = items.map(item => ({
       ...item,
       assignees: assigneesWithDetails
@@ -124,20 +135,19 @@ export async function GET(
     return NextResponse.json({ success: true, data: itemsWithAssignees });
   } catch (error) {
     console.error("GET /api/tasks/[taskId]/checklist error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch checklist" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to fetch checklist";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
 // POST /api/tasks/[taskId]/checklist - Create a new checklist item
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:update");
 
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -145,15 +155,21 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Invalid task ID" }, { status: 400 });
     }
 
-    // Verify task exists
-    const [task] = await db
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(eq(tasks.id, taskIdNum))
-      .limit(1);
+    const task = await db.query.tasks.findFirst({
+      where: (t, { eq, and }) =>
+        and(
+          eq(t.id, taskIdNum),
+          eq(t.organizationId, session.organizationId)
+        ),
+      columns: { id: true, eventId: true },
+    });
 
     if (!task) {
       return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     const body = await request.json();
@@ -163,7 +179,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 });
     }
 
-    // Get max sort order
     const [maxOrder] = await db
       .select({ maxSort: taskChecklistItems.sortOrder })
       .from(taskChecklistItems)
@@ -173,7 +188,6 @@ export async function POST(
 
     const newSortOrder = (maxOrder?.maxSort || 0) + 1;
 
-    // Create checklist item
     const [newItem] = await db
       .insert(taskChecklistItems)
       .values({
@@ -181,16 +195,15 @@ export async function POST(
         title: title.trim(),
         dueDate: dueDate ? new Date(dueDate) : null,
         sortOrder: newSortOrder,
-        createdBy: session.user.id,
+        createdBy: session.user.userId,
       })
       .returning();
 
-    // Add assignees if provided
     if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
       const assigneeValues = assigneeIds.map((participantId: number) => ({
         checklistItemId: newItem.id,
         participantId,
-        assignedBy: session.user?.id,
+        assignedBy: session.user.userId,
       }));
 
       await db.insert(taskChecklistAssignees).values(assigneeValues);
@@ -199,6 +212,8 @@ export async function POST(
     return NextResponse.json({ success: true, data: newItem });
   } catch (error) {
     console.error("POST /api/tasks/[taskId]/checklist error:", error);
-    return NextResponse.json({ success: false, error: "Failed to create checklist item" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to create checklist item";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

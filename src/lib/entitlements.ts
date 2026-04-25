@@ -6,19 +6,31 @@ import {
   subscriptions,
   subscriptionPlans,
   featureFlags,
+  roles,
 } from "@/db/schema";
 import { eq, and, count, sql } from "drizzle-orm";
 import type { UsageInfo, PlanInfo } from "@/types";
 
 /**
- * Get real usage counters for an organization
+ * Get real usage counters for an organization.
+ *
+ * IMPORTANT (billing model): event-scoped roles (client/viewer/staff with eventScoped=true)
+ * do NOT count against `plan.limits.maxUsers`. Only internal staff (manager/admin/owner/
+ * accountant and any non-eventScoped role) consume seats. This keeps clients invited as
+ * event collaborators free, since their org_members row is required only for session
+ * resolution, not as a real "team seat".
  */
 export async function getUsage(orgId: number): Promise<UsageInfo> {
-  // Count active members
   const [membersResult] = await db
     .select({ count: count() })
     .from(organizationMembers)
-    .where(eq(organizationMembers.organizationId, orgId));
+    .innerJoin(roles, eq(roles.id, organizationMembers.roleId))
+    .where(
+      and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(roles.eventScoped, false),
+      ),
+    );
 
   // Count active events (not cancelled/completed)
   const [eventsResult] = await db

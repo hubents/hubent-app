@@ -13,8 +13,8 @@ import { triggerTaskMessage, EVENTS } from "@/lib/pusher";
 import { sendPushToUsers } from "@/lib/beams";
 import { notifyMentions } from "@/lib/push-notifications";
 import { db } from "@/db";
-import { tasks, organizationMembers, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { tasks, organizationMembers, users, taskAttachments } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { taskId } = await params;
     const body = await request.json();
 
-    const { content, type, isPrivate, visibleTo } = body;
+    const { content, type, isPrivate, visibleTo, attachmentId } = body;
 
     if (!content || content.trim() === "") {
       return NextResponse.json(
@@ -78,16 +78,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const message = await sendTaskMessage(session, parseInt(taskId, 10), {
+    const taskIdNum = parseInt(taskId, 10);
+    const message = await sendTaskMessage(session, taskIdNum, {
       content,
       type,
       isPrivate,
       visibleTo,
     });
 
-    // Trigger real-time event via Pusher
+    // If an attachment was uploaded BEFORE the message, link it now so subscribers
+    // receive a complete message-with-attachment payload via Pusher (no race).
+    let linkedAttachment: typeof taskAttachments.$inferSelect | null = null;
+    if (attachmentId && Number.isFinite(Number(attachmentId))) {
+      const [updated] = await db.update(taskAttachments)
+        .set({ messageId: message.id })
+        .where(
+          and(
+            eq(taskAttachments.id, Number(attachmentId)),
+            eq(taskAttachments.taskId, taskIdNum),
+          ),
+        )
+        .returning();
+      linkedAttachment = updated ?? null;
+    }
+
     try {
-      await triggerTaskMessage(parseInt(taskId, 10), EVENTS.MESSAGE_NEW, {
+      await triggerTaskMessage(taskIdNum, EVENTS.MESSAGE_NEW, {
         id: message.id,
         taskId: message.taskId,
         senderId: message.senderId,
@@ -99,7 +115,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         createdAt: message.createdAt?.toISOString() || new Date().toISOString(),
       });
     } catch (pusherError) {
-      // Don't fail the request if Pusher fails - message is already saved
       console.error("Pusher trigger failed:", pusherError);
     }
 
@@ -128,8 +143,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Check for mentions and notify mentioned users
     if (message.content.includes("@")) {
-      // Get task info and team members for mention matching
-      const taskIdNum = parseInt(taskId, 10);
       const taskInfo = await db.query.tasks.findFirst({
         where: (t, { eq }) => eq(t.id, taskIdNum),
         columns: { title: true, organizationId: true },
@@ -166,7 +179,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       success: true,
-      data: message,
+      data: {
+        ...message,
+        attachments: linkedAttachment ? [linkedAttachment] : [],
+      },
     });
   } catch (error) {
     console.error("POST /api/tasks/[taskId]/messages error:", error);

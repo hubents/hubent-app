@@ -185,6 +185,7 @@ export function useTaskMessages(taskId: number | null, options?: { showNotificat
     type?: string;
     isPrivate?: boolean;
     visibleTo?: string[];
+    attachmentId?: number;
   }) => {
     if (!taskId) return null;
     

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { 
   addTaskParticipant, 
   removeTaskParticipant, 
@@ -37,11 +37,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
+async function enforceTaskEditAccess(taskIdNum: number, organizationId: number, eventScoped: boolean): Promise<void> {
+  if (!eventScoped) return;
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq, and }) => and(eq(t.id, taskIdNum), eq(t.organizationId, organizationId)),
+    columns: { eventId: true },
+  });
+  if (task?.eventId) {
+    await requireEventSectionAccess(task.eventId, "tasks", "edit");
+  }
+}
+
 // POST /api/tasks/[taskId]/participants - Add participant to task (user or vendor)
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
     const body = await request.json();
 
     const { userId, vendorId, contactId, providerOrgId, type, canEdit, canComment } = body;
@@ -116,6 +128,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
     const body = await request.json();
 
     const { participantId, canEdit, canComment } = body;
@@ -152,6 +165,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
     const { searchParams } = new URL(request.url);
     const participantId = searchParams.get("participantId");
 

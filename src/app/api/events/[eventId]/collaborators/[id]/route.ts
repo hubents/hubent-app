@@ -125,7 +125,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/events/[eventId]/collaborators/[id]
- * Remove a collaborator from an event
+ * Revoke a collaborator's access to an event.
+ *
+ * Removes the event_participants row AND cleans up taskParticipants for the same user
+ * on every task of this event so the user immediately loses chat / file / task access.
+ *
+ * IMPORTANT: We deliberately do NOT delete `organization_members` — the user keeps the
+ * ability to log in and access OTHER events they may collaborate on. To fully remove a
+ * user from a tenant, an admin must delete the org_members row separately.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
@@ -134,7 +141,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const pId = parseInt(id, 10);
     const session = await requireEventSectionAccess(eId, "settings", "edit");
 
-    // Verify event belongs to org
     const event = await db.query.events.findFirst({
       where: (e, { eq, and }) =>
         and(eq(e.id, eId), eq(e.organizationId, session.organizationId)),
@@ -148,7 +154,31 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Capture the userId BEFORE deleting so we can clean up task_participants for them.
+    const [participant] = await db
+      .select({ userId: eventParticipants.userId })
+      .from(eventParticipants)
+      .where(and(eq(eventParticipants.id, pId), eq(eventParticipants.eventId, eId)))
+      .limit(1);
+
     await removeEventParticipant(pId, eId);
+
+    if (participant?.userId) {
+      const userId = participant.userId;
+      const eventTasks = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(eq(tasks.eventId, eId));
+
+      if (eventTasks.length > 0) {
+        await db.delete(taskParticipants).where(
+          and(
+            eq(taskParticipants.userId, userId),
+            sql`${taskParticipants.taskId} IN (${sql.join(eventTasks.map(t => sql`${t.id}`), sql`, `)})`,
+          ),
+        );
+      }
+    }
 
     return NextResponse.json({ success: true, data: { message: "Colaborador eliminado" } });
   } catch (error) {

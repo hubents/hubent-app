@@ -1,0 +1,30 @@
+fix(rbac+chat+team): resolver 3 tickets urgentes ClickUp
+
+Ticket 1 (Equipo) - clientes no aparecen y no consumen seats:
+- /api/team filtra role=client y vendor (miembros e invitaciones)
+- getUsage() filtra eventScoped=true (clientes no consumen plan.maxUsers)
+- DELETE /api/events/[id]/collaborators/[id] limpia taskParticipants
+- UI confirmacion + tooltip Revocar acceso en settings
+
+Ticket 2 (Tareas compartidas) - chat realtime + archivos cross-org:
+- Nuevo helper canAccessTaskFor centraliza 4 caminos de acceso
+  (high-role, user participant, vendor->providerOrg, eventCollaborations)
+- canAccessTaskChat, attachments, pusher/auth delegan al helper
+- Attachments route reescrito requireAuth + canAccess/canComment
+- Presign requireAuth con check opcional canCommentOnTask
+- Race condition: attachment se sube antes del mensaje y se liga
+  atomicamente para que Pusher entregue payload completo
+- innerJoin -> leftJoin en getTaskMessages (defensivo)
+
+Ticket 3 (Control acceso) - clientes view-only no editan:
+- /api/tasks/[id]/checklist/* requirePermission tasks:update +
+  requireEventSectionAccess tasks edit
+- canEditTask separado de canAccessTask en tenant.ts
+- TaskDrawer recalcula readOnly via useEventPermissions del task.eventId
+- Auditoria subrutas: videos, meetings, html-content, schedule,
+  participants - todas con requireEventSectionAccess
+
+28 tests nuevos en src/__tests__/rbac/v3-urgent-tickets.test.ts
+1827/1827 tests passing, typecheck clean.
+
+ClickUp: 86ah1v9cb, 86ah1v97b, 86ah0eja7

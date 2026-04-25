@@ -224,16 +224,19 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
   }
 
   async function handleRemoveCollaborator(participantId: number) {
+    if (!confirm("¿Revocar el acceso de este colaborador al evento? Perderá acceso al chat, archivos y tareas. Esta acción no se puede deshacer.")) {
+      return;
+    }
     try {
       const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}`, {
         method: "DELETE",
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Colaborador eliminado");
+        toast.success("Acceso revocado");
         fetchCollaborators();
       } else {
-        toast.error(data.error?.message || "Error al eliminar");
+        toast.error(data.error?.message || "Error al revocar acceso");
       }
     } catch {
       toast.error("Error de conexión");
@@ -607,6 +610,7 @@ export default function EventSettingsPage({ params }: { params: Promise<{ id: st
                     variant="ghost"
                     size="icon"
                     className="text-destructive shrink-0"
+                    title="Revocar acceso"
                     onClick={(e) => { e.stopPropagation(); handleRemoveCollaborator(collab.id); }}
                   >
                     <RiDeleteBinLine className="h-4 w-4" />

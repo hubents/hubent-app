@@ -24,6 +24,8 @@ import {
   RiSurveyLine,
 } from "@remixicon/react";
 import { useTaskDetail } from "@/hooks/use-task-detail";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { useUserSessionContext } from "@/contexts/user-session-context";
 import { TaskGeneralTab } from "./task-general-tab";
 import { TaskInfoTab } from "./task-info-tab";
 import { TaskScheduleTab } from "./task-schedule-tab";
@@ -67,7 +69,7 @@ export function TaskDrawer({
   onTaskUpdated,
   onTaskCreated,
   mode = "view",
-  readOnly = false,
+  readOnly: readOnlyProp = false,
   initialData,
 }: TaskDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
@@ -139,6 +141,20 @@ export function TaskDrawer({
     addChecklistAssignee,
     removeChecklistAssignee,
   } = useTaskDetail(effectiveTaskId);
+
+  // Compute effective readOnly: parent-provided readOnly OR per-event permission
+  // for eventScoped users (staff with tasks:update can still be view-only on a specific event).
+  const { eventScoped } = useUserSessionContext();
+  const taskEventId = task?.eventId ?? initialData?.eventId;
+  const { canEdit: canEditEventSection, isParticipant } = useEventPermissions(
+    taskEventId ?? undefined,
+    eventScoped,
+  );
+  const readOnly = readOnlyProp || (
+    eventScoped && taskEventId && isParticipant
+      ? !canEditEventSection("tasks")
+      : false
+  );
 
   useEffect(() => {
     if (open && effectiveTaskId && !isCreateMode) {

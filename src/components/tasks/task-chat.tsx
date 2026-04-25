@@ -167,7 +167,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
     setUploadProgress(10);
 
     try {
-      // 1. Get presigned URL from server (avoids Vercel 4.5MB body limit)
+      // 1. Get presigned URL (also pre-validates that user can comment on this task)
       const presignRes = await fetch("/api/upload/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -176,6 +176,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
           contentType: file.type,
           size: file.size,
           folder: "task-attachments",
+          taskId,
         }),
       });
 
@@ -202,39 +203,40 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
       setUploadProgress(60);
 
-      // 3. Send message FIRST to get messageId
+      // 3. Save attachment FIRST (without messageId). The attachment is created up-front
+      //    so that other realtime subscribers never see a "file" message without payload.
       const isImage = file.type.startsWith("image/");
-      const messageResult = await sendMessage({
-        content: file.name,
-        type: "file",
-        isPrivate,
+      const attachmentRes = await fetch(`/api/tasks/${taskId}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          url: presignData.data.publicUrl,
+          type: isImage ? "image" : "file",
+          size: file.size,
+          mimeType: file.type,
+        }),
       });
+
+      const attachmentData = await attachmentRes.json();
+      if (!attachmentRes.ok || !attachmentData.success) {
+        throw new Error(attachmentData?.error?.message || "Error al registrar archivo");
+      }
 
       setUploadProgress(80);
 
-      // 4. Save attachment WITH messageId (links to message AND appears in Información tab)
-      if (messageResult?.id) {
-        const attachmentRes = await fetch(`/api/tasks/${taskId}/attachments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messageId: messageResult.id,
-            name: file.name,
-            url: presignData.data.publicUrl,
-            type: isImage ? "image" : "file",
-            size: file.size,
-            mimeType: file.type,
-          }),
-        });
-
-        if (!attachmentRes.ok) {
-          console.error("Failed to save attachment metadata");
-        }
-      }
+      // 4. Send the message and link the existing attachment in the same transaction.
+      //    Pusher fires AFTER the link is persisted, so receivers always get a complete payload.
+      await sendMessage({
+        content: file.name,
+        type: "file",
+        isPrivate,
+        attachmentId: attachmentData.data.id,
+      });
 
       setUploadProgress(100);
 
-      // 5. Refetch messages to show attachment
+      // 5. Refetch to ensure local state is in sync (Pusher will already have updated others)
       await refetch();
 
       toast.success("Archivo subido correctamente", {

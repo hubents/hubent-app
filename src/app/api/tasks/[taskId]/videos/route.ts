@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { taskVideos, tasks } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
@@ -65,7 +65,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify task belongs to organization
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) =>
         and(
@@ -79,6 +78,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     const [video] = await db.insert(taskVideos).values({
@@ -119,7 +122,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify task belongs to organization
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) =>
         and(
@@ -133,6 +135,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     await db.delete(taskVideos)

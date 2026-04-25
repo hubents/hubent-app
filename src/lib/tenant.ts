@@ -472,33 +472,32 @@ export async function canAccessEvent(
 }
 
 /**
- * Check if user can access a specific task
- * Non-eventScoped roles bypass this check
+ * Check if user can VIEW a specific task
+ * Non-eventScoped roles bypass this check (full access).
  * eventScoped roles:
  *   - tasks:edit on event → full access to all event tasks
  *   - tasks:view on event → only if user is task_participant, assignedTo, or createdBy
+ *
+ * NOTE: Existence of a task_participants row grants VIEW access regardless of canEdit.
+ * For EDIT access use canEditTask().
  */
 export async function canAccessTask(
   session: TenantSession,
   taskId: number
 ): Promise<PermissionCheck> {
-  // Non-scoped roles can access all tasks in their org
   if (!session.eventScoped) {
     return { allowed: true };
   }
 
-  // Platform admins and impersonation bypass
   if (session.user.platformLevel === "super_admin" || session.isImpersonating) {
     return { allowed: true };
   }
 
-  // Check if user is a direct participant of the task
   const taskAccess = await getTaskParticipantAccess(session.user.userId, taskId);
   if (taskAccess) {
     return { allowed: true };
   }
 
-  // Get task details to check assignedTo, createdBy, and event permissions
   const task = await db.query.tasks.findFirst({
     where: (t, { eq }) => eq(t.id, taskId),
     columns: { eventId: true, assignedTo: true, createdBy: true },
@@ -508,12 +507,67 @@ export async function canAccessTask(
     return { allowed: false, reason: "Tarea no encontrada" };
   }
 
-  // Direct assignment or creator
   if (task.assignedTo === session.user.userId || task.createdBy === session.user.userId) {
     return { allowed: true };
   }
 
-  // Check event-level permission: only tasks:edit grants access to all event tasks
+  if (task.eventId) {
+    const eventAccess = await getEventParticipant(session.user.userId, task.eventId);
+    if (eventAccess) {
+      const perms = (eventAccess.permissions as Record<string, string>) || {};
+      if (perms.tasks === "view" || perms.tasks === "edit") {
+        return { allowed: true };
+      }
+    }
+  }
+
+  return {
+    allowed: false,
+    reason: "No tienes acceso a esta tarea",
+  };
+}
+
+/**
+ * Check if user can EDIT a specific task.
+ * Non-eventScoped roles bypass this check (managers/admins/owner can edit everything).
+ * eventScoped roles get edit access ONLY when:
+ *   - taskParticipants row has canEdit=true, OR
+ *   - assignedTo or createdBy is the user (assumed to be self-editable), OR
+ *   - event_participants.permissions.tasks === "edit" (full edit on event)
+ *
+ * IMPORTANT: A task_participants row with canEdit=false grants VIEW but NOT EDIT.
+ * This was previously not enforced, causing the "view-only can edit" bug.
+ */
+export async function canEditTask(
+  session: TenantSession,
+  taskId: number
+): Promise<PermissionCheck> {
+  if (!session.eventScoped) {
+    return { allowed: true };
+  }
+
+  if (session.user.platformLevel === "super_admin" || session.isImpersonating) {
+    return { allowed: true };
+  }
+
+  const taskAccess = await getTaskParticipantAccess(session.user.userId, taskId);
+  if (taskAccess?.canEdit) {
+    return { allowed: true };
+  }
+
+  const task = await db.query.tasks.findFirst({
+    where: (t, { eq }) => eq(t.id, taskId),
+    columns: { eventId: true, assignedTo: true, createdBy: true },
+  });
+
+  if (!task) {
+    return { allowed: false, reason: "Tarea no encontrada" };
+  }
+
+  if (task.assignedTo === session.user.userId || task.createdBy === session.user.userId) {
+    return { allowed: true };
+  }
+
   if (task.eventId) {
     const eventAccess = await getEventParticipant(session.user.userId, task.eventId);
     if (eventAccess) {
@@ -526,6 +580,6 @@ export async function canAccessTask(
 
   return {
     allowed: false,
-    reason: "No tienes acceso a esta tarea",
+    reason: "Solo tienes acceso de lectura a esta tarea",
   };
 }

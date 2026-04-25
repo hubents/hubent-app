@@ -1,38 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { taskAttachments, tasks } from "@/db/schema";
+import { taskAttachments } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { deleteR2ByUrl } from "@/lib/r2";
+import { canAccessTaskFor } from "@/lib/task-access";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
-// GET /api/tasks/[taskId]/attachments - List task attachments
+const HIGH_ROLES = new Set(["manager", "admin", "owner", "super_admin"]);
+
+// GET /api/tasks/[taskId]/attachments - List task attachments (cross-org aware)
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("tasks:read");
+    const session = await requireAuth();
     const { taskId } = await params;
+    const taskIdNum = parseInt(taskId, 10);
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
 
-    // Verify task belongs to organization
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
+    const access = await canAccessTaskFor({
+      userId: session.user.userId,
+      organizationId: session.organizationId,
+      role: session.role,
+      taskId: taskIdNum,
     });
 
-    if (!task) {
+    if (!access.canRead) {
       return NextResponse.json(
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
       );
     }
 
-    let whereClause = eq(taskAttachments.taskId, parseInt(taskId, 10));
-    
+    let whereClause = eq(taskAttachments.taskId, taskIdNum);
+
     if (type) {
       whereClause = and(whereClause, eq(taskAttachments.type, type as "file" | "document" | "image" | "link"))!;
     }
@@ -58,11 +60,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// POST /api/tasks/[taskId]/attachments - Add attachment to task
+// POST /api/tasks/[taskId]/attachments - Add attachment to task (requires comment access)
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("tasks:update");
+    const session = await requireAuth();
     const { taskId } = await params;
+    const taskIdNum = parseInt(taskId, 10);
     const body = await request.json();
 
     const { name, url, type, thumbnail, size, mimeType, messageId } = body;
@@ -74,24 +77,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify task belongs to organization
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
+    const access = await canAccessTaskFor({
+      userId: session.user.userId,
+      organizationId: session.organizationId,
+      role: session.role,
+      taskId: taskIdNum,
     });
 
-    if (!task) {
+    if (!access.canComment) {
       return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
+        { success: false, error: { code: "FORBIDDEN", message: "No tienes permiso para subir archivos a esta tarea" } },
+        { status: 403 }
       );
     }
 
     const [attachment] = await db.insert(taskAttachments).values({
-      taskId: parseInt(taskId, 10),
+      taskId: taskIdNum,
       messageId,
       name,
       url,
@@ -117,11 +118,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/tasks/[taskId]/attachments - Delete attachment
+// DELETE /api/tasks/[taskId]/attachments - Delete attachment (uploader or high-role within scope)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await requirePermission("tasks:update");
+    const session = await requireAuth();
     const { taskId } = await params;
+    const taskIdNum = parseInt(taskId, 10);
     const { searchParams } = new URL(request.url);
     const attachmentId = searchParams.get("attachmentId");
 
@@ -132,16 +134,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify task belongs to organization
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
+    const access = await canAccessTaskFor({
+      userId: session.user.userId,
+      organizationId: session.organizationId,
+      role: session.role,
+      taskId: taskIdNum,
     });
 
-    if (!task) {
+    if (!access.canRead) {
       return NextResponse.json(
         { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
         { status: 404 }
@@ -149,24 +149,41 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const [attachment] = await db
-      .select({ url: taskAttachments.url })
+      .select({ url: taskAttachments.url, uploadedBy: taskAttachments.uploadedBy })
       .from(taskAttachments)
       .where(
         and(
           eq(taskAttachments.id, parseInt(attachmentId, 10)),
-          eq(taskAttachments.taskId, parseInt(taskId, 10))
+          eq(taskAttachments.taskId, taskIdNum)
         )
       );
+
+    if (!attachment) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Attachment not found" } },
+        { status: 404 }
+      );
+    }
+
+    const isUploader = attachment.uploadedBy === session.user.userId;
+    const isHighRole = HIGH_ROLES.has(session.role) && access.source === "high-role-same-org";
+
+    if (!isUploader && !isHighRole) {
+      return NextResponse.json(
+        { success: false, error: { code: "FORBIDDEN", message: "Solo el autor o un administrador pueden eliminar este archivo" } },
+        { status: 403 }
+      );
+    }
 
     await db.delete(taskAttachments)
       .where(
         and(
           eq(taskAttachments.id, parseInt(attachmentId, 10)),
-          eq(taskAttachments.taskId, parseInt(taskId, 10))
+          eq(taskAttachments.taskId, taskIdNum)
         )
       );
 
-    if (attachment?.url) {
+    if (attachment.url) {
       deleteR2ByUrl(attachment.url);
     }
 
@@ -176,9 +193,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete attachment";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
     return NextResponse.json(
       { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
+      { status }
     );
   }
 }

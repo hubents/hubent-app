@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { taskChecklistItems, taskChecklistAssignees } from "@/db/schema";
+import { tasks, taskChecklistItems } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+
+type RouteParams = { params: Promise<{ taskId: string; itemId: string }> };
+
+async function loadOwnedTask(taskIdNum: number, organizationId: number) {
+  return db.query.tasks.findFirst({
+    where: (t, { eq, and }) =>
+      and(eq(t.id, taskIdNum), eq(t.organizationId, organizationId)),
+    columns: { id: true, eventId: true },
+  });
+}
 
 // PATCH /api/tasks/[taskId]/checklist/[itemId] - Update checklist item
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string; itemId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -23,7 +30,15 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
     }
 
-    // Verify item exists and belongs to task
+    const task = await loadOwnedTask(taskIdNum, session.organizationId);
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
+    }
+
     const [existingItem] = await db
       .select()
       .from(taskChecklistItems)
@@ -52,7 +67,7 @@ export async function PATCH(
       updates.isCompleted = isCompleted;
       if (isCompleted && !existingItem.isCompleted) {
         updates.completedAt = new Date();
-        updates.completedBy = session.user.id;
+        updates.completedBy = session.user.userId;
       } else if (!isCompleted) {
         updates.completedAt = null;
         updates.completedBy = null;
@@ -76,20 +91,19 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: updatedItem });
   } catch (error) {
     console.error("PATCH /api/tasks/[taskId]/checklist/[itemId] error:", error);
-    return NextResponse.json({ success: false, error: "Failed to update checklist item" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to update checklist item";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
 // DELETE /api/tasks/[taskId]/checklist/[itemId] - Delete checklist item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string; itemId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -99,7 +113,15 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
     }
 
-    // Verify item exists and belongs to task
+    const task = await loadOwnedTask(taskIdNum, session.organizationId);
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
+    }
+
     const [existingItem] = await db
       .select({ id: taskChecklistItems.id })
       .from(taskChecklistItems)
@@ -113,7 +135,6 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Checklist item not found" }, { status: 404 });
     }
 
-    // Delete item (assignees will cascade)
     await db
       .delete(taskChecklistItems)
       .where(eq(taskChecklistItems.id, itemIdNum));
@@ -121,6 +142,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/tasks/[taskId]/checklist/[itemId] error:", error);
-    return NextResponse.json({ success: false, error: "Failed to delete checklist item" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to delete checklist item";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

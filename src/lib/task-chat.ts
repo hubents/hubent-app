@@ -9,62 +9,29 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, isNull, or, sql } from "drizzle-orm";
 import type { TenantSession } from "@/types";
+import { canAccessTaskFor } from "@/lib/task-access";
 
 // ============================================
 // TASK CHAT HELPERS
 // ============================================
 
 /**
- * Check if user can access task chat
+ * Check if user can access task chat.
+ * Delegates to the centralized canAccessTaskFor helper which covers:
+ * same-org high-roles, direct user participants, vendor->providerOrg fallback,
+ * and event_collaborations (cross-org guest) including collaboratorOrgId path.
  */
 export async function canAccessTaskChat(
   session: TenantSession,
   taskId: number
 ): Promise<boolean> {
-  // High-privilege roles can access all tasks in their org
-  const highRoles = ["manager", "admin", "owner", "super_admin"];
-
-  if (highRoles.includes(session.role)) {
-    // Verify task belongs to organization
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) => 
-        and(
-          eq(t.id, taskId),
-          eq(t.organizationId, session.organizationId)
-        ),
-    });
-    if (task) return true;
-    // For provider roles, fall through to vendorId check (cross-org tasks)
-  }
-
-  // For others, must be a direct task participant
-  const [participant] = await db
-    .select()
-    .from(taskParticipants)
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(taskParticipants.userId, session.user.userId)
-      )
-    )
-    .limit(1);
-
-  if (participant) return true;
-
-  // Fallback: check if user's provider org has a vendor that is task participant (cross-org)
-  const [vendorParticipant] = await db
-    .select({ id: taskParticipants.id })
-    .from(taskParticipants)
-    .innerJoin(vendors, eq(vendors.id, taskParticipants.vendorId))
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(vendors.providerOrgId, session.organizationId)
-      )
-    )
-    .limit(1);
-
-  return !!vendorParticipant;
+  const access = await canAccessTaskFor({
+    userId: session.user.userId,
+    organizationId: session.organizationId,
+    role: session.role,
+    taskId,
+  });
+  return access.canRead;
 }
 
 /**
@@ -127,7 +94,7 @@ export async function getTaskMessages(
       whatsappMessageId: taskMessages.whatsappMessageId,
     })
     .from(taskMessages)
-    .innerJoin(users, eq(taskMessages.senderId, users.id))
+    .leftJoin(users, eq(taskMessages.senderId, users.id))
     .where(whereClause)
     .orderBy(desc(taskMessages.createdAt))
     .limit(limit)
@@ -175,45 +142,19 @@ export async function getTaskMessages(
 
 /**
  * Check if user can comment on a task (for UI conditional rendering)
- * Returns: true if user can comment, false otherwise
+ * Delegates to canAccessTaskFor for unified cross-org logic.
  */
 export async function canCommentOnTask(
   session: TenantSession,
   taskId: number
 ): Promise<boolean> {
-  const highRoles = ["manager", "admin", "owner", "super_admin"];
-  if (highRoles.includes(session.role)) {
-    return true;
-  }
-
-  const [participant] = await db
-    .select({ canComment: taskParticipants.canComment })
-    .from(taskParticipants)
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(taskParticipants.userId, session.user.userId)
-      )
-    )
-    .limit(1);
-
-  if (participant) return participant.canComment !== false;
-
-  // Fallback: check if user's provider org has a vendor that is task participant (cross-org)
-  const [vendorParticipant] = await db
-    .select({ canComment: taskParticipants.canComment })
-    .from(taskParticipants)
-    .innerJoin(vendors, eq(vendors.id, taskParticipants.vendorId))
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(vendors.providerOrgId, session.organizationId)
-      )
-    )
-    .limit(1);
-
-  if (!vendorParticipant) return false;
-  return vendorParticipant.canComment !== false;
+  const access = await canAccessTaskFor({
+    userId: session.user.userId,
+    organizationId: session.organizationId,
+    role: session.role,
+    taskId,
+  });
+  return access.canComment;
 }
 
 /**

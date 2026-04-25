@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizationMembers, users, roles, invitations } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, notInArray } from "drizzle-orm";
 import { requirePermission } from "@/lib/session";
+
+// Roles excluidos de la pagina "Equipo": son colaboradores de evento (clientes)
+// o vendors externos, no parte del staff interno. Su gestion vive en el detalle
+// del evento (CollaboratorDrawer).
+const EXCLUDED_TEAM_ROLES = ["client", "vendor"];
 
 export async function GET() {
   try {
@@ -24,7 +29,12 @@ export async function GET() {
       .from(organizationMembers)
       .innerJoin(users, eq(organizationMembers.userId, users.id))
       .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
-      .where(eq(organizationMembers.organizationId, organizationId));
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          notInArray(roles.slug, EXCLUDED_TEAM_ROLES),
+        ),
+      );
 
     const members = memberships.map((m) => ({
       id: m.userId,
@@ -50,7 +60,8 @@ export async function GET() {
       .where(
         and(
           eq(invitations.organizationId, organizationId),
-          eq(invitations.status, "pending")
+          eq(invitations.status, "pending"),
+          notInArray(roles.slug, EXCLUDED_TEAM_ROLES),
         )
       );
 

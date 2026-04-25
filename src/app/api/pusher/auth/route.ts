@@ -7,11 +7,13 @@
  * Pusher sends data as application/x-www-form-urlencoded
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { db } from "@/db";
-import { taskParticipants, tasks, organizationMembers, roles } from "@/db/schema";
+import { organizationMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { canAccessTaskFor } from "@/lib/task-access";
 import Pusher from "pusher";
 
 // Create Pusher instance inside the handler to ensure env vars are available
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (channelName.startsWith("private-task-")) {
       const taskId = parseInt(channelName.replace("private-task-", ""), 10);
       const hasAccess = await verifyTaskAccess(session.user.id, taskId);
-      
+
       if (!hasAccess) {
         return new Response(JSON.stringify({ error: "Not authorized" }), {
           status: 403,
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     if (channelName.startsWith("presence-task-")) {
       const taskId = parseInt(channelName.replace("presence-task-", ""), 10);
       const hasAccess = await verifyTaskAccess(session.user.id, taskId);
-      
+
       if (!hasAccess) {
         return new Response(JSON.stringify({ error: "Not authorized" }), {
           status: 403,
@@ -164,66 +166,24 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Verify if user has access to a task
- * User must be:
- * - The task assignee
- * - A participant of the task
- * - An org member with planner+ role (same logic as canAccessTaskChat)
+ * Verify if user has access to a task chat channel.
+ * Delegates to canAccessTaskFor to ensure consistency with HTTP message/attachment routes.
+ *
+ * Resolves the user's organization via the active session (cookie/header). When that fails
+ * (e.g. user has multiple orgs and no active selection), no Pusher subscription is granted —
+ * the user can still read/write via HTTP, just without realtime updates for that tab.
  */
 async function verifyTaskAccess(userId: string, taskId: number): Promise<boolean> {
-  // Get the task to know the org
-  const [task] = await db
-    .select({ assignedTo: tasks.assignedTo, organizationId: tasks.organizationId })
-    .from(tasks)
-    .where(eq(tasks.id, taskId))
-    .limit(1);
+  const tenantSession = await getSession();
+  if (!tenantSession || tenantSession.user.userId !== userId) return false;
 
-  if (!task) return false;
-
-  if (task.assignedTo === userId) {
-    return true;
-  }
-
-  // Check if user is a participant
-  const [participant] = await db
-    .select({ userId: taskParticipants.userId })
-    .from(taskParticipants)
-    .where(
-      and(
-        eq(taskParticipants.taskId, taskId),
-        eq(taskParticipants.userId, userId)
-      )
-    )
-    .limit(1);
-
-  if (participant) return true;
-
-  // Check if user is an org member with planner+ role (can access all tasks)
-  const highRoles = ["manager", "admin", "owner", "super_admin"];
-  const [member] = await db
-    .select({ roleId: organizationMembers.roleId })
-    .from(organizationMembers)
-    .where(
-      and(
-        eq(organizationMembers.organizationId, task.organizationId),
-        eq(organizationMembers.userId, userId)
-      )
-    )
-    .limit(1);
-
-  if (member?.roleId) {
-    const [role] = await db
-      .select({ slug: roles.slug })
-      .from(roles)
-      .where(eq(roles.id, member.roleId))
-      .limit(1);
-
-    if (role && highRoles.includes(role.slug)) {
-      return true;
-    }
-  }
-
-  return false;
+  const access = await canAccessTaskFor({
+    userId,
+    organizationId: tenantSession.organizationId,
+    role: tenantSession.role,
+    taskId,
+  });
+  return access.canRead;
 }
 
 /**

@@ -1,28 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { 
-  tasks, 
-  taskChecklistItems, 
-  taskChecklistAssignees, 
+import {
+  tasks,
+  taskChecklistItems,
+  taskChecklistAssignees,
   taskParticipants,
   users,
   vendors,
-  contacts 
+  contacts
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyChecklistAssigned } from "@/lib/push-notifications";
 
+type RouteParams = { params: Promise<{ taskId: string; itemId: string }> };
+
+async function loadOwnedTask(taskIdNum: number, organizationId: number) {
+  return db.query.tasks.findFirst({
+    where: (t, { eq, and }) =>
+      and(eq(t.id, taskIdNum), eq(t.organizationId, organizationId)),
+    columns: { id: true, eventId: true, title: true },
+  });
+}
+
 // GET /api/tasks/[taskId]/checklist/[itemId]/assignees - List assignees for an item
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string; itemId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:read");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -30,6 +37,15 @@ export async function GET(
 
     if (isNaN(taskIdNum) || isNaN(itemIdNum)) {
       return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
+    }
+
+    const task = await loadOwnedTask(taskIdNum, session.organizationId);
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "view");
     }
 
     const assigneesRaw = await db
@@ -46,7 +62,6 @@ export async function GET(
       .innerJoin(taskParticipants, eq(taskChecklistAssignees.participantId, taskParticipants.id))
       .where(eq(taskChecklistAssignees.checklistItemId, itemIdNum));
 
-    // Enrich with names
     const assignees = [];
     for (const a of assigneesRaw) {
       let name = "Sin nombre";
@@ -77,20 +92,19 @@ export async function GET(
     return NextResponse.json({ success: true, data: assignees });
   } catch (error) {
     console.error("GET assignees error:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch assignees" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to fetch assignees";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
 // POST /api/tasks/[taskId]/checklist/[itemId]/assignees - Add assignee to item
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string; itemId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -100,6 +114,15 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
     }
 
+    const task = await loadOwnedTask(taskIdNum, session.organizationId);
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
+    }
+
     const body = await request.json();
     const { participantId } = body;
 
@@ -107,7 +130,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: "participantId is required" }, { status: 400 });
     }
 
-    // Verify checklist item exists
     const [item] = await db
       .select({ id: taskChecklistItems.id, title: taskChecklistItems.title, taskId: taskChecklistItems.taskId })
       .from(taskChecklistItems)
@@ -121,7 +143,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Checklist item not found" }, { status: 404 });
     }
 
-    // Verify participant belongs to this task
     const [participant] = await db
       .select({
         id: taskParticipants.id,
@@ -140,7 +161,6 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Participant not found in this task" }, { status: 404 });
     }
 
-    // Check if already assigned
     const [existing] = await db
       .select({ id: taskChecklistAssignees.id })
       .from(taskChecklistAssignees)
@@ -154,29 +174,20 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Already assigned" }, { status: 400 });
     }
 
-    // Add assignee
     const [newAssignee] = await db
       .insert(taskChecklistAssignees)
       .values({
         checklistItemId: itemIdNum,
         participantId,
-        assignedBy: session.user.id,
+        assignedBy: session.user.userId,
       })
       .returning();
 
-    // Get task title for notification
-    const [task] = await db
-      .select({ title: tasks.title })
-      .from(tasks)
-      .where(eq(tasks.id, taskIdNum))
-      .limit(1);
-
-    // Send push notification if participant is a user
-    if (participant.userId && participant.userId !== session.user.id) {
+    if (participant.userId && participant.userId !== session.user.userId) {
       try {
         await notifyChecklistAssigned(
           taskIdNum,
-          task?.title || "Tarea",
+          task.title || "Tarea",
           item.title,
           participant.userId,
           session.user.name || "Alguien"
@@ -189,20 +200,19 @@ export async function POST(
     return NextResponse.json({ success: true, data: newAssignee });
   } catch (error) {
     console.error("POST assignees error:", error);
-    return NextResponse.json({ success: false, error: "Failed to add assignee" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to add assignee";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
 
 // DELETE /api/tasks/[taskId]/checklist/[itemId]/assignees - Remove assignee
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ taskId: string; itemId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -210,6 +220,15 @@ export async function DELETE(
 
     if (isNaN(taskIdNum) || isNaN(itemIdNum)) {
       return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
+    }
+
+    const task = await loadOwnedTask(taskIdNum, session.organizationId);
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.eventScoped && task.eventId) {
+      await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     const { searchParams } = new URL(request.url);
@@ -236,6 +255,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE assignees error:", error);
-    return NextResponse.json({ success: false, error: "Failed to remove assignee" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to remove assignee";
+    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
