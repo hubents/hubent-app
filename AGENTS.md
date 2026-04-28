@@ -1,8 +1,16 @@
-# HubEnts — Agent / Cursor entry map
+# HubEnts — Agent entry map (Cursor / Windsurf / OpenCode)
 
-Windsurf configuration remains in **`.windsurf/`** (unchanged). **Cursor** uses **`.cursor/`** only. If you edit conventions in one place, mirror updates in the other until you unify your process.
+Tres clientes de agentes conviven en este repo y comparten la misma fuente de verdad documental:
 
-**ClickUp MCP (IDE):** [`.cursor/mcp.json`](.cursor/mcp.json) registra `clickup-integration` → `https://mcp.clickup.com/mcp`. Tras abrir el repo, autentica en **Settings → MCP** y revisa [`.cursor/MCP-CLICKUP.md`](.cursor/MCP-CLICKUP.md) si OAuth pide redirect URL.
+- **Cursor** → `.cursor/` (rules + skills) — fuente principal
+- **Windsurf** → `.windsurf/` (rules + workflows + skills)
+- **OpenCode** → `.opencode/` (skills + agents + commands) + `opencode.jsonc` en root
+
+Si editás convenciones en un lugar, **espejá los otros** hasta unificar el proceso. Cursor es la fuente de verdad para nuevas reglas; los otros dos siguen.
+
+**ClickUp MCP:**
+- Cursor: [`.cursor/mcp.json`](.cursor/mcp.json) → `clickup-integration` → `https://mcp.clickup.com/mcp`. Autenticá en **Settings → MCP** y revisá [`.cursor/MCP-CLICKUP.md`](.cursor/MCP-CLICKUP.md) si OAuth pide redirect URL.
+- OpenCode: [`opencode.jsonc`](opencode.jsonc) → mismo endpoint en `mcp.clickup-integration`. OAuth desde TUI/IDE.
 
 **ClickUp workflow de estados:** Al finalizar una task, SIEMPRE mover a **review** (nunca a complete). Solo mover a **complete** con aprobación explícita del usuario. El estado review es donde el cliente valida el trabajo.
 
@@ -77,12 +85,74 @@ Tip: start a session with `@AGENTS.md` or `@.cursor/rules/hubents-project-archit
 4. Install deps if needed (`pnpm install` / `npm install` per project).
 5. `git status` on the right branch before large agent refactors.
 
-## Windsurf parity
+## Triple parity (Cursor / Windsurf / OpenCode)
 
-| Windsurf path                                      | Cursor equivalent                                     |
-| -------------------------------------------------- | ----------------------------------------------------- |
-| `.windsurf/rules/*.md`                             | `.cursor/rules/*.mdc`                                 |
-| `.windsurf/workflows/*.md`                         | `.cursor/skills/hubents-*/SKILL.md` (workflow skills) |
-| `.windsurf/skills/*/SKILL.md` (and `pdf-download`) | `.cursor/skills/*/SKILL.md`                           |
+| Cursor                                  | Windsurf                                          | OpenCode                                                                       |
+| --------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `.cursor/rules/*.mdc`                   | `.windsurf/rules/*.md`                            | `opencode.jsonc` → `instructions: [".cursor/rules/*.mdc", "AGENTS.md"]`        |
+| `.cursor/skills/hubents-*/SKILL.md`     | `.windsurf/workflows/*.md`                        | `.opencode/skills/hubents-*/SKILL.md` (espejos que referencian a Cursor)      |
+| `.cursor/skills/<domain>/SKILL.md`      | `.windsurf/skills/<domain>/SKILL.md`              | `.opencode/skills/<domain>/SKILL.md` (cuando aplica)                          |
+| `.cursor/mcp.json`                      | (sin equivalente)                                 | `opencode.jsonc` → `mcp.clickup-integration`                                  |
+| `@<rule>` / `@<skill>` mention          | Cascade rules                                     | Skills auto-load por descripción + `/comando` en `.opencode/commands/`        |
 
-Do **not** delete or edit `.windsurf/` for Cursor; keep both if the team uses either tool.
+**Regla:** no eliminar ni editar `.windsurf/` o `.cursor/` cuando trabajes desde OpenCode. Las tres convenciones deben permanecer en sync.
+
+## OpenCode entry map (`.opencode/` + `opencode.jsonc`)
+
+Configuración principal: [`opencode.jsonc`](opencode.jsonc) (root). Inyecta como `instructions`:
+
+- `AGENTS.md`
+- `.cursor/rules/*.mdc` (rules de Cursor disponibles automáticamente)
+- `.cursor/skills/*/SKILL.md`
+- `.opencode/skills/*/SKILL.md`
+
+Esto evita duplicar contenido — cualquier cambio en `.cursor/rules/` aparece de inmediato en sesiones OpenCode.
+
+### Skills OpenCode (`.opencode/skills/`)
+
+| Skill                          | Cuándo usarlo                                                          |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `hubents-onboarding`           | Bootstrap al inicio de sesión: stack, archivos clave, reglas críticas  |
+| `hubents-deploy`               | Deploy/release a Vercel, pre-deploy checks, push `main`                |
+| `hubents-database-migration`   | Drizzle/Neon schema, migraciones, recovery 12-step                     |
+| `hubents-api-changelog-update` | Cambios en `/api/v1`, OpenAPI, MCP, webhooks, scopes                   |
+| `neon-data-protection`         | Protección de branches Neon, backups, integraciones, incidente 2026-03-31 |
+| `clickup-integration`          | Cliente `@/lib/clickup`, error-reporter, formato comentarios NapsixAI  |
+
+### Comandos OpenCode (`.opencode/commands/`)
+
+| Comando             | Acción                                                                |
+| ------------------- | --------------------------------------------------------------------- |
+| `/deploy`           | Pre-deploy checks completos + push a main (con confirmación)          |
+| `/migrate`          | Workflow de migración Drizzle/Neon (idempotente, sin transactions)    |
+| `/changelog`        | Update API public changelog con fecha real (UTC-03)                   |
+| `/recover-context`  | Recarga AGENTS.md + skill onboarding cuando el agente pierde foco     |
+| `/clickup-comment`  | Comentar y mover task a `review` con formato NapsixAI (no a complete) |
+| `/tsc` y `/tests`   | Atajos para `tsc --noEmit` y `vitest run`                             |
+
+### Subagentes OpenCode (`.opencode/agents/`)
+
+| Agente              | Modo     | Propósito                                                              |
+| ------------------- | -------- | ---------------------------------------------------------------------- |
+| `hubents-reviewer`  | subagent | Audita diffs contra reglas Cursor sin modificar archivos               |
+| `hubents-deployer`  | subagent | Ejecuta `hubents-deploy` con confirmaciones y locks anti force-push    |
+
+Invocá un subagente con `@hubents-reviewer` o `@hubents-deployer` desde el TUI.
+
+### Permisos por defecto en OpenCode
+
+`opencode.jsonc` ya bloquea operaciones destructivas:
+- `git push --force*` → `deny`
+- `rm -rf *` → `deny`
+- `drizzle-kit drop*` → `deny`
+- `neonctl branches delete*` → `deny`
+- `git reset --hard*` → `ask`
+
+### Sesión OpenCode rápida
+
+1. Abrir el repo en TUI/IDE OpenCode
+2. (Primera vez) autenticar ClickUp MCP cuando OpenCode lo pida
+3. Cargar contexto: `/recover-context` o pedir al agente que cargue `hubents-onboarding`
+4. Para tareas grandes: usar el agente `plan` (built-in) primero, luego `build`
+5. Para deploy: `/deploy` (con confirmación) o `@hubents-deployer`
+6. Para review pre-merge: `@hubents-reviewer`

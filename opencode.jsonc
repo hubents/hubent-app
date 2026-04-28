@@ -1,0 +1,88 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ────────────────────────────────────────────────────────────────────────
+  // HubEnts — Configuración OpenCode (proyecto)
+  //
+  // Convive con Cursor (.cursor/) y Windsurf (.windsurf/) — NO duplicar
+  // contenido: las rules de Cursor se cargan como `instructions` y los
+  // skills de OpenCode referencian a los de Cursor cuando aplica.
+  // Mapa completo de paridad: AGENTS.md
+  // ────────────────────────────────────────────────────────────────────────
+
+  "model": "anthropic/claude-sonnet-4-5",
+  "small_model": "anthropic/claude-haiku-4-5",
+  "shell": "pwsh",
+  "autoupdate": "notify",
+
+  // Reglas siempre activas: AGENTS.md + Cursor rules + skill SKILL.md
+  // OpenCode las inyecta como contexto del sistema (paridad con Cursor "alwaysApply").
+  "instructions": [
+    "AGENTS.md",
+    ".cursor/rules/*.mdc",
+    ".cursor/skills/*/SKILL.md",
+    ".opencode/skills/*/SKILL.md"
+  ],
+
+  // ClickUp MCP — mismo endpoint que Cursor (.cursor/mcp.json).
+  // OAuth se autentica desde TUI/IDE OpenCode al primer uso.
+  "mcp": {
+    "clickup-integration": {
+      "type": "remote",
+      "url": "https://mcp.clickup.com/mcp",
+      "enabled": true
+    }
+  },
+
+  // Permisos por defecto — bash y edit en "ask" en agente Plan; Build deja libre.
+  // Acciones destructivas siempre requieren confirmación explícita.
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "*": "allow",
+      "git push --force*": "deny",
+      "git reset --hard*": "ask",
+      "rm -rf *": "deny",
+      "drizzle-kit drop*": "deny",
+      "neonctl branches delete*": "deny"
+    },
+    "webfetch": "allow",
+    "skill": {
+      "*": "allow"
+    }
+  },
+
+  // Watcher — ignorar artefactos pesados
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      ".next/**",
+      ".vercel/**",
+      "dist/**",
+      ".git/**",
+      "coverage/**",
+      "*.tsbuildinfo"
+    ]
+  },
+
+  // Compaction agresiva — el repo es grande
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 12000
+  },
+
+  // Atajos de comandos (también disponibles como md en .opencode/commands/)
+  "command": {
+    "tsc": {
+      "template": "Run `npx tsc --noEmit --pretty` and resolve any TypeScript errors that appear. If clean, confirm with the user.",
+      "description": "TypeScript noEmit check",
+      "agent": "build"
+    },
+    "tests": {
+      "template": "Run `npx vitest run` and report the result. If failures appear, propose fixes before applying them.",
+      "description": "Run Vitest suite",
+      "agent": "build"
+    }
+  }
+}
