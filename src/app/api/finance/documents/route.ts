@@ -95,6 +95,7 @@ export const POST = withMonitoring(
       paymentMethod: body.paymentMethod,
       bankAccountId: body.bankAccountId,
       direction: body.direction,
+      currency: body.currency,
       status: body.status,
       items,
     });

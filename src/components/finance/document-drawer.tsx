@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-document-preview";
 import { ContactSelector, type ContactSelectorValue } from "./contact-selector";
 import { cn } from "@/lib/utils";
+import { CURRENCIES, CURRENCY_SYMBOLS, DEFAULT_ENABLED_CURRENCIES } from "@/lib/constants/locale";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
 
@@ -170,6 +171,8 @@ export function DocumentDrawer({
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [defaultTaxRate, setDefaultTaxRate] = useState(21);
+  const [currency, setCurrency] = useState("EUR");
+  const [enabledCurrencies, setEnabledCurrencies] = useState<string[]>(DEFAULT_ENABLED_CURRENCIES);
   const [orgData, setOrgData] = useState<OrganizationPreviewData | undefined>();
   const [preloadedVendors, setPreloadedVendors] = useState<Array<{ id: number; type: "vendor"; name: string; email: string | null; category?: string | null }> | undefined>();
 
@@ -270,6 +273,13 @@ export function DocumentDrawer({
           if (data.data?.defaultPaymentMethod) setPaymentMethod(data.data.defaultPaymentMethod);
           if (data.data?.defaultBankAccountId) setBankAccountId(data.data.defaultBankAccountId.toString());
         }
+        // Currency from org settings
+        if (data.data?.defaultCurrency) {
+          if (!documentId) setCurrency(data.data.defaultCurrency);
+        }
+        if (data.data?.enabledCurrencies && Array.isArray(data.data.enabledCurrencies)) {
+          setEnabledCurrencies(data.data.enabledCurrencies);
+        }
       }
 
       // Fetch custom vendors for providers (planner orgs)
@@ -343,6 +353,7 @@ export function DocumentDrawer({
           }
           setDocumentNumber(doc.number || undefined);
           setDocumentStatus(doc.status || undefined);
+          if (doc.currency) setCurrency(doc.currency);
           setEventId(doc.eventId?.toString() || "");
           setDueDate(doc.dueDate ? doc.dueDate.split("T")[0] : "");
           setValidUntil(doc.validUntil ? doc.validUntil.split("T")[0] : "");
@@ -364,7 +375,7 @@ export function DocumentDrawer({
                 quantity: parseFloat(item.quantity),
                 unitPrice: parseFloat(item.unitPrice),
                 discount: parseFloat(item.discount || "0"),
-                taxRate: parseFloat(item.taxRate || "21"),
+                taxRate: parseFloat(item.taxRate ?? "21"),
                 total: parseFloat(item.total),
               }))
             );
@@ -467,6 +478,7 @@ export function DocumentDrawer({
         globalDiscount: globalDiscountEnabled ? globalDiscount : 0,
         globalDiscountType: globalDiscountEnabled ? globalDiscountType : "percentage",
         direction,
+        currency,
         status: documentId ? undefined : "sent",
         items: items.filter((item) => item.description.trim()).map((item) => ({
           description: item.description,
@@ -508,7 +520,7 @@ export function DocumentDrawer({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "EUR",
+      currency: currency || "EUR",
     }).format(amount);
   };
 
@@ -540,8 +552,9 @@ export function DocumentDrawer({
       globalDiscountType,
       globalDiscountEnabled,
       paymentMethod: paymentMethod || undefined,
+      currency,
     };
-  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod]);
+  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod, currency]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -632,8 +645,23 @@ export function DocumentDrawer({
               </div>
             </div>
 
-            {/* Dates */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Currency + Dates */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Moneda</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.filter(c => enabledCurrencies.includes(c.value) || c.value === currency).map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {CURRENCY_SYMBOLS[c.value] || c.value} {c.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {type === "quote" ? (
                 <div className="space-y-2">
                   <Label>Válido hasta</Label>
@@ -860,7 +888,7 @@ export function DocumentDrawer({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="percentage">%</SelectItem>
-                          <SelectItem value="fixed">€</SelectItem>
+                          <SelectItem value="fixed">{CURRENCY_SYMBOLS[currency] || "\u20ac"}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

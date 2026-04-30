@@ -13,6 +13,7 @@ import {
   tasks,
   contacts,
   vendors,
+  organizationFinanceSettings,
 } from "@/db/schema";
 import { eq, and, desc, sql, ilike, or, isNull, isNotNull } from "drizzle-orm";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
@@ -118,7 +119,7 @@ export async function createProduct(
       sku: data.sku,
       category: data.category,
       unitPrice: data.unitPrice?.toString(),
-      taxRate: data.taxRate?.toString() || "21",
+      taxRate: data.taxRate?.toString() ?? "21",
       unit: data.unit || "unit",
     })
     .returning();
@@ -468,6 +469,7 @@ export async function createDocument(
     bankAccountId?: number;
     direction?: "incoming" | "outgoing";
     status?: "draft" | "approved";
+    currency?: string;
     items: Array<{
       productId?: number;
       description: string;
@@ -516,13 +518,24 @@ export async function createDocument(
   itemsWithTotals.forEach((item) => {
     const itemProportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
     const itemTaxableAmount = subtotalAfterDiscount * itemProportion;
-    taxAmount += itemTaxableAmount * ((item.taxRate || 21) / 100);
+    taxAmount += itemTaxableAmount * ((item.taxRate ?? 21) / 100);
   });
 
   const total = subtotalAfterDiscount + taxAmount;
 
   // Infer direction from contact/vendor if not provided
   const direction = data.direction || (data.vendorId ? "incoming" : "outgoing");
+
+  // Resolve currency: explicit param > org finance settings > "EUR"
+  let resolvedCurrency = data.currency;
+  if (!resolvedCurrency) {
+    const [finSettings] = await db
+      .select({ defaultCurrency: organizationFinanceSettings.defaultCurrency })
+      .from(organizationFinanceSettings)
+      .where(eq(organizationFinanceSettings.organizationId, session.organizationId))
+      .limit(1);
+    resolvedCurrency = finSettings?.defaultCurrency || "EUR";
+  }
 
   // Create document
   const [doc] = await db
@@ -542,7 +555,7 @@ export async function createDocument(
       subtotal: subtotalLines.toString(),
       taxAmount: taxAmount.toString(),
       total: total.toString(),
-      currency: "EUR",
+      currency: resolvedCurrency,
       globalDiscount: globalDiscountValue.toString(),
       globalDiscountType,
       paymentMethod: data.paymentMethod,
@@ -563,7 +576,7 @@ export async function createDocument(
       quantity: item.quantity.toString(),
       unitPrice: item.unitPrice.toString(),
       discount: (item.discount || 0).toString(),
-      taxRate: (item.taxRate || 21).toString(),
+      taxRate: (item.taxRate ?? 21).toString(),
       total: item.total.toString(),
       sortOrder: item.sortOrder,
     });
@@ -708,6 +721,7 @@ export async function updateDocument(
     paymentMethod?: string;
     bankAccountId?: number;
     direction?: "incoming" | "outgoing";
+    currency?: string;
     items?: Array<{
       productId?: number;
       description: string;
@@ -776,6 +790,7 @@ export async function updateDocument(
   if (data.bankAccountId !== undefined)
     updateData.bankAccountId = data.bankAccountId || null;
   if (data.direction !== undefined) updateData.direction = data.direction;
+  if (data.currency !== undefined) updateData.currency = data.currency;
   if (data.globalDiscount !== undefined)
     updateData.globalDiscount = data.globalDiscount.toString();
   if (data.globalDiscountType !== undefined)
@@ -808,7 +823,7 @@ export async function updateDocument(
     itemsWithTotals.forEach((item) => {
       const itemProportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
       const itemTaxableAmount = subtotalAfterDiscount * itemProportion;
-      taxAmount += itemTaxableAmount * ((item.taxRate || 21) / 100);
+      taxAmount += itemTaxableAmount * ((item.taxRate ?? 21) / 100);
     });
 
     const total = subtotalAfterDiscount + taxAmount;
@@ -830,7 +845,7 @@ export async function updateDocument(
         quantity: item.quantity.toString(),
         unitPrice: item.unitPrice.toString(),
         discount: (item.discount || 0).toString(),
-        taxRate: (item.taxRate || 21).toString(),
+        taxRate: (item.taxRate ?? 21).toString(),
         total: item.total.toString(),
         sortOrder: item.sortOrder,
       });
@@ -954,8 +969,9 @@ export async function duplicateDocument(
       quantity: parseFloat(item.quantity || "1"),
       unitPrice: parseFloat(item.unitPrice),
       discount: parseFloat(item.discount || "0"),
-      taxRate: parseFloat(item.taxRate || "21"),
+      taxRate: parseFloat(item.taxRate ?? "21"),
     })),
+    currency: original.currency || undefined,
   });
 
   return newDoc;
@@ -1002,8 +1018,9 @@ export async function convertDocument(
       quantity: parseFloat(item.quantity || "1"),
       unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
       discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
-      taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+      taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate ?? "21"),
     })),
+    currency: original.currency || undefined,
   });
 
   // Link to parent
@@ -1092,7 +1109,7 @@ export async function createCreditNote(
     const qty = parseFloat(item.quantity || "1");
     const price = parseFloat(item.unitPrice);
     const discount = parseFloat(item.discount || "0");
-    const tax = parseFloat(item.taxRate || "21");
+    const tax = parseFloat(item.taxRate ?? "21");
 
     // Negative amounts for credit note
     const itemSubtotal = -(qty * price * (1 - discount / 100));

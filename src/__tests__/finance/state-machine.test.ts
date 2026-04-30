@@ -253,7 +253,7 @@ describe("Document Total Calculation Logic", () => {
     itemsWithTotals.forEach((item) => {
       const itemProportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
       const itemTaxableAmount = subtotalAfterDiscount * itemProportion;
-      taxAmount += itemTaxableAmount * ((item.taxRate || 21) / 100);
+      taxAmount += itemTaxableAmount * ((item.taxRate ?? 21) / 100);
     });
 
     const total = subtotalAfterDiscount + taxAmount;

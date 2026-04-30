@@ -225,7 +225,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
               quantity: parseFloat(item.quantity),
               unitPrice: parseFloat(item.unitPrice),
               discount: parseFloat(item.discount || "0"),
-              taxRate: parseFloat(item.taxRate || "21"),
+              taxRate: parseFloat(item.taxRate ?? "21"),
               total: parseFloat(item.total),
             })),
           });

@@ -218,7 +218,7 @@ export function DeliveryNotesContent({
               quantity: parseFloat(item.quantity),
               unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice || "0"),
               discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
-              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate ?? "21"),
               total: isDeliveryNote ? 0 : parseFloat(item.total || "0"),
             })),
           });

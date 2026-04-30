@@ -57,6 +57,21 @@ export interface OrgLocaleSettings {
   dateFormat?: string;
 }
 
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+  EUR: "\u20ac",
+  USD: "$",
+  GBP: "\u00a3",
+  MXN: "$",
+  ARS: "$",
+  CLP: "$",
+  COP: "$",
+  PEN: "S/",
+  BRL: "R$",
+};
+
+/** Default currencies shown when org has no finance settings yet */
+export const DEFAULT_ENABLED_CURRENCIES = ["EUR", "USD", "GBP"];
+
 export const DEFAULT_LOCALE_SETTINGS: Required<OrgLocaleSettings> = {
   timezone: "America/Argentina/Buenos_Aires",
   currency: "EUR",

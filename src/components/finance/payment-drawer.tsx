@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { DEFAULT_ENABLED_CURRENCIES } from "@/lib/constants/locale";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,6 +163,23 @@ export function PaymentDrawer({
   const [form, setForm] = useState<PaymentForm>({ ...defaultForm, direction: defaultDirection, status: defaultStatus });
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enabledCurrencies, setEnabledCurrencies] = useState<string[]>(DEFAULT_ENABLED_CURRENCIES);
+
+  // Fetch finance settings for enabled currencies
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/finance/settings")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.data?.enabledCurrencies && Array.isArray(data.data.enabledCurrencies)) {
+          setEnabledCurrencies(data.data.enabledCurrencies);
+        }
+        if (data?.data?.defaultCurrency && !editPayment && !documentSummary) {
+          setForm((prev) => ({ ...prev, currency: data.data.defaultCurrency }));
+        }
+      })
+      .catch(() => {});
+  }, [open, editPayment, documentSummary]);
 
   // Filter conciliable documents by selected contact when showContactSelector is active
   const visibleDocuments = showContactSelector && contactValue
@@ -386,9 +404,9 @@ export function PaymentDrawer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
+                  {enabledCurrencies.map((code) => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

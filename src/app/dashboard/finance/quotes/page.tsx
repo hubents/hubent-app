@@ -255,7 +255,7 @@ function QuotesContent() {
               quantity: parseFloat(item.quantity),
               unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
               discount: isDeliveryNote ? 0 : parseFloat(item.discount || "0"),
-              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate || "21"),
+              taxRate: isDeliveryNote ? 0 : parseFloat(item.taxRate ?? "21"),
               total: isDeliveryNote ? 0 : parseFloat(item.total),
             })),
           });

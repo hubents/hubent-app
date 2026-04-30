@@ -145,6 +145,7 @@ interface FinancialDocument {
   number: string;
   total: string;
   status: string;
+  currency?: string | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
@@ -518,7 +519,7 @@ export function TaskInfoTab({
                     <option value="">Sin conciliar</option>
                     {concilDocs.map((doc) => (
                       <option key={doc.id} value={doc.id}>
-                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {parseFloat(doc.total).toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
+                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {parseFloat(doc.total).toLocaleString("es-ES", { style: "currency", currency: doc.currency || "EUR" })}
                         {doc.status === "payment_promise" ? " (Promesa de pago)" : ""}
                       </option>
                     ))}

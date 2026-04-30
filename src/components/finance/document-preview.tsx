@@ -181,7 +181,7 @@ export function DocumentPreview({
         quantity: parseFloat(item.quantity || "0"),
         unitPrice: parseFloat(item.unitPrice || "0"),
         discount: parseFloat(item.discount || "0"),
-        taxRate: parseFloat(item.taxRate || "21"),
+        taxRate: parseFloat(item.taxRate ?? "21"),
         total: parseFloat(item.total || "0"),
       })),
       notes: document.notes || undefined,

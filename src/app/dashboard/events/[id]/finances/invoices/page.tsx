@@ -239,7 +239,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
               quantity: parseFloat(item.quantity),
               unitPrice: parseFloat(item.unitPrice),
               discount: parseFloat(item.discount || "0"),
-              taxRate: parseFloat(item.taxRate || "21"),
+              taxRate: parseFloat(item.taxRate ?? "21"),
               total: parseFloat(item.total),
             })),
           });

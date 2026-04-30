@@ -147,7 +147,7 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${formatQuantity(item.quantity)}</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatCurrency(item.unitPrice, doc.currency)}</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.discount || "0"}%</td>
-        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.taxRate || "21"}%</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.taxRate ?? "21"}%</td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500;">${formatCurrency(item.total, doc.currency)}</td>
       </tr>
     `

@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
           .where(eq(documentItems.documentId, inv.id));
 
         for (const item of items) {
-          const rate = item.taxRate || "21";
+          const rate = item.taxRate ?? "21";
           const itemTotal = parseFloat(item.total || "0");
           const itemTax = itemTotal * (parseFloat(rate) / 100);
 
