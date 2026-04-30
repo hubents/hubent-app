@@ -432,6 +432,195 @@ describe("Group count display — server vs page count", () => {
 });
 
 // ============================================
+// Age group filtering logic
+// ============================================
+
+interface FilterableGuest {
+  id: number;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  rsvpStatus: string | null;
+  ageGroup: string | null;
+}
+
+function filterGuestsByAgeGroup(
+  guests: FilterableGuest[],
+  ageGroupFilter: string
+): FilterableGuest[] {
+  return guests.filter((guest) => {
+    const guestAge = guest.ageGroup || "adult";
+    return ageGroupFilter === "all" || guestAge === ageGroupFilter;
+  });
+}
+
+describe("Age group filtering", () => {
+  const guests: FilterableGuest[] = [
+    { id: 1, firstName: "Ana", lastName: null, email: null, rsvpStatus: "confirmed", ageGroup: "adult" },
+    { id: 2, firstName: "Carlos", lastName: null, email: null, rsvpStatus: "confirmed", ageGroup: "child" },
+    { id: 3, firstName: "Bebe1", lastName: null, email: null, rsvpStatus: "pending", ageGroup: "baby" },
+    { id: 4, firstName: "Juan", lastName: null, email: null, rsvpStatus: "confirmed", ageGroup: null },
+    { id: 5, firstName: "Sofia", lastName: null, email: null, rsvpStatus: "confirmed", ageGroup: "child" },
+  ];
+
+  it("returns all guests when filter is 'all'", () => {
+    const filtered = filterGuestsByAgeGroup(guests, "all");
+    expect(filtered).toHaveLength(5);
+  });
+
+  it("returns only adults (including null ageGroup) when filter is 'adult'", () => {
+    const filtered = filterGuestsByAgeGroup(guests, "adult");
+    expect(filtered).toHaveLength(2);
+    expect(filtered.map((g) => g.firstName)).toEqual(["Ana", "Juan"]);
+  });
+
+  it("returns only children when filter is 'child'", () => {
+    const filtered = filterGuestsByAgeGroup(guests, "child");
+    expect(filtered).toHaveLength(2);
+    expect(filtered.map((g) => g.firstName)).toEqual(["Carlos", "Sofia"]);
+  });
+
+  it("returns only babies when filter is 'baby'", () => {
+    const filtered = filterGuestsByAgeGroup(guests, "baby");
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].firstName).toBe("Bebe1");
+  });
+
+  it("treats null ageGroup as 'adult'", () => {
+    const filtered = filterGuestsByAgeGroup(guests, "adult");
+    const nullGuest = filtered.find((g) => g.id === 4);
+    expect(nullGuest).toBeDefined();
+    expect(nullGuest?.ageGroup).toBeNull();
+  });
+});
+
+// ============================================
+// Age group stats calculation
+// ============================================
+
+function calculateAgeGroupStats(guests: FilterableGuest[]) {
+  return {
+    adults: guests.filter((g) => g.ageGroup === "adult" || !g.ageGroup).length,
+    children: guests.filter((g) => g.ageGroup === "child").length,
+    babies: guests.filter((g) => g.ageGroup === "baby").length,
+  };
+}
+
+describe("Age group stats", () => {
+  it("counts adults including null ageGroup", () => {
+    const guests: FilterableGuest[] = [
+      { id: 1, firstName: "A", lastName: null, email: null, rsvpStatus: null, ageGroup: "adult" },
+      { id: 2, firstName: "B", lastName: null, email: null, rsvpStatus: null, ageGroup: null },
+    ];
+    const stats = calculateAgeGroupStats(guests);
+    expect(stats.adults).toBe(2);
+    expect(stats.children).toBe(0);
+    expect(stats.babies).toBe(0);
+  });
+
+  it("counts children and babies correctly", () => {
+    const guests: FilterableGuest[] = [
+      { id: 1, firstName: "A", lastName: null, email: null, rsvpStatus: null, ageGroup: "adult" },
+      { id: 2, firstName: "B", lastName: null, email: null, rsvpStatus: null, ageGroup: "child" },
+      { id: 3, firstName: "C", lastName: null, email: null, rsvpStatus: null, ageGroup: "child" },
+      { id: 4, firstName: "D", lastName: null, email: null, rsvpStatus: null, ageGroup: "baby" },
+    ];
+    const stats = calculateAgeGroupStats(guests);
+    expect(stats.adults).toBe(1);
+    expect(stats.children).toBe(2);
+    expect(stats.babies).toBe(1);
+  });
+
+  it("returns all zeros for empty list", () => {
+    const stats = calculateAgeGroupStats([]);
+    expect(stats.adults).toBe(0);
+    expect(stats.children).toBe(0);
+    expect(stats.babies).toBe(0);
+  });
+
+  it("menu preference does NOT affect age group stats", () => {
+    const guests: FilterableGuest[] = [
+      { id: 1, firstName: "A", lastName: null, email: null, rsvpStatus: null, ageGroup: "adult" },
+      // This guest has infantil menu but ageGroup is null (defaults to adult)
+      { id: 2, firstName: "B", lastName: null, email: null, rsvpStatus: null, ageGroup: null },
+    ];
+    const stats = calculateAgeGroupStats(guests);
+    expect(stats.adults).toBe(2);
+    expect(stats.children).toBe(0);
+  });
+});
+
+// ============================================
+// Age group change PATCH payload
+// ============================================
+
+function buildAgeGroupChangePatch(ageGroup: string) {
+  return { ageGroup };
+}
+
+describe("Age group change — PATCH payload", () => {
+  it("sends ageGroup as 'child' when selected", () => {
+    const patch = buildAgeGroupChangePatch("child");
+    expect(patch.ageGroup).toBe("child");
+  });
+
+  it("sends ageGroup as 'baby' when selected", () => {
+    const patch = buildAgeGroupChangePatch("baby");
+    expect(patch.ageGroup).toBe("baby");
+  });
+
+  it("sends ageGroup as 'adult' when reverted", () => {
+    const patch = buildAgeGroupChangePatch("adult");
+    expect(patch.ageGroup).toBe("adult");
+  });
+});
+
+// ============================================
+// Add Guest: ageGroup in payload
+// ============================================
+
+describe("Add Guest — ageGroup in payload", () => {
+  const formBase = {
+    firstName: "María",
+    lastName: "García",
+    email: "maria@test.com",
+    phone: "+54911234",
+    menuPreference: "vegetariano",
+    ageGroup: "adult",
+    groupId: "",
+  };
+
+  it("sends ageGroup 'child' when selected in form", () => {
+    const payload = buildAddGuestPayload({
+      ...formBase,
+      ageGroup: "child",
+    });
+    expect(payload.ageGroup).toBe("child");
+  });
+
+  it("sends ageGroup 'baby' when selected in form", () => {
+    const payload = buildAddGuestPayload({
+      ...formBase,
+      ageGroup: "baby",
+    });
+    expect(payload.ageGroup).toBe("baby");
+  });
+
+  it("defaults to 'adult' in the initial form state", () => {
+    const newGuest = {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      menuPreference: "",
+      ageGroup: "adult",
+      groupId: "none",
+    };
+    expect(newGuest.ageGroup).toBe("adult");
+  });
+});
+
+// ============================================
 // PDF HTML template: structure verification
 // ============================================
 

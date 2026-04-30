@@ -34,7 +34,6 @@ import {
   RiGroupLine,
   RiLayoutGridLine,
   RiRestaurantLine,
-  RiUserHeartLine,
   RiParentLine,
   RiDeleteBinLine,
   RiPencilLine,
@@ -133,6 +132,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
   const [meta, setMeta] = useState({ page: 1, limit: 100, total: 0, totalPages: 0 });
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("grupos");
   const [viewMode, setViewMode] = useState<"list" | "floor">("list");
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -280,7 +280,9 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       (guest.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const guestStatus = guest.rsvpStatus || "pending";
     const matchesStatus = statusFilter === "all" || guestStatus === statusFilter;
-    return matchesSearch && matchesStatus;
+    const guestAge = guest.ageGroup || "adult";
+    const matchesAgeGroup = ageGroupFilter === "all" || guestAge === ageGroupFilter;
+    return matchesSearch && matchesStatus && matchesAgeGroup;
   });
 
   // Group guests by groupName, including empty groups from the full group list
@@ -324,6 +326,20 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
       fetchGuests();
     } catch (error) {
       console.error("Failed to update menu:", error);
+    }
+  };
+
+  // Handle age group change
+  const handleAgeGroupChange = async (guestId: number, ageGroup: string) => {
+    try {
+      await fetch(`/api/events/${eventId}/guests/${guestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ageGroup }),
+      });
+      fetchGuests();
+    } catch (error) {
+      console.error("Failed to update age group:", error);
     }
   };
 
@@ -570,7 +586,23 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select
+                    value={newGuest.ageGroup}
+                    onValueChange={(value) => setNewGuest({ ...newGuest, ageGroup: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Adulto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="adult">Adulto</SelectItem>
+                      <SelectItem value="child">Niño</SelectItem>
+                      <SelectItem value="baby">Bebé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Menú</Label>
                   <Select
@@ -700,6 +732,18 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
             </SelectContent>
           </Select>
         )}
+        <Select value={ageGroupFilter} onValueChange={setAgeGroupFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <RiParentLine className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Filtrar por tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los tipos</SelectItem>
+            <SelectItem value="adult">Adultos</SelectItem>
+            <SelectItem value="child">Niños</SelectItem>
+            <SelectItem value="baby">Bebés</SelectItem>
+          </SelectContent>
+        </Select>
         {/* View Toggle */}
         <div className="flex gap-2">
           <Button
@@ -845,6 +889,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                             groups={groups}
                             onStatusChange={handleStatusChange}
                             onMenuChange={handleMenuChange}
+                            onAgeGroupChange={handleAgeGroupChange}
                             onTableChange={handleTableChange}
                             onGroupChange={handleGroupChange}
                             onNameChange={handleNameChange}
@@ -884,6 +929,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                     groups={groups}
                     onStatusChange={handleStatusChange}
                     onMenuChange={handleMenuChange}
+                    onAgeGroupChange={handleAgeGroupChange}
                     onTableChange={handleTableChange}
                     onGroupChange={handleGroupChange}
                     onNameChange={handleNameChange}
@@ -922,6 +968,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           groups={groups}
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
+                          onAgeGroupChange={handleAgeGroupChange}
                           onTableChange={handleTableChange}
                           onGroupChange={handleGroupChange}
                           onNameChange={handleNameChange}
@@ -963,6 +1010,7 @@ export default function EventGuestsPage({ params }: { params: Promise<{ id: stri
                           groups={groups}
                           onStatusChange={handleStatusChange}
                           onMenuChange={handleMenuChange}
+                          onAgeGroupChange={handleAgeGroupChange}
                           onTableChange={handleTableChange}
                           onGroupChange={handleGroupChange}
                           onNameChange={handleNameChange}
@@ -1046,6 +1094,7 @@ function GuestRow({
   groups,
   onStatusChange, 
   onMenuChange,
+  onAgeGroupChange,
   onTableChange,
   onGroupChange,
   onNameChange,
@@ -1057,6 +1106,7 @@ function GuestRow({
   groups: GuestGroup[];
   onStatusChange: (guestId: number, status: string) => void;
   onMenuChange: (guestId: number, menu: string) => void;
+  onAgeGroupChange: (guestId: number, ageGroup: string) => void;
   onTableChange: (guestId: number, tableId: string) => void;
   onGroupChange: (guestId: number, groupId: string) => void;
   onNameChange: (guestId: number, firstName: string, lastName: string) => void;
@@ -1125,18 +1175,6 @@ function GuestRow({
                 {!readOnly && <RiPencilLine className="h-3 w-3 opacity-0 group-hover:opacity-50" />}
               </p>
             )}
-            {guest.ageGroup === "child" && (
-              <Badge variant="secondary" className="text-xs">
-                <RiParentLine className="h-3 w-3 mr-1" />
-                Niño
-              </Badge>
-            )}
-            {guest.ageGroup === "baby" && (
-              <Badge variant="secondary" className="text-xs">
-                <RiUserHeartLine className="h-3 w-3 mr-1" />
-                Bebé
-              </Badge>
-            )}
             {guest.companionCount > 0 && (
               <Badge variant="secondary" className="text-xs">
                 +{guest.companionCount}
@@ -1194,6 +1232,22 @@ function GuestRow({
             <SelectItem value="vegano">Vegano</SelectItem>
             <SelectItem value="celiaco">Celíaco</SelectItem>
             <SelectItem value="infantil">Infantil</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Age Group Select */}
+        <Select
+          value={guest.ageGroup || "adult"}
+          onValueChange={(value) => onAgeGroupChange(guest.id, value)}
+          disabled={readOnly}
+        >
+          <SelectTrigger className="w-24 h-8">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="adult">Adulto</SelectItem>
+            <SelectItem value="child">Niño</SelectItem>
+            <SelectItem value="baby">Bebé</SelectItem>
           </SelectContent>
         </Select>
 
