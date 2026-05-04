@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useOrgCurrency } from "@/hooks/use-org-currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,7 @@ export function LeadKanban({
   onAddStage,
   onEditStage,
 }: LeadKanbanProps) {
+  const { currency: orgCurrency } = useOrgCurrency();
   const [draggedLead, setDraggedLead] = React.useState<Lead | null>(null);
   const [dragOverStage, setDragOverStage] = React.useState<number | null>(null);
 
@@ -198,7 +200,7 @@ export function LeadKanban({
             {/* Stage Total */}
             {stage.totalValue > 0 && (
               <div className="px-3 py-2 text-sm text-muted-foreground border-b">
-                Total: {formatCurrency(stage.totalValue.toString(), "EUR")}
+                Total: {formatCurrency(stage.totalValue.toString(), orgCurrency)}
               </div>
             )}
 

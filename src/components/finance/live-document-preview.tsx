@@ -128,6 +128,8 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
     };
   }, [data.items, data.globalDiscount, data.globalDiscountType, data.globalDiscountEnabled]);
 
+  const cur = data.currency || "EUR";
+  const fmt = (amount: number) => formatCurrency(amount, cur);
   const typeLabel = TYPE_LABELS[data.type] || data.type.toUpperCase();
   const clientName = data.contactName || data.vendorName || "Sin cliente";
   const hasValidItems = data.items.some((item) => item.description.trim());
@@ -274,11 +276,11 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
                     <tr key={index} className="border-b border-gray-100">
                       <td className="p-3">{item.description}</td>
                       <td className="p-3 text-center">{item.quantity}</td>
-                      <td className="p-3 text-right">{formatCurrency(item.unitPrice)}</td>
+                      <td className="p-3 text-right">{fmt(item.unitPrice)}</td>
                       <td className="p-3 text-center">{item.discount}%</td>
                       <td className="p-3 text-center">{item.taxRate}%</td>
                       <td className="p-3 text-right font-medium">
-                        {formatCurrency(item.total)}
+                        {fmt(item.total)}
                       </td>
                     </tr>
                   ))
@@ -297,23 +299,23 @@ export function LiveDocumentPreview({ data, organizationName }: LiveDocumentPrev
             <div className="w-64">
               <div className="flex justify-between py-2 border-b border-gray-200">
                 <span className="text-gray-500">Subtotal</span>
-                <span>{formatCurrency(totals.subtotal)}</span>
+                <span>{fmt(totals.subtotal)}</span>
               </div>
               {totals.globalDiscountAmount > 0 && (
                 <div className="flex justify-between py-2 border-b border-gray-200 text-green-600">
                   <span>
                     Descuento{data.globalDiscountType === "percentage" && ` (${data.globalDiscount}%)`}
                   </span>
-                  <span>-{formatCurrency(totals.globalDiscountAmount)}</span>
+                  <span>-{fmt(totals.globalDiscountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between py-2 border-b border-gray-200">
                 <span className="text-gray-500">IVA</span>
-                <span>{formatCurrency(totals.taxAmount)}</span>
+                <span>{fmt(totals.taxAmount)}</span>
               </div>
               <div className="flex justify-between py-3 mt-2 border-t-2 border-gray-900 font-bold text-lg">
                 <span>Total</span>
-                <span>{formatCurrency(totals.total)}</span>
+                <span>{fmt(totals.total)}</span>
               </div>
             </div>
           </div>

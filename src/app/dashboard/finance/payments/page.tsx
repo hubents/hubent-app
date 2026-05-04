@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSession } from "@/hooks/use-user-session";
+import { useOrgCurrency } from "@/hooks/use-org-currency";
 import {
   Table,
   TableBody,
@@ -114,6 +115,7 @@ interface PaymentStats {
 
 export default function PaymentsPage() {
   const { can } = useUserSession();
+  const { formatCurrency } = useOrgCurrency();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [documents, setDocuments] = useState<FinancialDocument[]>([]);
   const [schedules, setSchedules] = useState<PaymentSchedule[]>([]);
@@ -347,12 +349,7 @@ export default function PaymentsPage() {
     }
   }
 
-  const formatCurrency = (amount: number | string, cur = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: cur,
-    }).format(typeof amount === "string" ? parseFloat(amount || "0") : amount);
-  };
+
 
   const filteredPayments = payments.filter((p) => {
     if (!searchTerm) return true;

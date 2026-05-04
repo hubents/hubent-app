@@ -12,6 +12,7 @@ import {
   RiArrowUpLine,
   RiArrowDownLine,
 } from "@remixicon/react";
+import { useOrgCurrency } from "@/hooks/use-org-currency";
 
 interface Stage {
   id: number;
@@ -45,6 +46,7 @@ interface CRMStatsProps {
 }
 
 export function CRMStats({ stages, loading }: CRMStatsProps) {
+  const { formatCurrency: orgFmt, currency: orgCurrency } = useOrgCurrency();
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-4">
@@ -94,15 +96,17 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
   // Average deal value
   const avgDealValue = totalLeads > 0 ? totalValue / totalLeads : 0;
 
-  // Format currency
+  // Format currency — compact for large numbers, full via orgFmt otherwise
   const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `€${(value / 1000000).toFixed(1)}M`;
-    }
     if (value >= 1000) {
-      return `€${(value / 1000).toFixed(1)}K`;
+      return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency: orgCurrency,
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }).format(value);
     }
-    return `€${value.toLocaleString("es-ES")}`;
+    return orgFmt(value);
   };
 
   // Get max value for funnel visualization

@@ -6,6 +6,7 @@ import {
   forms, formInstances, formSubmissions,
   contacts, leads, leadStages, guests, rsvpResponses,
   financialDocuments, paymentRecords, paymentSchedules,
+  organizationFinanceSettings,
 } from "@/db/schema";
 import { eq, and, desc, asc, gte, lte, sql, isNull, isNotNull, count } from "drizzle-orm";
 
@@ -236,6 +237,14 @@ export function createAITools(userContext: UserContext) {
         const totalOutgoing = payments.filter(p => p.direction === "outgoing" && p.status === "complete")
           .reduce((s, p) => s + parseFloat(p.amount || "0"), 0);
 
+        // Resolve org currency
+        const [finSettings] = await db
+          .select({ defaultCurrency: organizationFinanceSettings.defaultCurrency })
+          .from(organizationFinanceSettings)
+          .where(eq(organizationFinanceSettings.organizationId, organizationId))
+          .limit(1);
+        const orgCurrency = finSettings?.defaultCurrency || "EUR";
+
         return {
           period,
           invoices: { count: invoices.length, total: totalInvoiced, paid: totalPaid, pending: totalPending,
@@ -244,7 +253,7 @@ export function createAITools(userContext: UserContext) {
             accepted: quotes.filter(q => q.status === "accepted").length, pending: quotes.filter(q => q.status === "sent").length },
           proformas: { count: proformas.length, total: sum(proformas) },
           payments: { incoming: totalIncoming, outgoing: totalOutgoing, balance: totalIncoming - totalOutgoing },
-          currency: "EUR",
+          currency: orgCurrency,
         };
       },
     }),

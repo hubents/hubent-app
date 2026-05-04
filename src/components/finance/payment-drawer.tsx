@@ -41,6 +41,7 @@ export interface ConciliableDocument {
   number: string;
   total: string;
   status: string;
+  currency?: string | null;
   contactId?: number | null;
   vendorId?: number | null;
   companyName?: string | null;
@@ -515,7 +516,7 @@ export function PaymentDrawer({
                   <SelectItem value="none">Sin documento</SelectItem>
                   {visibleDocuments.map((doc) => (
                     <SelectItem key={doc.id} value={doc.id.toString()}>
-                      {getDocumentLabel(doc)} - {formatCurrency(doc.total)}
+                      {getDocumentLabel(doc)} - {formatCurrency(doc.total, doc.currency || undefined)}
                     </SelectItem>
                   ))}
                 </SelectContent>

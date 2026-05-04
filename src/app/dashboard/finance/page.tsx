@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useOrgCurrency } from "@/hooks/use-org-currency";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +78,7 @@ interface RecentDocument {
   clientName: string;
   total: string;
   status: string;
+  currency?: string | null;
   dueDate: string | null;
 }
 
@@ -84,6 +86,7 @@ const AGING_COLORS = ["#10b981", "#f59e0b", "#f97316", "#ef4444", "#dc2626"];
 
 export default function FinanceDashboardPage() {
   const { can } = useUserSession();
+  const { formatCurrency: orgFmt } = useOrgCurrency();
   const canCreate = can("finance:create");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentDocuments, setRecentDocuments] = useState<RecentDocument[]>([]);
@@ -120,12 +123,7 @@ export default function FinanceDashboardPage() {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, currency?: string) => orgFmt(amount, currency);
 
   const formatPercent = (value: number) => {
     const sign = value >= 0 ? "+" : "";
@@ -527,7 +525,7 @@ export default function FinanceDashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-sm">
-                        {formatCurrency(parseFloat(doc.total || "0"))}
+                        {formatCurrency(parseFloat(doc.total || "0"), doc.currency || stats?.currency)}
                       </p>
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${

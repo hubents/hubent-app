@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { useEvent } from "@/contexts/event-context";
+import { useOrgCurrency } from "@/hooks/use-org-currency";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -44,7 +45,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   const { setActiveEvent } = useEvent();
 
   const [loading, setLoading] = useState(true);
-  const [currency, setCurrency] = useState("EUR");
+  const { formatCurrency } = useOrgCurrency();
   const [quotesCount, setQuotesCount] = useState(0);
   const [quotesTotal, setQuotesTotal] = useState(0);
   const [invoicesCount, setInvoicesCount] = useState(0);
@@ -57,25 +58,9 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
     totalOverdue: 0,
   });
 
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(amount);
-  }, [currency]);
-
   useEffect(() => {
     async function fetchData() {
       try {
-        try {
-          const settingsRes = await fetch("/api/finance/settings");
-          if (settingsRes.ok) {
-            const settingsData = await settingsRes.json();
-            if (settingsData.success && settingsData.data?.defaultCurrency) {
-              setCurrency(settingsData.data.defaultCurrency);
-            }
-          }
-        } catch {
-          // eventScoped users may not have finance:read — use default EUR
-        }
-
         const eventRes = await fetch(`/api/events/${eventId}`);
         const eventData = await eventRes.json();
         if (eventData.success) {
