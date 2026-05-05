@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://app.hubents.com/logo.svg" alt="HubEnts Logo" width="180" />
-</p>
-
 <h1 align="center">HubEnts</h1>
 
 <p align="center">
