@@ -1,39 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  RiUserLine,
-  RiBuilding2Line,
-  RiSearchLine,
-  RiAddLine,
-  RiCheckLine,
-} from "@remixicon/react";
+  Cancel01Icon,
+  UserCircleIcon,
+  PlusSignIcon,
+  Building01Icon,
+  InformationCircleIcon,
+} from "@hugeicons/core-free-icons";
+
+const IcoX = hgIcon(Cancel01Icon);
+const IcoUser = hgIcon(UserCircleIcon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoCompany = hgIcon(Building01Icon);
+const IcoInfo = hgIcon(InformationCircleIcon);
 
 interface Contact {
   id: number;
@@ -52,406 +33,422 @@ interface CreateLeadDrawerProps {
   preselectedContact?: Contact;
 }
 
-export function CreateLeadDrawer({ open, onOpenChange, onLeadCreated, stageId, preselectedContact }: CreateLeadDrawerProps) {
+export function CreateLeadDrawer({
+  open,
+  onOpenChange,
+  onLeadCreated,
+  stageId,
+  preselectedContact,
+}: CreateLeadDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [contactMode, setContactMode] = useState<"existing" | "new">("existing");
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [contactSearch, setContactSearch] = useState("");
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(preselectedContact || null);
-  const [loadingContacts, setLoadingContacts] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    value: "",
-    expectedCloseDate: "",
-    source: "",
-    probability: "50",
-  });
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
+  const [newContactType, setNewContactType] = useState<"person" | "company">("person");
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactEmail, setNewContactEmail] = useState("");
 
-  const [newContactData, setNewContactData] = useState({
-    type: "person" as "person" | "company",
-    name: "",
-    email: "",
-    phone: "",
-  });
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [valueAmount, setValueAmount] = useState("");
+  const [probability, setProbability] = useState("50");
+  const [source, setSource] = useState("");
+  const [closeDate, setCloseDate] = useState("");
+
+  const reset = () => {
+    setContactMode("existing");
+    setSelectedContactId("");
+    setNewContactType("person");
+    setNewContactName("");
+    setNewContactEmail("");
+    setTitle("");
+    setDescription("");
+    setValueAmount("");
+    setProbability("50");
+    setSource("");
+    setCloseDate("");
+  };
 
   useEffect(() => {
     if (preselectedContact) {
-      setSelectedContact(preselectedContact);
-      setFormData(prev => ({
-        ...prev,
-        title: preselectedContact.name,
-      }));
+      setSelectedContactId(String(preselectedContact.id));
+      if (!title) setTitle(preselectedContact.name);
     }
-  }, [preselectedContact]);
+  }, [preselectedContact, title]);
 
   useEffect(() => {
-    if (open && contactMode === "existing") {
-      fetchContacts();
-    }
-  }, [open, contactSearch, contactMode]);
+    if (!open || contactMode !== "existing") return;
+    fetch("/api/contacts?limit=50")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setContacts(d.data || []); })
+      .catch(() => {});
+  }, [open, contactMode]);
 
-  const fetchContacts = async () => {
-    setLoadingContacts(true);
+  const validEmail = /^\S+@\S+\.\S+$/.test(newContactEmail);
+  const isValid =
+    title.trim().length > 0 &&
+    ((contactMode === "existing" && selectedContactId) ||
+      (contactMode === "new" && newContactName.trim().length > 1 && validEmail));
+
+  const close = () => { onOpenChange(false); reset(); };
+
+  const submit = async () => {
+    if (!isValid || loading) return;
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (contactSearch) params.set("search", contactSearch);
-      params.set("limit", "20");
-      
-      const res = await fetch(`/api/contacts?${params.toString()}`);
-      const data = await res.json();
-      if (data.success) {
-        setContacts(data.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching contacts:", error);
-    } finally {
-      setLoadingContacts(false);
-    }
-  };
+      let contactId: number | null = selectedContactId ? Number(selectedContactId) : null;
 
-  const handleSubmit = async () => {
-    let contactId = selectedContact?.id;
-
-    // If creating new contact, create it first
-    if (contactMode === "new") {
-      if (!newContactData.name) {
-        alert("El nombre del contacto es requerido");
-        return;
-      }
-
-      try {
-        const contactRes = await fetch("/api/contacts", {
+      if (contactMode === "new") {
+        const cRes = await fetch("/api/contacts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: newContactData.type,
-            name: newContactData.name,
-            email: newContactData.email || null,
-            phone: newContactData.phone || null,
+            type: newContactType,
+            name: newContactName.trim(),
+            email: newContactEmail || null,
           }),
         });
-
-        if (!contactRes.ok) {
-          alert("Error al crear el contacto");
-          return;
-        }
-
-        const contactData = await contactRes.json();
-        contactId = contactData.data.id;
-      } catch (error) {
-        console.error("Error creating contact:", error);
-        return;
+        if (!cRes.ok) throw new Error("Error al crear contacto");
+        const cData = await cRes.json();
+        contactId = cData.data?.id ?? null;
       }
-    }
 
-    if (!contactId) {
-      alert("Debes seleccionar o crear un contacto");
-      return;
-    }
+      if (!contactId) throw new Error("Falta el contacto");
 
-    if (!formData.title) {
-      alert("El título del lead es requerido");
-      return;
-    }
-    
-    setLoading(true);
-    try {
       const res = await fetch("/api/crm/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: formData.title,
-          description: formData.description || null,
-          value: formData.value ? parseFloat(formData.value) : null,
-          expectedCloseDate: formData.expectedCloseDate ? new Date(formData.expectedCloseDate) : null,
+          title: title.trim(),
+          description: description || null,
+          value: valueAmount ? parseFloat(valueAmount) : null,
+          probability: parseInt(probability) || 50,
+          source: source || null,
+          expectedCloseDate: closeDate ? new Date(closeDate) : null,
           stageId: stageId || null,
-          source: formData.source || null,
-          probability: parseInt(formData.probability) || 50,
           contactId,
         }),
       });
+      if (!res.ok) throw new Error("Error al crear lead");
 
-      if (res.ok) {
-        resetForm();
-        onOpenChange(false);
-        onLeadCreated?.();
-      } else {
-        const error = await res.json();
-        alert(error.error?.message || "Error al crear el lead");
-      }
-    } catch (error) {
-      console.error("Error creating lead:", error);
+      close();
+      onLeadCreated?.();
+    } catch (e) {
+      alert((e as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      value: "",
-      expectedCloseDate: "",
-      source: "",
-      probability: "50",
-    });
-    setNewContactData({
-      type: "person",
-      name: "",
-      email: "",
-      phone: "",
-    });
-    setSelectedContact(preselectedContact || null);
-    setContactMode("existing");
-    setContactSearch("");
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  };
+  if (!open) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <SheetContent className="sm:max-w-3xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Nuevo Lead</SheetTitle>
-          <SheetDescription>
-            Todo lead debe estar asociado a un contacto (persona o empresa)
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="space-y-6 px-4 py-4">
-          {/* Contact Selection */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Contacto *</label>
-            
-            {preselectedContact ? (
-              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={preselectedContact.avatar || undefined} />
-                  <AvatarFallback className={preselectedContact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                    {preselectedContact.type === "company" ? <RiBuilding2Line className="h-5 w-5" /> : getInitials(preselectedContact.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-medium">{preselectedContact.name}</p>
-                  <p className="text-sm text-muted-foreground">{preselectedContact.email}</p>
-                </div>
-                <RiCheckLine className="h-5 w-5 text-green-600" />
-              </div>
-            ) : (
-              <Tabs value={contactMode} onValueChange={(v) => setContactMode(v as "existing" | "new")}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="existing">Contacto Existente</TabsTrigger>
-                  <TabsTrigger value="new">Crear Nuevo</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="existing" className="space-y-3 mt-3">
-                  <div className="relative">
-                    <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar contacto por nombre o email..."
-                      className="pl-9"
-                      value={contactSearch}
-                      onChange={(e) => setContactSearch(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="border rounded-lg max-h-48 overflow-y-auto">
-                    {loadingContacts ? (
-                      <div className="p-4 text-center text-muted-foreground">Buscando...</div>
-                    ) : contacts.length === 0 ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        No se encontraron contactos
-                        <Button
-                          variant="link"
-                          className="block mx-auto mt-2"
-                          onClick={() => setContactMode("new")}
-                        >
-                          <RiAddLine className="h-4 w-4 mr-1" />
-                          Crear nuevo contacto
-                        </Button>
-                      </div>
-                    ) : (
-                      contacts.map((contact) => (
-                        <div
-                          key={contact.id}
-                          className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
-                            selectedContact?.id === contact.id ? "bg-primary/10" : ""
-                          }`}
-                          onClick={() => {
-                            setSelectedContact(contact);
-                            if (!formData.title) {
-                              setFormData(prev => ({ ...prev, title: contact.name }));
-                            }
-                          }}
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={contact.avatar || undefined} />
-                            <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                              {contact.type === "company" ? <RiBuilding2Line className="h-4 w-4" /> : getInitials(contact.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{contact.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{contact.email || contact.phone || "Sin datos"}</p>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {contact.type === "company" ? "Empresa" : "Persona"}
-                          </Badge>
-                          {selectedContact?.id === contact.id && (
-                            <RiCheckLine className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="new" className="space-y-4 mt-3">
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={newContactData.type === "person" ? "default" : "outline"}
-                      className="flex-1 gap-2"
-                      onClick={() => setNewContactData({ ...newContactData, type: "person" })}
-                    >
-                      <RiUserLine className="h-4 w-4" />
-                      Persona
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={newContactData.type === "company" ? "default" : "outline"}
-                      className="flex-1 gap-2"
-                      onClick={() => setNewContactData({ ...newContactData, type: "company" })}
-                    >
-                      <RiBuilding2Line className="h-4 w-4" />
-                      Empresa
-                    </Button>
-                  </div>
-
-                  <Input
-                    placeholder={newContactData.type === "company" ? "Nombre de la empresa *" : "Nombre completo *"}
-                    value={newContactData.name}
-                    onChange={(e) => {
-                      setNewContactData({ ...newContactData, name: e.target.value });
-                      if (!formData.title) {
-                        setFormData(prev => ({ ...prev, title: e.target.value }));
-                      }
-                    }}
-                  />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={newContactData.email}
-                      onChange={(e) => setNewContactData({ ...newContactData, email: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Teléfono"
-                      value={newContactData.phone}
-                      onChange={(e) => setNewContactData({ ...newContactData, phone: e.target.value })}
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
-
-          {/* Lead Details */}
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium">Detalles del Lead</h4>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Título del Lead *</label>
-              <Input
-                placeholder="Ej: Boda Junio 2025 - 150 invitados"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              />
+    <div
+      className="fixed inset-0 z-[80] flex justify-end"
+      style={{ background: "rgba(20, 18, 12, 0.35)" }}
+      onClick={close}
+    >
+      <div
+        className="flex flex-col overflow-y-auto"
+        style={{
+          width: 420,
+          background: "#FFFFFF",
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+          padding: "24px 26px",
+          gap: 14,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start">
+          <div className="flex-1">
+            <div
+              className="text-[18px] font-semibold text-[var(--ink-1)]"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              Nuevo Lead
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descripción</label>
-              <Textarea
-                placeholder="Detalles adicionales del lead..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={2}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Valor Estimado (€)</label>
-                <Input
-                  type="number"
-                  placeholder="30000"
-                  value={formData.value}
-                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Probabilidad (%)</label>
-                <Select value={formData.probability} onValueChange={(v) => setFormData({ ...formData, probability: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10%</SelectItem>
-                    <SelectItem value="25">25%</SelectItem>
-                    <SelectItem value="50">50%</SelectItem>
-                    <SelectItem value="75">75%</SelectItem>
-                    <SelectItem value="90">90%</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fuente</label>
-                <Select value={formData.source} onValueChange={(v) => setFormData({ ...formData, source: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="¿Cómo llegó?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="website">Sitio Web</SelectItem>
-                    <SelectItem value="referral">Referido</SelectItem>
-                    <SelectItem value="social">Redes Sociales</SelectItem>
-                    <SelectItem value="event">Evento</SelectItem>
-                    <SelectItem value="cold">Contacto Frío</SelectItem>
-                    <SelectItem value="other">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fecha Esperada de Cierre</label>
-                <Input
-                  type="date"
-                  value={formData.expectedCloseDate}
-                  onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
-                />
-              </div>
+            <div className="text-[12.5px] text-[var(--ink-3)] mt-0.5">
+              Todo lead debe estar asociado a un contacto
             </div>
           </div>
+          <button
+            onClick={close}
+            className="bg-transparent border-none cursor-pointer text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+          >
+            <IcoX className="h-[18px] w-[18px]" />
+          </button>
         </div>
 
-        <SheetFooter className="px-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={loading || !formData.title || (contactMode === "existing" && !selectedContact) || (contactMode === "new" && !newContactData.name)}
+        {/* Contact toggle */}
+        <div>
+          <label
+            className="block text-[12.5px] font-medium text-[var(--ink-1)] mb-1.5"
           >
-            {loading ? "Creando..." : "Crear Lead"}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+            Contacto *
+          </label>
+          <div
+            className="flex gap-1.5 rounded-[8px] mb-2"
+            style={{ background: "var(--bg-subtle)", padding: "3px" }}
+          >
+            <button
+              type="button"
+              onClick={() => setContactMode("existing")}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer border-none transition-colors"
+              style={{
+                padding: "7px 10px",
+                background: contactMode === "existing" ? "#FFFFFF" : "transparent",
+                color: contactMode === "existing" ? "var(--ink-1)" : "var(--ink-3)",
+                fontWeight: contactMode === "existing" ? 600 : 500,
+                fontSize: 12.5,
+                boxShadow: contactMode === "existing" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+              }}
+            >
+              <IcoUser className="h-3 w-3" /> Existente
+            </button>
+            <button
+              type="button"
+              onClick={() => setContactMode("new")}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer border-none transition-colors"
+              style={{
+                padding: "7px 10px",
+                background: contactMode === "new" ? "#FFFFFF" : "transparent",
+                color: contactMode === "new" ? "var(--ink-1)" : "var(--ink-3)",
+                fontWeight: contactMode === "new" ? 600 : 500,
+                fontSize: 12.5,
+                boxShadow: contactMode === "new" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+              }}
+            >
+              <IcoPlus className="h-3 w-3" /> Nuevo
+            </button>
+          </div>
+
+          {contactMode === "existing" ? (
+            <select
+              value={selectedContactId}
+              onChange={(e) => setSelectedContactId(e.target.value)}
+              className="w-full text-[13.5px] text-[var(--ink-1)] outline-none"
+              style={{
+                padding: "11px 13px",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                background: "#FFFFFF",
+              }}
+            >
+              <option value="">Buscar tu contacto...</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.email ? `· ${c.email}` : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div
+              className="flex flex-col gap-2"
+              style={{
+                padding: "12px 12px 4px",
+                border: "1px dashed var(--line-strong)",
+                borderRadius: 8,
+                background: "var(--bg-subtle)",
+              }}
+            >
+              <div className="text-[11px] text-[var(--ink-3)] inline-flex items-center gap-1.5">
+                <IcoInfo className="h-3 w-3" />
+                Se creará un contacto nuevo al guardar el lead
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setNewContactType("person")}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer transition-colors"
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    fontWeight: newContactType === "person" ? 600 : 500,
+                    background: newContactType === "person" ? "#FFFFFF" : "transparent",
+                    color: newContactType === "person" ? "var(--ink-1)" : "var(--ink-3)",
+                    border: "1px solid " + (newContactType === "person" ? "var(--line-1)" : "transparent"),
+                  }}
+                >
+                  <IcoUser className="h-3 w-3" /> Persona
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewContactType("company")}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer transition-colors"
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    fontWeight: newContactType === "company" ? 600 : 500,
+                    background: newContactType === "company" ? "#FFFFFF" : "transparent",
+                    color: newContactType === "company" ? "var(--ink-1)" : "var(--ink-3)",
+                    border: "1px solid " + (newContactType === "company" ? "var(--line-1)" : "transparent"),
+                  }}
+                >
+                  <IcoCompany className="h-3 w-3" /> Empresa
+                </button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11.5px] text-[var(--ink-2)] font-medium">
+                  {newContactType === "company" ? "Nombre de la empresa *" : "Nombre completo *"}
+                </label>
+                <input
+                  autoFocus
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  placeholder={newContactType === "company" ? "Ej. Studio Bouquet" : "Ej. Laura Marín"}
+                  className="text-[13.5px] outline-none"
+                  style={{
+                    padding: "9px 12px",
+                    border: "1px solid var(--line-strong)",
+                    borderRadius: 8,
+                    background: "#FFFFFF",
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11.5px] text-[var(--ink-2)] font-medium">Email *</label>
+                <input
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => setNewContactEmail(e.target.value)}
+                  placeholder="laura@email.com"
+                  className="text-[13.5px] outline-none"
+                  style={{
+                    padding: "9px 12px",
+                    border: "1px solid var(--line-strong)",
+                    borderRadius: 8,
+                    background: "#FFFFFF",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Detalles del lead — eyebrow */}
+        <div
+          className="text-[11px] font-semibold uppercase text-[var(--ink-3)] mt-2"
+          style={{ letterSpacing: "0.08em" }}
+        >
+          Detalles del lead
+        </div>
+
+        <Field label="Título del lead *">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ej. BJ: Boda Junio 2026"
+          />
+        </Field>
+
+        <Field label="Descripción">
+          <textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Detalles adicionales del lead..."
+            style={{ resize: "vertical" }}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Field label="Valor estimado">
+            <input
+              type="number"
+              value={valueAmount}
+              onChange={(e) => setValueAmount(e.target.value)}
+              placeholder="€ 0,00"
+            />
+          </Field>
+          <Field label="Probabilidad de cierre">
+            <select value={probability} onChange={(e) => setProbability(e.target.value)}>
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+              <option value="75">75%</option>
+              <option value="90">90%</option>
+            </select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Field label="Fuente">
+            <select value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="">Elige una opción</option>
+              <option value="website">Sitio Web</option>
+              <option value="referral">Referido</option>
+              <option value="social">Redes Sociales</option>
+              <option value="event">Evento</option>
+              <option value="cold">Contacto Frío</option>
+              <option value="other">Otro</option>
+            </select>
+          </Field>
+          <Field label="Fecha estimada de cierre">
+            <input type="date" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+          </Field>
+        </div>
+
+        <button
+          onClick={submit}
+          disabled={!isValid || loading}
+          aria-disabled={!isValid || loading}
+          className="rounded-[8px] cursor-pointer transition-colors mt-2 border-none"
+          style={{
+            background: !isValid || loading ? "var(--line-strong)" : "var(--ink-1)",
+            color: "#FFFFFF",
+            padding: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: !isValid || loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading
+            ? "Creando..."
+            : contactMode === "new"
+              ? "Crear contacto y lead"
+              : "Crear lead"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Helper: form field with label + content
+// Inputs/textareas/selects inside use the prototype's input style via global rules below.
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[12.5px] font-medium text-[var(--ink-1)]">{label}</label>
+      <div className="cld-field-input">{children}</div>
+      <style jsx>{`
+        :global(.cld-field-input input),
+        :global(.cld-field-input select),
+        :global(.cld-field-input textarea) {
+          width: 100%;
+          padding: 11px 13px;
+          border: 1px solid var(--line-strong);
+          border-radius: 8px;
+          background: #ffffff;
+          font-family: inherit;
+          font-size: 13.5px;
+          color: var(--ink-1);
+          outline: none;
+          box-sizing: border-box;
+          transition: border-color 0.12s, box-shadow 0.12s;
+        }
+        :global(.cld-field-input input:focus),
+        :global(.cld-field-input select:focus),
+        :global(.cld-field-input textarea:focus) {
+          border-color: var(--ink-1);
+          box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+        }
+        :global(.cld-field-input input::placeholder),
+        :global(.cld-field-input textarea::placeholder) {
+          color: var(--ink-3);
+        }
+      `}</style>
+    </div>
   );
 }

@@ -1,0 +1,525 @@
+/* ============================================================
+   Auth screens — ported from prototype "Hubents visual code 2"
+   Source: styles.css §"Auth screen" (lines 1588-2143)
+   Tokens come from globals.css :root (--bg-app, --ink-*, --line-*)
+   ============================================================ */
+
+/* Force the sand palette on auth screens — never go dark here, regardless of
+   .dark on <html> or any other theme cascade. The user must always see the
+   warm sand canvas + pure-white card per the prototype. */
+.auth-root,
+[data-theme="sand"] {
+  --bg-app: #FBF9F5;
+  --bg-panel: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-subtle: #F5F1EA;
+  --bg-hover: #F2EEE6;
+  --ink-1: #1A1A1A;
+  --ink-2: #4A4A4A;
+  --ink-3: #8A8A8A;
+  --ink-4: #B8B5AE;
+  --line-1: #E8E3D8;
+  --line-2: #EDE8DD;
+  --line-strong: #D9D3C4;
+}
+
+.auth-root {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--bg-app);
+  font-family: var(--font-ui);
+  color: var(--ink-1);
+}
+.auth-form-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 32px;
+  min-height: 100vh;
+}
+.auth-form-inner {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+}
+.auth-form-card {
+  background: #FFFFFF;
+  border: 1px solid var(--line-1);
+  border-radius: 12px;
+  padding: 28px 32px;
+  box-shadow: 0 1px 4px rgba(24, 20, 10, 0.06);
+  margin-top: 24px;
+}
+.auth-footer-meta {
+  margin-top: auto;
+  padding-top: 48px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-align: center;
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+.auth-footer-meta a { color: var(--ink-3); text-decoration: none; }
+.auth-footer-meta a:hover { color: var(--ink-1); }
+.auth-footer-meta .sep { color: var(--line-strong); }
+
+@media (max-width: 900px) {
+  .auth-root { grid-template-columns: 1fr; }
+  .auth-hero { display: none; }
+}
+
+/* Brand */
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-1);
+}
+.auth-brand__name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Headings */
+.auth-h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0 0 6px;
+  letter-spacing: -0.015em;
+}
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+.auth-subtitle strong { color: var(--ink-1); }
+.auth-footer-text {
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: center;
+  margin-top: 18px;
+}
+
+/* Inputs */
+.auth-root input[type="email"],
+.auth-root input[type="password"],
+.auth-root input[type="text"],
+.auth-root input[type="tel"],
+.auth-root input[type="date"],
+.auth-root input:not([type]),
+.auth-root select,
+.auth-root textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink-1);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .12s, box-shadow .12s;
+}
+.auth-root input:focus,
+.auth-root input[type="date"]:focus,
+.auth-root select:focus,
+.auth-root textarea:focus {
+  border-color: var(--ink-1);
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+}
+/* Placeholder = Ink 3 per Guidelines.html §"Texto (ink)" line 704
+   (styles.css uses --ink-4 here but Guideline takes precedence:
+   --ink-4 is reserved for disabled state, not placeholders). */
+.auth-root input::placeholder,
+.auth-root textarea::placeholder { color: var(--ink-3); }
+
+.auth-root input[type="checkbox"] {
+  width: 14px; height: 14px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  accent-color: var(--ink-1);
+  box-shadow: none;
+}
+
+/* Field wrapper */
+.auth-field { margin-bottom: 14px; }
+.auth-field__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.auth-field__label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.auth-field__hint {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 5px;
+}
+.auth-field__hint--err { color: #B54632; }
+
+/* Password input + toggle */
+.auth-pwd { position: relative; }
+.auth-pwd input { padding-right: 38px !important; }
+.auth-pwd__toggle {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--ink-3);
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.auth-pwd__toggle:hover { color: var(--ink-1); }
+
+/* Primary button */
+.auth-btn-primary {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-ink);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.auth-btn-primary:hover { background: var(--color-primary-hover); }
+.auth-btn-primary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.auth-btn-primary:disabled,
+.auth-btn-primary[aria-disabled="true"] {
+  background: #BFDBFE;
+  color: white;
+  cursor: not-allowed;
+}
+.auth-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: authSpin .8s linear infinite;
+}
+@keyframes authSpin { to { transform: rotate(360deg); } }
+
+/* Social button */
+.auth-btn-social {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-1);
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  transition: background .12s;
+}
+.auth-btn-social:hover { background: var(--bg-hover); }
+
+/* Divider with text */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-1);
+}
+.auth-divider__label {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Tabs (password / magic) */
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 3px;
+  background: var(--bg-subtle);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background .12s, color .12s;
+}
+.auth-tab--active {
+  background: var(--bg-panel);
+  color: var(--ink-1);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Role cards (Wedding planner / Proveedor) */
+.auth-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.auth-role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px;
+  border: 1.5px solid var(--line-1);
+  background: #FFFFFF;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  font-family: inherit;
+  color: var(--ink-1);
+  transition: border-color .15s, background .15s;
+}
+.auth-role-card:hover { border-color: #7BB8E8; }
+.auth-role-card--active {
+  border-color: var(--color-primary);
+  background: #EBF4FC;
+}
+.auth-role-card__icon {
+  width: 36px; height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+  margin-bottom: 2px;
+}
+.auth-role-card--active .auth-role-card__icon { color: var(--color-primary); }
+.auth-role-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.auth-role-card__desc {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: -2px;
+}
+
+/* Checkbox row */
+.auth-checkbox-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+/* Banners */
+.auth-error {
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  background: #FCE4E0;
+  border: 1px solid #F0C9C2;
+  color: #B54632;
+  font-size: 12px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.auth-info {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: rgba(232, 213, 196, 0.3);
+  border: 1px solid #E8D5C4;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.auth-info-icon { color: var(--ink-2); margin-top: 1px; flex-shrink: 0; }
+
+/* Links */
+.auth-link {
+  background: none; border: none;
+  color: var(--ink-1);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  text-decoration: underline;
+}
+.auth-link--field {
+  background: none; border: none;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+/* Success state (magic link sent) */
+.auth-success-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: #E0F5EC;
+  color: #0AB55C;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+/* Hero panel (right column) */
+.auth-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: linear-gradient(135deg, #C9A8A2 0%, #E8D5C4 60%, #F5F0E6 100%);
+  color: var(--ink-1);
+  min-height: 100vh;
+}
+.auth-hero__deco {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.auth-hero__deco--tr {
+  top: -120px; right: -80px;
+  width: 380px; height: 380px;
+  background: rgba(255, 255, 255, 0.18);
+  filter: blur(2px);
+}
+.auth-hero__deco--bl {
+  bottom: -160px; left: -60px;
+  width: 320px; height: 320px;
+  background: rgba(26, 26, 26, 0.06);
+  filter: blur(2px);
+}
+.auth-hero__deco--mid {
+  top: 30%; left: 40%;
+  width: 120px; height: 120px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.auth-hero__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+}
+.auth-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.auth-hero__title {
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 0 0 18px;
+  letter-spacing: -0.025em;
+  color: var(--ink-1);
+}
+.auth-hero__lead {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0 0 36px;
+  max-width: 440px;
+}
+.auth-hero__quote {
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  max-width: 420px;
+}
+.auth-hero__quote-text {
+  font-size: 13.5px;
+  color: var(--ink-1);
+  line-height: 1.55;
+  margin-bottom: 14px;
+  font-style: italic;
+}
+.auth-hero__quote-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.auth-hero__avatars { display: flex; }
+.auth-hero__avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  border: 2px solid white;
+}
+.auth-hero__avatar + .auth-hero__avatar { margin-left: -8px; }
+.auth-hero__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+.auth-hero__name-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+}

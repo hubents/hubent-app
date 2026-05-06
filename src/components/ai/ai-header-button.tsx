@@ -2,38 +2,24 @@
 
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { AIGlobalDrawer } from "./ai-global-drawer";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 export function AIHeaderButton() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(true)}
-            className="relative group"
-          >
-            <Sparkles className="h-5 w-5 text-[var(--ai-accent)] group-hover:text-[var(--ai-accent-hover)] transition-colors" />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Asistente IA (HubIA)</p>
-        </TooltipContent>
-      </Tooltip>
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        title="Asistente IA (HubIA)"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--ink-1)] bg-[var(--ink-1)] px-3 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
+      >
+        <Sparkles className="h-[15px] w-[15px]" />
+        <span>HubIA</span>
+      </button>
 
       <AIGlobalDrawer open={isOpen} onOpenChange={setIsOpen} />
-    </TooltipProvider>
+    </>
   );
 }

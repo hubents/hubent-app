@@ -1,155 +1,294 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* ============================================================
+   HUBENTS DESIGN TOKENS — ported from prototype "Hubents visual code 2"
+   ------------------------------------------------------------
+   Source of truth = prototype tokens (--bg-app, --ink-1, ...).
+   shadcn aliases (--background, --primary, ...) DERIVE from them
+   so existing shadcn components keep working while screens can
+   author against the prototype's mental model.
+   ============================================================ */
+
 :root {
-  /* Hubents Mint Theme - Light Mode */
-  --background: oklch(0.9810 0.0053 106.4963);
-  --foreground: oklch(0.2272 0.0025 67.7022);
-  --card: oklch(1.0000 0 0);
-  --card-foreground: oklch(0.2272 0.0025 67.7022);
-  --popover: oklch(0.9649 0.0045 78.2980);
-  --popover-foreground: oklch(0.2272 0.0025 67.7022);
-  --primary: oklch(0.0672 0 0);
-  --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.9771 0.0034 67.7834);
-  --secondary-foreground: oklch(0.2272 0.0025 67.7022);
-  --muted: oklch(1.0000 0 0);
-  --muted-foreground: oklch(0.0969 0 0);
-  --accent: oklch(0.9702 0 0);
-  --accent-foreground: oklch(0 0 0);
-  --destructive: oklch(0.5858 0.2220 17.5846);
-  --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.9000 0.0050 78.2971);
-  --input: oklch(0.9000 0.0050 78.2971);
-  --ring: oklch(0.7090 0 0);
-  --chart-1: oklch(0.1470 0.0040 49.2500);
-  --chart-2: oklch(0.2160 0.0060 56.0430);
-  --chart-3: oklch(0.2680 0.0070 34.2980);
-  --chart-4: oklch(0.3740 0.0100 67.5580);
-  --chart-5: oklch(0.4440 0.0110 73.6390);
-  --sidebar: oklch(0.9810 0.0053 106.4963);
-  --sidebar-foreground: oklch(0.2149 0.0050 67.5582);
-  --sidebar-primary: oklch(0.9771 0.0034 67.7834);
-  --sidebar-primary-foreground: oklch(0.9771 0.0034 67.7834);
-  --sidebar-accent: oklch(0.9476 0.0052 67.7620);
-  --sidebar-accent-foreground: oklch(0.2149 0.0050 67.5582);
-  --sidebar-border: oklch(0.9219 0 0);
-  --sidebar-ring: oklch(0.9771 0.0034 67.7834);
-  
-  /* Typography */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  /* ------ Canvas ------ */
+  --bg-app: #FBF9F5;
+  --bg-panel: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-subtle: #F5F1EA;
+  --bg-hover: #F2EEE6;
+
+  /* ------ Ink (4-step text scale) ------ */
+  --ink-1: #1A1A1A;
+  --ink-2: #4A4A4A;
+  --ink-3: #8A8A8A;
+  --ink-4: #B8B5AE;
+
+  /* ------ Lines ------ */
+  --line-1: #E8E3D8;
+  --line-2: #EDE8DD;
+  --line-strong: #D9D3C4;
+
+  /* ------ Action tokens (operational, day-to-day) ------ */
+  --color-primary:        #2563EB;
+  --color-primary-hover:  #1D4ED8;
+  --color-primary-active: #1E40AF;
+  --color-primary-ink:    #FFFFFF;
+
+  --color-danger:         #DC2626;
+  --color-danger-hover:   #B91C1C;
+  --color-danger-ink:     #FFFFFF;
+
+  --color-success:        #16A34A;
+  --color-success-hover:  #15803D;
+  --color-success-ink:    #FFFFFF;
+
+  --color-warning:        #F59E0B;
+  --color-warning-hover:  #D97706;
+  --color-warning-ink:    #1A1A1A;
+
+  /* ------ Brand tokens (identity moments only) ------ */
+  --color-brand:          #1A1A1A;
+  --color-brand-hover:    #2A2A2A;
+  --color-brand-ink:      #FFFFFF;
+
+  /* ------ Soft tonal (pills, badges, tinted bg) ------ */
+  --success: #00B66D;
+  --success-bg: #E0F5EC;
+  --success-ink: #007A49;
+  --warn: #F4B942;
+  --warn-bg: #FDF3DC;
+  --warn-ink: #8A6B1E;
+  --danger: #E85D4E;
+  --danger-bg: #FCE6E2;
+  --danger-ink: #B03A2E;
+  --info: #3B82F6;
+  --info-bg: #DCE8F5;
+  --info-ink: #1F4A87;
+
+  /* ------ Tag/pill palettes (event types) ------ */
+  --tag-wedding-bg: #FCE0DA;
+  --tag-wedding-ink: #B03A2E;
+  --tag-birthday-bg: #F9D4DC;
+  --tag-birthday-ink: #A83250;
+  --tag-corporate-bg: #DCE8F5;
+  --tag-corporate-ink: #1F4A87;
+  --tag-stage-bg: #F3EADB;
+  --tag-stage-ink: #7A5A2E;
+
+  /* ------ Avatar palette ------ */
+  --av-green: #00B66D;
+  --av-yellow: #F4B942;
+  --av-coral: #E85D4E;
+  --av-blue: #5B8FE8;
+  --av-purple: #9B7EDB;
+  --av-teal: #3DB6A8;
+
+  /* ------ Radii ------ */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* ------ Type scale (integer px to avoid sub-pixel blur) ------ */
+  --text-2xs: 10px;
+  --text-xs:  11px;
+  --text-sm:  12px;
+  --text-base:13px;
+  --text-md:  14px;
+  --text-lg:  15px;
+  --text-xl:  18px;
+  --text-2xl: 22px;
+  --text-3xl: 26px;
+
+  /* ------ Z-index (explicit layering) ------ */
+  --z-base:     1;
+  --z-raised:   10;
+  --z-sticky:   20;
+  --z-dropdown: 40;
+  --z-modal:    50;
+  --z-popover:  55;
+  --z-tooltip:  58;
+  --z-toast:    60;
+
+  /* ------ Shadows ------ */
+  --shadow-1: 0 1px 2px rgba(24, 20, 10, 0.04);
+  --shadow-2: 0 1px 3px rgba(24, 20, 10, 0.05), 0 1px 2px rgba(24, 20, 10, 0.03);
+  --shadow-pop: 0 10px 30px -8px rgba(24, 20, 10, 0.15), 0 2px 6px rgba(24, 20, 10, 0.05);
+  --shadow-2xs: var(--shadow-1);
+  --shadow-xs:  var(--shadow-1);
+  --shadow-sm:  var(--shadow-2);
+  --shadow:     var(--shadow-2);
+  --shadow-md:  var(--shadow-2);
+  --shadow-lg:  var(--shadow-pop);
+  --shadow-xl:  var(--shadow-pop);
+  --shadow-2xl: var(--shadow-pop);
+
+  /* ------ Typography ------ */
+  --font-ui: var(--font-dm-sans), 'Geist', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-ui);
+  --font-sans: var(--font-ui);
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  
-  /* Border Radius */
-  --radius: 0.625rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-full: 9999px;
-  
-  /* Shadows */
-  --shadow-x: 0;
-  --shadow-y: 1px;
-  --shadow-blur: 3px;
-  --shadow-spread: 0px;
-  --shadow-opacity: 0.1;
-  --shadow-color: oklch(0 0 0);
-  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
-  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
-  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
-  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
-  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
-  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
-  
-  /* Spacing - Standardized */
+
+  /* ------ Border Radius (shadcn aliases) ------ */
+  --radius: 0.75rem; /* 12px — matches --r-md */
+  --radius-sm: var(--r-xs);
+  --radius-md: var(--r-sm);
+  --radius-lg: var(--r-md);
+  --radius-xl: var(--r-lg);
+  --radius-full: var(--r-pill);
+
+  /* ------ Spacing utilities (preserved from prior config) ------ */
   --spacing: 0.25rem;
   --tracking-normal: 0em;
-  
-  /* Card & Layout Spacing (based on Hubents Mint reference) */
-  --gap-cards: 1rem;          /* 16px - gap between cards in grid */
-  --gap-cards-lg: 1.5rem;     /* 24px - larger gap for main sections */
-  --gap-section: 2rem;        /* 32px - gap between major sections */
-  --padding-card: 1.5rem;     /* 24px - internal card padding */
-  --padding-page: 1.5rem;     /* 24px - page container padding */
-  --padding-page-lg: 2rem;    /* 32px - larger screens page padding */
-  
-  /* Semantic Colors (additional) */
-  --success: oklch(0.6500 0.2000 145);
-  --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.7500 0.1800 70);
-  --warning-foreground: oklch(0.2050 0 0);
-  --info: oklch(0.6200 0.1900 260);
-  --info-foreground: oklch(1 0 0);
-  
-  /* Z-Index Scale */
-  --z-dropdown: 50;
-  --z-sticky: 100;
-  --z-modal: 200;
-  --z-popover: 300;
-  --z-tooltip: 400;
-  --z-toast: 500;
-  
-  /* Layout */
-  --sidebar-width: 260px;
-  --header-height: 64px;
-  
-  /* AI Assistant (Enti) Colors */
-  --ai-accent: oklch(0.6500 0.1800 280);
-  --ai-accent-hover: oklch(0.5800 0.2000 280);
-  --ai-accent-foreground: oklch(1 0 0);
+  --gap-cards: 1rem;
+  --gap-cards-lg: 1.5rem;
+  --gap-section: 2rem;
+  --padding-card: 1.25rem;
+  --padding-page: 1.5rem;
+  --padding-page-lg: 2rem;
+
+  /* ------ Layout ------ */
+  --sidebar-width: 232px;
+  --sidebar-rail-width: 56px;
+  --header-height: 56px;
+
+  /* ------ AI Assistant (Enti / HubIA) ------ */
+  --ai-accent: #9B7EDB;
+  --ai-accent-hover: #8A6BD0;
+  --ai-accent-foreground: #FFFFFF;
+
+  /* =====================================================
+     shadcn aliases — DERIVED from prototype tokens above.
+     Do NOT change values here; change the prototype token
+     and these inherit automatically.
+     ===================================================== */
+  --background: var(--bg-app);
+  --foreground: var(--ink-1);
+  --card: var(--bg-panel);
+  --card-foreground: var(--ink-1);
+  --popover: var(--bg-panel);
+  --popover-foreground: var(--ink-1);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-primary-ink);
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--ink-1);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--ink-3);
+  --accent: var(--bg-hover);
+  --accent-foreground: var(--ink-1);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-danger-ink);
+  --border: var(--line-1);
+  --input: var(--line-strong);
+  --ring: var(--color-primary);
+
+  --success-foreground: var(--success-ink);
+  --warning: var(--warn);
+  --warning-foreground: var(--warn-ink);
+  --info-foreground: var(--info-ink);
+
+  --chart-1: var(--av-blue);
+  --chart-2: var(--av-green);
+  --chart-3: var(--av-coral);
+  --chart-4: var(--av-yellow);
+  --chart-5: var(--av-purple);
+
+  --sidebar: var(--bg-sidebar);
+  --sidebar-foreground: var(--ink-1);
+  --sidebar-primary: var(--ink-1);
+  --sidebar-primary-foreground: var(--bg-panel);
+  --sidebar-accent: var(--bg-subtle);
+  --sidebar-accent-foreground: var(--ink-1);
+  --sidebar-border: var(--line-1);
+  --sidebar-ring: var(--color-primary);
 }
 
-.dark {
-  /* Hubents Mint Theme - Dark Mode */
-  --background: oklch(0.2138 0.0019 286.2347);
-  --foreground: oklch(0.9851 0 0);
-  --card: oklch(0.2138 0.0019 286.2347);
-  --card-foreground: oklch(0.9851 0 0);
-  --popover: oklch(0.2686 0 0);
-  --popover-foreground: oklch(0.9851 0 0);
-  --primary: oklch(0.9219 0 0);
-  --primary-foreground: oklch(0.2138 0.0019 286.2347);
-  --secondary: oklch(0.2686 0 0);
-  --secondary-foreground: oklch(0.9851 0 0);
-  --muted: oklch(0.2686 0 0);
-  --muted-foreground: oklch(0.7090 0 0);
-  --accent: oklch(0.3715 0 0);
-  --accent-foreground: oklch(0.9851 0 0);
-  --destructive: oklch(0.7040 0.1910 22.2160);
-  --destructive-foreground: oklch(0.9851 0 0);
-  --border: oklch(0.2768 0 0);
-  --input: oklch(0.3250 0 0);
-  --ring: oklch(0.5555 0 0);
-  --chart-1: oklch(0.7183 0.1555 287.7122);
-  --chart-2: oklch(0.5272 0.2573 283.3953);
-  --chart-3: oklch(0.4964 0.2661 284.1486);
-  --chart-4: oklch(0.4612 0.2518 285.6694);
-  --chart-5: oklch(0.4138 0.2026 291.7048);
-  --sidebar: oklch(0.2138 0.0019 286.2347);
-  --sidebar-foreground: oklch(0.9851 0 0);
-  --sidebar-primary: oklch(0.4764 0.2657 286.2450);
-  --sidebar-primary-foreground: oklch(0.9851 0 0);
-  --sidebar-accent: oklch(0.2686 0 0);
-  --sidebar-accent-foreground: oklch(0.9851 0 0);
-  --sidebar-border: oklch(0.2768 0 0);
-  --sidebar-ring: oklch(0.4386 0 0);
-  
-  /* Semantic Colors Dark */
-  --success: oklch(0.7000 0.1800 145);
-  --success-foreground: oklch(0.1450 0 0);
-  --warning: oklch(0.8000 0.1600 70);
-  --warning-foreground: oklch(0.1450 0 0);
-  --info: oklch(0.7000 0.1700 260);
-  --info-foreground: oklch(0.1450 0 0);
-  
-  /* AI Assistant (Enti) Colors - Dark */
-  --ai-accent: oklch(0.7000 0.1600 280);
-  --ai-accent-hover: oklch(0.7500 0.1800 280);
-  --ai-accent-foreground: oklch(1 0 0);
+/* =====================================================
+   Theme: Mono — neutral greys, no warm tint
+   ===================================================== */
+[data-theme="mono"] {
+  --bg-app: #FAFAFA;
+  --bg-panel: #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-subtle: #F4F4F3;
+  --bg-hover: #EDECEA;
+  --line-1: #E6E4E0;
+  --line-2: #EDEBE6;
+  --line-strong: #D7D4CE;
+}
+
+/* =====================================================
+   Theme: Forest — warm sand canvas + dark green accent
+   ===================================================== */
+[data-theme="forest"] {
+  --bg-app: #F4F2EC;
+  --bg-panel: #FBF9F3;
+  --bg-sidebar: #FBF9F3;
+  --bg-subtle: #EAE6DA;
+  --bg-hover: #E2DDCE;
+  --ink-1: #1C2A22;
+  --ink-2: #4A5A4F;
+  --ink-3: #7D8A83;
+  --ink-4: #B2B8B2;
+  --line-1: #DCD6C6;
+  --line-2: #E4DFD0;
+  --line-strong: #C4BCA8;
+  --color-brand: #1C3A2A;
+  --color-brand-hover: #244F38;
+}
+
+/* =====================================================
+   Theme: Dark — applies on .dark (Tailwind/next-themes)
+   AND [data-theme="dark"] (prototype attribute).
+   Tag palettes overridden so pills stay legible.
+   ===================================================== */
+.dark,
+[data-theme="dark"] {
+  --bg-app: #0F1012;
+  --bg-panel: #18191C;
+  --bg-sidebar: #141518;
+  --bg-subtle: #1F2125;
+  --bg-hover: #26282D;
+  --ink-1: #F5F4F1;
+  --ink-2: #C9C6BF;
+  --ink-3: #8A8780;
+  --ink-4: #5A5852;
+  --line-1: #2A2C31;
+  --line-2: #232529;
+  --line-strong: #3A3C42;
+
+  --color-brand: #F5F4F1;
+  --color-brand-hover: #FFFFFF;
+  --color-brand-ink: #0F1012;
+
+  /* Soft tonal — dim backgrounds, lifted ink */
+  --success-bg: #0F2A1F;
+  --success-ink: #6BD4A1;
+  --warn-bg: #2E230F;
+  --warn-ink: #E5B560;
+  --danger-bg: #2E1512;
+  --danger-ink: #F0A89C;
+  --info-bg: #16243A;
+  --info-ink: #8FB0E8;
+
+  /* Tag palettes */
+  --tag-wedding-bg: #3A1F1A;
+  --tag-wedding-ink: #F0A89C;
+  --tag-birthday-bg: #321A22;
+  --tag-birthday-ink: #F0A0B4;
+  --tag-corporate-bg: #1C2840;
+  --tag-corporate-ink: #A0B8EB;
+  --tag-stage-bg: #2A2217;
+  --tag-stage-ink: #D8BC89;
+
+  /* Shadows — deeper for dark */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 10px 30px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @theme inline {

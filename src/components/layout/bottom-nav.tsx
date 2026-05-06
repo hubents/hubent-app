@@ -4,18 +4,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEvent } from "@/contexts/event-context";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiDashboardLine,
-  RiCalendarEventLine,
-  RiFileListLine,
-  RiGroupLine,
-  RiMailSendLine,
-  RiMoreLine,
-  RiStore2Line,
-  RiMoneyDollarCircleLine,
-  RiSettings4Line,
-  RiContactsBookLine,
-} from "@remixicon/react";
+  DashboardSquare03Icon,
+  Calendar03Icon,
+  CheckmarkSquare02Icon,
+  UserGroupIcon,
+  MailSend01Icon,
+  MoreHorizontalIcon,
+  Agreement01Icon,
+  Wallet01Icon,
+  Settings01Icon,
+  Contact01Icon,
+} from "@hugeicons/core-free-icons";
+
+const RiDashboardLine = hgIcon(DashboardSquare03Icon);
+const RiCalendarEventLine = hgIcon(Calendar03Icon);
+const RiFileListLine = hgIcon(CheckmarkSquare02Icon);
+const RiGroupLine = hgIcon(UserGroupIcon);
+const RiMailSendLine = hgIcon(MailSend01Icon);
+const RiMoreLine = hgIcon(MoreHorizontalIcon);
+const RiStore2Line = hgIcon(Agreement01Icon);
+const RiMoneyDollarCircleLine = hgIcon(Wallet01Icon);
+const RiSettings4Line = hgIcon(Settings01Icon);
+const RiContactsBookLine = hgIcon(Contact01Icon);
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -1,40 +1,31 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { Mail } from "lucide-react";
+import { AuthShell } from "../_components/auth-shell";
 
 export default function VerifyPage() {
   return (
-    <Card className="border-0 shadow-xl">
-      <CardHeader className="text-center space-y-4">
-        <div className="flex justify-center">
-          <div className="p-4 rounded-full bg-[var(--primary)]/10">
-            <Mail className="h-8 w-8 text-[var(--primary)]" />
-          </div>
-        </div>
-        <CardTitle className="text-2xl">Revisa tu email</CardTitle>
-        <CardDescription>
-          Te enviamos un link de acceso a tu correo electrónico.
-          <br />
-          Haz clic en el link para iniciar sesión.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 rounded-lg bg-[var(--muted)] text-sm text-center">
-          <p className="text-[var(--muted-foreground)]">
-            El link expira en <strong>24 horas</strong>.
-            <br />
-            Si no lo ves, revisa tu carpeta de spam.
-          </p>
-        </div>
+    <AuthShell>
+      <div className="auth-success-icon"><Mail size={22} /></div>
+      <h2 className="auth-h2">Revisa tu email</h2>
+      <p className="auth-subtitle">
+        Te enviamos un link de acceso a tu correo electrónico. Haz clic en el link
+        para iniciar sesión. Caduca en 24 horas.
+      </p>
 
-        <Link href="/auth/login">
-          <Button variant="outline" className="w-full gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Volver al login
-          </Button>
-        </Link>
-      </CardContent>
-    </Card>
+      <div className="auth-info">
+        <span>
+          Si no lo ves, revisa tu carpeta de spam. El email puede tardar hasta un
+          minuto en llegar.
+        </span>
+      </div>
+
+      <Link
+        href="/auth/login"
+        className="auth-btn-social"
+        style={{ textDecoration: "none" }}
+      >
+        Volver al login
+      </Link>
+    </AuthShell>
   );
 }

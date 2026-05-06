@@ -1,12 +1,24 @@
 "use client";
 
-import { RiSearchLine, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import {
+  Moon02Icon,
+  Sun01Icon,
+  Logout01Icon,
+  Settings01Icon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
+
+const Moon = hgIcon(Moon02Icon);
+const Sun = hgIcon(Sun01Icon);
+const LogOut = hgIcon(Logout01Icon);
+const Settings = hgIcon(Settings01Icon);
+const User = hgIcon(UserCircleIcon);
 import { AIHeaderButton } from "@/components/ai/ai-header-button";
 import { CalendarHeaderButton } from "@/components/calendar/calendar-header-button";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,20 +63,33 @@ export function Header() {
   const userImage = session?.user?.image;
   const userInitials = getInitials(session?.user?.name);
 
+  // Greeting based on time of day + first name from session
+  const hour = new Date().getHours();
+  const greetingPrefix =
+    hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
+  const firstName =
+    session?.user?.name?.split(" ").filter(Boolean)[0] || "";
+  const greeting = firstName ? `${greetingPrefix}, ${firstName}` : greetingPrefix;
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-6">
-      {/* Search */}
-      <div className="relative w-96">
-        <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
-        <Input
-          type="search"
-          placeholder="Buscar eventos, tareas, proveedores..."
-          className="pl-10"
-        />
-      </div>
+    <header
+      className="sticky top-0 z-30 flex items-center justify-between"
+      style={{
+        padding: "22px 34px 14px",
+        gap: "14px",
+        background: "var(--bg-app)",
+      }}
+    >
+      {/* Greeting (replaces search) */}
+      <h1
+        className="text-[22px] font-semibold text-[var(--ink-1)] truncate m-0"
+        style={{ letterSpacing: "-0.015em" }}
+      >
+        {greeting}
+      </h1>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         {/* Calendar */}
         <CalendarHeaderButton />
 
@@ -74,9 +99,9 @@ export function Header() {
         {/* Theme toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
           {isDark ? (
-            <RiSunLine className="h-5 w-5" />
+            <Sun className="h-5 w-5" />
           ) : (
-            <RiMoonLine className="h-5 w-5" />
+            <Moon className="h-5 w-5" />
           )}
         </Button>
 
@@ -103,16 +128,16 @@ export function Header() {
             <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
-              <RiUserLine className="mr-2 h-4 w-4" />
+              <User className="mr-2 h-4 w-4" />
               Perfil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
-              <RiSettings4Line className="mr-2 h-4 w-4" />
+              <Settings className="mr-2 h-4 w-4" />
               Configuración
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-              <RiLogoutBoxLine className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4" />
               Cerrar Sesión
             </DropdownMenuItem>
           </DropdownMenuContent>

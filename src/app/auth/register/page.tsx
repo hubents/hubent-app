@@ -1,25 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, ArrowRight, ArrowLeft, Calendar, Store } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, ArrowRight, CalendarRange, Eye, EyeOff, Loader2, Store } from "lucide-react";
+import { AuthShell, GoogleIcon } from "../_components/auth-shell";
 
 type OrgType = "tenant" | "provider";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [orgType, setOrgType] = useState<OrgType>("tenant");
+  const [showPassword, setShowPassword] = useState(false);
+  const [terms, setTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [orgType, setOrgType] = useState<OrgType>("tenant");
 
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
@@ -27,49 +25,24 @@ export default function RegisterPage() {
     companyName: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError("");
-  };
+  const validEmail = /^\S+@\S+\.\S+$/.test(form.email);
+  const validPwd = form.password.length >= 8;
+  const pwdMatch = form.password.length > 0 && form.password === form.confirmPassword;
+  const step1Valid =
+    form.name.trim().length >= 2 && validEmail && validPwd && pwdMatch && terms;
+  const step2Valid = form.companyName.trim().length >= 2;
 
-  const validateStep1 = () => {
-    if (!formData.name.trim()) {
-      setError("El nombre es requerido");
-      return false;
-    }
-    if (!formData.email.trim()) {
-      setError("El email es requerido");
-      return false;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError("Email inválido");
-      return false;
-    }
-    if (formData.password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
-      return false;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return false;
-    }
-    return true;
-  };
+  const isProvider = orgType === "provider";
 
-  const handleNextStep = () => {
-    if (validateStep1()) {
-      setStep(2);
-    }
+  const handleContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!step1Valid) return;
+    setStep(2);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.companyName.trim()) {
-      setError("El nombre de la empresa es requerido");
-      return;
-    }
-
+    if (!step2Valid || loading) return;
     setLoading(true);
     setError("");
 
@@ -77,19 +50,15 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, orgType }),
+        body: JSON.stringify({ ...form, orgType }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Error al registrar");
-      }
+      if (!res.ok) throw new Error(data.error || "Error al registrar");
 
       const { signIn } = await import("next-auth/react");
       const loginResult = await signIn("credentials", {
-        email: formData.email,
-        password: formData.password,
+        email: form.email.toLowerCase(),
+        password: form.password,
         redirect: false,
       });
 
@@ -107,256 +76,244 @@ export default function RegisterPage() {
 
   const handleGoogleSignUp = async () => {
     const { signIn } = await import("next-auth/react");
-    signIn("google", {
-      callbackUrl: `/onboarding?welcome=true&orgType=${orgType}`,
-    });
+    signIn("google", { callbackUrl: `/onboarding?welcome=true&orgType=${orgType}` });
   };
 
-  const isProvider = orgType === "provider";
+  if (step === 2) {
+    return (
+      <AuthShell>
+        <form onSubmit={handleSubmit}>
+          <h2 className="auth-h2">Cuéntanos sobre tu empresa</h2>
+          <p className="auth-subtitle">Casi listo. Solo necesitamos un dato más.</p>
+
+          <div className="auth-field">
+            <div className="auth-field__label-row">
+              <label className="auth-field__label" htmlFor="companyName">
+                {isProvider ? "Nombre del negocio" : "Nombre de tu empresa"}
+              </label>
+            </div>
+            <input
+              id="companyName"
+              type="text"
+              value={form.companyName}
+              onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+              placeholder={isProvider ? "Mi empresa de servicios" : "Mi empresa de eventos"}
+              autoFocus
+              required
+            />
+            <div className="auth-field__hint">
+              Este será el nombre de tu espacio de trabajo
+            </div>
+          </div>
+
+          <div className="auth-info">
+            <span>
+              {isProvider
+                ? "Plan gratuito · Perfil público en Partners · Sin tarjeta de crédito requerida"
+                : "14 días de prueba gratis · Acceso completo · Sin tarjeta de crédito"}
+            </span>
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="auth-btn-social"
+              style={{ width: "auto", marginBottom: 0, padding: "12px 14px" }}
+            >
+              <ArrowLeft size={14} />
+              Atrás
+            </button>
+            <button
+              type="submit"
+              disabled={!step2Valid || loading}
+              aria-disabled={!step2Valid || loading}
+              className="auth-btn-primary"
+              style={{ flex: 1, marginTop: 0 }}
+            >
+              {loading && (
+                <Loader2
+                  size={14}
+                  style={{ animation: "authSpin .8s linear infinite" }}
+                />
+              )}
+              {loading
+                ? "Creando cuenta..."
+                : isProvider
+                  ? "Crear cuenta gratis"
+                  : "Comenzar prueba gratis"}
+            </button>
+          </div>
+
+          <div className="auth-footer-text">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/auth/login" className="auth-link">
+              Iniciar sesión
+            </Link>
+          </div>
+        </form>
+      </AuthShell>
+    );
+  }
 
   return (
-    <Card className="border-0 shadow-xl">
-      <CardHeader className="text-center space-y-2 pb-4">
-        <CardTitle className="text-2xl">Crear cuenta</CardTitle>
-        <CardDescription>
-          {step === 1
-            ? "Ingresa tus datos para comenzar"
-            : "Cuéntanos sobre tu empresa"}
-        </CardDescription>
+    <AuthShell>
+      <form onSubmit={handleContinue}>
+        <h2 className="auth-h2">Crear cuenta</h2>
+        <p className="auth-subtitle">Ingresa tus datos para comenzar</p>
 
-        {/* Progress indicator */}
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <div className={`w-8 h-1 rounded-full transition-colors ${step >= 1 ? "bg-[var(--primary)]" : "bg-[var(--muted)]"}`} />
-          <div className={`w-8 h-1 rounded-full transition-colors ${step >= 2 ? "bg-[var(--primary)]" : "bg-[var(--muted)]"}`} />
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <span className="auth-field__label">Tipo de cuenta</span>
+          </div>
+          <div className="auth-roles">
+            <button
+              type="button"
+              onClick={() => setOrgType("tenant")}
+              className={`auth-role-card ${orgType === "tenant" ? "auth-role-card--active" : ""}`}
+            >
+              <div className="auth-role-card__icon"><CalendarRange size={20} /></div>
+              <div className="auth-role-card__title">Wedding planner</div>
+              <div className="auth-role-card__desc">Organizo eventos</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOrgType("provider")}
+              className={`auth-role-card ${orgType === "provider" ? "auth-role-card--active" : ""}`}
+            >
+              <div className="auth-role-card__icon"><Store size={20} /></div>
+              <div className="auth-role-card__title">Proveedor</div>
+              <div className="auth-role-card__desc">Ofrezco servicios</div>
+            </button>
+          </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-            {error}
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="name">Nombre completo</label>
           </div>
-        )}
+          <input
+            id="name"
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Tu nombre"
+            autoComplete="name"
+            required
+          />
+        </div>
 
-        {step === 1 ? (
-          <div className="space-y-4">
-            {/* Org type selector */}
-            <div className="space-y-2">
-              <Label>Tipo de cuenta</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setOrgType("tenant")}
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm transition-all",
-                    orgType === "tenant"
-                      ? "border-[var(--primary)] bg-[var(--primary)]/5 text-[var(--primary)]"
-                      : "border-[var(--border)] hover:border-[var(--primary)]/40"
-                  )}
-                >
-                  <Calendar className="h-5 w-5" />
-                  <span className="font-medium">Planificador</span>
-                  <span className="text-[10px] text-[var(--muted-foreground)] leading-tight">Organizo eventos</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrgType("provider")}
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm transition-all",
-                    orgType === "provider"
-                      ? "border-[var(--primary)] bg-[var(--primary)]/5 text-[var(--primary)]"
-                      : "border-[var(--border)] hover:border-[var(--primary)]/40"
-                  )}
-                >
-                  <Store className="h-5 w-5" />
-                  <span className="font-medium">Proveedor</span>
-                  <span className="text-[10px] text-[var(--muted-foreground)] leading-tight">Ofrezco servicios</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo</Label>
-              <Input
-                id="name"
-                name="name"
-                placeholder="Tu nombre"
-                value={formData.name}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Mínimo 8 caracteres"
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="Repite tu contraseña"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-              />
-            </div>
-
-            <Button
-              type="button"
-              className="w-full gap-2"
-              onClick={handleNextStep}
-            >
-              Continuar
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-[var(--border)]" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[var(--card)] px-2 text-[var(--muted-foreground)]">
-                  O regístrate con
-                </span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full gap-2"
-              onClick={handleGoogleSignUp}
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Google
-            </Button>
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="email">Email</label>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Nombre de tu empresa</Label>
-              <Input
-                id="companyName"
-                name="companyName"
-                placeholder={isProvider ? "Mi Empresa de Servicios" : "Mi Empresa de Eventos"}
-                value={formData.companyName}
-                onChange={handleChange}
-              />
-              <p className="text-xs text-[var(--muted-foreground)]">
-                Este será el nombre de tu espacio de trabajo
-              </p>
-            </div>
+          <input
+            id="email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="hola@empresa.com"
+            autoComplete="email"
+            required
+          />
+        </div>
 
-            {/* Plan info — adapts to org type */}
-            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
-              <div className="flex items-center gap-2 text-green-600 font-medium">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>{isProvider ? "Plan gratuito" : "14 días de prueba gratis"}</span>
-              </div>
-              <ul className="text-sm text-[var(--muted-foreground)] space-y-1 ml-7">
-                {isProvider ? (
-                  <>
-                    <li>• Perfil público en Partners</li>
-                    <li>• Gestión de eventos y tareas</li>
-                    <li>• Sin tarjeta de crédito requerida</li>
-                  </>
-                ) : (
-                  <>
-                    <li>• Acceso completo a todas las funciones</li>
-                    <li>• Sin tarjeta de crédito requerida</li>
-                    <li>• Cancela cuando quieras</li>
-                  </>
-                )}
-              </ul>
-            </div>
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="password">Contraseña</label>
+          </div>
+          <div className="auth-pwd">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Crea una contraseña segura"
+              autoComplete="new-password"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="auth-pwd__toggle"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          <div className="auth-field__hint">Mínimo 8 caracteres</div>
+        </div>
 
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep(1)}
-                className="gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Atrás
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 gap-2"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creando cuenta...
-                  </>
-                ) : (
-                  <>
-                    {isProvider ? "Crear cuenta gratis" : "Comenzar prueba gratis"}
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="confirmPassword">
+              Confirmar contraseña
+            </label>
+          </div>
+          <input
+            id="confirmPassword"
+            type={showPassword ? "text" : "password"}
+            value={form.confirmPassword}
+            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+            placeholder="Repite tu contraseña"
+            autoComplete="new-password"
+            required
+          />
+          {form.confirmPassword.length > 0 && !pwdMatch && (
+            <div className="auth-field__hint auth-field__hint--err">
+              Las contraseñas no coinciden
             </div>
-          </form>
-        )}
+          )}
+        </div>
 
-        <p className="text-center text-sm text-[var(--muted-foreground)] pt-2">
+        <label className="auth-checkbox-row">
+          <input
+            type="checkbox"
+            checked={terms}
+            onChange={(e) => setTerms(e.target.checked)}
+          />
+          <span>
+            Acepto los{" "}
+            <Link href="/terms" className="auth-link">Términos del servicio</Link>{" "}
+            y la{" "}
+            <Link href="/privacy" className="auth-link">Política de privacidad</Link>
+            .
+          </span>
+        </label>
+
+        {error && <div className="auth-error">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={!step1Valid}
+          aria-disabled={!step1Valid}
+          className="auth-btn-primary"
+        >
+          Continuar
+          <ArrowRight size={14} />
+        </button>
+
+        <div className="auth-divider">
+          <span className="auth-divider__label">o regístrate con</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleSignUp}
+          className="auth-btn-social"
+        >
+          <GoogleIcon /> Registrarme con Google
+        </button>
+
+        <div className="auth-footer-text">
           ¿Ya tienes cuenta?{" "}
-          <Link href="/auth/login" className="text-[var(--primary)] hover:underline font-medium">
+          <Link href="/auth/login" className="auth-link">
             Iniciar sesión
           </Link>
-        </p>
-
-        <p className="text-center text-xs text-[var(--muted-foreground)]">
-          Al registrarte, aceptas nuestros{" "}
-          <Link href="/terms" className="text-[var(--primary)] hover:underline">
-            Términos
-          </Link>{" "}
-          y{" "}
-          <Link href="/privacy" className="text-[var(--primary)] hover:underline">
-            Privacidad
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+        </div>
+      </form>
+    </AuthShell>
   );
 }

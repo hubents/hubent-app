@@ -89,6 +89,9 @@ export const GET = withMonitoring(async (_request: NextRequest) => {
       date: e.date,
       status: e.status,
       guestCount: e.guestCount,
+      location: e.location,
+      budget: e.budget !== null && e.budget !== undefined ? Number(e.budget) : null,
+      type: e.type,
     })),
     pendingTasksList: pendingTasksList.map((t) => ({
       id: t.id,

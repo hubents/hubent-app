@@ -5,23 +5,40 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEvent } from "@/contexts/event-context";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiDashboardLine,
-  RiFileListLine,
-  RiGroupLine,
-  RiMailSendLine,
-  RiStore2Line,
-  RiMoneyDollarCircleLine,
-  RiSettings4Line,
-  RiArrowLeftLine,
-  RiCalendarEventLine,
-  RiCalendarLine,
-  RiLockLine,
-  RiArrowDownSLine,
-  RiFileTextLine,
-  RiFileList2Line,
-  RiListOrdered2,
-} from "@remixicon/react";
+  DashboardSquare03Icon,
+  CheckmarkSquare02Icon,
+  UserGroupIcon,
+  MailSend01Icon,
+  Agreement01Icon,
+  Wallet01Icon,
+  Settings01Icon,
+  ArrowLeft01Icon,
+  Calendar03Icon,
+  Calendar01Icon,
+  LockedIcon,
+  ArrowDown01Icon,
+  Note01Icon,
+  Invoice01Icon,
+  ListViewIcon,
+} from "@hugeicons/core-free-icons";
+
+const RiDashboardLine = hgIcon(DashboardSquare03Icon);
+const RiFileListLine = hgIcon(CheckmarkSquare02Icon);
+const RiGroupLine = hgIcon(UserGroupIcon);
+const RiMailSendLine = hgIcon(MailSend01Icon);
+const RiStore2Line = hgIcon(Agreement01Icon);
+const RiMoneyDollarCircleLine = hgIcon(Wallet01Icon);
+const RiSettings4Line = hgIcon(Settings01Icon);
+const RiArrowLeftLine = hgIcon(ArrowLeft01Icon);
+const RiCalendarEventLine = hgIcon(Calendar03Icon);
+const RiCalendarLine = hgIcon(Calendar01Icon);
+const RiLockLine = hgIcon(LockedIcon);
+const RiArrowDownSLine = hgIcon(ArrowDown01Icon);
+const RiFileTextLine = hgIcon(Note01Icon);
+const RiFileList2Line = hgIcon(Invoice01Icon);
+const RiListOrdered2 = hgIcon(ListViewIcon);
 import { Badge } from "@/components/ui/badge";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 
@@ -191,8 +208,8 @@ export function EventSidebar() {
                             className={cn(
                               "flex items-center gap-2 rounded-[var(--radius)] px-2 py-1.5 text-sm transition-colors",
                               isSubActive
-                                ? "bg-[var(--primary)] text-white"
-                                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                                ? "bg-[var(--bg-subtle)] text-[var(--ink-1)] font-semibold"
+                                : "text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
                             )}
                           >
                             <subItem.icon className="h-3.5 w-3.5" />
@@ -217,8 +234,8 @@ export function EventSidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-[var(--bg-subtle)] text-[var(--ink-1)] font-semibold"
+                    : "text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
                 )}
               >
                 <item.icon className="h-4 w-4" />

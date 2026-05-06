@@ -1,6 +1,21 @@
 "use client";
 
-import { RiNotification3Line, RiMoonLine, RiSunLine, RiLogoutBoxLine, RiSettings4Line, RiUserLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import {
+  Notification01Icon,
+  Moon02Icon,
+  Sun01Icon,
+  Logout01Icon,
+  Settings01Icon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
+
+const RiNotification3Line = hgIcon(Notification01Icon);
+const RiMoonLine = hgIcon(Moon02Icon);
+const RiSunLine = hgIcon(Sun01Icon);
+const RiLogoutBoxLine = hgIcon(Logout01Icon);
+const RiSettings4Line = hgIcon(Settings01Icon);
+const RiUserLine = hgIcon(UserCircleIcon);
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {

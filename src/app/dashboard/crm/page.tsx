@@ -1,266 +1,514 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { RiAddLine } from "@remixicon/react";
+import "./funnel.css";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useUserSession } from "@/hooks/use-user-session";
 import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
-import { LeadKanban } from "@/components/crm/lead-kanban";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
-import { LeadDetailDrawer } from "@/components/crm/lead-detail-drawer";
 import { LeadDrawer } from "@/components/crm/lead-drawer";
 import { StageConfigDrawer } from "@/components/crm/stage-config-drawer";
-import { CRMStats } from "@/components/crm/crm-stats";
-import { useState } from "react";
-import { useUserSession } from "@/hooks/use-user-session";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
+import { hgIcon } from "@/components/ui/hg-icon";
+import {
+  Search01Icon,
+  FilterIcon,
+  ArrowDown01Icon,
+  Settings01Icon,
+  PlusSignIcon,
+  Tick01Icon,
+  Calendar03Icon,
+} from "@hugeicons/core-free-icons";
 
-// Types are inferred from the hook and components
+const IcoSearch = hgIcon(Search01Icon);
+const IcoFilter = hgIcon(FilterIcon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
+const IcoSettings = hgIcon(Settings01Icon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoCheck = hgIcon(Tick01Icon);
+const IcoCalendar = hgIcon(Calendar03Icon);
 
-const fallbackStages = [
-  {
-    id: "lead",
-    name: "Leads",
-    color: "bg-blue-500",
-    contacts: [
-      {
-        id: "1",
-        name: "María González",
-        email: "maria@email.com",
-        phone: "+34 612 345 678",
-        eventDate: "2025-06-15",
-        budget: 30000,
-        source: "Instagram",
-      },
-      {
-        id: "2",
-        name: "Carlos Ruiz",
-        email: "carlos@email.com",
-        phone: "+34 623 456 789",
-        eventDate: "2025-08-20",
-        budget: 45000,
-        source: "Referido",
-      },
-    ],
-  },
-  {
-    id: "contacted",
-    name: "Contactados",
-    color: "bg-yellow-500",
-    contacts: [
-      {
-        id: "3",
-        name: "Ana Martínez",
-        email: "ana@email.com",
-        phone: "+34 634 567 890",
-        eventDate: "2025-05-10",
-        budget: 25000,
-        source: "Web",
-      },
-    ],
-  },
-  {
-    id: "proposal",
-    name: "Propuesta Enviada",
-    color: "bg-purple-500",
-    contacts: [
-      {
-        id: "4",
-        name: "Laura Fernández",
-        email: "laura@email.com",
-        phone: "+34 645 678 901",
-        eventDate: "2025-04-22",
-        budget: 35000,
-        source: "Feria Bodas",
-      },
-      {
-        id: "5",
-        name: "Pedro Sánchez",
-        email: "pedro@email.com",
-        phone: "+34 656 789 012",
-        eventDate: "2025-07-18",
-        budget: 28000,
-        source: "Google",
-      },
-    ],
-  },
-  {
-    id: "negotiation",
-    name: "Negociación",
-    color: "bg-orange-500",
-    contacts: [
-      {
-        id: "6",
-        name: "Elena Torres",
-        email: "elena@email.com",
-        phone: "+34 667 890 123",
-        eventDate: "2025-03-28",
-        budget: 40000,
-        source: "Referido",
-      },
-    ],
-  },
-  {
-    id: "won",
-    name: "Ganados",
-    color: "bg-green-500",
-    contacts: [
-      {
-        id: "7",
-        name: "Diego López",
-        email: "diego@email.com",
-        phone: "+34 678 901 234",
-        eventDate: "2025-03-15",
-        budget: 32000,
-        source: "Instagram",
-      },
-    ],
-  },
-];
+const fmtMoney = (n: number) =>
+  "€" +
+  Number(n).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtMoneyShort = (n: number) =>
+  n >= 1000 ? "€" + (n / 1000).toFixed(0) + "K" : fmtMoney(n);
 
+// ============================================================
+// KPI cell (idéntico al del dashboard, copiado para encapsular)
+// ============================================================
+function Kpi({ label, value, sub, delta, deltaTone = "zero" }: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  delta?: string;
+  deltaTone?: "pos" | "neg" | "zero";
+}) {
+  const deltaColor =
+    deltaTone === "pos"
+      ? "var(--success-ink)"
+      : deltaTone === "neg"
+        ? "var(--danger-ink)"
+        : "var(--ink-3)";
+  return (
+    <div className="px-5 py-4 first:pl-5 not-first:border-l border-[var(--line-1)]">
+      <div className="text-[12.5px] text-[var(--ink-3)] font-medium mb-1.5">{label}</div>
+      <div className="flex items-baseline gap-2.5">
+        <span
+          className="text-[26px] font-semibold text-[var(--ink-1)]"
+          style={{ letterSpacing: "-0.02em" }}
+        >
+          {value}
+        </span>
+        {delta && <span style={{ color: deltaColor }} className="text-[12px] font-medium">{delta}</span>}
+      </div>
+      {sub && <div className="text-[12px] text-[var(--ink-3)]">{sub}</div>}
+    </div>
+  );
+}
+
+// ============================================================
+// Sort dropdown
+// ============================================================
+type SortKey = "default" | "name-az" | "name-za" | "value-desc" | "value-asc" | "date-asc" | "date-desc";
+const SORT_LABELS: Record<SortKey, string> = {
+  "default": "Ordenar por",
+  "name-az": "A → Z",
+  "name-za": "Z → A",
+  "value-desc": "Mayor presupuesto",
+  "value-asc": "Menor presupuesto",
+  "date-asc": "Fecha más cercana",
+  "date-desc": "Fecha más lejana",
+};
+
+function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [open]);
+
+  const groups: { group: string; items: { v: SortKey; l: string }[] }[] = [
+    { group: "Nombre", items: [{ v: "name-az", l: "A → Z" }, { v: "name-za", l: "Z → A" }] },
+    { group: "Presupuesto", items: [{ v: "value-desc", l: "Mayor a menor" }, { v: "value-asc", l: "Menor a mayor" }] },
+    { group: "Fecha", items: [{ v: "date-asc", l: "Fecha más cercana" }, { v: "date-desc", l: "Fecha más lejana" }] },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+      >
+        <IcoFilter className="h-[14px] w-[14px]" />
+        <span>{SORT_LABELS[value]}</span>
+        <IcoChevDown className="h-3 w-3 text-[var(--ink-3)]" />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-[calc(100%+4px)] min-w-[240px] rounded-[12px] p-1.5 z-50"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-1)",
+            boxShadow: "0 8px 28px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)",
+          }}
+        >
+          {groups.map((g, gi) => (
+            <div key={g.group} style={{ paddingTop: gi === 0 ? 0 : 6 }}>
+              <div
+                className="text-[10px] font-semibold uppercase text-[var(--ink-3)] px-2.5 pt-1.5 pb-1"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                {g.group}
+              </div>
+              {g.items.map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => { onChange(o.v); setOpen(false); }}
+                  className="w-full text-left px-2.5 py-2 text-[13px] text-[var(--ink-1)] cursor-pointer rounded-[6px] flex items-center border-none transition-colors"
+                  style={{ background: value === o.v ? "var(--bg-subtle)" : "transparent" }}
+                >
+                  <span className="flex-1">{o.l}</span>
+                  {value === o.v && <IcoCheck className="h-3 w-3" />}
+                </button>
+              ))}
+            </div>
+          ))}
+          {value !== "default" && (
+            <button
+              onClick={() => { onChange("default"); setOpen(false); }}
+              className="w-full text-left px-2.5 py-2 mt-1.5 text-[12px] text-[var(--ink-3)] cursor-pointer bg-transparent border-none"
+              style={{ borderTop: "1px solid var(--line-1)" }}
+            >
+              Quitar ordenación
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Main page
+// ============================================================
 export default function CRMPage() {
   return (
     <EventScopedGuard>
-      <CRMPageContent />
+      <CRMContent />
     </EventScopedGuard>
   );
 }
 
-export function CRMPageContent() {
-  const { stages, loading, error, moveLead, deleteLead, refetch } = useLeadsKanban();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
-  const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
-  const [createStageId, setCreateStageId] = useState<number | undefined>(undefined);
-
-  // Use API data if available, otherwise show empty state
-  const displayStages = stages.length > 0 ? stages : [];
-
-  const handleLeadClick = (lead: Lead) => {
-    setSelectedLeadId(lead.id);
-    setIsDrawerOpen(true);
-  };
-
-  const handleEditLead = (lead: Lead) => {
-    setSelectedLeadId(lead.id);
-    setIsDrawerOpen(true);
-  };
-
-  const handleAddLead = (stageId: number) => {
-    setCreateStageId(stageId);
-    setIsCreateDialogOpen(true);
-  };
-
-  const handleAddStage = () => {
-    setSelectedStage(null);
-    setIsStageDialogOpen(true);
-  };
-
-  const handleEditStage = (stage: { id: number; name: string; color: string | null; sortOrder: number | null; isDefault?: boolean | null; isWon: boolean | null; isLost: boolean | null }) => {
-    // Convert StageConfig to Stage for the dialog
-    setSelectedStage(stage as Stage);
-    setIsStageDialogOpen(true);
-  };
-
+function CRMContent() {
+  const { stages, loading, moveLead, refetch } = useLeadsKanban();
   const { can } = useUserSession();
-  const canManageCRM = can("crm:manage");
+  const canManage = can("crm:manage");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("default");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createStageId, setCreateStageId] = useState<number | undefined>(undefined);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const [stageDialogOpen, setStageDialogOpen] = useState(false);
+  const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+
+  // Aggregate KPIs
+  const allLeads = useMemo(() => stages.flatMap((s) => s.leads), [stages]);
+  const wonStage = stages.find((s) => s.isWon);
+  const lostStage = stages.find((s) => s.isLost);
+  const wonLeads = wonStage?.leads || [];
+  const lostLeads = lostStage?.leads || [];
+  const activeLeads = allLeads.filter((l) => l.stageId !== wonStage?.id && l.stageId !== lostStage?.id);
+
+  const sumValue = (leads: Lead[]) =>
+    leads.reduce((s, l) => s + (l.value ? parseFloat(l.value) : 0), 0);
+  const pipelineTotal = sumValue(allLeads);
+  const wonValue = sumValue(wonLeads);
+  const closed = wonLeads.length + lostLeads.length;
+  const convRate = closed > 0 ? Math.round((wonLeads.length / closed) * 100) : 0;
+
+  // Filter + sort leads inside each stage
+  const filteredStages = useMemo(() => {
+    return stages.map((stage) => {
+      let leads = stage.leads;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        leads = leads.filter(
+          (l) =>
+            l.title.toLowerCase().includes(q) ||
+            l.contactName?.toLowerCase().includes(q),
+        );
+      }
+      const numVal = (l: Lead) => (l.value ? parseFloat(l.value) : 0);
+      const dateVal = (l: Lead) => l.expectedCloseDate ? new Date(l.expectedCloseDate).getTime() : Number.MAX_SAFE_INTEGER;
+      switch (sortBy) {
+        case "name-az": leads = [...leads].sort((a, b) => a.title.localeCompare(b.title)); break;
+        case "name-za": leads = [...leads].sort((a, b) => b.title.localeCompare(a.title)); break;
+        case "value-desc": leads = [...leads].sort((a, b) => numVal(b) - numVal(a)); break;
+        case "value-asc": leads = [...leads].sort((a, b) => numVal(a) - numVal(b)); break;
+        case "date-asc": leads = [...leads].sort((a, b) => dateVal(a) - dateVal(b)); break;
+        case "date-desc": leads = [...leads].sort((a, b) => dateVal(b) - dateVal(a)); break;
+      }
+      return { ...stage, leads };
+    });
+  }, [stages, searchQuery, sortBy]);
+
+  const totalAll = useMemo(
+    () => filteredStages.reduce((sum, s) => sum + s.leads.length, 0),
+    [filteredStages],
+  );
+
+  const handleDrop = (stageId: number) => {
+    if (!dragId) return;
+    moveLead(dragId, stageId);
+    setDragId(null);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">CRM - Pipeline de Ventas</h1>
-          <p className="text-[var(--muted-foreground)]">
-            Gestiona tus leads y clientes potenciales
-          </p>
+    <div className="flex flex-col gap-4">
+      {/* KPI row */}
+      <div
+        className="grid grid-cols-2 md:grid-cols-4 rounded-[12px] overflow-hidden"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        <Kpi
+          label="Pipeline Total"
+          value={loading ? "—" : fmtMoneyShort(pipelineTotal)}
+          delta={`${allLeads.length} oportunidades`}
+          deltaTone={pipelineTotal > 0 ? "pos" : "zero"}
+          sub="en todas las etapas"
+        />
+        <Kpi
+          label="Leads activos"
+          value={loading ? "—" : activeLeads.length}
+          delta={activeLeads.length > 0 ? "en pipeline" : "sin leads"}
+          deltaTone={activeLeads.length > 0 ? "pos" : "zero"}
+          sub="sin contar ganados/perdidos"
+        />
+        <Kpi
+          label="Valor ganado"
+          value={loading ? "—" : fmtMoneyShort(wonValue)}
+          delta={`${wonLeads.length} cerrado${wonLeads.length !== 1 ? "s" : ""}`}
+          deltaTone={wonLeads.length > 0 ? "pos" : "zero"}
+          sub="en etapa Ganado"
+        />
+        <Kpi
+          label="Tasa de conversión"
+          value={loading ? "—" : `${convRate}%`}
+          delta={closed > 0 ? `${wonLeads.length}/${closed} cerrados` : "sin datos"}
+          deltaTone={convRate >= 50 ? "pos" : "zero"}
+          sub="ganados sobre total cerrados"
+        />
+      </div>
+
+      {/* Funnel card */}
+      <div
+        className="rounded-[12px] p-[18px]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 mb-3.5 flex-wrap">
+          <div
+            className="flex items-center gap-2 rounded-[8px]"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--line-1)",
+              padding: "8px 12px",
+              width: 280,
+            }}
+          >
+            <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)]" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+            />
+          </div>
+          <button
+            className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+          >
+            <IcoFilter className="h-[14px] w-[14px]" />
+            Filtrar
+          </button>
+          <SortDropdown value={sortBy} onChange={setSortBy} />
+
+          <div className="ml-auto flex gap-2">
+            {canManage && (
+              <button
+                onClick={() => { setSelectedStage(null); setStageDialogOpen(true); }}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+              >
+                <IcoSettings className="h-[14px] w-[14px]" />
+                Configurar embudo
+              </button>
+            )}
+            {canManage && (
+              <button
+                onClick={() => { setCreateStageId(undefined); setCreateOpen(true); }}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "#FFFFFF",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nuevo Lead
+              </button>
+            )}
+          </div>
         </div>
-        {canManageCRM && (
-          <Button className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
-            <RiAddLine className="h-4 w-4" />
-            Nuevo Lead
-          </Button>
+
+        {/* Funnel chevron columns */}
+        {loading ? (
+          <div className="text-[13px] text-[var(--ink-3)] py-12 text-center">Cargando…</div>
+        ) : filteredStages.length === 0 ? (
+          <div className="text-[13px] text-[var(--ink-3)] py-12 text-center">
+            Configura tu pipeline antes de empezar
+          </div>
+        ) : (
+          <div className="funnel">
+            {filteredStages.map((s) => {
+              const stageLeads = s.leads;
+              const total = stageLeads.reduce(
+                (acc, l) => acc + (l.value ? parseFloat(l.value) : 0),
+                0,
+              );
+              return (
+                <div
+                  key={s.id}
+                  className={`funnel__col ${s.isWon ? "funnel__col--won" : ""} ${s.isLost ? "funnel__col--lost" : ""}`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDrop(s.id)}
+                >
+                  <div className="funnel__arrow">
+                    <div className="funnel__label">
+                      <span
+                        className="funnel-dot"
+                        style={{ background: s.color || "#B8B5AE" }}
+                      />
+                      {s.name}
+                    </div>
+                    <div className="funnel__amount">{fmtMoney(total)}</div>
+                    <div className="funnel__meta">
+                      <IcoFilter className="h-[10px] w-[10px]" />
+                      {stageLeads.length} de {totalAll} oportunidades
+                    </div>
+                  </div>
+                  <div className="funnel__body">
+                    {stageLeads.map((l) => {
+                      const prob = l.probability ?? 0;
+                      const probColor = prob >= 70 ? "#17A95C" : prob >= 40 ? "#E89C6B" : "#8A8A8A";
+                      const probBg = prob >= 70 ? "#E4F2EA" : prob >= 40 ? "#FCE9D9" : "#EDEAE4";
+                      const value = l.value ? parseFloat(l.value) : 0;
+                      const dateStr = l.expectedCloseDate
+                        ? new Date(l.expectedCloseDate).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—";
+                      return (
+                        <div
+                          key={l.id}
+                          className="funnel-card"
+                          draggable
+                          onDragStart={() => setDragId(l.id)}
+                          onClick={() => { setSelectedLeadId(l.id); setDrawerOpen(true); }}
+                        >
+                          <div className="funnel-card__row">
+                            <div className="funnel-card__title">{l.title}</div>
+                            {l.assignedUserName && (
+                              <div
+                                title={l.assignedUserName}
+                                style={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: "50%",
+                                  background: "#2F7D4F",
+                                  color: "white",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  flexShrink: 0,
+                                  border: "1.5px solid white",
+                                  boxShadow: "0 0 0 1px var(--line-strong)",
+                                }}
+                              >
+                                {l.assignedUserName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div
+                            className="funnel-card__row"
+                            style={{ justifyContent: "space-between", marginTop: 6 }}
+                          >
+                            <span className="funnel-card__val">{fmtMoney(value)}</span>
+                            <span
+                              className="funnel-card__prob"
+                              style={{ background: probBg, color: probColor }}
+                            >
+                              {prob}%
+                            </span>
+                          </div>
+                          <div
+                            className="funnel-card__row"
+                            style={{ justifyContent: "space-between", marginTop: 4 }}
+                          >
+                            <span style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{dateStr}</span>
+                            {l.contactName && (
+                              <span
+                                style={{
+                                  fontSize: 10.5,
+                                  color: "var(--ink-3)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  maxWidth: "60%",
+                                }}
+                              >
+                                {l.contactName}
+                              </span>
+                            )}
+                          </div>
+                          {s.isWon && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.alert(`Convertir "${l.title}" en evento — TODO: integrar con flujo de eventos`);
+                              }}
+                              style={{
+                                marginTop: 8,
+                                width: "100%",
+                                padding: "5px 8px",
+                                border: "1px solid var(--color-primary)",
+                                borderRadius: "var(--r-sm)",
+                                background: "transparent",
+                                color: "var(--color-primary)",
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 5,
+                              }}
+                            >
+                              <IcoCalendar className="h-3 w-3" />
+                              Convertir en evento
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {stageLeads.length === 0 && (
+                      <div className="funnel-card__empty">Arrastra aquí</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Pipeline Stats */}
-      <CRMStats stages={displayStages} loading={loading} />
-
-      {/* Kanban Board */}
-      {loading ? (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="min-w-[300px] flex-shrink-0 space-y-3">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ))}
-        </div>
-      ) : displayStages.length > 0 ? (
-        <LeadKanban
-          stages={displayStages}
-          onLeadMove={moveLead}
-          onDeleteLead={deleteLead}
-          onLeadClick={handleLeadClick}
-          onEditLead={handleEditLead}
-          onAddLead={handleAddLead}
-          onAddStage={handleAddStage}
-          onEditStage={handleEditStage}
-        />
-      ) : (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <h3 className="text-lg font-semibold mb-2">Configura tu Pipeline</h3>
-            <p className="text-[var(--muted-foreground)] mb-4">
-              Para comenzar a usar el CRM, necesitas ejecutar las migraciones de base de datos.
-            </p>
-            <code className="bg-muted px-3 py-2 rounded text-sm">
-              npx drizzle-kit push
-            </code>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Drawers (preserved from original implementation) */}
       <CreateLeadDrawer
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
         onLeadCreated={refetch}
         stageId={createStageId}
       />
 
-      <LeadDetailDrawer
-        open={isDetailDialogOpen}
-        onOpenChange={setIsDetailDialogOpen}
-        lead={selectedLead}
-        stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
-        onLeadUpdated={refetch}
-        onLeadDeleted={refetch}
-      />
-
       <LeadDrawer
-        open={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
         leadId={selectedLeadId}
-        stages={displayStages.map(s => ({ id: s.id, name: s.name, color: s.color }))}
+        stages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
         onLeadUpdated={refetch}
         onLeadDeleted={refetch}
       />
 
       <StageConfigDrawer
-        open={isStageDialogOpen}
-        onOpenChange={setIsStageDialogOpen}
-        stage={selectedStage}
-        onStageCreated={refetch}
-        onStageUpdated={refetch}
-        onStageDeleted={refetch}
-        nextSortOrder={displayStages.length}
+        open={stageDialogOpen}
+        onOpenChange={setStageDialogOpen}
+        stages={stages}
+        onStagesChanged={refetch}
       />
     </div>
   );
 }
-

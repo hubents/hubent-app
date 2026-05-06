@@ -1,38 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, Lock, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { AuthShell } from "../../_components/auth-shell";
 
 export default function ResetPasswordPage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
-  
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  const validPwd = password.length >= 8;
+  const pwdMatch = password.length > 0 && password === confirmPassword;
+  const valid = validPwd && pwdMatch;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      return;
-    }
-
+    if (!valid || loading) return;
     setLoading(true);
     setError("");
 
@@ -42,17 +34,11 @@ export default function ResetPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Error al restablecer la contraseña");
-      }
+      if (!res.ok) throw new Error(data.error || "Error al restablecer la contraseña");
 
       setSuccess(true);
-      setTimeout(() => {
-        router.push("/auth/login");
-      }, 3000);
+      setTimeout(() => router.push("/auth/login"), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al restablecer la contraseña");
     } finally {
@@ -62,89 +48,91 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <Card className="border-0 shadow-xl">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="p-4 rounded-full bg-green-500/10">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl">¡Contraseña actualizada!</CardTitle>
-          <CardDescription>
-            Tu contraseña ha sido restablecida exitosamente.
-            <br />
-            Serás redirigido al login en unos segundos...
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/auth/login">
-            <Button className="w-full">
-              Ir al login
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
+      <AuthShell>
+        <div className="auth-success-icon"><CheckCircle2 size={22} /></div>
+        <h2 className="auth-h2">¡Contraseña actualizada!</h2>
+        <p className="auth-subtitle">
+          Tu contraseña ha sido restablecida exitosamente. Te llevamos al login en
+          unos segundos…
+        </p>
+        <Link
+          href="/auth/login"
+          className="auth-btn-primary"
+          style={{ textDecoration: "none", display: "inline-flex" }}
+        >
+          Ir al login
+        </Link>
+      </AuthShell>
     );
   }
 
   return (
-    <Card className="border-0 shadow-xl">
-      <CardHeader className="text-center space-y-2">
-        <div className="flex justify-center mb-2">
-          <div className="p-4 rounded-full bg-[var(--primary)]/10">
-            <Lock className="h-8 w-8 text-[var(--primary)]" />
-          </div>
-        </div>
-        <CardTitle className="text-2xl">Nueva contraseña</CardTitle>
-        <CardDescription>
-          Ingresa tu nueva contraseña
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-            {error}
-          </div>
-        )}
+    <AuthShell>
+      <form onSubmit={handleSubmit}>
+        <h2 className="auth-h2">Nueva contraseña</h2>
+        <p className="auth-subtitle">Ingresa tu nueva contraseña para entrar de nuevo a tu cuenta.</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="password">Nueva contraseña</Label>
-            <Input
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="password">Nueva contraseña</label>
+          </div>
+          <div className="auth-pwd">
+            <input
               id="password"
-              type="password"
-              placeholder="Mínimo 8 caracteres"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Crea una contraseña segura"
+              autoComplete="new-password"
+              autoFocus
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="auth-pwd__toggle"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="Repite tu contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+          <div className="auth-field__hint">Mínimo 8 caracteres</div>
+        </div>
+
+        <div className="auth-field">
+          <div className="auth-field__label-row">
+            <label className="auth-field__label" htmlFor="confirmPassword">
+              Confirmar contraseña
+            </label>
           </div>
-          
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Guardando...
-              </>
-            ) : (
-              "Restablecer contraseña"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <input
+            id="confirmPassword"
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Repite tu contraseña"
+            autoComplete="new-password"
+            required
+          />
+          {confirmPassword.length > 0 && !pwdMatch && (
+            <div className="auth-field__hint auth-field__hint--err">
+              Las contraseñas no coinciden
+            </div>
+          )}
+        </div>
+
+        {error && <div className="auth-error">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={!valid || loading}
+          aria-disabled={!valid || loading}
+          className="auth-btn-primary"
+        >
+          {loading && <Loader2 size={14} className="auth-spinner" style={{ animation: "authSpin .8s linear infinite" }} />}
+          {loading ? "Guardando..." : "Restablecer contraseña"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RiEyeLine, RiCloseLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { EyeIcon, Cancel01Icon } from "@hugeicons/core-free-icons";
+
+const RiEyeLine = hgIcon(EyeIcon);
+const RiCloseLine = hgIcon(Cancel01Icon);
 
 interface ImpersonationInfo {
   isImpersonating: boolean;

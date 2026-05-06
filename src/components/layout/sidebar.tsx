@@ -4,17 +4,28 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiDashboardLine,
-  RiCalendarEventLine,
-  RiUserLine,
-  RiStore2Line,
-  RiFileListLine,
-  RiSettings4Line,
-  RiTeamLine,
-  RiMoneyDollarCircleLine,
-  RiContactsBookLine,
-} from "@remixicon/react";
+  DashboardSquare03Icon,
+  Calendar03Icon,
+  UserCircleIcon,
+  Agreement01Icon,
+  CheckmarkSquare02Icon,
+  Settings01Icon,
+  UserMultiple02Icon,
+  Wallet01Icon,
+  Contact01Icon,
+} from "@hugeicons/core-free-icons";
+
+const RiDashboardLine = hgIcon(DashboardSquare03Icon);
+const RiCalendarEventLine = hgIcon(Calendar03Icon);
+const RiUserLine = hgIcon(UserCircleIcon);
+const RiStore2Line = hgIcon(Agreement01Icon);
+const RiFileListLine = hgIcon(CheckmarkSquare02Icon);
+const RiSettings4Line = hgIcon(Settings01Icon);
+const RiTeamLine = hgIcon(UserMultiple02Icon);
+const RiMoneyDollarCircleLine = hgIcon(Wallet01Icon);
+const RiContactsBookLine = hgIcon(Contact01Icon);
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: RiDashboardLine },
@@ -60,8 +71,8 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-[var(--bg-subtle)] text-[var(--ink-1)] font-semibold"
+                    : "text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -82,8 +93,8 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    ? "bg-[var(--bg-subtle)] text-[var(--ink-1)] font-semibold"
+                    : "text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
                 )}
               >
                 <item.icon className="h-5 w-5" />

@@ -2,7 +2,11 @@
 
 import { Component, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { RiAlertLine, RiRefreshLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { Alert01Icon, RotateClockwiseIcon } from "@hugeicons/core-free-icons";
+
+const RiAlertLine = hgIcon(Alert01Icon);
+const RiRefreshLine = hgIcon(RotateClockwiseIcon);
 
 interface Props {
   children: ReactNode;

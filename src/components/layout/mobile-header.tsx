@@ -2,11 +2,16 @@
 
 import { useEvent } from "@/contexts/event-context";
 import { useRouter } from "next/navigation";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiArrowLeftLine,
-  RiMenuLine,
-  RiNotification3Line,
-} from "@remixicon/react";
+  ArrowLeft01Icon,
+  Menu01Icon,
+  Notification01Icon,
+} from "@hugeicons/core-free-icons";
+
+const RiArrowLeftLine = hgIcon(ArrowLeft01Icon);
+const RiMenuLine = hgIcon(Menu01Icon);
+const RiNotification3Line = hgIcon(Notification01Icon);
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -19,10 +24,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession, signOut } from "next-auth/react";
 import {
-  RiLogoutBoxLine,
-  RiSettings4Line,
-  RiUserLine,
-} from "@remixicon/react";
+  Logout01Icon,
+  Settings01Icon,
+  UserCircleIcon,
+} from "@hugeicons/core-free-icons";
+
+const RiLogoutBoxLine = hgIcon(Logout01Icon);
+const RiSettings4Line = hgIcon(Settings01Icon);
+const RiUserLine = hgIcon(UserCircleIcon);
 import Link from "next/link";
 
 export function MobileHeader() {
