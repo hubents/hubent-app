@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RiAddLine } from "@remixicon/react";
+import { appConfirm } from "@/lib/confirm";
 
 interface TableData {
   id: number;
@@ -94,7 +95,7 @@ export function TableCanvas({ eventId, tables, guests, onRefresh }: TableCanvasP
   }, [tables]);
 
   const handleDeleteTable = useCallback(async (tableId: number) => {
-    if (!confirm("¿Eliminar esta mesa? Los invitados asignados quedarán sin mesa.")) return;
+    if (!await appConfirm({ title: "Eliminar mesa", description: "Los invitados asignados quedarán sin mesa.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     try {
       const res = await fetch(`/api/events/${eventId}/tables/${tableId}`, {
         method: "DELETE",

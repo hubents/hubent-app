@@ -17,6 +17,7 @@ import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-docume
 import { ContactSelector, type ContactSelectorValue } from "./contact-selector";
 import { CURRENCIES, CURRENCY_SYMBOLS, DEFAULT_ENABLED_CURRENCIES } from "@/lib/constants/locale";
 import { fmtMoney } from "@/lib/format";
+import { appConfirm } from "@/lib/confirm";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
 
@@ -654,19 +655,19 @@ export function DocumentDrawer({
           {documentId && (onDuplicate || onConvert) && (
             <div style={{ display: "flex", gap: 6 }}>
               {onDuplicate && (
-                <button onClick={() => { if (confirm(`¿Duplicar?`)) onDuplicate!(); }}
+                <button onClick={async () => { if (await appConfirm({ title: "Duplicar documento", description: "Se creará una copia exacta de este documento.", confirmLabel: "Duplicar" })) onDuplicate!(); }}
                   style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
                   <HugeiconsIcon icon={Copy01Icon} size={12} strokeWidth={1.5} /> Duplicar
                 </button>
               )}
               {onConvert && type !== "invoice" && type !== "credit_note" && (
-                <button onClick={() => { if (confirm(`¿Convertir a factura?`)) onConvert!("invoice"); }}
+                <button onClick={async () => { if (await appConfirm({ title: "Convertir a factura", description: "Se creará una nueva factura a partir de este documento.", confirmLabel: "Convertir" })) onConvert!("invoice"); }}
                   style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
                   <HugeiconsIcon icon={Exchange01Icon} size={12} strokeWidth={1.5} /> Convertir a Factura
                 </button>
               )}
               {onConvert && type !== "delivery_note" && (
-                <button onClick={() => { if (confirm(`¿Convertir a albarán?`)) onConvert!("delivery_note"); }}
+                <button onClick={async () => { if (await appConfirm({ title: "Convertir a albarán", description: "Se creará un nuevo albarán a partir de este documento.", confirmLabel: "Convertir" })) onConvert!("delivery_note"); }}
                   style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
                   <HugeiconsIcon icon={TruckIcon} size={12} strokeWidth={1.5} /> Convertir a Albarán
                 </button>

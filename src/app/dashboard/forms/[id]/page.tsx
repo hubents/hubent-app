@@ -46,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { appConfirm } from "@/lib/confirm";
 
 interface FormData {
   id: number;
@@ -1076,7 +1077,7 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
   };
 
   const deleteInstance = async (instanceId: number) => {
-    if (!confirm("¿Eliminar esta instancia?")) return;
+    if (!await appConfirm({ title: "Eliminar instancia", variant: "destructive", confirmLabel: "Eliminar" })) return;
     setDeleting(instanceId);
     try {
       const res = await fetch(`/api/forms/instances/${instanceId}`, { method: "DELETE" });

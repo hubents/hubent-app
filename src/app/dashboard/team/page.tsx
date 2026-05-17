@@ -14,6 +14,7 @@ import { handleBillingError } from "@/lib/billing-errors";
 import { hgIcon } from "@/components/ui/hg-icon";
 import { UserAdd01Icon, UserGroupIcon, Mail01Icon, Time01Icon, Delete01Icon, Refresh01Icon, Cancel01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { Av, Btn, Inp } from "@/components/ui/ds";
+import { appConfirm } from "@/lib/confirm";
 
 const RiUserAddLine = hgIcon(UserAdd01Icon);
 const RiTeamLine = hgIcon(UserGroupIcon);
@@ -262,7 +263,7 @@ export function TeamPageContent({ rolesPath = "/dashboard/settings/roles" }: { r
   };
 
   const handleRemove = async (member: TeamMember) => {
-    if (!confirm(`¿Eliminar a ${member.name || member.email} del equipo?`)) return;
+    if (!await appConfirm({ title: `Eliminar a ${member.name || member.email}`, description: "Esta persona perderá el acceso al espacio de trabajo.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     await removeMember(member.id);
     toast.success("Miembro eliminado");
     setSelected(null);

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { downloadDocumentPDF, downloadBulkDocumentsPDF } from "@/lib/pdf-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,22 +27,25 @@ import {
   EyeIcon,
   TruckIcon,
   Download01Icon,
+  Calendar01Icon,
   HandCoinsIcon,
   CheckmarkCircle01Icon,
+  FilterHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { hgIcon } from "@/components/ui/hg-icon";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { useUserSession } from "@/hooks/use-user-session";
 import { getInitials as initials, avColor } from "@/lib/ui-utils";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoSearch       = hgIcon(Search01Icon);
 const IcoPlus         = hgIcon(PlusSignIcon);
+const IcoFilter       = hgIcon(FilterHorizontalIcon);
 const IcoChevDown     = hgIcon(ArrowDown01Icon);
 const IcoChevUp       = hgIcon(ArrowUp01Icon);
 const IcoSort         = hgIcon(ArrowUpDownIcon);
@@ -57,6 +60,7 @@ const IcoX            = hgIcon(Cancel01Icon);
 const IcoEye          = hgIcon(EyeIcon);
 const IcoTruck        = hgIcon(TruckIcon);
 const IcoDownload     = hgIcon(Download01Icon);
+const IcoCalendar     = hgIcon(Calendar01Icon);
 const IcoHandCoins    = hgIcon(HandCoinsIcon);
 const IcoCheckDouble  = hgIcon(CheckmarkCircle01Icon);
 
@@ -142,6 +146,25 @@ function ProformasContent() {
 
   type SortKey = "client" | "issueDate" | "number" | "status" | "total";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`);
+  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!datePickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setDatePickerOpen(false);
+      }
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", handler); };
+  }, [datePickerOpen]);
+
   const cycleSort = (key: SortKey) => {
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "asc" };
@@ -195,7 +218,7 @@ function ProformasContent() {
   }
 
   async function deleteProforma(id: number) {
-    if (!confirm("¿Estás seguro de eliminar esta proforma?")) return;
+    if (!await appConfirm({ title: "Eliminar proforma", description: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
       if (res.ok) { toast.success("Proforma eliminada"); fetchProformas(); }
@@ -259,6 +282,13 @@ function ProformasContent() {
   function openEditDrawer(id: number) {
     setEditingId(id); setDrawerInitialData(undefined); setDrawerType("proforma"); setDrawerOpen(true);
   }
+  async function handleBulkDownload() {
+    const docs = sortedProformas
+      .filter((p) => selectedIds.has(p.id))
+      .map((p) => ({ id: p.id, number: p.number || String(p.id) }));
+    await downloadBulkDocumentsPDF(docs, `proformas-${docs.length}`);
+  }
+
   async function openPreview(id: number) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
@@ -279,8 +309,24 @@ function ProformasContent() {
     doc.vendorName ||
     "Sin cliente";
 
+  const toggleSelect = (id: number) =>
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleSelectAll = () => {
+    if (selectedIds.size === sortedProformas.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(sortedProformas.map((p) => p.id)));
+  };
+
   const sortedProformas = useMemo(() => {
-    if (!sort) return proformas;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+    const base = proformas.filter((p) => {
+      if (!p.issueDate) return true;
+      const d = new Date(p.issueDate);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+    if (!sort) return base;
     const dir = sort.dir === "asc" ? 1 : -1;
     const valueOf = (p: Proforma): string | number => {
       switch (sort.key) {
@@ -291,13 +337,13 @@ function ProformasContent() {
         case "total":     return parseFloat(p.total || "0");
       }
     };
-    return [...proformas].sort((a, b) => {
+    return [...base].sort((a, b) => {
       const va = valueOf(a), vb = valueOf(b);
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [proformas, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [proformas, sort, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kpis = useMemo(() => {
     const sum = (arr: Proforma[]) => arr.reduce((acc, p) => acc + parseFloat(p.total || "0"), 0);
@@ -381,6 +427,78 @@ function ProformasContent() {
 
           <ScopeFilter value={scope} onChange={(v) => { setScope(v); setPage(1); }} />
 
+          {/* Status dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+                style={{
+                  border: "1px solid var(--line-1)",
+                  background: statusFilter !== "all" ? "var(--bg-subtle)" : "#FFFFFF",
+                  padding: "7px 12px",
+                  fontSize: 13,
+                  color: "var(--ink-1)",
+                  fontWeight: 500,
+                  outline: "none",
+                }}
+              >
+                <IcoFilter className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+                {statusFilter !== "all"
+                  ? STATUS_OPTIONS.find(o => o.value === statusFilter)?.label
+                  : "Estado"}
+                <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" style={{ minWidth: 180 }}>
+              {STATUS_OPTIONS.map((o) => (
+                <DropdownMenuItem
+                  key={o.value}
+                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
+                  className="flex items-center justify-between"
+                >
+                  {o.label}
+                  {statusFilter === o.value && <IcoCheck className="h-3.5 w-3.5 ml-4" style={{ color: "var(--ink-1)" }} />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Date range */}
+          <div ref={datePickerRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setDatePickerOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 12px", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}
+            >
+              <IcoCalendar className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              {format(new Date(dateFrom), "dd/MM/yyyy")} — {format(new Date(dateTo), "dd/MM/yyyy")}
+              <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+            </button>
+            {datePickerOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 240, background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: "var(--r-md)", boxShadow: "0 8px 24px rgba(15,16,18,.08)", padding: 16, zIndex: 30, display: "flex", flexDirection: "column", gap: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Desde
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Hasta
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Bulk download */}
+          <button
+            onClick={handleBulkDownload}
+            disabled={selectedIds.size === 0}
+            title={selectedIds.size > 0 ? `Descargar ${selectedIds.size} PDF` : "Selecciona documentos para descargar"}
+            className="inline-flex items-center justify-center rounded-[8px] transition-colors"
+            style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 10px", color: selectedIds.size > 0 ? "var(--ink-1)" : "var(--ink-3)", opacity: selectedIds.size === 0 ? 0.45 : 1, cursor: selectedIds.size === 0 ? "not-allowed" : "pointer" }}
+          >
+            <IcoDownload className="h-4 w-4" />
+          </button>
+
           <div className="ml-auto">
             {can("finance:create") && (
               <button
@@ -392,35 +510,6 @@ function ProformasContent() {
                 Nueva Proforma
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Status pill filters */}
-        <div className="flex items-center mb-4">
-          <div
-            className="inline-flex gap-1 rounded-[8px]"
-            style={{ background: "var(--bg-subtle)", padding: 3 }}
-          >
-            {STATUS_OPTIONS.map((o) => {
-              const active = statusFilter === o.value;
-              return (
-                <button
-                  key={o.value}
-                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
-                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
-                  style={{
-                    padding: "5px 12px",
-                    background: active ? "#FFFFFF" : "transparent",
-                    color: active ? "var(--ink-1)" : "var(--ink-3)",
-                    fontWeight: active ? 600 : 500,
-                    fontSize: 12.5,
-                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                  }}
-                >
-                  {o.label}
-                </button>
-              );
-            })}
           </div>
         </div>
 
@@ -458,14 +547,21 @@ function ProformasContent() {
             <table className="tbl">
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      checked={sortedProformas.length > 0 && selectedIds.size === sortedProformas.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th onClick={() => cycleSort("client")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <span className="inline-flex items-center gap-1">Cliente <SortIcon k="client" /></span>
                   </th>
-                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
-                  </th>
                   <th onClick={() => cycleSort("issueDate")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <span className="inline-flex items-center gap-1">Fecha <SortIcon k="issueDate" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
                   </th>
                   <th>Pagado</th>
                   <th onClick={() => cycleSort("status")} style={{ cursor: "pointer", userSelect: "none" }}>
@@ -489,12 +585,21 @@ function ProformasContent() {
                   const total = parseFloat(doc.total || "0");
                   const paid = parseFloat(doc.paidAmount || "0");
                   const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                  const isSelected = selectedIds.has(doc.id);
                   return (
                     <tr
                       key={doc.id}
                       onClick={() => openPreview(doc.id)}
                       style={{ cursor: "pointer" }}
+                      data-state={isSelected ? "selected" : undefined}
                     >
+                      <td onClick={(e) => e.stopPropagation()} style={{ width: 36 }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(doc.id)}
+                        />
+                      </td>
                       {/* Cliente */}
                       <td>
                         <div className="flex items-center gap-2.5">
@@ -507,17 +612,17 @@ function ProformasContent() {
                           <span className="text-[13px] font-medium text-[var(--ink-1)]">{clientName}</span>
                         </div>
                       </td>
-                      {/* Número */}
-                      <td>
-                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{doc.number}</span>
-                      </td>
                       {/* Fecha */}
                       <td>
                         <span className="text-[13px] text-[var(--ink-2)]">
                           {doc.issueDate
-                            ? format(new Date(doc.issueDate), "d MMM yyyy", { locale: es })
+                            ? format(new Date(doc.issueDate), "dd/MM/yyyy")
                             : "—"}
                         </span>
+                      </td>
+                      {/* Número */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{doc.number}</span>
                       </td>
                       {/* Pagado */}
                       <td>

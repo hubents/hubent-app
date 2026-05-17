@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f public/images/*Dise*removebg*.png 2>&1 && ls public/images/ 2>&1 | grep -i \"Dise\\\\|removebg\" | head -3 || echo \"PNGs limpiadas\"; echo \"---\"; git stash pop 2>&1 | tail -10)",
+      "Read(//tmp/**)",
+      "Bash(git apply *)",
+      "Bash(git checkout *)",
+      "Bash(npm install *)",
+      "Bash(curl -c - -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/api/dashboard/stats -H \"Cookie: $\\(curl -c - -s http://localhost:3000)",
+      "Bash(brew --version)",
+      "Bash(git add *)",
+      "Bash(xattr -rd com.apple.quarantine \"/Users/fernando/Downloads/hubents-app 3/node_modules/@next/swc-darwin-arm64/\")",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(npm run *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(xattr -rd com.apple.quarantine \"/Users/fernando/Downloads/hubents-app 3/node_modules/lightningcss/\")"
+    ],
+    "additionalDirectories": [
+      "/Users/hubents/hubents-app/public/images"
+    ]
+  }
+}

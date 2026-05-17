@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { appConfirm } from "@/lib/confirm";
 
 interface ApiKeyItem {
   id: number;
@@ -131,7 +132,7 @@ export default function DevelopersPage() {
   };
 
   const handleRevoke = async (id: number) => {
-    if (!confirm("Revocar esta API key? Esta accion no se puede deshacer.")) return;
+    if (!await appConfirm({ title: "Revocar API key", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Revocar" })) return;
     try {
       const res = await fetch(`/api/settings/api-keys/${id}`, { method: "DELETE" });
       const data = await res.json();

@@ -35,6 +35,7 @@ import {
   RiCloseLine,
 } from "@remixicon/react";
 import { fmtEur } from "@/lib/format";
+import { appConfirm } from "@/lib/confirm";
 
 interface Lead {
   id: number;
@@ -174,7 +175,7 @@ export function LeadDetailDrawer({
 
   const handleDelete = async () => {
     if (!fullLead) return;
-    if (!confirm("¿Estás seguro de eliminar este lead?")) return;
+    if (!await appConfirm({ title: "Eliminar lead", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
 
     setLoading(true);
     try {

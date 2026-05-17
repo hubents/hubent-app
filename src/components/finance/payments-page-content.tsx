@@ -34,6 +34,7 @@ import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { Av } from "@/components/ui/ds";
+import { appConfirm } from "@/lib/confirm";
 
 interface Payment {
   id: number;
@@ -216,12 +217,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
   }
 
   async function deletePayment(id: number) {
-    if (
-      !confirm(
-        "¿Estás seguro de eliminar este pago? Se recalculará el saldo del documento asociado.",
-      )
-    )
-      return;
+    if (!await appConfirm({ title: "Eliminar pago", description: "Se recalculará el saldo del documento asociado. Esta acción no se puede deshacer.", confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/payments/${id}`, {
         method: "DELETE",

@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { appConfirm } from "@/lib/confirm";
 
 interface AIDocument {
   id: number;
@@ -204,7 +205,7 @@ export default function AdminAIDocumentsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("¿Eliminar este documento?")) return;
+    if (!await appConfirm({ title: "Eliminar documento", variant: "destructive", confirmLabel: "Eliminar" })) return;
 
     try {
       const res = await fetch(`/api/admin/ai/documents?id=${id}`, {

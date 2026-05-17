@@ -48,6 +48,7 @@ import {
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
+import { appConfirm } from "@/lib/confirm";
 
 interface Tenant {
   id: number;
@@ -261,7 +262,7 @@ export default function TenantDetailPage() {
 
   const handleAction = async (action: "suspend" | "activate" | "delete") => {
     const labels = { suspend: "suspender", activate: "activar", delete: "eliminar" };
-    if (!confirm(`¿Estás seguro de ${labels[action]} esta organización?`)) return;
+    if (!await appConfirm({ title: `${labels[action].charAt(0).toUpperCase() + labels[action].slice(1)} organización`, variant: "destructive", confirmLabel: labels[action].charAt(0).toUpperCase() + labels[action].slice(1) })) return;
 
     setActionLoading(action);
     try {

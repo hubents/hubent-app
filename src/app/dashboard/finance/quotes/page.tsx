@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { downloadDocumentPDF, downloadBulkDocumentsPDF } from "@/lib/pdf-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,21 +27,24 @@ import {
   EyeIcon,
   TruckIcon,
   Download01Icon,
+  Calendar01Icon,
   HandCoinsIcon,
+  FilterHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { hgIcon } from "@/components/ui/hg-icon";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { useUserSession } from "@/hooks/use-user-session";
 import { getInitials as initials, avColor } from "@/lib/ui-utils";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoSearch    = hgIcon(Search01Icon);
 const IcoPlus      = hgIcon(PlusSignIcon);
+const IcoFilter    = hgIcon(FilterHorizontalIcon);
 const IcoChevDown  = hgIcon(ArrowDown01Icon);
 const IcoChevUp    = hgIcon(ArrowUp01Icon);
 const IcoSort      = hgIcon(ArrowUpDownIcon);
@@ -56,6 +59,7 @@ const IcoX         = hgIcon(Cancel01Icon);
 const IcoEye       = hgIcon(EyeIcon);
 const IcoTruck     = hgIcon(TruckIcon);
 const IcoDownload  = hgIcon(Download01Icon);
+const IcoCalendar  = hgIcon(Calendar01Icon);
 const IcoHandCoins = hgIcon(HandCoinsIcon);
 
 interface DocumentItem {
@@ -147,6 +151,25 @@ function QuotesContent() {
 
   type SortKey = "client" | "issueDate" | "number" | "status" | "total";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`);
+  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!datePickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setDatePickerOpen(false);
+      }
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", handler); };
+  }, [datePickerOpen]);
+
   const cycleSort = (key: SortKey) => {
     setSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "asc" };
@@ -200,7 +223,7 @@ function QuotesContent() {
   }
 
   async function deleteQuote(id: number) {
-    if (!confirm("¿Estás seguro de eliminar este presupuesto?")) return;
+    if (!await appConfirm({ title: "Eliminar presupuesto", description: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
       if (res.ok) { toast.success("Presupuesto eliminado"); fetchQuotes(); }
@@ -252,7 +275,7 @@ function QuotesContent() {
         toast.success(`Estado actualizado a ${STATUS_PILL[status]?.label || status}`);
         fetchQuotes();
         if (status === "accepted") {
-          const generate = confirm("¿Deseas generar una factura a partir de este presupuesto?");
+          const generate = await appConfirm({ title: "Generar factura", description: "Se creará una nueva factura a partir de este presupuesto.", confirmLabel: "Generar factura" });
           if (generate) await fetchDocAndOpenDrawer(id, "invoice");
         }
       } else {
@@ -268,6 +291,13 @@ function QuotesContent() {
   function openEditDrawer(id: number) {
     setEditingId(id); setDrawerInitialData(undefined); setDrawerType("quote"); setDrawerOpen(true);
   }
+  async function handleBulkDownload() {
+    const docs = sortedQuotes
+      .filter((q) => selectedIds.has(q.id))
+      .map((q) => ({ id: q.id, number: q.number || String(q.id) }));
+    await downloadBulkDocumentsPDF(docs, `presupuestos-${docs.length}`);
+  }
+
   async function openPreview(id: number) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
@@ -288,8 +318,24 @@ function QuotesContent() {
     q.vendorName ||
     "Sin cliente";
 
+  const toggleSelect = (id: number) =>
+    setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleSelectAll = () => {
+    if (selectedIds.size === sortedQuotes.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(sortedQuotes.map((q) => q.id)));
+  };
+
   const sortedQuotes = useMemo(() => {
-    if (!sort) return quotes;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+    const base = quotes.filter((q) => {
+      if (!q.issueDate) return true;
+      const d = new Date(q.issueDate);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+    if (!sort) return base;
     const dir = sort.dir === "asc" ? 1 : -1;
     const valueOf = (q: Quote): string | number => {
       switch (sort.key) {
@@ -300,13 +346,13 @@ function QuotesContent() {
         case "total":     return parseFloat(q.total || "0");
       }
     };
-    return [...quotes].sort((a, b) => {
+    return [...base].sort((a, b) => {
       const va = valueOf(a), vb = valueOf(b);
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [quotes, sort]);
+  }, [quotes, sort, dateFrom, dateTo]);
 
   const kpis = useMemo(() => {
     const sum = (arr: Quote[]) => arr.reduce((acc, q) => acc + parseFloat(q.total || "0"), 0);
@@ -390,6 +436,78 @@ function QuotesContent() {
 
           <ScopeFilter value={scope} onChange={(v) => { setScope(v); setPage(1); }} />
 
+          {/* Status dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+                style={{
+                  border: "1px solid var(--line-1)",
+                  background: statusFilter !== "all" ? "var(--bg-subtle)" : "#FFFFFF",
+                  padding: "7px 12px",
+                  fontSize: 13,
+                  color: "var(--ink-1)",
+                  fontWeight: 500,
+                  outline: "none",
+                }}
+              >
+                <IcoFilter className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+                {statusFilter !== "all"
+                  ? STATUS_OPTIONS.find(o => o.value === statusFilter)?.label
+                  : "Estado"}
+                <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" style={{ minWidth: 180 }}>
+              {STATUS_OPTIONS.map((o) => (
+                <DropdownMenuItem
+                  key={o.value}
+                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
+                  className="flex items-center justify-between"
+                >
+                  {o.label}
+                  {statusFilter === o.value && <IcoCheck className="h-3.5 w-3.5 ml-4" style={{ color: "var(--ink-1)" }} />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Date range */}
+          <div ref={datePickerRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setDatePickerOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 12px", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}
+            >
+              <IcoCalendar className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              {format(new Date(dateFrom), "dd/MM/yyyy")} — {format(new Date(dateTo), "dd/MM/yyyy")}
+              <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+            </button>
+            {datePickerOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 240, background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: "var(--r-md)", boxShadow: "0 8px 24px rgba(15,16,18,.08)", padding: 16, zIndex: 30, display: "flex", flexDirection: "column", gap: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Desde
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Hasta
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Bulk download */}
+          <button
+            onClick={handleBulkDownload}
+            disabled={selectedIds.size === 0}
+            title={selectedIds.size > 0 ? `Descargar ${selectedIds.size} PDF` : "Selecciona documentos para descargar"}
+            className="inline-flex items-center justify-center rounded-[8px] transition-colors"
+            style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 10px", color: selectedIds.size > 0 ? "var(--ink-1)" : "var(--ink-3)", opacity: selectedIds.size === 0 ? 0.45 : 1, cursor: selectedIds.size === 0 ? "not-allowed" : "pointer" }}
+          >
+            <IcoDownload className="h-4 w-4" />
+          </button>
+
           <div className="ml-auto">
             {can("finance:create") && (
               <button
@@ -401,35 +519,6 @@ function QuotesContent() {
                 Nuevo presupuesto
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Status pill filters */}
-        <div className="flex items-center mb-4">
-          <div
-            className="inline-flex gap-1 rounded-[8px]"
-            style={{ background: "var(--bg-subtle)", padding: 3 }}
-          >
-            {STATUS_OPTIONS.map((o) => {
-              const active = statusFilter === o.value;
-              return (
-                <button
-                  key={o.value}
-                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
-                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
-                  style={{
-                    padding: "5px 12px",
-                    background: active ? "#FFFFFF" : "transparent",
-                    color: active ? "var(--ink-1)" : "var(--ink-3)",
-                    fontWeight: active ? 600 : 500,
-                    fontSize: 12.5,
-                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                  }}
-                >
-                  {o.label}
-                </button>
-              );
-            })}
           </div>
         </div>
 
@@ -467,15 +556,19 @@ function QuotesContent() {
             <table className="tbl">
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>
+                    <input type="checkbox" checked={sortedQuotes.length > 0 && selectedIds.size === sortedQuotes.length} onChange={toggleSelectAll} />
+                  </th>
                   <th onClick={() => cycleSort("client")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <span className="inline-flex items-center gap-1">Cliente <SortIcon k="client" /></span>
-                  </th>
-                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
-                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
                   </th>
                   <th onClick={() => cycleSort("issueDate")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <span className="inline-flex items-center gap-1">Fecha <SortIcon k="issueDate" /></span>
                   </th>
+                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
+                  </th>
+                  <th>Pagado</th>
                   <th onClick={() => cycleSort("status")} style={{ cursor: "pointer", userSelect: "none" }}>
                     <span className="inline-flex items-center gap-1">Estado <SortIcon k="status" /></span>
                   </th>
@@ -494,12 +587,17 @@ function QuotesContent() {
                 {sortedQuotes.map((quote) => {
                   const pill = STATUS_PILL[quote.status] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", label: quote.status };
                   const clientName = getClientName(quote);
+                  const isSelected = selectedIds.has(quote.id);
                   return (
                     <tr
                       key={quote.id}
                       onClick={() => openPreview(quote.id)}
                       style={{ cursor: "pointer" }}
+                      data-state={isSelected ? "selected" : undefined}
                     >
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(quote.id)} />
+                      </td>
                       {/* Cliente */}
                       <td>
                         <div className="flex items-center gap-2.5">
@@ -512,15 +610,23 @@ function QuotesContent() {
                           <span className="text-[13px] font-medium text-[var(--ink-1)]">{clientName}</span>
                         </div>
                       </td>
-                      {/* Número */}
-                      <td>
-                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{quote.number}</span>
-                      </td>
                       {/* Fecha */}
                       <td>
                         <span className="text-[13px] text-[var(--ink-2)]">
                           {quote.issueDate
-                            ? format(new Date(quote.issueDate), "d MMM yyyy", { locale: es })
+                            ? format(new Date(quote.issueDate), "dd/MM/yyyy")
+                            : "—"}
+                        </span>
+                      </td>
+                      {/* Número */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{quote.number}</span>
+                      </td>
+                      {/* Pagado */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-3)]">
+                          {parseFloat(quote.paidAmount || "0") > 0
+                            ? formatCurrency(quote.paidAmount || "0", quote.currency)
                             : "—"}
                         </span>
                       </td>

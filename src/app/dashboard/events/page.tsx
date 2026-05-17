@@ -27,6 +27,7 @@ import { CreateEventDrawer } from "@/components/events/create-event-drawer";
 import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoSearch = hgIcon(Search01Icon);
 const IcoFilter = hgIcon(FilterIcon);
@@ -290,7 +291,7 @@ export default function EventsPage() {
   };
 
   const handleDelete = async (event: Event) => {
-    const ok = window.confirm(`¿Eliminar el evento "${event.name}"? Esta acción no se puede deshacer.`);
+    const ok = await appConfirm({ title: `Eliminar "${event.name}"`, description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" });
     if (!ok) return;
     try {
       const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });

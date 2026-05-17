@@ -40,6 +40,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 import { PaymentDrawer, type ConciliableDocument, type EditPaymentData } from "@/components/finance/payment-drawer";
+import { appConfirm } from "@/lib/confirm";
 
 interface TaskDetail {
   id: number;
@@ -266,13 +267,13 @@ export function TaskInfoTab({
   };
 
   const handleDeletePayment = async (paymentId: number) => {
-    if (!confirm("¿Eliminar este pago?")) return;
+    if (!await appConfirm({ title: "Eliminar pago", variant: "destructive", confirmLabel: "Eliminar" })) return;
     await onDeletePayment(paymentId);
     toast.success("Pago eliminado");
   };
 
   const handleDeleteLegacyPayment = async (paymentId: number) => {
-    if (!confirm("¿Eliminar este pago histórico?")) return;
+    if (!await appConfirm({ title: "Eliminar pago histórico", variant: "destructive", confirmLabel: "Eliminar" })) return;
     await onDeleteLegacyPayment(paymentId);
   };
 

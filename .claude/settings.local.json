@@ -5,7 +5,34 @@
       "Bash(ls \"c:\\\\dev_projects\\\\hubents-new\\\\src\\\\app\\\\dashboard\\\\providers\"\" 2>nul || echo \"No providers dir \")",
       "Bash(vercel ls:*)",
       "Bash(ls -la \"c:\\\\dev_projects\\\\hubents-new\\\\src\\\\app\\\\api\\\\vendor\"\" | grep -E \"^d)",
-      "Bash(.ts$ \")"
+      "Bash(.ts$ \")",
+      "Bash(npx tsx *)",
+      "Bash(DATABASE_URL='postgresql://neondb_owner:npg_MW5XBnO3dCTZ@pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require' npx tsx scripts/check-hello-user.ts)",
+      "Bash(rm /Users/hubents/hubents-app/scripts/check-hello-user.ts /tmp/check-hello.ts 2>/dev/null; echo done)",
+      "Bash(ls -la \"/Users/hubents/Downloads/hubents todos los players 4/Hubents visual code  2\")",
+      "Read(//Users/hubents/Downloads/hubents todos los players 4/Hubents visual code  2/**)",
+      "Bash(wc -l \"/Users/hubents/Downloads/hubents todos los players 4/Hubents visual code  2\"/src/*.jsx 2>/dev/null | tail -45)",
+      "Read(//Users/hubents/Downloads/hubents todos los players 4/Hubents visual code 2/**)",
+      "Bash(npx tsc *)",
+      "Bash(git stash *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/auth/login)",
+      "Bash(curl -sL -o /dev/null -w \"Final %{http_code} URL %{url_effective}\\\\n\" http://localhost:3000/dashboard/tasks)",
+      "Bash(cp \"/Users/hubents/Downloads/hubents todos los players 4/Hubents visual code  2/styles.css\" /Users/hubents/hubents-app/src/app/prototype.css && wc -l /Users/hubents/hubents-app/src/app/prototype.css)",
+      "Bash(awk 'NR==1587 || NR==2143 {print NR\": \"$0}' /Users/hubents/hubents-app/src/app/prototype.css)",
+      "Bash(curl -s http://localhost:3000/dashboard/tasks)",
+      "Bash(curl -sL -o /dev/null -w \"tasks=%{http_code} fin_payments=%{http_code}\\\\n\" http://localhost:3000/dashboard/tasks)",
+      "Bash(curl -sL -o /dev/null -w \"fin_payments=%{http_code}\\\\n\" http://localhost:3000/dashboard/finance/payments)",
+      "Bash(node -e \"const m = require\\('@hugeicons/core-free-icons'\\); console.log\\('total:', Object.keys\\(m\\).length\\); console.log\\('first 20:', Object.keys\\(m\\).slice\\(0, 20\\).join\\('\\\\n'\\)\\);\")",
+      "Bash(npx jest *)",
+      "Bash(npx vitest *)",
+      "Bash(timeout 120 npx next build)",
+      "Bash(npx next *)",
+      "Bash(mv /tmp/check-user.ts /Users/hubents/hubents-app/scripts/check-user-orgtype.ts && npx tsx scripts/check-user-orgtype.ts 2>&1 | tail -30 && rm /Users/hubents/hubents-app/scripts/check-user-orgtype.ts)"
+    ],
+    "additionalDirectories": [
+      "/Users/hubents/hubents-app/scripts",
+      "/Users/hubents/Downloads/hubents todos los players 4/Hubents visual code  2",
+      "/private/tmp"
     ]
   }
 }

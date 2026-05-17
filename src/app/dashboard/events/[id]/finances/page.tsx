@@ -20,6 +20,7 @@ import {
   FileEditIcon,
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoPlus   = hgIcon(PlusSignIcon);
 const IcoWallet = hgIcon(Wallet01Icon);
@@ -215,7 +216,7 @@ export default function EventFinancesPage({ params }: { params: Promise<{ id: st
   };
 
   const handleDelete = async (doc: FinDoc) => {
-    if (!confirm(`¿Eliminar este documento (#${doc.number})?`)) return;
+    if (!await appConfirm({ title: `Eliminar documento #${doc.number}`, variant: "destructive", confirmLabel: "Eliminar" })) return;
     try {
       await fetch(`/api/finance/documents/${doc.id}`, { method: "DELETE" });
       toast.success("Documento eliminado");

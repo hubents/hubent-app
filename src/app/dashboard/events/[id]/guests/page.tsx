@@ -27,6 +27,7 @@ import {
   InformationCircleIcon,
   Alert01Icon,
 } from "@hugeicons/core-free-icons";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoX = hgIcon(Cancel01Icon);
 const IcoPlus = hgIcon(PlusSignIcon);
@@ -1771,7 +1772,7 @@ function SeatingPlan({
   };
 
   const removeTable = async (id: number) => {
-    if (typeof window !== "undefined" && !window.confirm("¿Eliminar mesa?")) return;
+    if (!await appConfirm({ title: "Eliminar mesa", description: "Los invitados asignados quedarán sin mesa.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     try {
       await fetch(`/api/events/${eventId}/tables/${id}`, { method: "DELETE" });
       await onTablesChanged();

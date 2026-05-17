@@ -36,6 +36,7 @@ import { ContactPreviewDrawer } from "./contact-preview-drawer";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { useUserSession } from "@/hooks/use-user-session";
 import { Av } from "@/components/ui/ds";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoSearch = hgIcon(Search01Icon);
 const IcoFilter = hgIcon(FilterIcon);
@@ -387,7 +388,7 @@ export function ContactsPageContent() {
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`¿Eliminar ${selectedIds.size} contactos seleccionados?`)) return;
+    if (!await appConfirm({ title: `Eliminar ${selectedIds.size} contacto${selectedIds.size > 1 ? "s" : ""}`, description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     for (const id of selectedIds) {
       await deleteContact(id);
     }
@@ -466,7 +467,7 @@ export function ContactsPageContent() {
   };
 
   const handleDeleteContact = async (contactId: number) => {
-    if (confirm("¿Estás seguro de eliminar este contacto?")) {
+    if (await appConfirm({ title: "Eliminar contacto", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) {
       await deleteContact(contactId);
     }
   };

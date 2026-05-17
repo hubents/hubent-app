@@ -42,6 +42,7 @@ import { DocumentPreview } from "@/components/finance/document-preview";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
+import { appConfirm } from "@/lib/confirm";
 
 interface FinDoc {
   id: number;
@@ -186,7 +187,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
   }
 
   async function deleteDoc(docId: number) {
-    if (!confirm("¿Estás seguro de eliminar este presupuesto?")) return;
+    if (!await appConfirm({ title: "Eliminar presupuesto", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     try {
       const res = await fetch(`/api/finance/documents/${docId}`, { method: "DELETE" });
       if (res.ok) {

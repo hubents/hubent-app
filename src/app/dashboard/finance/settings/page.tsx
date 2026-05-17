@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { formatIban, cleanIban, validateIban, lookupIban } from "@/lib/iban-utils";
+import { appConfirm } from "@/lib/confirm";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -535,10 +536,10 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
   async function deleteTaxRate(id: number, isDefault: boolean) {
     const tax = taxRates.find((t) => t.id === id);
     const name = tax?.name || "este impuesto";
-    const msg = isDefault
-      ? `"${name}" está marcado como impuesto por defecto. ¿Eliminarlo de todas formas?`
-      : `¿Eliminar "${name}"?`;
-    if (!confirm(msg)) return;
+    const description = isDefault
+      ? `"${name}" está marcado como impuesto por defecto.`
+      : undefined;
+    if (!await appConfirm({ title: `Eliminar ${name}`, description, confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/tax-rates?id=${id}`, {
         method: "DELETE",
@@ -588,10 +589,10 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
   async function deleteBankAccount(id: number, isDefault: boolean) {
     const account = bankAccounts.find((b) => b.id === id);
     const name = account?.bankName || account?.name || "esta cuenta";
-    const msg = isDefault
-      ? `"${name}" está marcada como principal. ¿Eliminarla de todas formas?`
-      : `¿Eliminar "${name}"?`;
-    if (!confirm(msg)) return;
+    const description = isDefault
+      ? `"${name}" está marcada como cuenta principal.`
+      : undefined;
+    if (!await appConfirm({ title: `Eliminar ${name}`, description, confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/bank-accounts?id=${id}`, {
         method: "DELETE",
@@ -658,7 +659,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
   }
 
   async function handleStripeDisconnect() {
-    if (!confirm("¿Estás seguro de desconectar tu cuenta de Stripe?")) return;
+    if (!await appConfirm({ title: "Desconectar Stripe", description: "Dejarás de poder recibir pagos en línea hasta que vuelvas a conectar tu cuenta.", confirmLabel: "Desconectar", variant: "destructive" })) return;
     
     try {
       const res = await fetch("/api/finance/stripe/connect", {

@@ -1,11 +1,13 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { RiFilterLine, RiArrowDownSLine, RiCheckLine } from "@remixicon/react";
 import {
-  RiStackLine,
-  RiCalendarEventLine,
-  RiListCheck3,
-} from "@remixicon/react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type ScopeValue = "standalone" | "event" | "all";
 
@@ -15,40 +17,53 @@ interface ScopeFilterProps {
   className?: string;
 }
 
-const options: { key: ScopeValue; label: string; icon: typeof RiStackLine }[] =
-  [
-    { key: "standalone", label: "Independientes", icon: RiListCheck3 },
-    { key: "event", label: "De eventos", icon: RiCalendarEventLine },
-    { key: "all", label: "Todos", icon: RiStackLine },
-  ];
+const OPTIONS: { key: ScopeValue; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "standalone", label: "Independientes" },
+  { key: "event", label: "De eventos" },
+];
 
 export function ScopeFilter({ value, onChange, className }: ScopeFilterProps) {
+  const current = OPTIONS.find((o) => o.key === value) ?? OPTIONS[0];
+
   return (
-    <div
-      className={cn(
-        "flex items-center bg-muted rounded-lg p-0.5 gap-0.5",
-        className,
-      )}
-    >
-      {options.map((opt) => {
-        const Icon = opt.icon;
-        return (
-          <button
-            type="button"
-            key={opt.key}
-            onClick={() => onChange(opt.key)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap",
-              value === opt.key
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn("inline-flex items-center gap-1.5 cursor-pointer", className)}
+          style={{
+            padding: "7px 12px",
+            border: "1px solid var(--line-strong)",
+            borderRadius: "var(--r-sm)",
+            background: "var(--bg-panel)",
+            fontSize: 13,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+          }}
+        >
+          <RiFilterLine size={13} />
+          {current.label}
+          <RiArrowDownSLine size={12} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" style={{ minWidth: 180 }}>
+        {OPTIONS.map((o) => (
+          <DropdownMenuItem
+            key={o.key}
+            onClick={() => onChange(o.key)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: value === o.key ? "var(--bg-subtle)" : undefined,
+            }}
           >
-            <Icon className="h-3.5 w-3.5" />
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
+            <span>{o.label}</span>
+            {value === o.key && <RiCheckLine size={13} />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

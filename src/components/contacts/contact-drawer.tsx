@@ -31,6 +31,7 @@ import { ContactFilesTab } from "./contact-files-tab";
 import { ContactBankTab, type BankFormData } from "./contact-bank-tab";
 import { ContactActivityTab } from "./contact-activity-tab";
 import { VENDOR_CATEGORIES } from "@/lib/constants/contact-categories";
+import { appConfirm } from "@/lib/confirm";
 
 interface ContactDraft extends GeneralFormData, BankFormData {}
 
@@ -234,9 +235,11 @@ export function ContactDrawer({
         setIsCreateMode(false);
         onContactCreated?.(newId);
       } else if (result.error?.code === "DUPLICATE_WARNING") {
-        const proceed = confirm(
-          `Se encontraron posibles duplicados:\n${result.error.duplicates.map((d: { name: string }) => d.name).join(", ")}\n\n¿Deseas crear el contacto de todas formas?`
-        );
+        const proceed = await appConfirm({
+          title: "Posibles duplicados encontrados",
+          description: `Se encontraron contactos similares: ${result.error.duplicates.map((d: { name: string }) => d.name).join(", ")}. ¿Crear el contacto de todas formas?`,
+          confirmLabel: "Crear de todas formas",
+        });
         if (proceed) {
           const forceRes = await fetch("/api/contacts", {
             method: "POST",
@@ -274,7 +277,7 @@ export function ContactDrawer({
 
   const handleDelete = async () => {
     const idToDelete = effectiveContactId;
-    if (!idToDelete || !confirm("¿Estás seguro de eliminar este contacto?")) return;
+    if (!idToDelete || !await appConfirm({ title: "Eliminar contacto", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
 
     setDeleting(true);
     try {
@@ -352,7 +355,7 @@ export function ContactDrawer({
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen && hasChanges) {
-      if (!confirm("Tienes cambios sin guardar. ¿Descartar?")) return;
+      if (!await appConfirm({ title: "Descartar cambios", description: "Perderás los cambios realizados en este contacto.", variant: "destructive", confirmLabel: "Descartar" })) return;
     }
     onOpenChange(newOpen);
   };

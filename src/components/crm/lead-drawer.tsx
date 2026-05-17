@@ -39,6 +39,7 @@ import {
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { fmtEur } from "@/lib/format";
+import { appConfirm } from "@/lib/confirm";
 
 interface Lead {
   id: number;
@@ -182,7 +183,7 @@ export function LeadDrawer({
   // Delete lead
   const handleDelete = async () => {
     if (!lead) return;
-    if (!confirm("¿Estás seguro de eliminar este lead?")) return;
+    if (!await appConfirm({ title: "Eliminar lead", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
 
     setDeleting(true);
     try {

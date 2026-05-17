@@ -31,6 +31,7 @@ import {
   Upload01Icon,
 } from "@hugeicons/core-free-icons";
 import { useFileUpload } from "@/hooks/use-file-upload";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoX = hgIcon(Cancel01Icon);
 const IcoPlus = hgIcon(PlusSignIcon);
@@ -1530,9 +1531,9 @@ function RsvpSection({
                           )}
                           {onDeleteItem && (
                             <button
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                if (confirm("¿Eliminar este elemento?"))
+                                if (await appConfirm({ title: "Eliminar elemento", variant: "destructive", confirmLabel: "Eliminar" }))
                                   onDeleteItem(it.id);
                               }}
                               className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--color-danger)]"
@@ -1569,9 +1570,9 @@ function RsvpSection({
                         )}
                         {onDeleteItem && (
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              if (confirm("¿Eliminar este elemento?"))
+                              if (await appConfirm({ title: "Eliminar elemento", variant: "destructive", confirmLabel: "Eliminar" }))
                                 onDeleteItem(it.id);
                             }}
                             className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--color-danger)]"

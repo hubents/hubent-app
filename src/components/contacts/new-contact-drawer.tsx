@@ -18,6 +18,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoX = hgIcon(Cancel01Icon);
 const IcoMap = hgIcon(Location01Icon);
@@ -228,9 +229,11 @@ export function NewContactDrawer({
         onContactCreated?.(result.data.id);
         onOpenChange(false);
       } else if (result.error?.code === "DUPLICATE_WARNING") {
-        const proceed = confirm(
-          `Se encontraron posibles duplicados:\n${result.error.duplicates.map((d: { name: string }) => d.name).join(", ")}\n\n¿Crear el contacto de todas formas?`,
-        );
+        const proceed = await appConfirm({
+          title: "Posibles duplicados encontrados",
+          description: `Se encontraron contactos similares: ${result.error.duplicates.map((d: { name: string }) => d.name).join(", ")}. ¿Crear el contacto de todas formas?`,
+          confirmLabel: "Crear de todas formas",
+        });
         if (proceed) {
           const forceRes = await fetch("/api/contacts", {
             method: "POST",

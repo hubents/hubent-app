@@ -39,6 +39,7 @@ import { PaymentDrawer } from "@/components/finance/payment-drawer";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
+import { appConfirm } from "@/lib/confirm";
 
 interface FinDoc {
   id: number;
@@ -200,7 +201,7 @@ export default function EventInvoicesPage({ params }: { params: Promise<{ id: st
   }
 
   async function deleteDoc(docId: number) {
-    if (!confirm("¿Estás seguro de eliminar esta factura?")) return;
+    if (!await appConfirm({ title: "Eliminar factura", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     try {
       const res = await fetch(`/api/finance/documents/${docId}`, { method: "DELETE" });
       if (res.ok) {

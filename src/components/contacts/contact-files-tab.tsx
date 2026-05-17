@@ -17,6 +17,7 @@ import {
   Note01Icon,
 } from "@hugeicons/core-free-icons";
 import { downloadFile } from "@/lib/file-download";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoFolder = hgIcon(Folder01Icon);
 const IcoImage = hgIcon(Image01Icon);
@@ -135,14 +136,14 @@ export function ContactFilesTab({
   };
 
   const handleDeletePhoto = async (photoId: number) => {
-    if (!confirm("¿Eliminar esta foto?")) return;
+    if (!await appConfirm({ title: "Eliminar foto", variant: "destructive", confirmLabel: "Eliminar" })) return;
     setDeletingPhoto(photoId);
     await onDeletePhoto(photoId);
     setDeletingPhoto(null);
   };
 
   const handleDeleteDoc = async (docId: number) => {
-    if (!confirm("¿Eliminar este documento?")) return;
+    if (!await appConfirm({ title: "Eliminar documento", variant: "destructive", confirmLabel: "Eliminar" })) return;
     setDeletingDoc(docId);
     await onDeleteDocument(docId);
     setDeletingDoc(null);

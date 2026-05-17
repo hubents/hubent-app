@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
+import { downloadDocumentPDF, downloadBulkDocumentsPDF } from "@/lib/pdf-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,12 +25,13 @@ import {
   Cancel01Icon,
   EyeIcon,
   Download01Icon,
+  Calendar01Icon,
   CheckmarkCircle01Icon,
+  FilterHorizontalIcon,
 } from "@hugeicons/core-free-icons";
 import { hgIcon } from "@/components/ui/hg-icon";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
@@ -38,9 +39,11 @@ import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { useUserSession } from "@/hooks/use-user-session";
 import { fmtMoney } from "@/lib/format";
 import { getInitials as initials, avColor } from "@/lib/ui-utils";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoSearch      = hgIcon(Search01Icon);
 const IcoPlus        = hgIcon(PlusSignIcon);
+const IcoFilter      = hgIcon(FilterHorizontalIcon);
 const IcoChevDown    = hgIcon(ArrowDown01Icon);
 const IcoChevUp      = hgIcon(ArrowUp01Icon);
 const IcoSort        = hgIcon(ArrowUpDownIcon);
@@ -53,6 +56,7 @@ const IcoSend        = hgIcon(MailSend01Icon);
 const IcoX           = hgIcon(Cancel01Icon);
 const IcoEye         = hgIcon(EyeIcon);
 const IcoDownload    = hgIcon(Download01Icon);
+const IcoCalendar    = hgIcon(Calendar01Icon);
 const IcoCheckDouble = hgIcon(CheckmarkCircle01Icon);
 
 interface DocumentItem {
@@ -140,6 +144,23 @@ function CreditNotesContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`);
+  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!datePickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setDatePickerOpen(false);
+      }
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", handler); };
+  }, [datePickerOpen]);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
 
@@ -194,7 +215,7 @@ function CreditNotesContent() {
   }
 
   async function deleteCreditNote(id: number) {
-    if (!confirm("¿Eliminar esta factura rectificativa?")) return;
+    if (!await appConfirm({ title: "Eliminar rectificativa", description: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
       if (res.ok) { toast.success("Rectificativa eliminada"); fetchCreditNotes(); }
@@ -233,6 +254,13 @@ function CreditNotesContent() {
   function openEditDrawer(id: number) {
     setEditingId(id); setDrawerOpen(true);
   }
+  async function handleBulkDownload() {
+    const docs = sortedDocs
+      .filter((d) => selectedIds.has(d.id))
+      .map((d) => ({ id: d.id, number: d.number || String(d.id) }));
+    await downloadBulkDocumentsPDF(docs, `rectificativas-${docs.length}`);
+  }
+
   async function openPreview(id: number) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
@@ -251,8 +279,17 @@ function CreditNotesContent() {
     "Sin cliente";
 
   const sortedDocs = useMemo(() => {
-    if (!sort) return creditNotes;
-    const list = [...creditNotes];
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+    const base = creditNotes.filter((n) => {
+      if (!n.issueDate) return true;
+      const d = new Date(n.issueDate);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+    if (!sort) return base;
+    const list = [...base];
     list.sort((a, b) => {
       let av: string | number = "";
       let bv: string | number = "";
@@ -269,7 +306,7 @@ function CreditNotesContent() {
       return 0;
     });
     return list;
-  }, [creditNotes, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [creditNotes, sort, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kpis = useMemo(() => {
     const total          = creditNotes.reduce((s, d) => s + parseFloat(d.total || "0"), 0);
@@ -359,6 +396,78 @@ function CreditNotesContent() {
 
           <ScopeFilter value={scope} onChange={(v) => { setScope(v); setPage(1); }} />
 
+          {/* Status dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+                style={{
+                  border: "1px solid var(--line-1)",
+                  background: statusFilter !== "all" ? "var(--bg-subtle)" : "#FFFFFF",
+                  padding: "7px 12px",
+                  fontSize: 13,
+                  color: "var(--ink-1)",
+                  fontWeight: 500,
+                  outline: "none",
+                }}
+              >
+                <IcoFilter className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+                {statusFilter !== "all"
+                  ? STATUS_OPTIONS.find(o => o.value === statusFilter)?.label
+                  : "Estado"}
+                <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" style={{ minWidth: 180 }}>
+              {STATUS_OPTIONS.map((o) => (
+                <DropdownMenuItem
+                  key={o.value}
+                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
+                  className="flex items-center justify-between"
+                >
+                  {o.label}
+                  {statusFilter === o.value && <IcoCheck className="h-3.5 w-3.5 ml-4" style={{ color: "var(--ink-1)" }} />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Date range */}
+          <div ref={datePickerRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setDatePickerOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 12px", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}
+            >
+              <IcoCalendar className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+              {format(new Date(dateFrom), "dd/MM/yyyy")} — {format(new Date(dateTo), "dd/MM/yyyy")}
+              <IcoChevDown className="h-3.5 w-3.5" style={{ color: "var(--ink-3)" }} />
+            </button>
+            {datePickerOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 240, background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: "var(--r-md)", boxShadow: "0 8px 24px rgba(15,16,18,.08)", padding: 16, zIndex: 30, display: "flex", flexDirection: "column", gap: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Desde
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  Hasta
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Bulk download */}
+          <button
+            onClick={handleBulkDownload}
+            disabled={selectedIds.size === 0}
+            title={selectedIds.size > 0 ? `Descargar ${selectedIds.size} PDF` : "Selecciona documentos para descargar"}
+            className="inline-flex items-center justify-center rounded-[8px] transition-colors"
+            style={{ border: "1px solid var(--line-1)", background: "#FFFFFF", padding: "7px 10px", color: selectedIds.size > 0 ? "var(--ink-1)" : "var(--ink-3)", opacity: selectedIds.size === 0 ? 0.45 : 1, cursor: selectedIds.size === 0 ? "not-allowed" : "pointer" }}
+          >
+            <IcoDownload className="h-4 w-4" />
+          </button>
+
           <div className="ml-auto">
             {can("finance:create") && (
               <button
@@ -370,35 +479,6 @@ function CreditNotesContent() {
                 Nueva FR
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Status pill filters */}
-        <div className="flex items-center mb-4">
-          <div
-            className="inline-flex gap-1 rounded-[8px]"
-            style={{ background: "var(--bg-subtle)", padding: 3 }}
-          >
-            {STATUS_OPTIONS.map((o) => {
-              const active = statusFilter === o.value;
-              return (
-                <button
-                  key={o.value}
-                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
-                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
-                  style={{
-                    padding: "5px 12px",
-                    background: active ? "#FFFFFF" : "transparent",
-                    color: active ? "var(--ink-1)" : "var(--ink-3)",
-                    fontWeight: active ? 600 : 500,
-                    fontSize: 12.5,
-                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
-                  }}
-                >
-                  {o.label}
-                </button>
-              );
-            })}
           </div>
         </div>
 
@@ -504,7 +584,7 @@ function CreditNotesContent() {
                       {/* Fecha */}
                       <td>
                         <span className="text-[13px] text-[var(--ink-2)]">
-                          {format(new Date(doc.issueDate), "d MMM yyyy", { locale: es })}
+                          {format(new Date(doc.issueDate), "dd/MM/yyyy")}
                         </span>
                       </td>
                       {/* Número */}

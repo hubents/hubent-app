@@ -24,6 +24,7 @@ import {
   RiCheckLine,
 } from "@remixicon/react";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
+import { appConfirm } from "@/lib/confirm";
 
 interface TaskScheduleItem {
   id: number;
@@ -504,8 +505,8 @@ export function TaskScheduleTab({
             variant="ghost"
             size="sm"
             className="text-destructive"
-            onClick={() => {
-              if (confirm("¿Eliminar todos los items del orden del día?")) {
+            onClick={async () => {
+              if (await appConfirm({ title: "Eliminar orden del día", description: "Se eliminarán todos los ítems. Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar todo" })) {
                 scheduleItems.forEach((item) => onDeleteScheduleItem(item.id));
               }
             }}

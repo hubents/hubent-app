@@ -28,6 +28,7 @@ import { TaskFormsTab } from "./task-forms-tab";
 import { TaskChat } from "./task-chat";
 import { TaskAIDrawer } from "./task-ai-drawer";
 import { cn } from "@/lib/utils";
+import { appConfirm } from "@/lib/confirm";
 
 interface TaskDrawerProps {
   taskId: number | null;
@@ -263,7 +264,7 @@ export function TaskDrawer({
 
   const handleDelete = async () => {
     const idToDelete = effectiveTaskId;
-    if (!idToDelete || !confirm("¿Estás seguro de eliminar esta tarea?")) return;
+    if (!idToDelete || !await appConfirm({ title: "Eliminar tarea", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/tasks/${idToDelete}`, { method: "DELETE" });

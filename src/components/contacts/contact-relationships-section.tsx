@@ -11,6 +11,7 @@ import {
   Link01Icon,
 } from "@hugeicons/core-free-icons";
 import { Av } from "@/components/ui/ds";
+import { appConfirm } from "@/lib/confirm";
 
 const IcoPlus = hgIcon(PlusSignIcon);
 const IcoUser = hgIcon(UserCircleIcon);
@@ -111,7 +112,7 @@ export function ContactRelationshipsSection({
   };
 
   const handleRemove = async (relationshipId: number) => {
-    if (!confirm("¿Eliminar esta relación?")) return;
+    if (!await appConfirm({ title: "Eliminar relación", variant: "destructive", confirmLabel: "Eliminar" })) return;
     setRemoving(relationshipId);
     try {
       await onRemoveRelationship(relationshipId);

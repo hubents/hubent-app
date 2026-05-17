@@ -10,6 +10,7 @@ import { AddCollaboratorModal } from "@/components/events/add-collaborator-modal
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Delete01Icon, MailSend01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { appConfirm } from "@/lib/confirm";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface EventData {
@@ -254,11 +255,11 @@ function EventDataForm({
           {form.status !== "cancelled" && (
             <button
               style={{ padding: "7px 14px", borderRadius: "var(--r-sm)", border: "1px solid #FCD34D", background: "#FFFBEB", color: "#92400E", fontSize: 13, fontWeight: 500, cursor: cancelling ? "not-allowed" : "pointer", opacity: cancelling ? 0.7 : 1, fontFamily: "inherit" }}
-              onClick={() => {
+              onClick={async () => {
                 const msg = taskCount > 0
                   ? `El evento y sus ${taskCount} tarea(s) serán marcados como cancelados. ¿Continuar?`
                   : "El evento será marcado como cancelado. Podrás restaurarlo más tarde. ¿Continuar?";
-                if (confirm(msg)) handleCancel();
+                if (await appConfirm({ title: "Cancelar evento", description: msg, variant: "destructive", confirmLabel: "Cancelar evento" })) handleCancel();
               }}
               disabled={cancelling}
             >
@@ -267,11 +268,11 @@ function EventDataForm({
           )}
           <button
             style={{ padding: "7px 14px", borderRadius: "var(--r-sm)", border: "none", background: "#FEE2E2", color: "#991B1B", fontSize: 13, fontWeight: 500, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}
-            onClick={() => {
+            onClick={async () => {
               const msg = taskCount > 0
                 ? `Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos. Las ${taskCount} tarea(s) vinculadas serán desvinculadas. ¿Eliminar permanentemente?`
                 : "Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos. ¿Eliminar permanentemente?";
-              if (confirm(msg)) handleDelete();
+              if (await appConfirm({ title: "Eliminar evento", description: msg, variant: "destructive", confirmLabel: "Eliminar" })) handleDelete();
             }}
             disabled={deleting}
           >
@@ -307,7 +308,7 @@ function CollaboratorsTab({
 
   async function revokeInvitation(invitationId: number, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("¿Revocar esta invitación?")) return;
+    if (!await appConfirm({ title: "Revocar invitación", variant: "destructive", confirmLabel: "Revocar" })) return;
     const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) { toast.success("Invitación revocada"); onRefresh(); }
@@ -324,7 +325,7 @@ function CollaboratorsTab({
 
   async function removeCollaborator(participantId: number, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("¿Revocar el acceso de este colaborador?")) return;
+    if (!await appConfirm({ title: "Revocar acceso", description: "Este colaborador perderá el acceso al evento.", variant: "destructive", confirmLabel: "Revocar" })) return;
     const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) { toast.success("Acceso revocado"); onRefresh(); }
