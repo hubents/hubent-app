@@ -336,6 +336,8 @@ export async function getDocuments(
       currency: financialDocuments.currency,
       globalDiscount: financialDocuments.globalDiscount,
       globalDiscountType: financialDocuments.globalDiscountType,
+      globalSurcharge: financialDocuments.globalSurcharge,
+      globalSurchargeType: financialDocuments.globalSurchargeType,
       createdAt: financialDocuments.createdAt,
       companyName: companies.legalName,
       personFirstName: people.firstName,
@@ -471,6 +473,8 @@ export async function createDocument(
     termsAndConditions?: string;
     globalDiscount?: number;
     globalDiscountType?: "percentage" | "fixed";
+    globalSurcharge?: number;
+    globalSurchargeType?: "percentage" | "fixed";
     paymentMethod?: string;
     bankAccountId?: number;
     direction?: "incoming" | "outgoing";
@@ -479,6 +483,7 @@ export async function createDocument(
     items: Array<{
       productId?: number;
       description: string;
+      details?: string;
       quantity: number;
       unitPrice: number;
       discount?: number;
@@ -518,9 +523,21 @@ export async function createDocument(
         ? subtotalLines * (globalDiscountValue / 100)
         : globalDiscountValue;
   }
-  const subtotalAfterDiscount = subtotalLines - globalDiscountAmount;
 
-  // Calculate tax on subtotal after global discount
+  // Apply global surcharge
+  const globalSurchargeValue = data.globalSurcharge || 0;
+  const globalSurchargeType = data.globalSurchargeType || "percentage";
+  let globalSurchargeAmount = 0;
+  if (globalSurchargeValue > 0) {
+    globalSurchargeAmount =
+      globalSurchargeType === "percentage"
+        ? subtotalLines * (globalSurchargeValue / 100)
+        : globalSurchargeValue;
+  }
+
+  const subtotalAfterDiscount = subtotalLines - globalDiscountAmount + globalSurchargeAmount;
+
+  // Calculate tax on subtotal after adjustments
   itemsWithTotals.forEach((item) => {
     const itemProportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
     const itemTaxableAmount = subtotalAfterDiscount * itemProportion;
@@ -564,6 +581,8 @@ export async function createDocument(
       currency: resolvedCurrency,
       globalDiscount: globalDiscountValue.toString(),
       globalDiscountType,
+      globalSurcharge: globalSurchargeAmount.toString(),
+      globalSurchargeType,
       paymentMethod: data.paymentMethod,
       bankAccountId: data.bankAccountId,
       direction,
@@ -579,6 +598,7 @@ export async function createDocument(
       documentId: doc.id,
       productId: item.productId,
       description: item.description,
+      details: item.details || null,
       quantity: item.quantity.toString(),
       unitPrice: item.unitPrice.toString(),
       discount: (item.discount || 0).toString(),
@@ -731,6 +751,8 @@ export async function updateDocument(
     termsAndConditions?: string;
     globalDiscount?: number;
     globalDiscountType?: "percentage" | "fixed";
+    globalSurcharge?: number;
+    globalSurchargeType?: "percentage" | "fixed";
     paymentMethod?: string;
     bankAccountId?: number;
     direction?: "incoming" | "outgoing";
@@ -738,6 +760,7 @@ export async function updateDocument(
     items?: Array<{
       productId?: number;
       description: string;
+      details?: string;
       quantity: number;
       unitPrice: number;
       discount?: number;
@@ -808,6 +831,10 @@ export async function updateDocument(
     updateData.globalDiscount = data.globalDiscount.toString();
   if (data.globalDiscountType !== undefined)
     updateData.globalDiscountType = data.globalDiscountType;
+  if (data.globalSurcharge !== undefined)
+    updateData.globalSurcharge = data.globalSurcharge.toString();
+  if (data.globalSurchargeType !== undefined)
+    updateData.globalSurchargeType = data.globalSurchargeType;
 
   // If items are provided, recalculate totals and replace items
   if (data.items && data.items.length > 0) {
@@ -831,7 +858,19 @@ export async function updateDocument(
           ? subtotalLines * (globalDiscountValue / 100)
           : globalDiscountValue;
     }
-    const subtotalAfterDiscount = subtotalLines - globalDiscountAmount;
+
+    // Apply global surcharge
+    const globalSurchargeValue = data.globalSurcharge ?? 0;
+    const globalSurchargeType = data.globalSurchargeType ?? "percentage";
+    let globalSurchargeAmount = 0;
+    if (globalSurchargeValue > 0) {
+      globalSurchargeAmount =
+        globalSurchargeType === "percentage"
+          ? subtotalLines * (globalSurchargeValue / 100)
+          : globalSurchargeValue;
+    }
+
+    const subtotalAfterDiscount = subtotalLines - globalDiscountAmount + globalSurchargeAmount;
 
     itemsWithTotals.forEach((item) => {
       const itemProportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
@@ -855,6 +894,7 @@ export async function updateDocument(
         documentId,
         productId: item.productId,
         description: item.description,
+        details: item.details || null,
         quantity: item.quantity.toString(),
         unitPrice: item.unitPrice.toString(),
         discount: (item.discount || 0).toString(),

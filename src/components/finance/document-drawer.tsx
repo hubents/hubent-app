@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   PlusSignIcon,
@@ -136,6 +136,215 @@ function StripSelect({ value, onChange, children }: {
   );
 }
 
+// ── ConceptoInput — busqueda @ de productos ──────────────────────────────────
+interface ProductResult {
+  id: number; name: string; description?: string | null; unitPrice?: string | null;
+  taxRate?: string | null; category?: string | null; color?: string | null;
+  initials?: string | null; stock?: number | null; stockMin?: number | null;
+}
+
+function ConceptoInput({ value, onChange, onProductSelect }: {
+  value: string;
+  onChange: (v: string) => void;
+  onProductSelect?: (p: ProductResult) => void;
+}) {
+  const [results, setResults] = useState<ProductResult[]>([]);
+  const [showDrop, setShowDrop] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setShowDrop(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const handleChange = async (v: string) => {
+    onChange(v);
+    const atIdx = v.lastIndexOf("@");
+    if (atIdx !== -1) {
+      const q = v.slice(atIdx + 1).toLowerCase().trim();
+      try {
+        const res = await fetch(`/api/products?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const hits: ProductResult[] = (data.data || []).slice(0, 8);
+          setResults(hits);
+          setShowDrop(hits.length > 0);
+        }
+      } catch { setShowDrop(false); }
+    } else {
+      setShowDrop(false);
+      setResults([]);
+    }
+  };
+
+  const handleSelect = (p: ProductResult) => {
+    const atIdx = value.lastIndexOf("@");
+    onChange(atIdx !== -1 ? value.slice(0, atIdx) + p.name : p.name);
+    onProductSelect?.(p);
+    setShowDrop(false);
+    setResults([]);
+  };
+
+  const fmtPrice = (v?: string | null) => v ? parseFloat(v).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
+
+  return (
+    <div ref={ref} style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
+      <textarea
+        value={value}
+        placeholder="Concepto — usa @ para buscar producto"
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        style={{ ...CELL_BASE, ...(focus ? { border: "1px solid var(--color-primary, #3970FF)", background: "var(--bg-panel)" } : {}), resize: "vertical", minHeight: 36, height: 36, lineHeight: 1.4, paddingTop: 7 }}
+      />
+      {showDrop && results.length > 0 && (
+        <div style={{ position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, background: "var(--bg-panel)", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", boxShadow: "0 10px 30px -8px rgba(24,20,10,0.15)", zIndex: 300, maxHeight: 240, overflowY: "auto" }}>
+          {results.map(p => {
+            const hasStock = p.stock != null;
+            const lowStock = hasStock && p.stock! <= (p.stockMin || 0);
+            const avail = hasStock
+              ? lowStock
+                ? { txt: `${p.stock} uds — stock bajo`, col: "#B55450", bg: "#FBEDEC" }
+                : { txt: `${p.stock} disponibles`, col: "#1F6A3A", bg: "#EDF5EE" }
+              : null;
+            return (
+              <div key={p.id}
+                onMouseDown={() => handleSelect(p)}
+                style={{ padding: "7px 10px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-subtle)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: (p.color || "#aaa") + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: p.color || "#666", flexShrink: 0 }}>
+                  {p.initials || p.name?.[0]?.toUpperCase() || "?"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, color: "var(--ink-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{[p.category, p.unitPrice ? fmtPrice(p.unitPrice) : null].filter(Boolean).join(" · ")}</div>
+                </div>
+                {avail && (
+                  <span style={{ fontSize: 10.5, fontWeight: 600, padding: "2px 7px", borderRadius: 999, background: avail.bg, color: avail.col, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    {avail.txt}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Cell input base style (transparent border, blue on focus)
+const CELL_BASE: React.CSSProperties = {
+  width: "100%", padding: "6px 8px", border: "1px solid transparent", borderRadius: "var(--r-xs)",
+  background: "transparent", color: "var(--ink-1)", fontSize: 13, fontFamily: "inherit",
+  outline: "none", boxSizing: "border-box",
+};
+
+function CellInput({ value, onChange, type = "text", textAlign }: {
+  value: string | number; onChange: (v: string) => void;
+  type?: string; textAlign?: React.CSSProperties["textAlign"];
+}) {
+  const [focus, setFocus] = useState(false);
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={{
+        ...CELL_BASE,
+        ...(focus ? { border: "1px solid var(--color-primary, #3970FF)", background: "var(--bg-panel)" } : {}),
+        textAlign,
+      }}
+    />
+  );
+}
+
+function CellTextArea({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [focus, setFocus] = useState(false);
+  return (
+    <textarea
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={{
+        ...CELL_BASE,
+        ...(focus ? { border: "1px solid var(--color-primary, #3970FF)", background: "var(--bg-panel)" } : {}),
+        resize: "vertical", minHeight: 36, height: 36, lineHeight: 1.4, paddingTop: 7,
+      }}
+    />
+  );
+}
+
+function VatPill({ vat, onChange, taxRates }: { vat: number; onChange: (v: number) => void; taxRates: TaxRate[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [open]);
+
+  const options = taxRates.length > 0
+    ? taxRates.filter(t => t.isActive !== false).map(t => parseFloat(t.rate))
+    : [21, 10, 4, 0];
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "3px 8px", background: "var(--bg-subtle)",
+          border: "1px solid var(--line-1)", borderRadius: 5,
+          fontSize: 12, cursor: "pointer", color: "var(--ink-1)", whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ color: "var(--ink-3)", fontSize: 11 }}>×</span> IVA {vat}%
+        <HugeiconsIcon icon={ArrowDown01Icon} size={10} strokeWidth={1.5} style={{ color: "var(--ink-3)" }} />
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0,
+          background: "var(--bg-panel)", border: "1px solid var(--line-1)",
+          borderRadius: "var(--r-md)", boxShadow: "var(--shadow-pop, 0 4px 16px rgba(0,0,0,.12))",
+          zIndex: 200, overflow: "hidden", minWidth: 140, padding: 4,
+        }}>
+          {options.map(v => (
+            <button
+              key={v}
+              onClick={() => { onChange(v); setOpen(false); }}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "7px 12px",
+                background: vat === v ? "var(--bg-subtle)" : "transparent",
+                border: "none", cursor: "pointer", fontSize: 12.5,
+                color: "var(--ink-1)", fontWeight: vat === v ? 600 : 400,
+                borderRadius: "var(--r-sm)",
+              }}
+            >
+              IVA {v}%
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DocumentDrawer({
   open, onOpenChange, type, documentId, initialData, onSuccess,
   onDuplicate, onConvert, saveEndpoint, lockedEvent, lockedClientLabel,
@@ -167,8 +376,12 @@ export function DocumentDrawer({
   const [paymentNotes, setPaymentNotes] = useState("");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [globalDiscountEnabled, setGlobalDiscountEnabled] = useState(false);
-  const [globalDiscount, setGlobalDiscount] = useState(0);
-  const [globalDiscountType, setGlobalDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [cargoEnabled, setCargoEnabled] = useState(false);
+  const [cargoAmt, setCargoAmt] = useState("");
+  const [cargoType, setCargoType] = useState<"percentage" | "fixed">("percentage");
+  const [discGlobal, setDiscGlobal] = useState(false);
+  const [discGlobalAmt, setDiscGlobalAmt] = useState("");
+  const [discGlobalType, setDiscGlobalType] = useState<"percentage" | "fixed">("percentage");
   const [items, setItems] = useState<DocumentItem[]>([
     { description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 21, total: 0 },
   ]);
@@ -198,8 +411,9 @@ export function DocumentDrawer({
       if (initialData.bankAccountId) setBankAccountId(initialData.bankAccountId.toString());
       if (initialData.globalDiscount && initialData.globalDiscount > 0) {
         setGlobalDiscountEnabled(true);
-        setGlobalDiscount(initialData.globalDiscount);
-        setGlobalDiscountType(initialData.globalDiscountType || "percentage");
+        setDiscGlobal(true);
+        setDiscGlobalAmt(initialData.globalDiscount.toString());
+        setDiscGlobalType((initialData.globalDiscountType as "percentage" | "fixed") || "percentage");
       }
       if (initialData.items?.length) setItems(initialData.items);
     } else {
@@ -214,8 +428,7 @@ export function DocumentDrawer({
   function resetForm() {
     setContactValue(null); setEventId(""); setDueDate(""); setValidUntil("");
     setNotes(""); setTermsAndConditions(""); setPaymentMethod(""); setPaymentNotes("");
-    setBankAccountId(""); setGlobalDiscountEnabled(false); setGlobalDiscount(0);
-    setGlobalDiscountType("percentage"); setDocumentNumber(undefined); setDocumentStatus(undefined);
+    setBankAccountId(""); setGlobalDiscountEnabled(false); setCargoEnabled(false); setCargoAmt(""); setCargoType("percentage"); setDiscGlobal(false); setDiscGlobalAmt(""); setDiscGlobalType("percentage"); setDocumentNumber(undefined); setDocumentStatus(undefined);
     setIssueDate(new Date().toISOString().split("T")[0]);
     setAccountingAccount(FIN_ACCOUNTS[0]); setPerConcept(false); setTags(""); setPerConceptTags(false);
     setItems([{ description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
@@ -282,8 +495,13 @@ export function DocumentDrawer({
           setNotes(doc.notes || ""); setTermsAndConditions(doc.termsAndConditions || "");
           setPaymentMethod(doc.paymentMethod || ""); setBankAccountId(doc.bankAccountId?.toString() || "");
           const gd = parseFloat(doc.globalDiscount || "0");
-          if (gd > 0) { setGlobalDiscountEnabled(true); setGlobalDiscount(gd); setGlobalDiscountType(doc.globalDiscountType || "percentage"); }
-          if (doc.items?.length > 0) setItems(doc.items.map((it: any) => ({ id: it.id, description: it.description, details: "", quantity: parseFloat(it.quantity), unitPrice: parseFloat(it.unitPrice), discount: parseFloat(it.discount || "0"), taxRate: parseFloat(it.taxRate ?? "21"), total: parseFloat(it.total) })));
+          const gs = parseFloat(doc.globalSurcharge || "0");
+          if (gd > 0 || gs > 0) {
+            setGlobalDiscountEnabled(true);
+            if (gd > 0) { setDiscGlobal(true); setDiscGlobalAmt(gd.toString()); setDiscGlobalType((doc.globalDiscountType as "percentage" | "fixed") || "percentage"); }
+            if (gs > 0) { setCargoEnabled(true); setCargoAmt(gs.toString()); setCargoType((doc.globalSurchargeType as "percentage" | "fixed") || "percentage"); }
+          }
+          if (doc.items?.length > 0) setItems(doc.items.map((it: any) => ({ id: it.id, description: it.description, details: it.details || "", quantity: parseFloat(it.quantity), unitPrice: parseFloat(it.unitPrice), discount: parseFloat(it.discount || "0"), taxRate: parseFloat(it.taxRate ?? "21"), total: parseFloat(it.total) })));
         }
       }
     } catch (err) { toast.error("Error al cargar el documento"); }
@@ -304,14 +522,42 @@ export function DocumentDrawer({
     next[i] = item; setItems(next);
   }
 
+  function resolveAmt(enabled: boolean, amt: string, type: "percentage" | "fixed", base: number) {
+    if (!enabled) return 0;
+    const v = Number(amt) || 0;
+    return type === "percentage" ? base * (v / 100) : v;
+  }
+
+  function convertAmt(val: string, from: "percentage" | "fixed", to: "percentage" | "fixed", base: number): string {
+    if (from === to) return val;
+    const v = Number(val) || 0;
+    if (to === "fixed") return base > 0 ? String(parseFloat((base * v / 100).toFixed(2))) : val;
+    return base > 0 ? String(parseFloat((v / base * 100).toFixed(4))) : val;
+  }
+
+  function handleCargoTypeChange(newType: "percentage" | "fixed") {
+    const sub = items.reduce((s, it) => s + it.total, 0);
+    setCargoAmt(convertAmt(cargoAmt, cargoType, newType, sub));
+    setCargoType(newType);
+  }
+
+  function handleDiscTypeChange(newType: "percentage" | "fixed") {
+    const sub = items.reduce((s, it) => s + it.total, 0);
+    setDiscGlobalAmt(convertAmt(discGlobalAmt, discGlobalType, newType, sub));
+    setDiscGlobalType(newType);
+  }
+
   function calculateTotals() {
     let sub = 0, tax = 0;
     items.forEach(it => { sub += it.total; });
-    let disc = 0;
-    if (globalDiscountEnabled && globalDiscount > 0) disc = globalDiscountType === "percentage" ? sub * (globalDiscount / 100) : globalDiscount;
-    const afterDisc = sub - disc;
-    items.forEach(it => { const prop = sub > 0 ? it.total / sub : 0; tax += afterDisc * prop * (it.taxRate / 100); });
-    return { sub, disc, afterDisc, tax, total: afterDisc + tax };
+    let disc = 0, cargo = 0;
+    if (globalDiscountEnabled) {
+      disc = resolveAmt(discGlobal, discGlobalAmt, discGlobalType, sub);
+      cargo = resolveAmt(cargoEnabled, cargoAmt, cargoType, sub);
+    }
+    const afterAdj = Math.max(0, sub - disc + cargo);
+    items.forEach(it => { const prop = sub > 0 ? it.total / sub : 0; tax += afterAdj * prop * (it.taxRate / 100); });
+    return { sub, disc, cargo, afterAdj, tax, total: afterAdj + tax };
   }
 
   async function handleSubmit() {
@@ -327,11 +573,13 @@ export function DocumentDrawer({
         dueDate: dueDate || undefined, validUntil: validUntil || undefined,
         notes: notes || undefined, termsAndConditions: termsAndConditions || undefined,
         paymentMethod: paymentMethod || undefined, bankAccountId: bankAccountId ? parseInt(bankAccountId) : undefined,
-        globalDiscount: globalDiscountEnabled ? globalDiscount : 0,
-        globalDiscountType: globalDiscountEnabled ? globalDiscountType : "percentage",
+        globalDiscount: globalDiscountEnabled && discGlobal ? (Number(discGlobalAmt) || 0) : 0,
+        globalDiscountType: discGlobalType,
+        globalSurcharge: globalDiscountEnabled && cargoEnabled ? (Number(cargoAmt) || 0) : 0,
+        globalSurchargeType: cargoType,
         direction, currency, status: documentId ? undefined : "sent",
         items: items.filter(it => it.description.trim()).map(it => ({
-          description: it.description, quantity: it.quantity,
+          description: it.description, details: it.details || undefined, quantity: it.quantity,
           unitPrice: isDeliveryNote ? 0 : it.unitPrice,
           discount: isDeliveryNote ? 0 : it.discount,
           taxRate: isDeliveryNote ? 0 : it.taxRate,
@@ -359,9 +607,14 @@ export function DocumentDrawer({
       contactAddress: contactValue?.address || undefined, contactTaxId: contactValue?.taxId || undefined,
       eventName: selectedEvent?.name, documentNumber, documentId: documentId || undefined, status: documentStatus,
       items, notes, termsAndConditions, dueDate, validUntil, organization: orgData,
-      globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod: paymentMethod || undefined, currency,
+      globalDiscount: globalDiscountEnabled && discGlobal ? (Number(discGlobalAmt) || 0) : 0,
+      globalDiscountType: discGlobalType,
+      globalDiscountEnabled,
+      globalSurcharge: globalDiscountEnabled && cargoEnabled ? (Number(cargoAmt) || 0) : 0,
+      globalSurchargeType: cargoType,
+      paymentMethod: paymentMethod || undefined, currency,
     };
-  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod, currency]);
+  }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscountEnabled, discGlobal, discGlobalAmt, discGlobalType, cargoEnabled, cargoAmt, cargoType, paymentMethod, currency]);
 
   if (!open) return null;
 
@@ -371,8 +624,8 @@ export function DocumentDrawer({
 
   // Lines table grid template
   const linesGrid = isDeliveryNote
-    ? "24px 2fr 1.2fr 72px 40px"
-    : "24px 2fr 1.2fr 72px 80px 64px 130px 80px 40px";
+    ? "20px 2fr 1.5fr 0.6fr 28px"
+    : "20px 2fr 1.5fr 0.6fr 0.7fr 0.5fr 1fr 0.85fr 28px";
 
   const colHdr: React.CSSProperties = {
     fontSize: 11, fontWeight: 600, color: "var(--ink-3)",
@@ -382,13 +635,14 @@ export function DocumentDrawer({
   };
 
   return (
+    <>
     <div
       onClick={() => onOpenChange(false)}
       style={{ position: "fixed", inset: 0, background: "rgba(30,25,20,0.28)", display: "flex", justifyContent: "flex-end", zIndex: 50, backdropFilter: "blur(2px)" }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ width: showPreview ? "100vw" : "min(1320px, 100vw)", height: "100%", background: "var(--bg-panel)", borderLeft: "1px solid var(--line-1)", boxShadow: "-20px 0 40px -10px rgba(0,0,0,.15)", display: "flex", flexDirection: "column" }}
+        style={{ width: "min(1320px, 100vw)", height: "100%", background: "var(--bg-panel)", borderLeft: "1px solid var(--line-1)", boxShadow: "-20px 0 40px -10px rgba(0,0,0,.15)", display: "flex", flexDirection: "column" }}
       >
         {/* ── Header ─────────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid var(--line-1)", flexShrink: 0, gap: 12 }}>
@@ -445,8 +699,9 @@ export function DocumentDrawer({
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
               {/* ── Top fields strip ─────────────────────────────── */}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.2fr 1fr 1fr", borderBottom: "1px solid var(--line-1)", flexShrink: 0, background: "var(--bg-panel)" }}>
-                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div style={{ display: "grid", gridTemplateColumns: linesGrid, borderBottom: "1px solid var(--line-1)", flexShrink: 0, background: "var(--bg-panel)" }}>
+                {/* Contacto — span 2 (drag handle + concepto) */}
+                <div style={{ gridColumn: "span 2", padding: "10px 16px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Contacto</div>
                   {lockedClientLabel ? (
                     <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{lockedClientLabel}</div>
@@ -455,7 +710,8 @@ export function DocumentDrawer({
                   )}
                 </div>
 
-                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                {/* Evento — span 1 (descripción) */}
+                <div style={{ gridColumn: "span 1", padding: "10px 16px", borderLeft: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Evento</div>
                   {lockedEvent ? (
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>{lockedEvent.name}</div>
@@ -467,18 +723,21 @@ export function DocumentDrawer({
                   )}
                 </div>
 
-                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                {/* Número de documento — span 2 (cantidad + precio) for invoice; span 1 for delivery */}
+                <div style={{ gridColumn: isDeliveryNote ? "span 1" : "span 2", padding: "10px 16px", borderLeft: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Número de documento</div>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>{documentNumber || "Autogenerado"}</div>
                 </div>
 
-                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                {/* Fecha — span 2 (dto + impuestos) for invoice; span 1 for delivery */}
+                <div style={{ gridColumn: isDeliveryNote ? "span 1" : "span 2", padding: "10px 16px", borderLeft: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Fecha</div>
                   <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} style={STRIP_INPUT} />
                 </div>
 
+                {/* Vencimiento/Válido hasta — span 2 (total + delete) for invoice only */}
                 {!isDeliveryNote && (
-                  <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ gridColumn: "span 2", padding: "10px 16px", borderLeft: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                     <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>{dateLabel}</div>
                     <input type="date" value={dateValue} onChange={e => setDateValue(e.target.value)} style={STRIP_INPUT} />
                   </div>
@@ -505,10 +764,17 @@ export function DocumentDrawer({
                 </div>
 
                 {/* Line rows */}
-                {items.map((item, idx) => (
-                  <div key={idx} style={{ display: "grid", gridTemplateColumns: linesGrid, borderBottom: "1px solid var(--line-1)", alignItems: "start" }}>
+                {items.map((item, idx) => {
+                  const [handleVisible, setHandleVisible] = [false, () => {}]; // placeholder, managed via onMouseEnter/Leave
+                  return (
+                  <div
+                    key={idx}
+                    style={{ display: "grid", gridTemplateColumns: linesGrid, borderBottom: "1px solid var(--line-1)", alignItems: "stretch", minHeight: 44 }}
+                    onMouseEnter={e => { const h = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(".drag-handle"); if (h) h.style.opacity = "1"; }}
+                    onMouseLeave={e => { const h = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(".drag-handle"); if (h) h.style.opacity = "0"; }}
+                  >
                     {/* Drag handle */}
-                    <div style={{ padding: "12px 4px 12px 8px", color: "var(--ink-3)", cursor: "grab", display: "flex", alignItems: "flex-start", paddingTop: 14 }}>
+                    <div className="drag-handle" style={{ display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity .12s", cursor: "grab", color: "var(--ink-4)" }}>
                       <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
                         <circle cx="3" cy="3" r="1.2" fill="currentColor" /><circle cx="7" cy="3" r="1.2" fill="currentColor" />
                         <circle cx="3" cy="7" r="1.2" fill="currentColor" /><circle cx="7" cy="7" r="1.2" fill="currentColor" />
@@ -517,87 +783,74 @@ export function DocumentDrawer({
                     </div>
 
                     {/* Concepto */}
-                    <div style={{ padding: "8px 10px 8px 0" }}>
-                      <textarea
-                        placeholder="Concepto — usa @ para buscar producto"
+                    <div style={{ display: "flex", alignItems: "flex-start", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                      <ConceptoInput
                         value={item.description}
-                        onChange={e => updateItem(idx, "description", e.target.value)}
-                        rows={2}
-                        style={{ ...INPUT, resize: "vertical", minHeight: 52, padding: "8px 10px", fontSize: 13 }}
+                        onChange={v => updateItem(idx, "description", v)}
+                        onProductSelect={p => {
+                          const next = [...items];
+                          next[idx] = {
+                            ...next[idx],
+                            description: p.name,
+                            details: p.description || next[idx].details,
+                            unitPrice: p.unitPrice ? parseFloat(p.unitPrice) : next[idx].unitPrice,
+                            taxRate: p.taxRate ? parseFloat(p.taxRate) : next[idx].taxRate,
+                          };
+                          const base = next[idx].quantity * next[idx].unitPrice;
+                          next[idx].total = base * (1 - next[idx].discount / 100);
+                          setItems(next);
+                        }}
                       />
                     </div>
 
                     {/* Descripción */}
-                    <div style={{ padding: "8px 10px 8px 0" }}>
-                      <textarea
+                    <div style={{ display: "flex", alignItems: "flex-start", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                      <CellTextArea
                         placeholder="Descripción"
                         value={item.details || ""}
-                        onChange={e => updateItem(idx, "details", e.target.value)}
-                        rows={2}
-                        style={{ ...INPUT, resize: "vertical", minHeight: 52, padding: "8px 10px", fontSize: 13 }}
+                        onChange={v => updateItem(idx, "details", v)}
                       />
                     </div>
 
                     {/* Cantidad */}
-                    <div style={{ padding: "10px" }}>
-                      <input type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)}
-                        style={{ ...STRIP_INPUT, textAlign: "center" }} />
+                    <div style={{ display: "flex", alignItems: "center", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                      <CellInput type="number" value={item.quantity} onChange={v => updateItem(idx, "quantity", v)} textAlign="center" />
                     </div>
 
                     {!isDeliveryNote && (
                       <>
                         {/* Precio */}
-                        <div style={{ padding: "10px" }}>
-                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateItem(idx, "unitPrice", e.target.value)}
-                            style={{ ...STRIP_INPUT, textAlign: "right" }} />
+                        <div style={{ display: "flex", alignItems: "center", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                          <CellInput type="number" value={item.unitPrice} onChange={v => updateItem(idx, "unitPrice", v)} textAlign="right" />
                         </div>
 
                         {/* Dto.% */}
-                        <div style={{ padding: "10px" }}>
-                          <input type="number" min="0" max="100" value={item.discount} onChange={e => updateItem(idx, "discount", e.target.value)}
-                            style={{ ...STRIP_INPUT, textAlign: "right" }} />
+                        <div style={{ display: "flex", alignItems: "center", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                          <CellInput type="number" value={item.discount} onChange={v => updateItem(idx, "discount", v)} textAlign="center" />
                         </div>
 
-                        {/* Impuestos — tag pill style */}
-                        <div style={{ padding: "8px 10px 8px 0", display: "flex", alignItems: "flex-start", paddingTop: 10 }}>
-                          <div style={{ position: "relative", width: "100%" }}>
-                            <select value={item.taxRate.toString()} onChange={e => updateItem(idx, "taxRate", e.target.value)}
-                              style={{ width: "100%", appearance: "none", paddingLeft: 8, paddingRight: 22, paddingTop: 4, paddingBottom: 4, cursor: "pointer", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", background: "var(--bg-subtle)", color: "var(--ink-1)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
-                              {taxRates.length > 0 ? (
-                                taxRates.filter(t => t.isActive !== false).map(tax => (
-                                  <option key={tax.id} value={parseFloat(tax.rate).toString()}>× IVA {parseFloat(tax.rate)}%</option>
-                                ))
-                              ) : (
-                                <>
-                                  <option value="0">× Exento 0%</option>
-                                  <option value="4">× IVA 4%</option>
-                                  <option value="10">× IVA 10%</option>
-                                  <option value="21">× IVA 21%</option>
-                                </>
-                              )}
-                            </select>
-                            <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none", display: "flex" }}>
-                              <HugeiconsIcon icon={ArrowDown01Icon} size={10} strokeWidth={1.5} />
-                            </span>
-                          </div>
+                        {/* Impuestos — VatPill */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 6px", borderLeft: "1px solid var(--line-1)" }}>
+                          <VatPill vat={item.taxRate} onChange={v => updateItem(idx, "taxRate", v)} taxRates={taxRates} />
                         </div>
 
-                        {/* Total */}
-                        <div style={{ padding: "10px 10px 10px 0", textAlign: "right", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>
-                          {dash(item.total)}
+                        {/* Total (con IVA incluido) */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "4px 10px", borderLeft: "1px solid var(--line-1)", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>
+                          {dash(item.total + item.total * (item.taxRate / 100))}
                         </div>
                       </>
                     )}
 
                     {/* Delete */}
-                    <div style={{ padding: "8px 8px 8px 0", display: "flex", justifyContent: "center", paddingTop: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", borderLeft: "1px solid var(--line-1)" }}>
                       <button onClick={() => removeItem(idx)} disabled={items.length === 1}
-                        style={{ background: "none", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? "var(--line-1)" : "#C0392B", padding: 4, display: "flex" }}>
-                        <HugeiconsIcon icon={Delete01Icon} size={15} strokeWidth={1.5} />
+                        style={{ background: "none", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? "var(--line-1)" : "#C0392B", padding: 4, display: "flex", borderRadius: 4 }}>
+                        <HugeiconsIcon icon={Delete01Icon} size={14} strokeWidth={1.5} />
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Add line + Add discount + Totals row */}
                 <div style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", borderBottom: "1px solid var(--line-1)", gap: 16 }}>
@@ -624,23 +877,49 @@ export function DocumentDrawer({
                   {!isDeliveryNote && (
                     <div style={{ minWidth: 300, flexShrink: 0 }}>
                       {!globalDiscountEnabled && (
-                        <button onClick={() => setGlobalDiscountEnabled(true)}
-                          style={{ display: "block", marginLeft: "auto", marginBottom: 10, fontSize: 13, fontWeight: 500, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                          + Añadir descuento
-                        </button>
+                        <div style={{ textAlign: "right", marginBottom: 10 }}>
+                          <button onClick={() => setGlobalDiscountEnabled(true)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-primary, #2563EB)", fontSize: 12.5, fontWeight: 500, padding: 0 }}>
+                            + Añadir descuento
+                          </button>
+                        </div>
                       )}
                       {globalDiscountEnabled && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8 }}>
-                          <span style={{ fontSize: 13, color: "var(--ink-3)", flexShrink: 0 }}>Descuento global</span>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <input type="number" min="0" step="0.01" value={globalDiscount} onChange={e => setGlobalDiscount(parseFloat(e.target.value) || 0)}
-                              style={{ ...INPUT, width: 80, padding: "5px 8px" }} />
-                            <FSelect value={globalDiscountType} onChange={v => setGlobalDiscountType(v as "percentage" | "fixed")} style={{ padding: "5px 28px 5px 8px" }}>
-                              <option value="percentage">%</option>
-                              <option value="fixed">{CURRENCY_SYMBOLS[currency] || "€"}</option>
-                            </FSelect>
-                            <button onClick={() => { setGlobalDiscountEnabled(false); setGlobalDiscount(0); }}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 16, padding: 2 }}>×</button>
+                        <div style={{ background: "var(--bg-subtle)", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", padding: "10px 14px", marginBottom: 10 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", marginBottom: 6 }}>
+                            <span style={{ color: "var(--ink-2)", fontWeight: 500 }}>Subtotal sin descuento</span>
+                            <span style={{ fontWeight: 500 }}>{fmt(totals.sub)}</span>
+                          </div>
+                          {[
+                            { label: "Cargo global", checked: cargoEnabled, setChecked: setCargoEnabled, amt: cargoAmt, setAmt: setCargoAmt, dtype: cargoType, onTypeChange: handleCargoTypeChange },
+                            { label: "Descuento global", checked: discGlobal, setChecked: setDiscGlobal, amt: discGlobalAmt, setAmt: setDiscGlobalAmt, dtype: discGlobalType, onTypeChange: handleDiscTypeChange },
+                          ].map(({ label, checked, setChecked, amt, setAmt, dtype, onTypeChange }) => (
+                            <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "4px 0" }}>
+                              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                                <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)}
+                                  style={{ accentColor: "var(--color-primary, #2563EB)", width: 14, height: 14, cursor: "pointer" }} />
+                                {label}
+                              </label>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, opacity: checked ? 1 : 0.4 }}>
+                                <input type="number" min="0" step="0.01" value={amt}
+                                  onChange={e => setAmt(e.target.value)} placeholder="0" disabled={!checked}
+                                  style={{ width: 60, border: "1px solid var(--line-1)", borderRadius: "var(--r-xs)", padding: "3px 7px", fontSize: 12.5, background: checked ? "var(--bg-panel)" : "var(--bg-subtle)", color: "var(--ink-1)", fontFamily: "inherit", outline: "none", textAlign: "right" }} />
+                                <div style={{ display: "flex", border: "1px solid var(--line-1)", borderRadius: "var(--r-xs)", overflow: "hidden", flexShrink: 0 }}>
+                                  {(["percentage", "fixed"] as const).map(t => (
+                                    <button key={t} disabled={!checked} onClick={() => onTypeChange(t)}
+                                      style={{ padding: "3px 7px", fontSize: 11.5, fontWeight: 500, border: "none", cursor: checked ? "pointer" : "default", background: dtype === t ? "var(--color-primary, #2563EB)" : "transparent", color: dtype === t ? "#fff" : "var(--ink-2)", transition: "background 0.1s" }}>
+                                      {t === "percentage" ? "%" : "€"}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <div style={{ textAlign: "right", marginTop: 6 }}>
+                            <button onClick={() => { setGlobalDiscountEnabled(false); setCargoEnabled(false); setCargoAmt(""); setCargoType("percentage"); setDiscGlobal(false); setDiscGlobalAmt(""); setDiscGlobalType("percentage"); }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 11.5, padding: 0 }}>
+                              Quitar descuento
+                            </button>
                           </div>
                         </div>
                       )}
@@ -787,13 +1066,6 @@ export function DocumentDrawer({
               </div>
             </div>
 
-            {/* Preview panel */}
-            {showPreview && (
-              <div style={{ width: "min(600px, 45vw)", borderLeft: "1px solid var(--line-1)", overflow: "auto", padding: "32px 28px", background: "var(--bg-soft)", flexShrink: 0 }}>
-                <LiveDocumentPreview data={previewData} />
-                <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>Vista previa · Los datos finales pueden variar</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -815,5 +1087,32 @@ export function DocumentDrawer({
         </div>
       </div>
     </div>
+
+    {/* ── Preview popup (A4 modal) ───────────────────────────────── */}
+    {showPreview && (
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, backdropFilter: "blur(2px)", padding: "24px" }}
+        onClick={() => setShowPreview(false)}
+      >
+        {/* Popup modal */}
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ background: "var(--bg-base, #f9f8f6)", borderRadius: 12, width: "min(860px, 100%)", height: "min(92vh, 900px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}
+        >
+          {/* Header bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid var(--line-1, #e5e3de)", flexShrink: 0, background: "var(--bg-panel, #fff)" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-3, #888)", fontWeight: 500 }}>Vista previa · Formato A4</span>
+            <button onClick={() => setShowPreview(false)} style={{ background: "var(--bg-hover, #f0ede8)", border: "none", borderRadius: "50%", width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-2, #555)" }}>
+              <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.5} />
+            </button>
+          </div>
+          {/* Paginated preview */}
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <LiveDocumentPreview data={previewData} />
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

@@ -38,6 +38,7 @@ const IcoUp       = hgIcon(ArrowUp01Icon);
 interface DocumentItem {
   id: number;
   description: string;
+  details?: string | null;
   quantity: string;
   unitPrice: string;
   discount: string;
@@ -63,6 +64,8 @@ interface Document {
   stripePaymentUrl?: string | null;
   globalDiscount?: string | null;
   globalDiscountType?: string | null;
+  globalSurcharge?: string | null;
+  globalSurchargeType?: string | null;
   paymentMethod?: string | null;
   direction?: string | null;
   items: DocumentItem[];
@@ -228,6 +231,7 @@ export function DocumentPreview({
       status: document.status,
       items: document.items.map(item => ({
         description: item.description,
+        details: item.details || undefined,
         quantity: parseFloat(item.quantity || "0"),
         unitPrice: parseFloat(item.unitPrice || "0"),
         discount: parseFloat(item.discount || "0"),
@@ -243,7 +247,9 @@ export function DocumentPreview({
       organization: orgData,
       globalDiscount: parseFloat(document.globalDiscount || "0"),
       globalDiscountType: (document.globalDiscountType as "percentage" | "fixed") || "percentage",
-      globalDiscountEnabled: parseFloat(document.globalDiscount || "0") > 0,
+      globalDiscountEnabled: parseFloat(document.globalDiscount || "0") > 0 || parseFloat(document.globalSurcharge || "0") > 0,
+      globalSurcharge: parseFloat(document.globalSurcharge || "0"),
+      globalSurchargeType: (document.globalSurchargeType as "percentage" | "fixed") || "fixed",
       paymentMethod: document.paymentMethod || undefined,
     };
   }, [document, orgData]);

@@ -2333,6 +2333,13 @@ export const financialDocuments = pgTable("financial_documents", {
 
   globalDiscountType: text("global_discount_type").default("percentage"),
 
+  globalSurcharge: decimal("global_surcharge", {
+    precision: 10,
+    scale: 2,
+  }).default("0"),
+
+  globalSurchargeType: text("global_surcharge_type").default("percentage"),
+
   paymentMethod: text("payment_method"),
 
   paymentTerms: text("payment_terms"),
@@ -2382,6 +2389,8 @@ export const documentItems = pgTable("document_items", {
   taxRateId: integer("tax_rate_id").references(() => taxRates.id),
 
   description: text("description").notNull(),
+
+  details: text("details"),
 
   quantity: decimal("quantity", { precision: 10, scale: 2 }).default("1"),
 
