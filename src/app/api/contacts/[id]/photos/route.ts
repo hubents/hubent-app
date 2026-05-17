@@ -1,34 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getContactPhotos, addContactPhoto, deleteContactPhoto } from "@/lib/contacts";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 // GET /api/contacts/[id]/photos - List contact photos
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     await requirePermission("crm:read");
     const { id } = await params;
 
     const photos = await getContactPhotos(parseInt(id, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: photos,
-    });
-  } catch (error) {
-    console.error("GET /api/contacts/[id]/photos error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch photos";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(photos);
+  }, "GET /api/contacts/[id]/photos");
 }
 
 // POST /api/contacts/[id]/photos - Add photo to contact
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
@@ -36,10 +27,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { url } = body;
 
     if (!url) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "URL is required" } },
-        { status: 400 }
-      );
+      return badRequest("URL is required");
     }
 
     const photo = await addContactPhoto(parseInt(id, 10), {
@@ -50,46 +38,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       uploadedBy: session.user.userId,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: photo,
-    });
-  } catch (error) {
-    console.error("POST /api/contacts/[id]/photos error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add photo";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(photo);
+  }, "POST /api/contacts/[id]/photos");
 }
 
 // DELETE /api/contacts/[id]/photos - Delete photo
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(request: NextRequest, _params: RouteParams) {
+  return apiHandler(async () => {
     await requirePermission("crm:manage");
     const { searchParams } = new URL(request.url);
     const photoId = searchParams.get("photoId");
 
     if (!photoId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Photo ID is required" } },
-        { status: 400 }
-      );
+      return badRequest("Photo ID is required");
     }
 
     await deleteContactPhoto(parseInt(photoId, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Photo deleted" },
-    });
-  } catch (error) {
-    console.error("DELETE /api/contacts/[id]/photos error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete photo";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Photo deleted" });
+  }, "DELETE /api/contacts/[id]/photos");
 }

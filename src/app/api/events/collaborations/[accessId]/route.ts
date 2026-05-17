@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { eventCollaborations, providerEventAccess, tasks, taskParticipants } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
+import { apiHandler, ok, badRequest, notFound, forbidden, conflict } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ accessId: string }> };
 
@@ -17,7 +18,7 @@ const actionSchema = z.object({
  * Accept, reject, or revoke an event collaboration
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { accessId } = await params;
     const aid = parseInt(accessId);
@@ -25,10 +26,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const parsed = actionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid action. Use accept, reject, or revoke." } },
-        { status: 400 },
-      );
+      return badRequest("Invalid action. Use accept, reject, or revoke.");
     }
 
     const { action } = parsed.data;
@@ -41,16 +39,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (collab) {
       if (action === "revoke") {
         if (collab.hostOrgId !== session.organizationId) {
-          return NextResponse.json(
-            { success: false, error: { code: "FORBIDDEN", message: "Only the host can revoke" } },
-            { status: 403 },
-          );
+          return forbidden("Only the host can revoke");
         }
         if (collab.status !== "active" && collab.status !== "pending") {
-          return NextResponse.json(
-            { success: false, error: { code: "CONFLICT", message: `Cannot revoke: status is ${collab.status}` } },
-            { status: 409 },
-          );
+          return conflict(`Cannot revoke: status is ${collab.status}`);
         }
         await db
           .update(eventCollaborations)
@@ -61,22 +53,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           id: aid, eventId: collab.eventId, guestOrgId: collab.guestOrgId,
         }).catch(() => {});
 
-        return NextResponse.json({ success: true, data: { id: aid, status: "revoked" } });
+        return ok({ id: aid, status: "revoked" });
       }
 
       // accept / reject: must be the guest org
       if (collab.guestOrgId !== session.organizationId) {
-        return NextResponse.json(
-          { success: false, error: { code: "FORBIDDEN", message: "Not authorized for this invitation" } },
-          { status: 403 },
-        );
+        return forbidden("Not authorized for this invitation");
       }
 
       if (collab.status !== "pending") {
-        return NextResponse.json(
-          { success: false, error: { code: "CONFLICT", message: `Invitation already ${collab.status}` } },
-          { status: 409 },
-        );
+        return conflict(`Invitation already ${collab.status}`);
       }
 
       const newStatus = action === "accept" ? "active" : "rejected";
@@ -134,7 +120,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: aid, eventId: collab.eventId, guestOrgId: collab.guestOrgId,
       }).catch(() => {});
 
-      return NextResponse.json({ success: true, data: { id: aid, status: newStatus } });
+      return ok({ id: aid, status: newStatus });
     }
 
     // Fallback: legacy provider_event_access table
@@ -146,17 +132,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!access) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Invitation not found" } },
-        { status: 404 },
-      );
+      return notFound("Invitation not found");
     }
 
     if (access.status !== "pending") {
-      return NextResponse.json(
-        { success: false, error: { code: "CONFLICT", message: `Invitation already ${access.status}` } },
-        { status: 409 },
-      );
+      return conflict(`Invitation already ${access.status}`);
     }
 
     const newStatus = action === "accept" ? "active" : "rejected";
@@ -168,14 +148,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       })
       .where(eq(providerEventAccess.id, aid));
 
-    return NextResponse.json({ success: true, data: { id: aid, status: newStatus } });
-  } catch (error) {
-    console.error("PATCH /api/events/collaborations/[accessId] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update invitation";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status },
-    );
-  }
+    return ok({ id: aid, status: newStatus });
+  }, "PATCH /api/events/collaborations/[accessId]");
 }

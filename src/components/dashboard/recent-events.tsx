@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { RiArrowRightLine, RiCalendarLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { ArrowRight01Icon, Calendar01Icon } from "@hugeicons/core-free-icons";
+
+const RiArrowRightLine = hgIcon(ArrowRight01Icon);
+const RiCalendarLine = hgIcon(Calendar01Icon);
 import { mockEvents } from "@/lib/mock-data";
 
 const statusMap = {

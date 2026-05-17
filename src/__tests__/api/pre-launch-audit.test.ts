@@ -172,9 +172,12 @@ describe("Fix 8: Trial days dynamic", () => {
     expect(route).not.toMatch(/getDate\(\)\s*\+\s*7/);
   });
 
-  it("auth layout shows neutral 'Comienza gratis' (unified for both types)", () => {
+  it("auth layout no longer hardcodes '7 días de prueba gratis' (each auth page owns its hero copy)", () => {
+    // Tras el rediseño del prototipo, el layout es pass-through y cada
+    // página auth (login, register, etc.) renderiza su propio AuthHero
+    // con la copy correspondiente. Lo que verificamos es que el layout
+    // NO contenga el string viejo de "7 días" que era el bug original.
     const layout = readSrc("app/auth/layout.tsx");
-    expect(layout).toContain("Comienza gratis");
     expect(layout).not.toContain("7 días de prueba gratis");
   });
 
@@ -191,20 +194,31 @@ describe("Fix 8: Trial days dynamic", () => {
 describe("Fix 9: Dashboard cards cleanup", () => {
   const dashboard = readSrc("app/dashboard/page.tsx");
 
-  it("does NOT show Pagos Pendientes card", () => {
+  // Tras el rediseño al prototipo, los KPIs siguen en lowercase per
+  // Guidelines.html §"Tipografía": uppercase solo en eyebrows / table
+  // headers, nunca en KPI labels. Aceptamos ambas grafías para no
+  // romper si alguien vuelve a la versión vieja.
+
+  it("does NOT show Pagos Pendientes card with old casing", () => {
     expect(dashboard).not.toContain('"Pagos Pendientes"');
   });
 
-  it("does NOT show Leads Activos card", () => {
+  it("does NOT show Leads Activos card with old casing", () => {
     expect(dashboard).not.toContain('"Leads Activos"');
   });
 
-  it("still shows Eventos Activos card", () => {
-    expect(dashboard).toContain('"Eventos Activos"');
+  it("still shows Eventos activos KPI", () => {
+    expect(
+      dashboard.includes('"Eventos activos"') ||
+        dashboard.includes('"Eventos Activos"')
+    ).toBe(true);
   });
 
-  it("still shows Tareas Pendientes card", () => {
-    expect(dashboard).toContain('"Tareas Pendientes"');
+  it("still shows Tareas pendientes KPI", () => {
+    expect(
+      dashboard.includes('"Tareas pendientes"') ||
+        dashboard.includes('"Tareas Pendientes"')
+    ).toBe(true);
   });
 });
 

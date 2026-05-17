@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizationIntegrations, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { MVP_TOOLKITS, TOOLKIT_META, COMING_SOON_APPS, type ComposioToolkit } from "@/lib/composio";
+import { eq } from "drizzle-orm";
+import { MVP_TOOLKITS, TOOLKIT_META, COMING_SOON_APPS } from "@/lib/composio";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const orgId = session.organizationId;
 
@@ -61,12 +62,6 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ success: true, data: { toolkits, comingSoon: COMING_SOON_APPS } });
-  } catch (error) {
-    console.error("[Integrations] Status error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error" },
-      { status: error instanceof Error && error.message.includes("Unauthorized") ? 401 : 500 }
-    );
-  }
+    return ok({ toolkits, comingSoon: COMING_SOON_APPS });
+  }, "GET /api/integrations/status");
 }

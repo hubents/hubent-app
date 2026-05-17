@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getForm, updateForm, deleteForm } from "@/lib/forms";
 import { z, ZodError } from "zod";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -26,91 +26,75 @@ const updateFormSchema = z.object({
 });
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("forms:read");
     const { id } = await params;
     const formId = parseInt(id, 10);
     if (isNaN(formId)) {
-      return NextResponse.json({ success: false, error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const form = await getForm(formId, session.organizationId);
     if (!form) {
-      return NextResponse.json({ success: false, error: "Formulario no encontrado" }, { status: 404 });
+      return notFound("Formulario no encontrado");
     }
 
-    return NextResponse.json({ success: true, data: form });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Error interno";
-    if (message.includes("Unauthorized") || message.includes("Forbidden")) {
-      return NextResponse.json({ success: false, error: message }, { status: 403 });
-    }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+    return ok(form);
+  }, "GET /api/forms/[id]");
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("forms:update");
     const { id } = await params;
     const formId = parseInt(id, 10);
     if (isNaN(formId)) {
-      return NextResponse.json({ success: false, error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const body = await request.json();
-    const parsed = updateFormSchema.parse(body);
+    let parsed;
+    try {
+      parsed = updateFormSchema.parse(body);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return badRequest(error.issues[0]?.message || "Datos inválidos");
+      }
+      throw error;
+    }
 
     const updated = await updateForm(formId, session.organizationId, parsed);
     if (!updated) {
-      return NextResponse.json({ success: false, error: "Formulario no encontrado" }, { status: 404 });
+      return notFound("Formulario no encontrado");
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error: unknown) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { success: false, error: error.issues[0]?.message || "Datos inválidos" },
-        { status: 400 }
-      );
-    }
-    const message = error instanceof Error ? error.message : "Error interno";
-    if (message.includes("Unauthorized") || message.includes("Forbidden")) {
-      return NextResponse.json({ success: false, error: message }, { status: 403 });
-    }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+    return ok(updated);
+  }, "PATCH /api/forms/[id]");
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("forms:delete");
     const { id } = await params;
     const formId = parseInt(id, 10);
     if (isNaN(formId)) {
-      return NextResponse.json({ success: false, error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const deleted = await deleteForm(formId, session.organizationId);
     if (!deleted) {
-      return NextResponse.json({ success: false, error: "Formulario no encontrado" }, { status: 404 });
+      return notFound("Formulario no encontrado");
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Error interno";
-    if (message.includes("Unauthorized") || message.includes("Forbidden")) {
-      return NextResponse.json({ success: false, error: message }, { status: 403 });
-    }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+    return ok(null);
+  }, "DELETE /api/forms/[id]");
 }

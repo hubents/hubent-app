@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 export const metadata = {
-  title: "Términos y Condiciones - HubEnts",
+  title: "Términos y Condiciones - Hubents",
 };
 
 export default function TermsPage() {
@@ -13,7 +13,7 @@ export default function TermsPage() {
           <Link href="/" className="inline-block">
             <Image
               src="/images/isotipo-dark.png"
-              alt="HubEnts"
+              alt="Hubents"
               width={40}
               height={40}
             />
@@ -29,7 +29,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Aceptación de los Términos</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Al acceder y utilizar la plataforma HubEnts (&quot;el Servicio&quot;), operada por NapsixAI (&quot;nosotros&quot;),
+              Al acceder y utilizar la plataforma Hubents (&quot;el Servicio&quot;), operada por NapsixAI (&quot;nosotros&quot;),
               aceptas quedar vinculado por estos Términos y Condiciones. Si no estás de acuerdo con alguna parte
               de estos términos, no podrás acceder al Servicio.
             </p>
@@ -38,7 +38,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold mb-3">2. Descripción del Servicio</h2>
             <p className="text-muted-foreground leading-relaxed">
-              HubEnts es una plataforma SaaS de gestión integral de bodas y eventos que permite a planificadores
+              Hubents es una plataforma SaaS de gestión integral de bodas y eventos que permite a planificadores
               de eventos y proveedores gestionar sus operaciones, incluyendo pero no limitado a: gestión de eventos,
               tareas, contactos, finanzas, invitados, formularios RSVP, y comunicación con equipos.
             </p>

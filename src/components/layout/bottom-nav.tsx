@@ -53,14 +53,17 @@ const generalMoreItems = [
 export function BottomNav() {
   const pathname = usePathname();
   const { activeEvent, isEventView } = useEvent();
-  const { eventScoped } = useUserSession();
+  const { eventScoped, orgType } = useUserSession();
+  const isPlannerAccount = orgType === "tenant" || !orgType;
 
   // Event-specific navigation
   const getEventNavigation = (eventId: number) => [
     { name: "General", href: `/dashboard/events/${eventId}`, icon: RiDashboardLine, exact: true },
     { name: "Tareas", href: `/dashboard/events/${eventId}/tasks`, icon: RiFileListLine },
-    { name: "Invitados", href: `/dashboard/events/${eventId}/guests`, icon: RiGroupLine },
-    { name: "RSVP", href: `/dashboard/events/${eventId}/rsvp`, icon: RiMailSendLine },
+    ...(isPlannerAccount ? [
+      { name: "Invitados", href: `/dashboard/events/${eventId}/guests`, icon: RiGroupLine },
+      { name: "RSVP", href: `/dashboard/events/${eventId}/rsvp`, icon: RiMailSendLine },
+    ] : []),
   ];
 
   const getEventMoreItems = (eventId: number) => [
@@ -86,7 +89,7 @@ export function BottomNav() {
   );
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--card)] md:hidden">
+    <nav suppressHydrationWarning className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--card)] md:hidden">
       <div className="flex items-center justify-around h-16 px-2">
         {navigation.map((item) => {
           const isActive = 'exact' in item && item.exact

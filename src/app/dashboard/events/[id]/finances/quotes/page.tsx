@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from "react";
 import { useEvent } from "@/contexts/event-context";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Btn, Pill, PCard } from "@/components/ui/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadPDFFromHTML } from "@/lib/pdf-download";
 import {
@@ -268,25 +266,24 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         {canEditFinances && (
-        <Button onClick={openNewDoc}>
+        <Btn variant="primary" onClick={openNewDoc}>
           <RiAddLine className="mr-2 h-4 w-4" /> Nuevo Presupuesto
-        </Button>
+        </Btn>
         )}
       </div>
 
       {/* Table */}
       {quotes.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
+        <PCard>
+          <div style={{ padding: "48px 20px", textAlign: "center", color: "var(--ink-3)" }}>
             <RiFileTextLine className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="font-medium">Sin presupuestos aún</p>
-            <p className="text-sm mt-1">Crea uno para empezar a gestionar las finanzas del evento.</p>
-          </CardContent>
-        </Card>
+            <p style={{ fontWeight: 500, color: "var(--ink-1)" }}>Sin presupuestos aún</p>
+            <p style={{ fontSize: 13, marginTop: 4 }}>Crea uno para empezar a gestionar las finanzas del evento.</p>
+          </div>
+        </PCard>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
+        <PCard padding={0}>
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
@@ -317,7 +314,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                         <div className="flex items-center gap-2">
                           <span className="text-sm">{getClientName(doc)}</span>
                           {isIncoming && (
-                            <Badge variant="outline" className="text-xs">Recibido</Badge>
+                            <Pill bg="transparent" style={{ border: "1px solid var(--line-strong)", fontSize: 11 }}>Recibido</Pill>
                           )}
                         </div>
                       </TableCell>
@@ -342,14 +339,14 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                         {formatCurrencyStr(doc.total, doc.currency)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={st.color}>{st.label}</Badge>
+                        <Pill bg="" color="" className={st.color}>{st.label}</Pill>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Btn variant="ghost" size="sm" style={{ width: 32, height: 32, padding: 0 }}>
                               <RiMoreLine className="h-4 w-4" />
-                            </Button>
+                            </Btn>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {canEditFinances && doc.status === "sent" && (
@@ -431,8 +428,7 @@ export default function EventQuotesPage({ params }: { params: Promise<{ id: stri
                 })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+        </PCard>
       )}
 
       {/* Document Drawer */}

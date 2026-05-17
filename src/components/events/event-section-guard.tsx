@@ -16,6 +16,7 @@ const SECTION_LABELS: Record<string, string> = {
   finances: "Finanzas",
   runsheet: "Orden del día",
   calendar: "Calendario",
+  venue: "Venue",
   settings: "Configuración",
 };
 

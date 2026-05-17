@@ -1,14 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
-import { organizationFinanceSettings } from "@/db/schema";
+import { organizationFinanceSettings, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
+import { TIMEZONE_DEFAULTS } from "@/lib/constants/locale";
 
 // GET /api/finance/settings - Get organization finance settings
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
+
+    // Read org locale settings for fallback / enrichment
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { settings: true },
+    });
+    const orgLocale = org?.settings as { currency?: string; timezone?: string } | null;
+
+    // Derive Intl locale from timezone (region), not from UI language
+    const tzDefaults = TIMEZONE_DEFAULTS[orgLocale?.timezone ?? ""] ?? { intlLocale: "es-ES" };
+    const orgIntlLocale = tzDefaults.intlLocale;
 
     const [settings] = await db
       .select()
@@ -16,55 +29,42 @@ export async function GET() {
       .where(eq(organizationFinanceSettings.organizationId, orgId))
       .limit(1);
 
-    // If no settings exist, return defaults
+    // If no settings exist, return defaults — using org locale currency as fallback
     if (!settings) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          organizationId: orgId,
-          defaultCurrency: "EUR",
-          enabledCurrencies: ["EUR", "USD"],
-          quotePrefix: "PRES",
-          invoicePrefix: "FAC",
-          proformaPrefix: "PROF",
-          deliveryNotePrefix: "ALB",
-          creditNotePrefix: "ABONO",
-          nextQuoteNumber: 1,
-          nextInvoiceNumber: 1,
-          nextProformaNumber: 1,
-          nextDeliveryNoteNumber: 1,
-          nextCreditNoteNumber: 1,
-          stripeAccountId: null,
-          stripeEnabled: false,
-          enableCash: true,
-          enableBankTransfer: true,
-          enableStripe: false,
-          defaultPaymentTerms: "30 días",
-          defaultTermsAndConditions: null,
-          quoteValidityDays: 30,
-        },
+      return ok({
+        organizationId: orgId,
+        defaultCurrency: orgLocale?.currency || "EUR",
+        enabledCurrencies: ["EUR", "USD"],
+        orgIntlLocale,
+        quotePrefix: "PRES",
+        invoicePrefix: "FAC",
+        proformaPrefix: "PROF",
+        deliveryNotePrefix: "ALB",
+        creditNotePrefix: "FR",
+        nextQuoteNumber: 1,
+        nextInvoiceNumber: 1,
+        nextProformaNumber: 1,
+        nextDeliveryNoteNumber: 1,
+        nextCreditNoteNumber: 1,
+        stripeAccountId: null,
+        stripeEnabled: false,
+        enableCash: true,
+        enableBankTransfer: true,
+        enableStripe: false,
+        defaultPaymentTerms: "30 días",
+        defaultTermsAndConditions: null,
+        quoteValidityDays: 30,
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: settings,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch settings";
-    const isForbidden = message.includes("Forbidden") || message.includes("Missing permission");
-    const isAuth = message.includes("Unauthorized");
-    const status = isAuth ? 401 : isForbidden ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: isForbidden ? "FORBIDDEN" : "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    // Enrich existing settings with Intl locale derived from the org's timezone/region
+    return ok({ ...settings, orgIntlLocale });
+  }, "GET /api/finance/settings");
 }
 
 // PATCH /api/finance/settings - Update organization finance settings
 export async function PATCH(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:manage");
     const orgId = session.organizationId;
     const body = await request.json();
@@ -121,14 +121,12 @@ export async function PATCH(request: NextRequest) {
 
     let result;
     if (existing) {
-      // Update existing settings
       [result] = await db
         .update(organizationFinanceSettings)
         .set(updateData)
         .where(eq(organizationFinanceSettings.organizationId, orgId))
         .returning();
     } else {
-      // Create new settings
       [result] = await db
         .insert(organizationFinanceSettings)
         .values({
@@ -138,15 +136,6 @@ export async function PATCH(request: NextRequest) {
         .returning();
     }
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update settings";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(result);
+  }, "PATCH /api/finance/settings");
 }

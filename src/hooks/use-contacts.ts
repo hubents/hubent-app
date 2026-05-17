@@ -1,56 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-interface Contact {
-  id: number;
-  organizationId: number;
-  type: "person" | "company";
-  name: string;
-  email: string | null;
-  phone: string | null;
-  phoneCountryCode: string | null;
-  avatar: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  tradeName: string | null;
-  taxId: string | null;
-  nieOrCif: string | null;
-  passportId: string | null;
-  website: string | null;
-  address: string | null;
-  city: string | null;
-  country: string | null;
-  tags: string[] | null;
-  source: string | null;
-  isLead: boolean | null;
-  leadScore: number | null;
-  isVendor: boolean | null;
-  vendorCategory: string | null;
-  category: string | null;
-  userId: string | null;
-  eventCount: number;
-  createdAt: Date | null;
-  createdByName: string | null;
-}
-
-interface ContactStats {
-  total: number;
-  persons: number;
-  companies: number;
-  vendors: number;
-}
-
-interface UseContactsParams {
-  search?: string;
-  type?: string;
-  isLead?: boolean;
-  isVendor?: boolean;
-  city?: string;
-  tag?: string;
-  page?: number;
-  limit?: number;
-}
+import type { Contact, ContactStats, UseContactsParams } from "@/types";
 
 export function useContacts(params: UseContactsParams = {}) {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -74,24 +25,25 @@ export function useContacts(params: UseContactsParams = {}) {
     setError(null);
 
     try {
-      const searchParams = new URLSearchParams();
-      if (params.search) searchParams.set("search", params.search);
-      if (params.type) searchParams.set("type", params.type);
-      if (params.isLead !== undefined) searchParams.set("isLead", params.isLead.toString());
-      if (params.isVendor !== undefined) searchParams.set("isVendor", params.isVendor.toString());
-      if (params.city) searchParams.set("city", params.city);
-      if (params.tag) searchParams.set("tag", params.tag);
-      if (params.page) searchParams.set("page", params.page.toString());
-      if (params.limit) searchParams.set("limit", params.limit.toString());
-
-      const url = `/api/contacts${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+      const entries: [string, string][] = [
+        params.search != null ? ["search", params.search] : null,
+        params.type != null ? ["type", params.type] : null,
+        params.isLead !== undefined ? ["isLead", params.isLead.toString()] : null,
+        params.isVendor !== undefined ? ["isVendor", params.isVendor.toString()] : null,
+        params.city != null ? ["city", params.city] : null,
+        params.tag != null ? ["tag", params.tag] : null,
+        params.page != null ? ["page", params.page.toString()] : null,
+        params.limit != null ? ["limit", params.limit.toString()] : null,
+      ].filter(Boolean) as [string, string][];
+      const qs = new URLSearchParams(entries);
+      const url = qs.size ? `/api/contacts?${qs}` : "/api/contacts";
       const response = await fetch(url);
       const result = await response.json();
 
       if (result.success) {
-        setContacts(result.data || []);
-        setStats(result.stats || { total: 0, persons: 0, companies: 0, vendors: 0 });
-        setMeta(result.meta || { page: 1, limit: 50, total: 0, totalPages: 0 });
+        setContacts(result.data?.data || []);
+        setStats(result.data?.stats || { total: 0, persons: 0, companies: 0, vendors: 0 });
+        setMeta(result.data?.meta || { page: 1, limit: 50, total: 0, totalPages: 0 });
       } else {
         setError(result.error?.message || "Failed to fetch contacts");
       }
@@ -148,8 +100,7 @@ export function useContacts(params: UseContactsParams = {}) {
 
       return false;
     } catch (err) {
-      console.error("Failed to delete contact:", err);
-      return false;
+      throw err;
     }
   }, [fetchContacts]);
 

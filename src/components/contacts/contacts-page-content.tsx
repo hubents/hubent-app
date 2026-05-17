@@ -1,93 +1,279 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  RiAddLine,
-  RiSearchLine,
-  RiUserLine,
-  RiBuilding2Line,
-  RiMailLine,
-  RiPhoneLine,
-  RiWhatsappLine,
-  RiMoreLine,
-  RiDeleteBinLine,
-  RiCalendarEventLine,
-  RiFileListLine,
-  RiUploadLine,
-  RiDownloadLine,
-  RiExternalLinkLine,
-  RiUserStarLine,
-  RiStore2Line,
-  RiFilter3Line,
-  RiArrowUpLine,
-  RiArrowDownLine,
-  RiArrowUpDownLine,
-  RiCloseLine,
-} from "@remixicon/react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  Search01Icon,
+  FilterIcon,
+  ArrowDown01Icon,
+  PlusSignIcon,
+  Upload01Icon,
+  Download01Icon,
+  UserCircleIcon,
+  Building01Icon,
+  Store01Icon,
+  Mail01Icon,
+  CallIcon,
+  WhatsappIcon,
+  Delete01Icon,
+  ArrowDataTransferHorizontalIcon,
+  Tick01Icon,
+  MoreVerticalIcon,
+  Cancel01Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 import { useContacts } from "@/hooks/use-contacts";
+import type { Contact } from "@/types";
 import { ContactDrawer } from "./contact-drawer";
+import { NewContactDrawer } from "./new-contact-drawer";
 import { ImportContactsDrawer } from "./import-contacts-drawer";
 import { LinkContactDrawer } from "./link-contact-drawer";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
 import { ContactPreviewDrawer } from "./contact-preview-drawer";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { useUserSession } from "@/hooks/use-user-session";
+import { Av } from "@/components/ui/ds";
 
-interface Contact {
-  id: number;
-  type: "person" | "company";
-  name: string;
-  email: string | null;
-  phone: string | null;
-  phoneCountryCode: string | null;
-  avatar: string | null;
-  address: string | null;
-  city: string | null;
-  country: string | null;
-  nieOrCif: string | null;
-  passportId: string | null;
-  taxId: string | null;
-  tags: string[] | null;
-  isLead: boolean | null;
-  isVendor: boolean | null;
-  vendorCategory: string | null;
-  category: string | null;
-  userId: string | null;
-  eventCount: number;
-}
+const IcoSearch = hgIcon(Search01Icon);
+const IcoFilter = hgIcon(FilterIcon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoUpload = hgIcon(Upload01Icon);
+const IcoDownload = hgIcon(Download01Icon);
+const IcoUser = hgIcon(UserCircleIcon);
+const IcoBuilding = hgIcon(Building01Icon);
+const IcoStore = hgIcon(Store01Icon);
+const IcoMail = hgIcon(Mail01Icon);
+const IcoPhone = hgIcon(CallIcon);
+const IcoWhatsApp = hgIcon(WhatsappIcon);
+const IcoTrash = hgIcon(Delete01Icon);
+const IcoLink = hgIcon(ArrowDataTransferHorizontalIcon);
+const IcoCheck = hgIcon(Tick01Icon);
+const IcoMore = hgIcon(MoreVerticalIcon);
+const IcoX = hgIcon(Cancel01Icon);
+const IcoSparkles = hgIcon(SparklesIcon);
 
 type Segment = "all" | "vendors" | "companies" | "persons";
-type SortField = "name" | "category" | "city" | "type" | null;
-type SortDirection = "asc" | "desc";
+
+// Pill colors mirror the prototype's TYPE_PILL palette.
+const TYPE_PILL: Record<string, { bg: string; fg: string; dot: string }> = {
+  Cliente:   { bg: "#EAE6F5", fg: "#5B3BA2", dot: "#8B6BC9" },
+  Lead:      { bg: "#FFF2D1", fg: "#8A6B1E", dot: "#D6A937" },
+  Proveedor: { bg: "#FBEADB", fg: "#A65B1E", dot: "#E89C6B" },
+  Empresa:   { bg: "#F8D7D4", fg: "#9A3A33", dot: "#C97A7A" },
+  Persona:   { bg: "#DCE8F5", fg: "#1F4A87", dot: "#5B8FE8" },
+};
+
+function TypePill({ value }: { value: string }) {
+  const s = TYPE_PILL[value] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", dot: "var(--ink-4)" };
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-[999px] text-[11.5px] font-medium"
+      style={{ background: s.bg, color: s.fg, padding: "3px 10px" }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
+      {value}
+    </span>
+  );
+}
+
+// KPI cell — connected strip pattern from CRM page.
+function Kpi({
+  label,
+  value,
+  sub,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="px-5 py-4 first:pl-5 not-first:border-l border-[var(--line-1)]">
+      <div className="flex items-center gap-1.5 text-[12.5px] text-[var(--ink-3)] font-medium mb-1.5">
+        {icon}
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2.5">
+        <span
+          className="text-[26px] font-semibold text-[var(--ink-1)]"
+          style={{ letterSpacing: "-0.02em" }}
+        >
+          {value}
+        </span>
+      </div>
+      {sub && <div className="text-[12px] text-[var(--ink-3)] mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// Sort dropdown — same UX as the prototype's "Ordenar / etiqueta".
+type SortKey = "default" | "name-az" | "name-za" | "city-az" | "type-az";
+const SORT_LABELS: Record<SortKey, string> = {
+  "default": "Ordenar por",
+  "name-az": "Nombre A → Z",
+  "name-za": "Nombre Z → A",
+  "city-az": "Ciudad A → Z",
+  "type-az": "Tipo",
+};
+
+function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [open]);
+
+  const groups: { group: string; items: { v: SortKey; l: string }[] }[] = [
+    { group: "Nombre", items: [{ v: "name-az", l: "A → Z" }, { v: "name-za", l: "Z → A" }] },
+    { group: "Ciudad", items: [{ v: "city-az", l: "A → Z" }] },
+    { group: "Tipo", items: [{ v: "type-az", l: "Tipo" }] },
+  ];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+      >
+        <IcoFilter className="h-[14px] w-[14px]" />
+        <span>{SORT_LABELS[value]}</span>
+        <IcoChevDown className="h-3 w-3 text-[var(--ink-3)]" />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-[calc(100%+4px)] min-w-[220px] rounded-[12px] p-1.5 z-50"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-1)",
+            boxShadow: "0 8px 28px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)",
+          }}
+        >
+          {groups.map((g, gi) => (
+            <div key={g.group} style={{ paddingTop: gi === 0 ? 0 : 6 }}>
+              <div
+                className="text-[10px] font-semibold uppercase text-[var(--ink-3)] px-2.5 pt-1.5 pb-1"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                {g.group}
+              </div>
+              {g.items.map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => { onChange(o.v); setOpen(false); }}
+                  className="w-full text-left px-2.5 py-2 text-[13px] text-[var(--ink-1)] cursor-pointer rounded-[6px] flex items-center border-none transition-colors"
+                  style={{ background: value === o.v ? "var(--bg-subtle)" : "transparent" }}
+                >
+                  <span className="flex-1">{o.l}</span>
+                  {value === o.v && <IcoCheck className="h-3 w-3" />}
+                </button>
+              ))}
+            </div>
+          ))}
+          {value !== "default" && (
+            <button
+              onClick={() => { onChange("default"); setOpen(false); }}
+              className="w-full text-left px-2.5 py-2 mt-1.5 text-[12px] text-[var(--ink-3)] cursor-pointer bg-transparent border-none"
+              style={{ borderTop: "1px solid var(--line-1)" }}
+            >
+              Quitar ordenación
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Per-row "more" menu — replicates the prototype's contact-row dropdown.
+function RowMenu({
+  contact,
+  canManage,
+  onView,
+  onCall,
+  onWhatsApp,
+  onEmail,
+  onConvertLead,
+  onLink,
+  onDelete,
+}: {
+  contact: Contact;
+  canManage: boolean;
+  onView: () => void;
+  onCall: () => void;
+  onWhatsApp: () => void;
+  onEmail: () => void;
+  onConvertLead: () => void;
+  onLink: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [open]);
+
+  const items: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean; show: boolean }[] = [
+    { icon: <IcoUser className="h-3.5 w-3.5" />, label: "Ver detalles", onClick: onView, show: true },
+    { icon: <IcoPhone className="h-3.5 w-3.5" />, label: "Llamar", onClick: onCall, show: !!contact.phone },
+    { icon: <IcoWhatsApp className="h-3.5 w-3.5" />, label: "WhatsApp", onClick: onWhatsApp, show: !!contact.phone },
+    { icon: <IcoMail className="h-3.5 w-3.5" />, label: "Enviar email", onClick: onEmail, show: !!contact.email },
+    { icon: <IcoStore className="h-3.5 w-3.5" />, label: "Convertir a Lead", onClick: onConvertLead, show: !contact.isLead },
+    { icon: <IcoLink className="h-3.5 w-3.5" />, label: "Vincular a evento o tarea", onClick: onLink, show: true },
+    { icon: <IcoTrash className="h-3.5 w-3.5" />, label: "Eliminar", onClick: onDelete, danger: true, show: canManage },
+  ];
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)] border-none bg-transparent"
+        aria-label="Acciones"
+      >
+        <IcoMore className="h-[14px] w-[14px] text-[var(--ink-2)]" />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-[calc(100%+4px)] min-w-[200px] rounded-[12px] p-1.5 z-50"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-1)",
+            boxShadow: "0 8px 28px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)",
+          }}
+        >
+          {items
+            .filter((it) => it.show)
+            .map((it, i) => (
+              <button
+                key={i}
+                onClick={() => { it.onClick(); setOpen(false); }}
+                className="w-full text-left px-2.5 py-2 text-[13px] cursor-pointer rounded-[6px] flex items-center gap-2 border-none bg-transparent transition-colors hover:bg-[var(--bg-subtle)]"
+                style={{ color: it.danger ? "var(--color-danger)" : "var(--ink-1)" }}
+              >
+                {it.icon}
+                <span className="flex-1">{it.label}</span>
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ContactsPageContent() {
   const { can } = useUserSession();
@@ -99,21 +285,15 @@ export function ContactsPageContent() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewContactId, setPreviewContactId] = useState<number | null>(null);
 
-  // Sort state
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("default");
 
-  // Filter state
-  const [filterCity, setFilterCity] = useState("");
-  const [filterTag, setFilterTag] = useState("");
-
-  // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // Sync segment from URL query param
+  // Sync segment from `?segment=` query param on mount and when the URL changes.
   useEffect(() => {
     const urlSegment = searchParams.get("segment");
     if (urlSegment && ["vendors", "companies", "persons"].includes(urlSegment)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSegment(urlSegment as Segment);
     }
   }, [searchParams]);
@@ -126,7 +306,6 @@ export function ContactsPageContent() {
   const [selectedContactForLead, setSelectedContactForLead] = useState<Contact | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Build filter params based on segment
   const getFilterParams = () => {
     switch (segment) {
       case "vendors":
@@ -146,99 +325,50 @@ export function ContactsPageContent() {
     ...getFilterParams(),
   });
 
-  // Helper to get category display
   const getContactCategory = (contact: Contact): string | null => {
     if (contact.isVendor) return contact.vendorCategory;
     return contact.category;
   };
 
   const getContactIdDisplay = (contact: Contact): { value: string; label: string } | null => {
-    if (contact.type === "company" && contact.taxId) {
-      return { value: contact.taxId, label: "CIF" };
-    }
-    if (contact.nieOrCif) {
-      return { value: contact.nieOrCif, label: "NIE/DNI" };
-    }
-    if (contact.passportId) {
-      return { value: contact.passportId, label: "Pasaporte" };
-    }
-    if (contact.taxId) {
-      return { value: contact.taxId, label: "CIF" };
-    }
+    if (contact.type === "company" && contact.taxId) return { value: contact.taxId, label: "CIF" };
+    if (contact.nieOrCif) return { value: contact.nieOrCif, label: "NIE/DNI" };
+    if (contact.passportId) return { value: contact.passportId, label: "Pasaporte" };
+    if (contact.taxId) return { value: contact.taxId, label: "CIF" };
     return null;
   };
 
-  const getContactAddressDisplay = (contact: Contact): { primary: string; secondary: string | null } | null => {
-    if (!contact.city && !contact.address) return null;
+  const getContactAddress = (contact: Contact): string | null => {
     const parts = [contact.city, contact.country].filter(Boolean);
-    return {
-      primary: parts.join(", ") || "—",
-      secondary: contact.address || null,
-    };
+    if (parts.length === 0) return contact.address || null;
+    return parts.join(", ");
   };
 
-  const getContactTypeBadge = (contact: Contact): { label: string; dotColor: string } => {
-    if (contact.isVendor) return { label: "Proveedor", dotColor: "bg-green-500" };
-    if (contact.isLead) return { label: "Lead", dotColor: "bg-amber-500" };
-    if (contact.type === "company") return { label: "Empresa", dotColor: "bg-purple-500" };
-    return { label: "Persona", dotColor: "bg-blue-500" };
+  const getContactTypeLabel = (contact: Contact): string => {
+    if (contact.isVendor) return "Proveedor";
+    if (contact.isLead) return "Lead";
+    if (contact.type === "company") return "Empresa";
+    return "Cliente";
   };
 
-  // Sort toggle
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      if (sortDirection === "asc") {
-        setSortDirection("desc");
-      } else {
-        setSortField(null);
-      }
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return <RiArrowUpDownLine className="h-3.5 w-3.5 text-muted-foreground/50" />;
-    return sortDirection === "asc"
-      ? <RiArrowUpLine className="h-3.5 w-3.5" />
-      : <RiArrowDownLine className="h-3.5 w-3.5" />;
-  };
-
-  // Client-side sort + filter
   const sortedContacts = useMemo(() => {
-    let result = [...contacts];
-
-    // Filter by city
-    if (filterCity) {
-      result = result.filter((c) => c.city?.toLowerCase().includes(filterCity.toLowerCase()));
+    const result = [...contacts];
+    switch (sortKey) {
+      case "name-az":
+        result.sort((a, b) => a.name.localeCompare(b.name, "es"));
+        break;
+      case "name-za":
+        result.sort((a, b) => b.name.localeCompare(a.name, "es"));
+        break;
+      case "city-az":
+        result.sort((a, b) => (a.city || "").localeCompare(b.city || "", "es"));
+        break;
+      case "type-az":
+        result.sort((a, b) => getContactTypeLabel(a).localeCompare(getContactTypeLabel(b), "es"));
+        break;
     }
-    // Filter by tag
-    if (filterTag) {
-      result = result.filter((c) => c.tags?.some((t) => t.toLowerCase().includes(filterTag.toLowerCase())));
-    }
-
-    // Sort
-    if (sortField) {
-      result.sort((a, b) => {
-        let valA = "";
-        let valB = "";
-        switch (sortField) {
-          case "name": valA = a.name; valB = b.name; break;
-          case "category": valA = getContactCategory(a) || ""; valB = getContactCategory(b) || ""; break;
-          case "city": valA = a.city || ""; valB = b.city || ""; break;
-          case "type": valA = getContactTypeBadge(a).label; valB = getContactTypeBadge(b).label; break;
-        }
-        const cmp = valA.localeCompare(valB, "es");
-        return sortDirection === "asc" ? cmp : -cmp;
-      });
-    }
-
     return result;
-  }, [contacts, sortField, sortDirection, filterCity, filterTag]);
-
-  // Bulk selection
-  const hasActiveFilters = filterCity || filterTag;
+  }, [contacts, sortKey]);
 
   const toggleSelectAll = () => {
     if (selectedIds.size === sortedContacts.length) {
@@ -267,34 +397,13 @@ export function ContactsPageContent() {
   const handleBulkExport = () => {
     const selected = sortedContacts.filter((c) => selectedIds.has(c.id));
     if (selected.length === 0) return;
-    const headers = ["Tipo", "Nombre", "Email", "Teléfono", "Ciudad", "Categoría", "Es Proveedor", "Tags"];
-    const rows = selected.map((c) => [
-      c.type === "company" ? "Empresa" : "Persona",
-      c.name,
-      c.email || "",
-      c.phone ? `${c.phoneCountryCode || ""} ${c.phone}` : "",
-      c.city || "",
-      getContactCategory(c) || "",
-      c.isVendor ? "Sí" : "No",
-      c.tags?.join(", ") || "",
-    ]);
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    ].join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `contactos_seleccionados_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportToCSV(selected);
   };
 
-  // Clear selection when contacts change
+  // Clear the bulk selection whenever the underlying contact list changes
+  // (filter / sort / pagination would otherwise leave stale ids selected).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIds(new Set());
   }, [contacts]);
 
@@ -326,535 +435,443 @@ export function ContactsPageContent() {
 
   const handleDrawerClose = (open: boolean) => {
     setIsDrawerOpen(open);
-    if (!open) {
-      setDrawerMode("view");
-    }
+    if (!open) setDrawerMode("view");
   };
 
-  const handleQuickCall = (e: React.MouseEvent, contact: Contact) => {
-    e.stopPropagation();
-    if (contact.phone) {
-      const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "");
-      window.open(`tel:${fullPhone}`, "_self");
-    }
+  const handleQuickCall = (contact: Contact) => {
+    if (!contact.phone) return;
+    const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "");
+    window.open(`tel:${fullPhone}`, "_self");
   };
 
-  const handleQuickEmail = (e: React.MouseEvent, contact: Contact) => {
-    e.stopPropagation();
-    if (contact.email) {
-      window.open(`mailto:${contact.email}`, "_self");
-    }
+  const handleQuickEmail = (contact: Contact) => {
+    if (!contact.email) return;
+    window.open(`mailto:${contact.email}`, "_self");
   };
 
-  const handleQuickWhatsApp = (e: React.MouseEvent, contact: Contact) => {
-    e.stopPropagation();
-    if (contact.phone) {
-      const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "").replace("+", "");
-      window.open(`https://wa.me/${fullPhone}`, "_blank");
-    }
+  const handleQuickWhatsApp = (contact: Contact) => {
+    if (!contact.phone) return;
+    const fullPhone = `${contact.phoneCountryCode || ""}${contact.phone}`.replace(/\s/g, "").replace("+", "");
+    window.open(`https://wa.me/${fullPhone}`, "_blank");
   };
 
-  const handleLinkContact = (e: React.MouseEvent, contact: Contact) => {
-    e.stopPropagation();
+  const handleLinkContact = (contact: Contact) => {
     setSelectedContact(contact);
     setIsLinkDialogOpen(true);
   };
 
-  const handleConvertToLead = (e: React.MouseEvent, contact: Contact) => {
-    e.stopPropagation();
+  const handleConvertToLead = (contact: Contact) => {
     setSelectedContactForLead(contact);
     setIsLeadDialogOpen(true);
   };
 
-  const handleDeleteContact = async (e: React.MouseEvent, contactId: number) => {
-    e.stopPropagation();
+  const handleDeleteContact = async (contactId: number) => {
     if (confirm("¿Estás seguro de eliminar este contacto?")) {
       await deleteContact(contactId);
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  function exportToCSV(rows: Contact[]) {
+    const headers = ["Tipo", "Nombre", "Email", "Teléfono", "Ciudad", "Categoría", "Es Proveedor", "Tags"];
+    const csvRows = rows.map((c) => [
+      c.type === "company" ? "Empresa" : "Persona",
+      c.name,
+      c.email || "",
+      c.phone ? `${c.phoneCountryCode || ""} ${c.phone}` : "",
+      c.city || "",
+      getContactCategory(c) || "",
+      c.isVendor ? "Sí" : "No",
+      c.tags?.join(", ") || "",
+    ]);
+    const csv = [
+      headers.join(","),
+      ...csvRows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `contactos_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const handleExportCSV = () => {
     if (contacts.length === 0) {
       alert("No hay contactos para exportar");
       return;
     }
-
-    const headers = ["Tipo", "Nombre", "Email", "Teléfono", "Ciudad", "Es Lead", "Tags"];
-    const rows = contacts.map(c => [
-      c.type === "company" ? "Empresa" : "Persona",
-      c.name,
-      c.email || "",
-      c.phone || "",
-      c.city || "",
-      c.isLead ? "Sí" : "No",
-      c.tags?.join(", ") || "",
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `contactos_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportToCSV(contacts);
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Contactos</h1>
-          <p className="text-muted-foreground">
-            Administra todos tus contactos desde un solo lugar
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
-            <RiDownloadLine className="h-4 w-4" />
-            Exportar CSV
-          </Button>
-          {canManage && (
-            <Button variant="outline" className="gap-2" onClick={() => setIsImportDialogOpen(true)}>
-              <RiUploadLine className="h-4 w-4" />
-              Importar CSV
-            </Button>
-          )}
-          {canManage && (
-            <Button className="gap-2" onClick={openCreateDrawer}>
-              <RiAddLine className="h-4 w-4" />
-              Nuevo Contacto
-            </Button>
-          )}
-        </div>
-      </div>
+  const segmentOptions: { k: Segment; label: string; icon: React.ReactNode }[] = [
+    { k: "all", label: "Todos", icon: null },
+    { k: "persons", label: "Persona", icon: <IcoUser className="h-3 w-3" /> },
+    { k: "companies", label: "Empresa", icon: <IcoBuilding className="h-3 w-3" /> },
+    { k: "vendors", label: "Proveedor", icon: <IcoStore className="h-3 w-3" /> },
+  ];
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+  return (
+    <div className="flex flex-col gap-4">
+      {/* KPI strip — connected, like CRM */}
+      <div
+        className="grid grid-cols-2 md:grid-cols-4 rounded-[12px] overflow-hidden"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-12" />
-              </CardContent>
-            </Card>
-          ))
+          <>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="px-5 py-4 first:pl-5 not-first:border-l border-[var(--line-1)]"
+              >
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-7 w-12" />
+              </div>
+            ))}
+          </>
         ) : (
           <>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <RiUserLine className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Total Contactos</span>
-                </div>
-                <p className="text-2xl font-bold mt-1">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <RiUserLine className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm text-muted-foreground">Personas</span>
-                </div>
-                <p className="text-2xl font-bold mt-1 text-blue-500">{stats.persons}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <RiBuilding2Line className="h-4 w-4 text-purple-500" />
-                  <span className="text-sm text-muted-foreground">Empresas</span>
-                </div>
-                <p className="text-2xl font-bold mt-1 text-purple-500">{stats.companies}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <RiStore2Line className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-muted-foreground">Proveedores</span>
-                </div>
-                <p className="text-2xl font-bold mt-1 text-green-500">{stats.vendors}</p>
-              </CardContent>
-            </Card>
+            <Kpi
+              label="Total contactos"
+              value={stats.total}
+              sub="todos los registros"
+              icon={<IcoUser className="h-3.5 w-3.5" />}
+            />
+            <Kpi
+              label="Personas"
+              value={stats.persons}
+              sub="contactos individuales"
+              icon={<IcoUser className="h-3.5 w-3.5" />}
+            />
+            <Kpi
+              label="Empresas"
+              value={stats.companies}
+              sub="organizaciones"
+              icon={<IcoBuilding className="h-3.5 w-3.5" />}
+            />
+            <Kpi
+              label="Proveedores"
+              value={stats.vendors}
+              sub="vinculados a partners"
+              icon={<IcoStore className="h-3.5 w-3.5" />}
+            />
           </>
         )}
       </div>
 
-      {/* Segment Tabs, Search, and Filters */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-4">
-            <Tabs value={segment} onValueChange={(v) => { setSegment(v as Segment); setPage(1); }} className="w-auto">
-              <TabsList>
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="vendors">Proveedores</TabsTrigger>
-                <TabsTrigger value="companies">Empresas</TabsTrigger>
-                <TabsTrigger value="persons">Personas</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="flex items-center gap-2">
-              <div className="relative w-56">
-                <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar..."
-                  className="pl-9 h-9"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                />
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-9">
-                    <RiFilter3Line className="h-4 w-4" />
-                    Filtrar
-                    {hasActiveFilters && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                        {(filterCity ? 1 : 0) + (filterTag ? 1 : 0)}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72" align="end">
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium">Filtros</h4>
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Ciudad</label>
-                      <Input
-                        placeholder="Filtrar por ciudad..."
-                        value={filterCity}
-                        onChange={(e) => setFilterCity(e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Tag</label>
-                      <Input
-                        placeholder="Filtrar por tag..."
-                        value={filterTag}
-                        onChange={(e) => setFilterTag(e.target.value)}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    {hasActiveFilters && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs"
-                        onClick={() => { setFilterCity(""); setFilterTag(""); }}
-                      >
-                        Limpiar filtros
-                      </Button>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+      {/* Card with toolbar + table */}
+      <div
+        className="rounded-[12px] p-[18px]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {/* Toolbar — search + sort + actions */}
+        <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+          <div
+            className="flex items-center gap-2 rounded-[8px]"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--line-1)",
+              padding: "8px 12px",
+              width: 280,
+            }}
+          >
+            <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)]" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+            />
           </div>
 
-          {/* Active filter chips */}
-          {hasActiveFilters && (
-            <div className="flex items-center gap-2 mt-3">
-              {filterCity && (
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  Ciudad: {filterCity}
-                  <button onClick={() => setFilterCity("")}><RiCloseLine className="h-3 w-3" /></button>
-                </Badge>
-              )}
-              {filterTag && (
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  Tag: {filterTag}
-                  <button onClick={() => setFilterTag("")}><RiCloseLine className="h-3 w-3" /></button>
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardHeader>
+          <SortDropdown value={sortKey} onChange={setSortKey} />
 
-        {/* Bulk action bar */}
-        {selectedIds.size > 0 && (
-          <div className="px-6 py-2 bg-muted/50 border-y flex items-center gap-3">
-            <span className="text-sm font-medium">{selectedIds.size} seleccionado{selectedIds.size > 1 ? "s" : ""}</span>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkExport}>
-              <RiDownloadLine className="h-3.5 w-3.5 mr-1" />
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+            >
+              <IcoDownload className="h-[14px] w-[14px]" />
               Exportar
-            </Button>
-            {canManage && (
-              <Button variant="outline" size="sm" className="h-7 text-xs text-destructive border-destructive/50" onClick={handleBulkDelete}>
-                <RiDeleteBinLine className="h-3.5 w-3.5 mr-1" />
-                Eliminar
-              </Button>
+            </button>
+            {canManage && segment !== "vendors" && (
+              <button
+                onClick={() => setIsImportDialogOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+              >
+                <IcoUpload className="h-[14px] w-[14px]" />
+                Importar
+              </button>
             )}
-            <Button variant="ghost" size="sm" className="h-7 text-xs ml-auto" onClick={() => setSelectedIds(new Set())}>
-              Cancelar
-            </Button>
+            {canManage && segment === "vendors" ? (
+              <a
+                href="/dashboard/partners"
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors no-underline"
+                style={{
+                  background: "var(--ink-1)",
+                  color: "#FFFFFF",
+                  border: "1px solid var(--ink-1)",
+                }}
+              >
+                <IcoStore className="h-[14px] w-[14px]" />
+                Ir a Partners
+              </a>
+            ) : canManage ? (
+              <button
+                onClick={openCreateDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "#FFFFFF",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nuevo contacto
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Segment pills — sub-tabs row above the table */}
+        <div className="flex items-center mb-3.5">
+          <div
+            className="inline-flex gap-1 rounded-[8px]"
+            style={{ background: "var(--bg-subtle)", padding: 3 }}
+          >
+            {segmentOptions.map((opt) => {
+              const active = segment === opt.k;
+              return (
+                <button
+                  key={opt.k}
+                  onClick={() => { setSegment(opt.k); setPage(1); }}
+                  className="inline-flex items-center gap-1.5 rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "6px 12px",
+                    background: active ? "#FFFFFF" : "transparent",
+                    color: active ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: active ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  {opt.icon}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Vendor notice — same as the prototype: vendors are read-only here, created from Partners */}
+        {segment === "vendors" && (
+          <div
+            className="flex items-center gap-2.5 mb-3.5 rounded-[8px]"
+            style={{
+              background: "#F7F1E6",
+              border: "1px solid #E8D9B8",
+              padding: "10px 14px",
+            }}
+          >
+            <span className="flex-shrink-0" style={{ color: "#8A6B1E" }}>
+              <IcoSparkles className="h-3.5 w-3.5" />
+            </span>
+            <span className="text-[12.5px] text-[var(--ink-2)]">
+              Los proveedores no se crean aquí. Se añaden desde{" "}
+              <a
+                href="/dashboard/partners"
+                className="font-semibold text-[var(--ink-1)] hover:underline"
+              >
+                Partners
+              </a>{" "}
+              marcándolos como favoritos.
+            </span>
           </div>
         )}
 
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : sortedContacts.length === 0 ? (
-            <div className="text-center py-12">
-              <RiUserLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="font-medium mb-2">No hay contactos</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {search || hasActiveFilters ? "No se encontraron contactos con esos filtros" : "Crea tu primer contacto para comenzar"}
-              </p>
-              {!search && !hasActiveFilters && canManage && (
-                <Button onClick={openCreateDrawer}>
-                  <RiAddLine className="h-4 w-4 mr-2" />
-                  Nuevo Contacto
-                </Button>
-              )}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div
+            className="flex items-center gap-3 mb-3 rounded-[8px]"
+            style={{
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--line-1)",
+              padding: "8px 12px",
+            }}
+          >
+            <span className="text-[12.5px] font-medium text-[var(--ink-1)]">
+              {selectedIds.size} seleccionado{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={handleBulkExport}
+              className="inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)] border-none"
+              style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+            >
+              <IcoDownload className="h-3 w-3" />
+              Exportar
+            </button>
+            {canManage && (
+              <button
+                onClick={handleBulkDelete}
+                className="inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] font-medium cursor-pointer transition-colors border-none"
+                style={{
+                  background: "#FFFFFF",
+                  color: "var(--color-danger)",
+                  border: "1px solid #F2CFCC",
+                }}
+              >
+                <IcoTrash className="h-3 w-3" />
+                Eliminar
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-auto inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] text-[var(--ink-3)] cursor-pointer transition-colors border-none bg-transparent hover:bg-[var(--bg-hover)]"
+            >
+              <IcoX className="h-3 w-3" />
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {/* Table */}
+        {loading ? (
+          <div className="flex flex-col gap-2.5 py-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : sortedContacts.length === 0 ? (
+          <div className="text-center py-14">
+            <IcoUser className="mx-auto h-10 w-10 text-[var(--ink-4)] mb-3" />
+            <h3 className="text-[14px] font-semibold text-[var(--ink-1)] mb-1">
+              No hay contactos
+            </h3>
+            <p className="text-[12.5px] text-[var(--ink-3)] mb-4">
+              {search ? "No se encontraron contactos con esos filtros" : "Crea tu primer contacto para comenzar"}
+            </p>
+            {!search && canManage && (
+              <button
+                onClick={openCreateDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors mx-auto"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "#FFFFFF",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nuevo contacto
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>
                     <Checkbox
                       checked={selectedIds.size === sortedContacts.length && sortedContacts.length > 0}
                       onCheckedChange={toggleSelectAll}
                     />
-                  </TableHead>
-                  <TableHead className="w-60">
-                    <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => handleSort("name")}>
-                      Nombre {getSortIcon("name")}
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => handleSort("category")}>
-                      Título {getSortIcon("category")}
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => handleSort("city")}>
-                      Dirección {getSortIcon("city")}
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden xl:table-cell">Identificación</TableHead>
-                  <TableHead>
-                    <button className="flex items-center gap-1 hover:text-foreground transition-colors" onClick={() => handleSort("type")}>
-                      Tipo {getSortIcon("type")}
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">Estado</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  </th>
+                  <th>Contacto</th>
+                  <th className="hidden md:table-cell">Título</th>
+                  <th className="hidden lg:table-cell">Dirección</th>
+                  <th className="hidden xl:table-cell">ID</th>
+                  <th>Tipo</th>
+                  <th style={{ width: 44 }}></th>
+                </tr>
+              </thead>
+              <tbody>
                 {sortedContacts.map((contact) => {
                   const idDisplay = getContactIdDisplay(contact);
-                  const addressDisplay = getContactAddressDisplay(contact);
-                  const typeBadge = getContactTypeBadge(contact);
+                  const address = getContactAddress(contact);
+                  const typeLabel = getContactTypeLabel(contact);
                   const isSelected = selectedIds.has(contact.id);
 
                   return (
-                    <TableRow
+                    <tr
                       key={contact.id}
-                      className="cursor-pointer"
-                      data-state={isSelected ? "selected" : undefined}
                       onClick={() => handleContactClick(contact.id)}
+                      data-state={isSelected ? "selected" : undefined}
                     >
-                      {/* Checkbox */}
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelectOne(contact.id)}
                         />
-                      </TableCell>
-
-                      {/* Name + Email */}
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={contact.avatar || undefined} />
-                            <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                              {contact.type === "company" ? (
-                                <RiBuilding2Line className="h-4 w-4" />
-                              ) : (
-                                getInitials(contact.name)
-                              )}
-                            </AvatarFallback>
-                          </Avatar>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <Av src={contact.avatar} name={contact.name} size={32} />
                           <div className="min-w-0">
-                            <p className="font-medium truncate">{contact.name}</p>
+                            <div className="text-[13px] font-semibold text-[var(--ink-1)] truncate">{contact.name}</div>
                             {contact.email && (
-                              <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
+                              <div className="text-[11.5px] text-[var(--ink-3)] truncate">{contact.email}</div>
                             )}
                           </div>
                         </div>
-                      </TableCell>
-
-                      {/* Title / Category */}
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm">{getContactCategory(contact) || "—"}</span>
-                      </TableCell>
-
-                      {/* Phone */}
-                      <TableCell className="hidden lg:table-cell">
-                        {contact.phone ? (
-                          <span className="text-sm">{contact.phoneCountryCode} {contact.phone}</span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-
-                      {/* Address */}
-                      <TableCell className="hidden lg:table-cell">
-                        {addressDisplay ? (
-                          <div>
-                            <p className="text-sm">{addressDisplay.primary}</p>
-                            {addressDisplay.secondary && (
-                              <p className="text-xs text-muted-foreground truncate max-w-50">{addressDisplay.secondary}</p>
-                            )}
+                      </td>
+                      <td className="hidden md:table-cell">
+                        <div className="text-[13px] text-[var(--ink-2)]">
+                          {getContactCategory(contact) || "—"}
+                        </div>
+                        {contact.phone && (
+                          <div className="text-[11.5px] text-[var(--ink-3)] mt-0.5">
+                            {contact.phoneCountryCode} {contact.phone}
                           </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
                         )}
-                      </TableCell>
-
-                      {/* ID */}
-                      <TableCell className="hidden xl:table-cell">
+                      </td>
+                      <td className="hidden lg:table-cell" style={{ color: "var(--ink-3)", fontSize: 12 }}>
+                        {address || "—"}
+                      </td>
+                      <td className="hidden xl:table-cell" style={{ fontSize: 12 }}>
                         {idDisplay ? (
-                          <div>
-                            <p className="text-sm font-mono">{idDisplay.value}</p>
-                            <p className="text-xs text-muted-foreground">{idDisplay.label}</p>
-                          </div>
+                          <>
+                            <div style={{ color: "var(--ink-2)" }}>{idDisplay.value}</div>
+                            <div style={{ color: "var(--ink-3)", fontSize: 11 }}>{idDisplay.label}</div>
+                          </>
                         ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
+                          <span style={{ color: "var(--ink-3)" }}>—</span>
                         )}
-                      </TableCell>
-
-                      {/* Type Badge */}
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`h-2 w-2 rounded-full ${typeBadge.dotColor}`} />
-                          <Badge variant="outline" className="text-xs font-normal">
-                            {typeBadge.label}
-                          </Badge>
-                        </div>
-                      </TableCell>
-
-                      {/* Status + Events */}
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex flex-col gap-1">
-                          {contact.userId ? (
-                            <Badge className="text-[10px] w-fit bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
-                          ) : contact.email ? (
-                            <Badge className="text-[10px] w-fit bg-gray-100 text-gray-500 hover:bg-gray-100">Solo CRM</Badge>
-                          ) : (
-                            <Badge className="text-[10px] w-fit bg-gray-100 text-gray-400 hover:bg-gray-100">Sin email</Badge>
-                          )}
-                          {Number(contact.eventCount) > 0 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {Number(contact.eventCount)} evento{Number(contact.eventCount) !== 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      {/* Actions Menu */}
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <RiMoreLine className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleContactClick(contact.id)}>
-                              <RiExternalLinkLine className="h-4 w-4 mr-2" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                            {contact.phone && (
-                              <>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCall(e as unknown as React.MouseEvent, contact); }}>
-                                  <RiPhoneLine className="h-4 w-4 mr-2" />
-                                  Llamar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickWhatsApp(e as unknown as React.MouseEvent, contact); }}>
-                                  <RiWhatsappLine className="h-4 w-4 mr-2" />
-                                  WhatsApp
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {contact.email && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickEmail(e as unknown as React.MouseEvent, contact); }}>
-                                <RiMailLine className="h-4 w-4 mr-2" />
-                                Enviar email
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {!contact.isLead && (
-                              <DropdownMenuItem
-                                onClick={(e) => handleConvertToLead(e as unknown as React.MouseEvent, contact)}
-                                className="text-green-600"
-                              >
-                                <RiUserStarLine className="h-4 w-4 mr-2" />
-                                Convertir a Lead
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={(e) => handleLinkContact(e as unknown as React.MouseEvent, contact)}>
-                              <RiFileListLine className="h-4 w-4 mr-2" />
-                              Vincular a tarea
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleLinkContact(e as unknown as React.MouseEvent, contact)}>
-                              <RiCalendarEventLine className="h-4 w-4 mr-2" />
-                              Vincular a evento
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={(e) => handleDeleteContact(e as unknown as React.MouseEvent, contact.id)}
-                            >
-                              <RiDeleteBinLine className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                      <td>
+                        <TypePill value={typeLabel} />
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <RowMenu
+                          contact={contact}
+                          canManage={canManage}
+                          onView={() => handleContactClick(contact.id)}
+                          onCall={() => handleQuickCall(contact)}
+                          onWhatsApp={() => handleQuickWhatsApp(contact)}
+                          onEmail={() => handleQuickEmail(contact)}
+                          onConvertLead={() => handleConvertToLead(contact)}
+                          onLink={() => handleLinkContact(contact)}
+                          onDelete={() => handleDeleteContact(contact.id)}
+                        />
+                      </td>
+                    </tr>
                   );
                 })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Pagination */}
       {meta.totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[12.5px] text-[var(--ink-3)]">
             Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
           </p>
           <NumericPagination
@@ -865,14 +882,12 @@ export function ContactsPageContent() {
         </div>
       )}
 
-      {/* Import Contacts Drawer */}
       <ImportContactsDrawer
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         onImportComplete={refetch}
       />
 
-      {/* Link Contact Drawer */}
       <LinkContactDrawer
         open={isLinkDialogOpen}
         onOpenChange={setIsLinkDialogOpen}
@@ -880,7 +895,6 @@ export function ContactsPageContent() {
         onLinkComplete={refetch}
       />
 
-      {/* Create Lead Drawer */}
       <CreateLeadDrawer
         open={isLeadDialogOpen}
         onOpenChange={setIsLeadDialogOpen}
@@ -888,7 +902,6 @@ export function ContactsPageContent() {
         preselectedContact={selectedContactForLead || undefined}
       />
 
-      {/* Contact Preview Drawer (read-only) */}
       <ContactPreviewDrawer
         contactId={previewContactId}
         open={isPreviewOpen}
@@ -896,15 +909,20 @@ export function ContactsPageContent() {
         onEdit={handleEditFromPreview}
       />
 
-      {/* Contact Drawer (full edit + create) */}
+      <NewContactDrawer
+        open={isDrawerOpen && drawerMode === "create"}
+        onOpenChange={handleDrawerClose}
+        presetSegment={segment}
+        onContactCreated={handleContactCreated}
+      />
+
       <ContactDrawer
         contactId={selectedContactId}
-        open={isDrawerOpen}
+        open={isDrawerOpen && drawerMode === "view"}
         onOpenChange={handleDrawerClose}
         onContactDeleted={refetch}
         onContactUpdated={refetch}
-        onContactCreated={handleContactCreated}
-        mode={drawerMode}
+        mode="view"
         onOpenRelatedContact={(relatedId) => {
           setSelectedContactId(relatedId);
           setDrawerMode("view");

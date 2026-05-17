@@ -183,7 +183,7 @@ function PublicFormPageInner() {
         {!isEmbed && (
           <div className="pb-6 flex items-center justify-center gap-1.5">
             <span className="text-[11px] text-gray-400">Hecho con</span>
-            <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+            <img src="/images/isotipo-dark.png" alt="Hubents" className="h-4 w-4 opacity-40" />
             <span className="text-[11px] font-medium text-gray-400">hubents</span>
           </div>
         )}
@@ -269,7 +269,7 @@ function PublicFormPageInner() {
         {!isEmbed && (
           <div className="flex items-center justify-center gap-1.5 mt-6">
             <span className="text-[11px] text-gray-400">Hecho con</span>
-            <img src="/images/isotipo-dark.png" alt="HubEnts" className="h-4 w-4 opacity-40" />
+            <img src="/images/isotipo-dark.png" alt="Hubents" className="h-4 w-4 opacity-40" />
             <span className="text-[11px] font-medium text-gray-400">hubents</span>
           </div>
         )}

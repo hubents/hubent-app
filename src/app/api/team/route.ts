@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { organizationMembers, users, roles, invitations } from "@/db/schema";
 import { eq, and, notInArray } from "drizzle-orm";
 import { requirePermission } from "@/lib/session";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 // Roles excluidos de la pagina "Equipo": son colaboradores de evento (clientes)
 // o vendors externos, no parte del staff interno. Su gestion vive en el detalle
@@ -10,7 +10,7 @@ import { requirePermission } from "@/lib/session";
 const EXCLUDED_TEAM_ROLES = ["client", "vendor"];
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:read");
     const organizationId = session.organizationId;
 
@@ -73,21 +73,6 @@ export async function GET() {
       expiresAt: inv.expiresAt.toISOString(),
     }));
 
-    return NextResponse.json({ 
-      success: true, 
-      data: {
-        members,
-        invitations: pendingInvitations
-      }
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error interno del servidor";
-    const status = message.includes("Unauthorized") ? 401
-      : message.includes("Forbidden") || message.includes("Missing permission") ? 403
-      : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ members, invitations: pendingInvitations });
+  }, "GET /api/team");
 }

@@ -1,28 +1,39 @@
 "use client";
 
 import { use, useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiListOrdered2,
-  RiFileDownloadLine,
-  RiMapPinLine,
-  RiCalendarLine,
-  RiInformationLine,
-  RiAddLine,
-  RiEditLine,
-  RiDeleteBinLine,
-  RiCloseLine,
-  RiCheckLine,
-  RiUser3Line,
-  RiPrinterLine,
-  RiFilterLine,
-  RiFilterOffLine,
-} from "@remixicon/react";
+  Calendar01Icon,
+  PlusSignIcon,
+  Edit02Icon,
+  Delete01Icon,
+  Cancel01Icon,
+  Tick01Icon,
+  Download01Icon,
+  PrinterIcon,
+  FilterIcon,
+  FilterRemoveIcon,
+  Location01Icon,
+  UserIcon,
+  File02Icon,
+  ArrowDown01Icon,
+} from "@hugeicons/core-free-icons";
+
+const IcoCalendar = hgIcon(Calendar01Icon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoEdit = hgIcon(Edit02Icon);
+const IcoDelete = hgIcon(Delete01Icon);
+const IcoX = hgIcon(Cancel01Icon);
+const IcoCheck = hgIcon(Tick01Icon);
+const IcoDownload = hgIcon(Download01Icon);
+const IcoPrinter = hgIcon(PrinterIcon);
+const IcoFilter = hgIcon(FilterIcon);
+const IcoFilterOff = hgIcon(FilterRemoveIcon);
+const IcoLocation = hgIcon(Location01Icon);
+const IcoUser = hgIcon(UserIcon);
+const IcoFile = hgIcon(File02Icon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
 import { useEvent } from "@/contexts/event-context";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
@@ -110,7 +121,8 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
       const res = await fetch(`/api/tasks?eventId=${eventId}`);
       const data = await res.json();
       if (data.success) {
-        setEventTasks(data.data?.map((t: any) => ({ id: t.id, title: t.title })) || []);
+        const rows = (data.data || []) as { id: number; title: string }[];
+        setEventTasks(rows.map((t) => ({ id: t.id, title: t.title })));
       }
     } catch { /* ignore */ }
   }, [eventId]);
@@ -120,7 +132,8 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
       const res = await fetch("/api/vendors");
       const data = await res.json();
       if (data.success) {
-        setVendorOptions(data.data?.map((v: any) => ({ id: v.id, name: v.name })) || []);
+        const rows = (data.data || []) as { id: number; name: string }[];
+        setVendorOptions(rows.map((v) => ({ id: v.id, name: v.name })));
       }
     } catch { /* ignore */ }
   }, []);
@@ -330,420 +343,798 @@ export default function RunSheetPage({ params }: { params: Promise<{ id: string 
       return acc;
     }, []);
 
+  // Prototype's input style — single source of truth so edit/add forms match.
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "9px 12px",
+    height: 36,
+    boxSizing: "border-box",
+    border: "1px solid var(--line-1)",
+    borderRadius: 8,
+    background: "#FFFFFF",
+    color: "var(--ink-1)",
+    fontSize: 13,
+    outline: "none",
+  };
+
   return (
     <EventSectionGuard eventId={eventId} section="runsheet">
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <RiListOrdered2 className="h-6 w-6" />
-            Orden del día
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Timeline consolidada del evento
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canEditRunSheet && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setShowAddForm(!showAddForm); setEditingId(null); }}
-            >
-              <RiAddLine className="h-4 w-4 mr-1" />
-              Agregar actividad
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handlePrint} disabled={items.length === 0}>
-            <RiPrinterLine className="h-4 w-4 mr-1" />
-            Imprimir
-          </Button>
-          {uniqueVendors.length > 0 && (
-            <div className="relative group">
-              <Button variant="outline" size="sm" disabled={downloading || items.length === 0}>
-                <RiFileDownloadLine className="h-4 w-4 mr-1" />
-                PDF por proveedor
-              </Button>
-              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-10 min-w-[200px]">
-                <div className="bg-popover border rounded-md shadow-md p-1">
-                  {uniqueVendors.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => handleDownloadPdf({ vendorId: v.id })}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted rounded-sm transition-colors"
-                    >
-                      {v.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      <div
+        className="rounded-[12px]"
+        style={{
+          background: "#FFFFFF",
+          border: "1px solid var(--line-1)",
+          padding: 20,
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-start gap-3 mb-3.5 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 text-[16px] font-semibold text-[var(--ink-1)]">
+              <IcoCalendar className="h-4 w-4" />
+              Orden del día
             </div>
-          )}
-          {uniqueTasks.length > 0 && (
-            <div className="relative group">
-              <Button variant="outline" size="sm" disabled={downloading || items.length === 0}>
-                <RiFileDownloadLine className="h-4 w-4 mr-1" />
-                PDF por tarea
-              </Button>
-              <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-10 min-w-[200px]">
-                <div className="bg-popover border rounded-md shadow-md p-1">
-                  {uniqueTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      onClick={() => handleDownloadPdf({ taskId: task.id })}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted rounded-sm transition-colors"
-                    >
-                      {task.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="text-[12px] text-[var(--ink-3)] mt-0.5">
+              Timeline consolidada del evento
             </div>
-          )}
-          <Button
-            size="sm"
-            onClick={() => handleDownloadPdf()}
-            disabled={downloading || items.length === 0}
-          >
-            <RiFileDownloadLine className="h-4 w-4 mr-1" />
-            {downloading ? "Generando..." : "Descargar PDF"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Add Form */}
-      {showAddForm && canEditRunSheet && (
-        <Card>
-          <CardContent className="py-4 px-4 space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-medium text-sm">Nueva actividad</h3>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              <Input
-                placeholder="Título *"
-                value={newItem.title}
-                onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
-              />
-              <Input
-                type="date"
-                value={newItem.date}
-                onChange={(e) => setNewItem({ ...newItem, date: e.target.value })}
-              />
-              <Input
-                type="time"
-                value={newItem.startTime}
-                onChange={(e) => setNewItem({ ...newItem, startTime: e.target.value })}
-              />
-              <Input
-                type="time"
-                value={newItem.endTime}
-                onChange={(e) => setNewItem({ ...newItem, endTime: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={newItem.targetSource === "task" ? newItem.targetTaskId : "__event__"}
-                onChange={(e) => {
-                  if (e.target.value === "__event__") {
-                    setNewItem({ ...newItem, targetSource: "event", targetTaskId: "", vendorId: "" });
-                  } else {
-                    setNewItem({ ...newItem, targetSource: "task", targetTaskId: e.target.value });
-                  }
+          </div>
+          <div className="ml-auto flex gap-2 flex-wrap">
+            {canEditRunSheet && (
+              <SmallBtn
+                icon={<IcoPlus className="h-3 w-3" />}
+                onClick={() => {
+                  setShowAddForm(!showAddForm);
+                  setEditingId(null);
                 }}
               >
-                <option value="__event__">General (evento)</option>
-                {eventTasks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-              {newItem.targetSource === "task" && (
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={newItem.vendorId}
-                  onChange={(e) => setNewItem({ ...newItem, vendorId: e.target.value })}
-                >
-                  <option value="">Proveedor (opcional)</option>
-                  {vendorOptions.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              )}
-              <Input
-                placeholder="Ubicación (opcional)"
-                value={newItem.location}
-                onChange={(e) => setNewItem({ ...newItem, location: e.target.value })}
-              />
-            </div>
-            <Textarea
-              placeholder="Notas (opcional)"
-              value={newItem.description}
-              onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>Cancelar</Button>
-              <Button size="sm" onClick={handleAdd} disabled={adding || !newItem.title.trim() || !newItem.date}>
-                {adding ? "Agregando..." : "Agregar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
-      {items.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <RiFilterLine className="h-4 w-4" />
-            Filtros:
-          </div>
-          {(uniqueVendors.length > 0 || uniqueTasks.length > 0) && (
-            <>
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={filterVendor}
-                onChange={(e) => setFilterVendor(e.target.value)}
-              >
-                <option value="">Todos los proveedores</option>
-                {uniqueVendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={filterTask}
-                onChange={(e) => setFilterTask(e.target.value)}
-              >
-                <option value="">Todas las fuentes</option>
-                <option value="__event__">General (evento)</option>
-                {uniqueTasks.map((t) => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => { setFilterVendor(""); setFilterTask(""); }}
-            >
-              <RiFilterOffLine className="h-3 w-3 mr-1" />
-              Limpiar
-            </Button>
-          )}
-          {hasFilters && (
-            <span className="text-xs text-muted-foreground ml-auto">
-              Mostrando {filteredItems.length} de {items.length}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-sm text-muted-foreground">Total items</p>
-            <p className="text-2xl font-bold">{filteredItems.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-sm text-muted-foreground">Del evento</p>
-            <p className="text-2xl font-bold">{filteredItems.filter((i) => i.source === "event").length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-sm text-muted-foreground">De tareas</p>
-            <p className="text-2xl font-bold">{filteredItems.filter((i) => i.source === "task").length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-sm text-muted-foreground">Días</p>
-            <p className="text-2xl font-bold">{sortedDates.length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Timeline */}
-      {loading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RiListOrdered2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground">
-              {hasFilters ? "No hay items que coincidan con los filtros" : "No hay items en la orden del día"}
-            </p>
-            {!hasFilters && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {canEditRunSheet
-                  ? "Usá el botón \"Agregar actividad\" o cargá items desde cada tarea"
-                  : "El organizador aún no cargó la orden del día"}
-              </p>
+                Agregar actividad
+              </SmallBtn>
             )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {sortedDates.map((dateKey) => {
-            const dateItems = itemsByDate[dateKey];
-            const dateObj = new Date(dateKey + "T12:00:00");
+            <SmallBtn
+              icon={<IcoPrinter className="h-3 w-3" />}
+              onClick={handlePrint}
+              disabled={items.length === 0}
+            >
+              Imprimir
+            </SmallBtn>
+            {uniqueVendors.length > 0 && (
+              <DropdownBtn
+                icon={<IcoFile className="h-3 w-3" />}
+                label="PDF por proveedor"
+                disabled={downloading || items.length === 0}
+                items={uniqueVendors.map((v) => ({
+                  label: v.name,
+                  onClick: () => handleDownloadPdf({ vendorId: v.id }),
+                }))}
+              />
+            )}
+            {uniqueTasks.length > 0 && (
+              <DropdownBtn
+                icon={<IcoFile className="h-3 w-3" />}
+                label="PDF por tarea"
+                disabled={downloading || items.length === 0}
+                items={uniqueTasks.map((t) => ({
+                  label: t.title,
+                  onClick: () => handleDownloadPdf({ taskId: t.id }),
+                }))}
+              />
+            )}
+            <button
+              onClick={() => handleDownloadPdf()}
+              disabled={downloading || items.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors border-none"
+              style={{
+                background: "var(--ink-1)",
+                color: "#FFFFFF",
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                opacity: downloading || items.length === 0 ? 0.5 : 1,
+              }}
+            >
+              <IcoDownload className="h-3 w-3" />
+              {downloading ? "Generando..." : "Descargar PDF"}
+            </button>
+          </div>
+        </div>
 
-            return (
-              <div key={dateKey}>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                    <RiCalendarLine className="h-4 w-4 text-primary-foreground" />
+        {/* Filters */}
+        {items.length > 0 && !showAddForm && !editingId && (
+          <div
+            className="flex items-center gap-2.5 flex-wrap mb-4 pb-3.5"
+            style={{ borderBottom: "1px solid var(--line-1)" }}
+          >
+            <span className="flex items-center gap-1 text-[12px] text-[var(--ink-3)] font-medium">
+              <IcoFilter className="h-3.5 w-3.5" />
+              Filtros:
+            </span>
+            {(uniqueVendors.length > 0 || uniqueTasks.length > 0) && (
+              <>
+                <FilterSelect
+                  value={filterVendor}
+                  onChange={setFilterVendor}
+                  options={[
+                    { value: "", label: "Todos los proveedores" },
+                    ...uniqueVendors.map((v) => ({
+                      value: v.id.toString(),
+                      label: v.name,
+                    })),
+                  ]}
+                />
+                <FilterSelect
+                  value={filterTask}
+                  onChange={setFilterTask}
+                  options={[
+                    { value: "", label: "Todas las fuentes" },
+                    { value: "__event__", label: "General (evento)" },
+                    ...uniqueTasks.map((t) => ({
+                      value: t.id.toString(),
+                      label: t.title,
+                    })),
+                  ]}
+                />
+              </>
+            )}
+            {hasFilters && (
+              <button
+                onClick={() => {
+                  setFilterVendor("");
+                  setFilterTask("");
+                }}
+                className="bg-transparent border-none cursor-pointer text-[12px] underline"
+                style={{ color: "var(--ink-3)" }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <IcoFilterOff className="h-3 w-3" />
+                  Limpiar
+                </span>
+              </button>
+            )}
+            <span className="ml-auto text-[12px] text-[var(--ink-3)]">
+              {filteredItems.length} de {items.length} actividades
+            </span>
+          </div>
+        )}
+
+        {/* Inline add form */}
+        {showAddForm && canEditRunSheet && (
+          <ActivityForm
+            mode="add"
+            inputStyle={inputStyle}
+            value={newItem}
+            onChange={setNewItem}
+            eventTasks={eventTasks}
+            vendorOptions={vendorOptions}
+            saving={adding}
+            onCancel={() => setShowAddForm(false)}
+            onSave={handleAdd}
+          />
+        )}
+
+        {/* Loading / empty / timeline */}
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center"
+            style={{ padding: "60px 20px", minHeight: 280 }}
+          >
+            <div
+              className="h-12 w-12 rounded-full flex items-center justify-center mb-3"
+              style={{ background: "var(--bg-subtle)" }}
+            >
+              <IcoCalendar className="h-5 w-5 text-[var(--ink-3)]" />
+            </div>
+            <div className="text-[14px] font-semibold text-[var(--ink-1)] mb-1">
+              {hasFilters ? "Sin coincidencias" : "Sin actividades"}
+            </div>
+            <div className="text-[12.5px] text-[var(--ink-3)] text-center max-w-[420px]">
+              {hasFilters
+                ? "Prueba a limpiar los filtros."
+                : canEditRunSheet
+                  ? "Planifica el orden del día paso a paso."
+                  : "El organizador aún no cargó la orden del día."}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {sortedDates.map((dateKey) => {
+              const dateItems = itemsByDate[dateKey];
+              const dateObj = new Date(dateKey + "T12:00:00");
+              const dateLabel = format(dateObj, "EEEE d 'de' MMMM, yyyy", {
+                locale: es,
+              });
+              return (
+                <div key={dateKey}>
+                  <div
+                    className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-3)] mb-2"
+                    style={{ letterSpacing: "0.08em" }}
+                  >
+                    {dateLabel} · {dateItems.length}{" "}
+                    {dateItems.length === 1 ? "actividad" : "actividades"}
                   </div>
-                  <h2 className="text-lg font-semibold">
-                    {format(dateObj, "EEEE d 'de' MMMM, yyyy", { locale: es })}
-                  </h2>
-                  <Badge variant="secondary" className="ml-auto">
-                    {dateItems.length} {dateItems.length === 1 ? "item" : "items"}
-                  </Badge>
-                </div>
-
-                <div className="relative ml-4 border-l-2 border-border pl-6 space-y-1">
-                  {dateItems.map((item) => {
-                    const key = itemKey(item);
-                    const isEditing = editingId === key;
-
-                    if (isEditing && canEditRunSheet) {
+                  <div style={{ position: "relative", paddingLeft: 24 }}>
+                    {/* Vertical line */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 7,
+                        top: 8,
+                        bottom: 8,
+                        width: 1.5,
+                        background: "var(--ink-1)",
+                        opacity: 0.6,
+                      }}
+                    />
+                    {dateItems.map((item) => {
+                      const key = itemKey(item);
+                      const isEditing = editingId === key;
+                      if (isEditing && canEditRunSheet) {
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              position: "relative",
+                              padding: "10px 0 14px 20px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: -7,
+                                top: 18,
+                                width: 14,
+                                height: 14,
+                                borderRadius: "50%",
+                                background: "var(--ink-1)",
+                                border: "3px solid #FFFFFF",
+                                boxShadow: "0 0 0 1px var(--line-strong)",
+                              }}
+                            />
+                            <ActivityForm
+                              mode="edit"
+                              inputStyle={inputStyle}
+                              value={editFields}
+                              onChange={setEditFields}
+                              eventTasks={eventTasks}
+                              vendorOptions={vendorOptions}
+                              showTaskSelect={item.source === "task"}
+                              onCancel={() => setEditingId(null)}
+                              onSave={() => handleSaveEdit(item)}
+                            />
+                          </div>
+                        );
+                      }
+                      const isTaskSource = item.source === "task";
                       return (
-                        <Card key={key} className="border-primary">
-                          <CardContent className="py-3 px-4 space-y-2">
-                            <div className="absolute -left-[31px] top-3 h-3 w-3 rounded-full border-2 border-background bg-primary" />
-                            <div className="grid grid-cols-4 gap-2">
-                              <Input size={1} value={editFields.title} onChange={(e) => setEditFields({ ...editFields, title: e.target.value })} placeholder="Título" />
-                              <Input type="date" size={1} value={editFields.date} onChange={(e) => setEditFields({ ...editFields, date: e.target.value })} />
-                              <Input type="time" size={1} value={editFields.startTime} onChange={(e) => setEditFields({ ...editFields, startTime: e.target.value })} />
-                              <Input type="time" size={1} value={editFields.endTime} onChange={(e) => setEditFields({ ...editFields, endTime: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {item.source === "task" && (
-                                <select
-                                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                  value={editFields.vendorId}
-                                  onChange={(e) => setEditFields({ ...editFields, vendorId: e.target.value })}
-                                >
-                                  <option value="">Sin proveedor</option>
-                                  {vendorOptions.map((v) => (
-                                    <option key={v.id} value={v.id}>{v.name}</option>
-                                  ))}
-                                </select>
-                              )}
-                              <Input value={editFields.location} onChange={(e) => setEditFields({ ...editFields, location: e.target.value })} placeholder="Ubicación" />
-                            </div>
-                            <Textarea value={editFields.description} onChange={(e) => setEditFields({ ...editFields, description: e.target.value })} placeholder="Notas" rows={2} />
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
-                                <RiCloseLine className="h-4 w-4 mr-1" />Cancelar
-                              </Button>
-                              <Button size="sm" onClick={() => handleSaveEdit(item)}>
-                                <RiCheckLine className="h-4 w-4 mr-1" />Guardar
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    }
-
-                    return (
-                      <div key={key} className="relative group">
                         <div
-                          className="absolute -left-[31px] top-3 h-3 w-3 rounded-full border-2 border-background"
-                          style={{ backgroundColor: item.source === "event" ? "#6366f1" : "#f59e0b" }}
-                        />
-                        <Card className="transition-colors hover:bg-muted/30">
-                          <CardContent className="py-3 px-4">
-                            <div className="flex items-start gap-3">
-                              <div className="w-24 shrink-0 text-right">
-                                {item.startTime ? (
-                                  <div>
-                                    <span className="text-sm font-semibold">{item.startTime}</span>
-                                    {item.endTime && (
-                                      <span className="text-xs text-muted-foreground block">→ {item.endTime}</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">Sin hora</span>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium text-sm">{item.title}</h3>
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] shrink-0"
-                                    style={{
-                                      borderColor: item.source === "event" ? "#6366f1" : "#f59e0b",
-                                      color: item.source === "event" ? "#6366f1" : "#f59e0b",
-                                    }}
-                                  >
-                                    {item.source === "event" ? "General" : item.taskTitle || "Tarea"}
-                                  </Badge>
-                                  {item.vendorName && (
-                                    <Badge variant="secondary" className="text-[10px] shrink-0 gap-0.5">
-                                      <RiUser3Line className="h-2.5 w-2.5" />
-                                      {item.vendorName}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {item.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
-                                )}
-                                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                                  {item.location && (
-                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <RiMapPinLine className="h-3 w-3" />{item.location}
-                                    </span>
-                                  )}
-                                  {item.notes && (
-                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <RiInformationLine className="h-3 w-3" />{item.notes}
-                                    </span>
-                                  )}
-                                </div>
+                          key={key}
+                          style={{
+                            position: "relative",
+                            padding: "10px 0 14px 20px",
+                            display: "flex",
+                            gap: 14,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: -7,
+                              top: 18,
+                              width: 14,
+                              height: 14,
+                              borderRadius: "50%",
+                              background: isTaskSource
+                                ? "#4A6A94"
+                                : "var(--ink-1)",
+                              border: "3px solid #FFFFFF",
+                              boxShadow: "0 0 0 1px var(--line-strong)",
+                            }}
+                          />
+                          <div style={{ minWidth: 78 }}>
+                            <div
+                              className="text-[15px] font-bold text-[var(--ink-1)]"
+                              style={{ letterSpacing: "-0.01em" }}
+                            >
+                              {item.startTime || "—"}
+                            </div>
+                            <div
+                              className="text-[10.5px] text-[var(--ink-3)] uppercase"
+                              style={{ letterSpacing: "0.06em" }}
+                            >
+                              {item.startTime && item.endTime
+                                ? `${item.startTime}–${item.endTime}`
+                                : item.startTime
+                                  ? "Inicio"
+                                  : "Sin hora"}
+                            </div>
+                          </div>
+                          <div
+                            className="group"
+                            style={{
+                              flex: 1,
+                              padding: 12,
+                              background: isTaskSource
+                                ? "color-mix(in srgb, #4A6A94 6%, #FFFFFF)"
+                                : "#FFFFFF",
+                              border: `1px solid ${
+                                isTaskSource
+                                  ? "color-mix(in srgb, #4A6A94 25%, var(--line-1))"
+                                  : "var(--line-1)"
+                              }`,
+                              borderRadius: 8,
+                              cursor: canEditRunSheet ? "pointer" : "default",
+                            }}
+                            onClick={
+                              canEditRunSheet
+                                ? () => {
+                                    setShowAddForm(false);
+                                    startEdit(item);
+                                  }
+                                : undefined
+                            }
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="text-[14px] font-semibold flex-1 text-[var(--ink-1)]">
+                                {item.title}
                               </div>
                               {canEditRunSheet && (
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(item)}>
-                                    <RiEditLine className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`h-7 w-7 ${deletingId === key ? "text-destructive bg-destructive/10" : "text-muted-foreground"}`}
-                                    onClick={() => handleDelete(item)}
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEdit(item);
+                                    }}
+                                    aria-label="Editar"
+                                    className="cursor-pointer"
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      padding: 4,
+                                      color: "var(--ink-3)",
+                                    }}
                                   >
-                                    <RiDeleteBinLine className="h-3.5 w-3.5" />
-                                  </Button>
+                                    <IcoEdit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(item);
+                                    }}
+                                    aria-label="Eliminar"
+                                    className="cursor-pointer"
+                                    style={{
+                                      background:
+                                        deletingId === key
+                                          ? "rgba(181,84,80,0.10)"
+                                          : "none",
+                                      border: "none",
+                                      padding: 4,
+                                      color:
+                                        deletingId === key
+                                          ? "#B55450"
+                                          : "var(--ink-3)",
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    <IcoDelete className="h-3.5 w-3.5" />
+                                  </button>
                                 </div>
                               )}
                             </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    );
-                  })}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-[12px] text-[var(--ink-3)]">
+                              <span className="inline-flex items-center gap-1">
+                                <IcoLocation className="h-3 w-3" />
+                                {item.location || "—"}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <IcoUser className="h-3 w-3" />
+                                {item.vendorName || "—"}
+                              </span>
+                              <span
+                                style={{
+                                  background: "var(--bg-subtle)",
+                                  padding: "2px 8px",
+                                  borderRadius: 999,
+                                  fontSize: 11,
+                                  color: "var(--ink-2)",
+                                }}
+                              >
+                                {isTaskSource
+                                  ? item.taskTitle || "Tarea"
+                                  : "General (evento)"}
+                              </span>
+                            </div>
+                            {(item.description || item.notes) && (
+                              <div
+                                className="mt-2 text-[12px] text-[var(--ink-2)]"
+                                style={{
+                                  paddingTop: 8,
+                                  borderTop: "1px solid var(--line-1)",
+                                  whiteSpace: "pre-line",
+                                }}
+                              >
+                                {[item.description, item.notes]
+                                  .filter(Boolean)
+                                  .join("\n")}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </EventSectionGuard>
+  );
+}
+
+// =============================================================================
+// Helper components — match the prototype's chrome
+// =============================================================================
+function SmallBtn({
+  icon,
+  children,
+  onClick,
+  disabled,
+}: {
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid var(--line-strong)",
+        padding: "6px 12px",
+        fontSize: 12,
+        fontWeight: 500,
+        color: "var(--ink-1)",
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function DropdownBtn({
+  icon,
+  label,
+  disabled,
+  items,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+  items: { label: string; onClick: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+        style={{
+          background: "#FFFFFF",
+          border: "1px solid var(--line-strong)",
+          padding: "6px 12px",
+          fontSize: 12,
+          fontWeight: 500,
+          color: "var(--ink-1)",
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        {icon}
+        {label}
+      </button>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className="absolute right-0 top-full mt-1 z-40 rounded-[8px]"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--line-1)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              minWidth: 200,
+              padding: 4,
+            }}
+          >
+            {items.map((item, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+                className="w-full text-left rounded-[6px] cursor-pointer hover:bg-[var(--bg-subtle)] transition-colors"
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 12.5,
+                  color: "var(--ink-1)",
+                  background: "none",
+                  border: "none",
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
-    </EventSectionGuard>
+  );
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="cursor-pointer"
+        style={{
+          appearance: "none",
+          height: 30,
+          padding: "0 28px 0 10px",
+          border: "1px solid var(--line-1)",
+          borderRadius: 8,
+          background: "#FFFFFF",
+          color: "var(--ink-1)",
+          fontSize: 12,
+          outline: "none",
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <span
+        className="pointer-events-none"
+        style={{
+          position: "absolute",
+          right: 8,
+          top: "50%",
+          transform: "translateY(-50%)",
+          color: "var(--ink-3)",
+        }}
+      >
+        <IcoChevDown className="h-3 w-3" />
+      </span>
+    </div>
+  );
+}
+
+type ActivityFormState = typeof emptyForm;
+
+function ActivityForm({
+  mode,
+  inputStyle,
+  value,
+  onChange,
+  eventTasks,
+  vendorOptions,
+  showTaskSelect,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  mode: "add" | "edit";
+  inputStyle: React.CSSProperties;
+  value: ActivityFormState;
+  onChange: (v: ActivityFormState) => void;
+  eventTasks: { id: number; title: string }[];
+  vendorOptions: { id: number; name: string }[];
+  showTaskSelect?: boolean;
+  saving?: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const canSave = value.title.trim().length > 0 && !!value.date;
+  const set = <K extends keyof ActivityFormState>(
+    k: K,
+    v: ActivityFormState[K],
+  ) => onChange({ ...value, [k]: v });
+  const showVendor =
+    mode === "edit"
+      ? showTaskSelect
+      : value.targetSource === "task";
+  return (
+    <div
+      className="rounded-[8px]"
+      style={{
+        background: "var(--bg-subtle)",
+        border: "1px solid var(--line-1)",
+        padding: 18,
+        marginBottom: 16,
+      }}
+    >
+      <div className="text-[13px] font-semibold text-[var(--ink-1)] mb-3">
+        {mode === "edit" ? "Editar actividad" : "Nueva actividad"}
+      </div>
+      <div
+        className="grid gap-2.5 mb-2.5"
+        style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}
+      >
+        <input
+          placeholder="Título *"
+          value={value.title}
+          onChange={(e) => set("title", e.target.value)}
+          style={inputStyle}
+        />
+        <input
+          type="date"
+          value={value.date}
+          onChange={(e) => set("date", e.target.value)}
+          style={inputStyle}
+        />
+        <input
+          type="time"
+          value={value.startTime}
+          onChange={(e) => set("startTime", e.target.value)}
+          style={inputStyle}
+        />
+        <input
+          type="time"
+          value={value.endTime}
+          onChange={(e) => set("endTime", e.target.value)}
+          style={inputStyle}
+        />
+      </div>
+      <div
+        className="grid gap-2.5 mb-2.5"
+        style={{ gridTemplateColumns: "1fr 2fr" }}
+      >
+        {mode === "add" ? (
+          <select
+            value={
+              value.targetSource === "task" ? value.targetTaskId : "__event__"
+            }
+            onChange={(e) => {
+              if (e.target.value === "__event__") {
+                onChange({
+                  ...value,
+                  targetSource: "event",
+                  targetTaskId: "",
+                  vendorId: "",
+                });
+              } else {
+                onChange({
+                  ...value,
+                  targetSource: "task",
+                  targetTaskId: e.target.value,
+                });
+              }
+            }}
+            style={inputStyle}
+          >
+            <option value="__event__">General (evento)</option>
+            {eventTasks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        ) : showVendor ? (
+          <select
+            value={value.vendorId}
+            onChange={(e) => set("vendorId", e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Sin proveedor</option>
+            {vendorOptions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div />
+        )}
+        <input
+          placeholder="Ubicación (opcional)"
+          value={value.location}
+          onChange={(e) => set("location", e.target.value)}
+          style={inputStyle}
+        />
+      </div>
+      {mode === "add" && value.targetSource === "task" && (
+        <div className="mb-2.5">
+          <select
+            value={value.vendorId}
+            onChange={(e) => set("vendorId", e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Proveedor (opcional)</option>
+            {vendorOptions.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <textarea
+        placeholder="Notas (opcional)"
+        value={value.description}
+        onChange={(e) => set("description", e.target.value)}
+        rows={2}
+        style={{
+          ...inputStyle,
+          height: "auto",
+          minHeight: 60,
+          padding: "10px 12px",
+          resize: "vertical",
+        }}
+      />
+      <div className="flex justify-end gap-2 mt-3.5">
+        <button
+          onClick={onCancel}
+          className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-strong)",
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+          }}
+        >
+          <IcoX className="h-3 w-3 mr-1" />
+          Cancelar
+        </button>
+        <button
+          onClick={() => canSave && onSave()}
+          disabled={!canSave || saving}
+          className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors border-none"
+          style={{
+            background: "var(--ink-1)",
+            color: "#FFFFFF",
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            opacity: !canSave || saving ? 0.5 : 1,
+          }}
+        >
+          <IcoCheck className="h-3 w-3 mr-1" />
+          {saving
+            ? "Guardando..."
+            : mode === "edit"
+              ? "Guardar"
+              : "Agregar"}
+        </button>
+      </div>
+    </div>
   );
 }

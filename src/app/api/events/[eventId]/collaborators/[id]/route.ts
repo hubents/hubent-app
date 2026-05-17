@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updateEventParticipant, removeEventParticipant } from "@/lib/events";
 import { db } from "@/db";
-import { events, eventParticipants, eventCollaborations, taskParticipants, tasks } from "@/db/schema";
+import { eventParticipants, eventCollaborations, taskParticipants, tasks } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 const updateCollaboratorSchema = z.object({
   role: z.string().min(1, "El rol es obligatorio").optional(),
@@ -18,7 +19,7 @@ type RouteParams = { params: Promise<{ eventId: string; id: string }> };
  * Update a collaborator's permissions
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId, id } = await params;
     const eId = parseInt(eventId, 10);
     const pId = parseInt(id, 10);
@@ -27,10 +28,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const parsed = updateCollaboratorSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message || "Datos inválidos" } },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0]?.message || "Datos inválidos");
     }
 
     // Verify event belongs to org
@@ -41,10 +39,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Evento no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Evento no encontrado");
     }
 
     // Try event_participants first
@@ -59,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         permissions: parsed.data.permissions,
         role: parsed.data.role,
       });
-      return NextResponse.json({ success: true, data: updated });
+      return ok(updated);
     }
 
     // Fallback: check event_collaborations (partner-type collaborators)
@@ -70,10 +65,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .limit(1);
 
     if (!existingCollab) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Colaborador no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Colaborador no encontrado");
     }
 
     const oldPerms = (existingCollab.permissions || {}) as Record<string, string>;
@@ -112,15 +104,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         });
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error al actualizar colaborador";
-    const status = message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/events/[eventId]/collaborators/[id]");
 }
 
 /**
@@ -134,8 +119,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * ability to log in and access OTHER events they may collaborate on. To fully remove a
  * user from a tenant, an admin must delete the org_members row separately.
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const { eventId, id } = await params;
     const eId = parseInt(eventId, 10);
     const pId = parseInt(id, 10);
@@ -148,10 +133,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Evento no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Evento no encontrado");
     }
 
     // Capture the userId BEFORE deleting so we can clean up task_participants for them.
@@ -180,13 +162,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ success: true, data: { message: "Colaborador eliminado" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error al eliminar colaborador";
-    const status = message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ message: "Colaborador eliminado" });
+  }, "DELETE /api/events/[eventId]/collaborators/[id]");
 }

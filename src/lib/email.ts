@@ -15,7 +15,7 @@ function getResendClient(): Resend {
 }
 
 function getFromEmail() {
-  return process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
+  return process.env.EMAIL_FROM || "Hubents <noreply@hubents.com>";
 }
 
 function getAppUrl() {
@@ -73,7 +73,7 @@ function emailWrapper(content: string): string {
           <!-- Logo Header -->
           <tr>
             <td style="padding: 32px 40px 24px; text-align: center; border-bottom: 1px solid ${COLORS.border};">
-              <img src="${getLogoUrl()}" alt="HubEnts" height="36" style="display: block; margin: 0 auto; height: 36px;" />
+              <img src="${getLogoUrl()}" alt="Hubents" height="36" style="display: block; margin: 0 auto; height: 36px;" />
             </td>
           </tr>
           
@@ -88,7 +88,7 @@ function emailWrapper(content: string): string {
           <tr>
             <td style="padding: 24px 40px; border-top: 1px solid ${COLORS.border}; text-align: center;">
               <p style="margin: 0; font-size: 13px; color: ${COLORS.textMuted};">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
+                © ${new Date().getFullYear()} Hubents. Todos los derechos reservados.
               </p>
             </td>
           </tr>
@@ -191,7 +191,7 @@ export async function sendWelcomeEmail(
   });
 
   const content = `
-    ${heading("Bienvenido a HubEnts")}
+    ${heading("Bienvenido a Hubents")}
     ${paragraph(`Hola <strong>${name}</strong>,`)}
     ${paragraph(`Tu cuenta para <strong>${companyName}</strong> ha sido creada exitosamente.`)}
     ${infoBox(`<strong>Tu prueba gratuita de ${trialDays} días</strong> está activa hasta el ${trialEndDate}. Tienes acceso completo a todas las funcionalidades.`, "success")}
@@ -202,7 +202,7 @@ export async function sendWelcomeEmail(
 
   return sendEmail({
     to,
-    subject: `Bienvenido a HubEnts, ${name}`,
+    subject: `Bienvenido a Hubents, ${name}`,
     html: emailWrapper(content),
     text: `Hola ${name}, tu cuenta para ${companyName} ha sido creada. Tu prueba gratuita de ${trialDays} días está activa hasta el ${trialEndDate}. Visita ${getAppUrl()}/onboarding para comenzar.`,
   });
@@ -225,7 +225,7 @@ export async function sendOrganizationInviteEmail(
 
   const content = `
     ${heading("Te han invitado a un equipo")}
-    ${paragraph(`${inviterText} a unirte a <strong>${organizationName}</strong> en HubEnts.`)}
+    ${paragraph(`${inviterText} a unirte a <strong>${organizationName}</strong> en Hubents.`)}
     <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
       <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Tu rol será:</p>
       <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${roleName}</p>
@@ -260,7 +260,7 @@ export async function sendAdminInviteEmail(
 
   const content = `
     ${heading("Invitación de Administrador")}
-    ${paragraph(`${inviterText} a unirte al equipo de administración de <strong>HubEnts</strong>.`)}
+    ${paragraph(`${inviterText} a unirte al equipo de administración de <strong>Hubents</strong>.`)}
     <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
       <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Nivel de acceso:</p>
       <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${levelLabel}</p>
@@ -272,9 +272,9 @@ export async function sendAdminInviteEmail(
 
   return sendEmail({
     to,
-    subject: `Invitación de Administrador - HubEnts`,
+    subject: `Invitación de Administrador - Hubents`,
     html: emailWrapper(content),
-    text: `Has sido invitado como ${levelLabel} de HubEnts. Acepta la invitación aquí: ${inviteUrl}`,
+    text: `Has sido invitado como ${levelLabel} de Hubents. Acepta la invitación aquí: ${inviteUrl}`,
   });
 }
 
@@ -291,7 +291,7 @@ export async function sendTenantWelcomeEmail(
   const content = `
     ${heading("Tu cuenta está lista")}
     ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
-    ${paragraph(`Tu organización <strong>${organizationName}</strong> ha sido creada en HubEnts.`)}
+    ${paragraph(`Tu organización <strong>${organizationName}</strong> ha sido creada en Hubents.`)}
     <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0;">
       <p style="margin: 0 0 12px; font-size: 13px; color: ${COLORS.textSecondary}; font-weight: 500;">Tus credenciales de acceso:</p>
       <table style="width: 100%;">
@@ -312,9 +312,9 @@ export async function sendTenantWelcomeEmail(
 
   return sendEmail({
     to,
-    subject: `Tu cuenta en HubEnts está lista - ${organizationName}`,
+    subject: `Tu cuenta en Hubents está lista - ${organizationName}`,
     html: emailWrapper(content),
-    text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en HubEnts. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${getAppUrl()}/auth/login`,
+    text: `Hola ${ownerName}, tu organización ${organizationName} ha sido creada en Hubents. Tus credenciales: Email: ${to}, Contraseña temporal: ${tempPassword}. Inicia sesión en ${getAppUrl()}/auth/login`,
   });
 }
 
@@ -328,7 +328,7 @@ export async function sendPasswordResetEmail(
 ) {
   const content = `
     ${heading("Restablecer contraseña")}
-    ${paragraph("Recibimos una solicitud para restablecer la contraseña de tu cuenta en HubEnts.")}
+    ${paragraph("Recibimos una solicitud para restablecer la contraseña de tu cuenta en Hubents.")}
     ${paragraph("Haz clic en el botón para crear una nueva contraseña:")}
     ${primaryButton("Restablecer contraseña", resetUrl)}
     ${infoBox("Este enlace expira en <strong>1 hora</strong> por seguridad.", "warning")}
@@ -347,7 +347,7 @@ export async function sendPasswordResetEmail(
 
   return sendEmail({
     to,
-    subject: `Restablecer tu contraseña - HubEnts`,
+    subject: `Restablecer tu contraseña - Hubents`,
     html: emailWrapper(content),
     text: `Recibimos una solicitud para restablecer tu contraseña. Visita este enlace para crear una nueva: ${resetUrl}. El enlace expira en 1 hora.`,
   });
@@ -363,7 +363,7 @@ export async function sendVerificationEmail(
 ) {
   const content = `
     ${heading("Verifica tu email")}
-    ${paragraph("Necesitamos verificar tu dirección de email para completar tu cuenta en HubEnts.")}
+    ${paragraph("Necesitamos verificar tu dirección de email para completar tu cuenta en Hubents.")}
     ${paragraph("Haz clic en el botón para verificar tu email:")}
     ${primaryButton("Verificar email", verifyUrl)}
     ${infoBox("Este enlace expira en <strong>24 horas</strong> por seguridad.", "warning")}
@@ -382,7 +382,7 @@ export async function sendVerificationEmail(
 
   return sendEmail({
     to,
-    subject: `Verifica tu email - HubEnts`,
+    subject: `Verifica tu email - Hubents`,
     html: emailWrapper(content),
     text: `Verifica tu dirección de email visitando este enlace: ${verifyUrl}. El enlace expira en 24 horas.`,
   });
@@ -409,7 +409,7 @@ export async function sendContactTaskNotificationEmail(
       </p>
     </div>
     ${paragraph("Podrás recibir actualizaciones sobre el progreso de esta tarea.")}
-    ${mutedText("Este es un mensaje automático de HubEnts.")}
+    ${mutedText("Este es un mensaje automático de Hubents.")}
   `;
 
   return sendEmail({
@@ -430,9 +430,9 @@ export async function sendProviderWelcomeEmail(
   companyName: string
 ) {
   const content = `
-    ${heading("Bienvenido a HubEnts")}
+    ${heading("Bienvenido a Hubents")}
     ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
-    ${paragraph(`Tu empresa <strong>${companyName}</strong> ha sido registrada como proveedor en la plataforma HubEnts.`)}
+    ${paragraph(`Tu empresa <strong>${companyName}</strong> ha sido registrada como proveedor en la plataforma Hubents.`)}
     ${infoBox("Tu cuenta está <strong>pendiente de verificación</strong>. Nuestro equipo revisará tu perfil y te notificaremos cuando esté aprobada.", "warning")}
     ${paragraph("Mientras tanto, puedes completar tu perfil para agilizar el proceso:")}
     ${primaryButton("Completar mi perfil", `${getAppUrl()}/vendor/profile`)}
@@ -441,9 +441,9 @@ export async function sendProviderWelcomeEmail(
 
   return sendEmail({
     to,
-    subject: `Bienvenido a HubEnts, ${ownerName}`,
+    subject: `Bienvenido a Hubents, ${ownerName}`,
     html: emailWrapper(content),
-    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido registrada como proveedor en HubEnts. Tu cuenta está pendiente de verificación. Completa tu perfil en ${getAppUrl()}/vendor/profile`,
+    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido registrada como proveedor en Hubents. Tu cuenta está pendiente de verificación. Completa tu perfil en ${getAppUrl()}/vendor/profile`,
   });
 }
 
@@ -473,9 +473,9 @@ export async function sendProviderVerifiedEmail(
 
   return sendEmail({
     to,
-    subject: `✅ ${companyName} verificada en HubEnts`,
+    subject: `✅ ${companyName} verificada en Hubents`,
     html: emailWrapper(content),
-    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido verificada en HubEnts. Ya puedes recibir invitaciones a eventos. Accede a tu panel en ${getAppUrl()}/vendor`,
+    text: `Hola ${ownerName}, tu empresa ${companyName} ha sido verificada en Hubents. Ya puedes recibir invitaciones a eventos. Accede a tu panel en ${getAppUrl()}/vendor`,
   });
 }
 
@@ -535,7 +535,7 @@ export async function sendProviderEventInvitationEmail(
     </div>
     ${paragraph("Accede a tu portal para aceptar o rechazar la invitación:")}
     ${primaryButton("Ver invitación", `${getAppUrl()}/vendor/events`)}
-    ${mutedText("Este es un mensaje automático de HubEnts.")}
+    ${mutedText("Este es un mensaje automático de Hubents.")}
   `;
 
   return sendEmail({
@@ -595,7 +595,7 @@ export async function sendTrialExpiredEmail(
 
   return sendEmail({
     to,
-    subject: `Tu prueba de HubEnts ha terminado — ${orgName}`,
+    subject: `Tu prueba de Hubents ha terminado — ${orgName}`,
     html: emailWrapper(content),
     text: `Hola ${orgName}, tu prueba del plan ${planName} ha terminado. Suscríbete en ${settingsUrl}`,
   });
@@ -645,7 +645,7 @@ export async function sendSubscriptionCanceledEmail(
 
   return sendEmail({
     to,
-    subject: `Tu suscripción de HubEnts ha sido cancelada — ${orgName}`,
+    subject: `Tu suscripción de Hubents ha sido cancelada — ${orgName}`,
     html: emailWrapper(content),
     text: `Hola ${orgName}, tu suscripción al plan ${planName} ha sido cancelada. Reactívala en ${settingsUrl}`,
   });
@@ -658,20 +658,20 @@ export async function sendWinBackEmail(
 ) {
   const settingsUrl = getSettingsUrl(orgType);
   const content = `
-    ${heading("Te extrañamos en HubEnts")}
+    ${heading("Te extrañamos en Hubents")}
     ${paragraph(`Hola equipo de <strong>${orgName}</strong>,`)}
-    ${paragraph("Hace unos días que tu prueba gratuita terminó y queremos asegurarnos de que no te pierdas todo lo que HubEnts puede ofrecer.")}
+    ${paragraph("Hace unos días que tu prueba gratuita terminó y queremos asegurarnos de que no te pierdas todo lo que Hubents puede ofrecer.")}
     ${infoBox("🎁 <strong>Oferta especial:</strong> Suscríbete hoy y obtén un descuento en tu primer mes.", "success")}
-    ${paragraph("Con HubEnts puedes gestionar eventos, contactos, finanzas y mucho más desde una sola plataforma.")}
-    ${primaryButton("Volver a HubEnts", `${settingsUrl}?billing=upgrade`)}
+    ${paragraph("Con Hubents puedes gestionar eventos, contactos, finanzas y mucho más desde una sola plataforma.")}
+    ${primaryButton("Volver a Hubents", `${settingsUrl}?billing=upgrade`)}
     ${mutedText("Si ya no deseas recibir estos emails, responde con 'cancelar'.")}
   `;
 
   return sendEmail({
     to,
-    subject: `Te extrañamos — Vuelve a HubEnts, ${orgName}`,
+    subject: `Te extrañamos — Vuelve a Hubents, ${orgName}`,
     html: emailWrapper(content),
-    text: `Hola ${orgName}, te extrañamos en HubEnts. Suscríbete en ${settingsUrl}`,
+    text: `Hola ${orgName}, te extrañamos en Hubents. Suscríbete en ${settingsUrl}`,
   });
 }
 
@@ -724,7 +724,7 @@ export async function sendPlansAvailableEmail(
 
   const introText = wasTrialing
     ? `Tu período de prueba en <strong>${orgName}</strong> ha finalizado. Tu cuenta ha pasado al plan <strong>Free</strong>, pero toda tu información está segura.`
-    : `Tenemos novedades para <strong>${orgName}</strong> en HubEnts.`;
+    : `Tenemos novedades para <strong>${orgName}</strong> en Hubents.`;
 
   const tenantPlansTable = `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; border: 1px solid ${COLORS.border}; border-radius: 8px; overflow: hidden;">
@@ -786,10 +786,168 @@ export async function sendPlansAvailableEmail(
   return sendEmail({
     to,
     subject: wasTrialing
-      ? `Tu prueba terminó — Elige tu plan en HubEnts, ${orgName}`
-      : `Nuevos planes disponibles en HubEnts — ${orgName}`,
+      ? `Tu prueba terminó — Elige tu plan en Hubents, ${orgName}`
+      : `Nuevos planes disponibles en Hubents — ${orgName}`,
     html: emailWrapper(content),
     text: `Hola ${ownerName}, ${wasTrialing ? "tu prueba ha terminado" : "tenemos novedades"}. ${plansSummary} Elige tu plan en ${settingsUrl}`,
+  });
+}
+
+// ============================================
+// PROVIDER: PROFILE CLAIM NOTIFICATION
+// ============================================
+
+export async function sendProviderClaimNotificationEmail(
+  to: string,
+  providerCompanyName: string,
+  plannerName: string,
+  plannerOrgName: string,
+  claimToken: string
+) {
+  const appUrl = getAppUrl();
+  const claimUrl = `${appUrl}/claim/${claimToken}`;
+  const removeUrl = `${appUrl}/api/claim/${claimToken}/remove`;
+
+  const content = `
+    ${heading("Alguien ha creado un perfil para tu empresa en Hubents")}
+    ${paragraph(`Hola equipo de <strong>${providerCompanyName}</strong>,`)}
+    ${paragraph(`<strong>${plannerName}</strong> de <strong>${plannerOrgName}</strong> ha añadido el perfil de vuestra empresa en <strong>Hubents</strong>, la plataforma de gestión de eventos.`)}
+
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 8px; padding: 20px 24px; margin: 24px 0;">
+      <p style="margin: 0 0 14px; font-size: 14px; font-weight: 600; color: ${COLORS.textPrimary};">¿Qué significa esto para vuestro negocio?</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; width: 22px; font-size: 15px;">✅</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Organizadores de eventos pueden invitaros a sus proyectos</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-size: 15px;">📋</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Recibiréis presupuestos, tareas y coordinación directa desde la plataforma</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-size: 15px;">🏅</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Al verificar el perfil, apareceréis como proveedor verificado en el directorio</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-size: 15px;">💼</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Acceso a nuevas oportunidades de negocio de planners de toda España</td>
+        </tr>
+      </table>
+    </div>
+
+    ${infoBox("Para verificar que sois los propietarios del perfil y empezar a recibir oportunidades de negocio, registraos en la plataforma. Es <strong>gratuito</strong>.", "success")}
+    ${primaryButton("Reclamar y verificar mi perfil", claimUrl)}
+
+    <p style="margin: 20px 0 0; font-size: 13px; color: ${COLORS.textSecondary}; line-height: 1.5;">
+      Si no reconocéis esta empresa o creéis que esto es un error, podéis ignorar este email. El perfil ya es visible en el directorio, pero aparecerá como <strong>no verificado</strong> hasta que lo reclaméis.
+    </p>
+    <p style="margin: 12px 0 0; font-size: 12px; color: ${COLORS.textSecondary}; line-height: 1.5;">
+      ¿Preferís que eliminemos vuestros datos? <a href="${removeUrl}" style="color: ${COLORS.textSecondary}; text-decoration: underline;">Solicitar eliminación de datos</a> (RGPD).
+    </p>
+    ${mutedText("Este es un mensaje automático de Hubents · La plataforma de gestión de eventos")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${plannerOrgName} ha añadido el perfil de ${providerCompanyName} en Hubents`,
+    html: emailWrapper(content),
+    text: `Hola equipo de ${providerCompanyName}, ${plannerName} de ${plannerOrgName} ha añadido el perfil de vuestra empresa en Hubents. Para verificar el perfil y empezar a recibir oportunidades de negocio, registraos en: ${claimUrl}`,
+  });
+}
+
+// ============================================
+// PROVIDER: PROFILE CLAIMED — notify the creator
+// ============================================
+
+export async function sendProviderProfileClaimedEmail(
+  to: string,
+  creatorName: string,
+  providerCompanyName: string,
+  providerOrgSlug?: string | null
+) {
+  const profileUrl = providerOrgSlug
+    ? `${getAppUrl()}/partners/${providerOrgSlug}`
+    : `${getAppUrl()}/dashboard/partners`;
+
+  const content = `
+    ${heading("Tu proveedor ya está en Hubents")}
+    ${paragraph(`Hola <strong>${creatorName}</strong>,`)}
+    ${infoBox(
+      `<strong>${providerCompanyName}</strong> ha reclamado y verificado su perfil en Hubents. Ahora está activo en la plataforma y puede recibir invitaciones a eventos, presupuestos y coordinación directa.`,
+      "success"
+    )}
+    ${paragraph("Puedes invitarle a tus próximos eventos directamente desde Partners:")}
+    ${primaryButton("Ver perfil del proveedor", profileUrl)}
+    ${mutedText("Este es un mensaje automático de Hubents.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${providerCompanyName} ya está verificado en Hubents`,
+    html: emailWrapper(content),
+    text: `Hola ${creatorName}, ${providerCompanyName} ha reclamado su perfil en Hubents. Ahora está activo en la plataforma. Ver perfil: ${profileUrl}`,
+  });
+}
+
+// ============================================
+// PROVIDER: MANUAL VERIFICATION NEEDED (generic email)
+// ============================================
+
+export async function sendProviderManualVerificationEmail(
+  to: string,
+  providerCompanyName: string,
+  plannerName: string,
+  plannerOrgName: string,
+  phone?: string,
+  claimToken?: string
+) {
+  const appUrl = getAppUrl();
+  const removeUrl = claimToken ? `${appUrl}/api/claim/${claimToken}/remove` : null;
+
+  const content = `
+    ${heading("Alguien ha creado un perfil para tu empresa en Hubents")}
+    ${paragraph(`Hola equipo de <strong>${providerCompanyName}</strong>,`)}
+    ${paragraph(`<strong>${plannerName}</strong> de <strong>${plannerOrgName}</strong> ha añadido el perfil de vuestra empresa en <strong>Hubents</strong>, la plataforma de gestión de eventos.`)}
+
+    ${infoBox(
+      `Como el correo registrado es de uso personal (Gmail, Hotmail, etc.), la verificación automática no está disponible. Para verificar que sois los propietarios del perfil, nuestro equipo se pondrá en contacto${phone ? ` al número <strong>${phone}</strong>` : ""} para confirmar vuestra identidad.`,
+      "warning"
+    )}
+
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 8px; padding: 20px 24px; margin: 24px 0;">
+      <p style="margin: 0 0 14px; font-size: 14px; font-weight: 600; color: ${COLORS.textPrimary};">¿Por qué verificar el perfil?</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; width: 22px; font-size: 15px;">✅</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Badge de empresa verificada · más confianza y visibilidad</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-size: 15px;">📋</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Recibir invitaciones directas a eventos y proyectos</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; vertical-align: top; font-size: 15px;">💼</td>
+          <td style="padding: 6px 0; font-size: 14px; color: ${COLORS.textPrimary}; line-height: 1.5;">Gestionar presupuestos, tareas y pagos desde la plataforma</td>
+        </tr>
+      </table>
+    </div>
+
+    ${paragraph("Mientras tanto, puedes adelantarte y crear vuestra cuenta:")}
+    ${primaryButton("Crear cuenta en Hubents", `${appUrl}/auth/register?orgType=provider`)}
+
+    <p style="margin: 20px 0 0; font-size: 13px; color: ${COLORS.textSecondary}; line-height: 1.5;">
+      Si no reconocéis esta empresa o creéis que esto es un error, podéis ignorar este email.
+      El perfil ya es visible en el directorio pero aparecerá como <strong>pendiente de verificación</strong>.
+    </p>
+    ${removeUrl ? `<p style="margin: 12px 0 0; font-size: 12px; color: ${COLORS.textSecondary}; line-height: 1.5;">¿Preferís que eliminemos vuestros datos? <a href="${removeUrl}" style="color: ${COLORS.textSecondary}; text-decoration: underline;">Solicitar eliminación de datos</a> (RGPD).</p>` : ""}
+    ${mutedText("Este es un mensaje automático de Hubents · La plataforma de gestión de eventos")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${plannerOrgName} ha añadido el perfil de ${providerCompanyName} en Hubents`,
+    html: emailWrapper(content),
+    text: `Hola equipo de ${providerCompanyName}, ${plannerName} de ${plannerOrgName} ha añadido vuestro perfil en Hubents. Como el correo es de uso personal, la verificación se realizará de forma manual${phone ? ` al número ${phone}` : ""}. Crea tu cuenta en ${appUrl}/auth/register`,
   });
 }
 
@@ -816,7 +974,7 @@ export async function sendClientCollaboratorInviteEmail(
 
   const content = `
     ${heading(headingText)}
-    ${paragraph(`${inviterText}${roleText} al evento <strong>${eventName}</strong> de <strong>${organizationName}</strong> en HubEnts.`)}
+    ${paragraph(`${inviterText}${roleText} al evento <strong>${eventName}</strong> de <strong>${organizationName}</strong> en Hubents.`)}
     <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 16px; margin: 24px 0; text-align: center;">
       <p style="margin: 0 0 4px; font-size: 13px; color: ${COLORS.textSecondary};">Evento:</p>
       <p style="margin: 0; font-size: 18px; font-weight: 600; color: ${COLORS.textPrimary};">${eventName}</p>
@@ -854,7 +1012,7 @@ export async function sendClientCollaboratorNotificationEmail(
   const content = `
     ${heading(`Te agregaron como ${roleLabel}`)}
     ${paragraph(`${inviterText} como <strong>${roleLabel}</strong> del evento <strong>${eventName}</strong> de <strong>${organizationName}</strong>.`)}
-    ${paragraph("Ya puedes acceder al evento desde tu panel de HubEnts.")}
+    ${paragraph("Ya puedes acceder al evento desde tu panel de Hubents.")}
     ${primaryButton("Ver evento", `${getAppUrl()}/dashboard`)}
   `;
 
@@ -864,5 +1022,164 @@ export async function sendClientCollaboratorNotificationEmail(
     subject: `Te agregaron como ${subjectRole} en "${eventName}" — ${organizationName}`,
     html: emailWrapper(content),
     text: `${inviterName || "Alguien"} te agregó como ${subjectRole} del evento "${eventName}" de ${organizationName}. Accede desde ${getAppUrl()}/dashboard`,
+  });
+}
+
+// ============================================
+// VERIFICATION REQUEST — al usuario (confirmación)
+// ============================================
+
+export async function sendVerificationRequestConfirmEmail(
+  to: string,
+  ownerName: string,
+  companyName: string
+) {
+  const content = `
+    ${heading("Solicitud de verificación recibida")}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${infoBox(`Hemos recibido tu solicitud de verificación para <strong>${companyName}</strong>. Nuestro equipo la revisará en las próximas 24–48 horas.`, "success")}
+    ${paragraph("Una vez verificada, tu empresa aparecerá con el badge de <strong>Verificado en Hubents</strong> en el directorio de Partners.")}
+    ${paragraph("Si tienes alguna duda, puedes responder a este email.")}
+    ${primaryButton("Ver mi perfil", `${getAppUrl()}/dashboard/public-profile`)}
+    ${mutedText("Hubents — La plataforma de gestión de eventos")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Solicitud de verificación recibida — ${companyName}`,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, hemos recibido tu solicitud de verificación para ${companyName}. La revisaremos en 24–48 horas. Accede a tu perfil en ${getAppUrl()}/dashboard/public-profile`,
+  });
+}
+
+// ============================================
+// VERIFICATION REQUEST — aviso a hello@hubents.com
+// ============================================
+
+export async function sendVerificationRequestAdminEmail(
+  orgId: number,
+  orgName: string,
+  orgEmail: string,
+  orgSlug: string,
+  orgType: string | null
+) {
+  const appUrl = getAppUrl();
+  const adminUrl = `${appUrl}/admin/tenants/${orgId}`;
+  const publicUrl = `${appUrl}/providers/${orgSlug}`;
+
+  const content = `
+    ${heading("Nueva solicitud de verificación")}
+    ${paragraph("Una organización ha solicitado la verificación de su perfil en Hubents.")}
+    <div style="background-color: ${COLORS.background}; border: 1px solid ${COLORS.border}; border-radius: 8px; padding: 18px 22px; margin: 20px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding: 5px 0; font-size: 13px; color: ${COLORS.textSecondary}; width: 110px;">Organización</td>
+          <td style="padding: 5px 0; font-size: 13px; font-weight: 600; color: ${COLORS.textPrimary};">${orgName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; font-size: 13px; color: ${COLORS.textSecondary};">Email</td>
+          <td style="padding: 5px 0; font-size: 13px; color: ${COLORS.textPrimary};">${orgEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding: 5px 0; font-size: 13px; color: ${COLORS.textSecondary};">Tipo</td>
+          <td style="padding: 5px 0; font-size: 13px; color: ${COLORS.textPrimary};">${orgType || "provider"}</td>
+        </tr>
+      </table>
+    </div>
+    ${primaryButton("Revisar en Admin Panel", adminUrl)}
+    <p style="text-align: center; margin: 8px 0 0; font-size: 12px; color: ${COLORS.textSecondary};">
+      <a href="${publicUrl}" style="color: ${COLORS.textSecondary};">Ver perfil público</a>
+    </p>
+    ${mutedText("Hubents Admin · Solicitud automática desde el perfil público")}
+  `;
+
+  return sendEmail({
+    to: "hello@hubents.com",
+    subject: `[Verificación] ${orgName} ha solicitado verificación`,
+    html: emailWrapper(content),
+    text: `Nueva solicitud de verificación de ${orgName} (${orgEmail}). Revisar en: ${adminUrl}`,
+  });
+}
+
+// ============================================
+// ONBOARDING NUDGE
+// ============================================
+
+export interface OnboardingNudgeStep {
+  label: string;
+  done: boolean;
+}
+
+export async function sendOnboardingNudgeEmail(
+  to: string,
+  ownerName: string,
+  companyName: string,
+  steps: OnboardingNudgeStep[],
+  nudgeType: "day3" | "day7" | "day14",
+  isProvider: boolean
+) {
+  const appUrl = getAppUrl();
+  const dashUrl = `${appUrl}/dashboard`;
+  const completedCount = steps.filter((s) => s.done).length;
+  const pct = Math.round((completedCount / steps.length) * 100);
+
+  const nudgeMessages: Record<string, { subject: string; headline: string; body: string }> = {
+    day3: {
+      subject: `${companyName}, te quedan ${steps.length - completedCount} pasos para completar tu perfil`,
+      headline: "Estás a mitad de camino 🌱",
+      body: "Han pasado 3 días desde que te uniste a Hubents. Completa los pasos pendientes para sacarle el máximo partido a la plataforma.",
+    },
+    day7: {
+      subject: `Semana 1 en Hubents — ¿cómo vas?`,
+      headline: "Una semana juntos ⚡",
+      body: "Llevas una semana en Hubents. Estos son los pasos que aún tienes pendientes para aparecer mejor posicionado.",
+    },
+    day14: {
+      subject: `${companyName}, tu perfil puede estar mucho más completo`,
+      headline: "Tu perfil necesita atención 🔥",
+      body: "Dos semanas después, algunos pasos importantes siguen sin completarse. Con 10 minutos puedes mejorar mucho tu visibilidad.",
+    },
+  };
+
+  const msg = nudgeMessages[nudgeType];
+
+  // Barra de progreso HTML
+  const barFill = `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 16px 0 8px;">
+      <tr>
+        <td style="background: #e5e7eb; border-radius: 999px; height: 8px; overflow: hidden;">
+          <div style="background: #111827; width: ${pct}%; height: 8px; border-radius: 999px;"></div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 20px; font-size: 12px; color: ${COLORS.textSecondary};">${completedCount} de ${steps.length} pasos completados · ${pct}%</p>
+  `;
+
+  // Lista de pasos
+  const stepsList = steps.map((s) => `
+    <tr>
+      <td style="padding: 7px 0; vertical-align: top; width: 22px; font-size: 15px;">${s.done ? "✅" : "⬜"}</td>
+      <td style="padding: 7px 0; font-size: 13.5px; color: ${s.done ? COLORS.textSecondary : COLORS.textPrimary}; line-height: 1.4;
+        ${s.done ? "text-decoration: line-through;" : ""}">${s.label}</td>
+    </tr>
+  `).join("");
+
+  const content = `
+    ${heading(msg.headline)}
+    ${paragraph(`Hola <strong>${ownerName}</strong>,`)}
+    ${paragraph(msg.body)}
+    ${barFill}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+      ${stepsList}
+    </table>
+    ${primaryButton(isProvider ? "Completar mi perfil" : "Ir a mi panel", isProvider ? `${dashUrl}/public-profile` : dashUrl)}
+    ${mutedText("Si ya no necesitas este recordatorio, puedes ignorar este email.")}
+  `;
+
+  return sendEmail({
+    to,
+    subject: msg.subject,
+    html: emailWrapper(content),
+    text: `Hola ${ownerName}, tienes ${steps.length - completedCount} pasos pendientes en Hubents. Accede desde: ${dashUrl}`,
   });
 }

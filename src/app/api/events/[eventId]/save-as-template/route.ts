@@ -1,32 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { saveEventAsTemplate } from "@/lib/events";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // POST /api/events/[eventId]/save-as-template - Save event as template
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("events:create");
     const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 
     if (isNaN(eventId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_ID", message: "Invalid event ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid event ID", "INVALID_ID");
     }
 
     const body = await request.json();
     const { templateName, description, isGlobal } = body;
 
     if (!templateName?.trim()) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Template name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Template name is required");
     }
 
     const template = await saveEventAsTemplate(session, eventId, {
@@ -35,12 +30,6 @@ export async function POST(
       isGlobal: isGlobal || false,
     });
 
-    return NextResponse.json({ success: true, data: template });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save event as template";
-    return NextResponse.json(
-      { success: false, error: { code: "SAVE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(template);
+  }, "POST /api/events/[eventId]/save-as-template");
 }

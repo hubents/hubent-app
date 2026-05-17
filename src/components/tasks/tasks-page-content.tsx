@@ -1,34 +1,39 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiAddLine,
-  RiSearchLine,
-  RiCheckboxCircleLine,
-  RiCheckboxBlankCircleLine,
-  RiCalendarLine,
-  RiFlag2Line,
-  RiLayoutGridLine,
-  RiListUnordered,
-  RiDraggable,
-} from "@remixicon/react";
+  PlusSignIcon, Search01Icon, RadioButtonIcon, Calendar01Icon,
+  SignalLow01Icon, SignalMedium01Icon, SignalFull01Icon,
+  FilterIcon, Sorting01Icon, Tick01Icon, Calendar03Icon,
+  ClipboardIcon, CheckmarkCircle01Icon, Attachment01Icon,
+  Chat01Icon, UserGroupIcon,
+} from "@hugeicons/core-free-icons";
+
+const RiAddLine = hgIcon(PlusSignIcon);
+const RiSearchLine = hgIcon(Search01Icon);
+const RiCheckboxBlankCircleLine = hgIcon(RadioButtonIcon);
+const RiCalendarLine = hgIcon(Calendar01Icon);
+const RiSignalWifi1Line = hgIcon(SignalLow01Icon);
+const RiSignalWifi2Line = hgIcon(SignalMedium01Icon);
+const RiSignalWifiLine = hgIcon(SignalFull01Icon);
+const RiFilter3Line = hgIcon(FilterIcon);
+const RiSortDesc = hgIcon(Sorting01Icon);
+const RiCheckLine = hgIcon(Tick01Icon);
+const RiCalendarEventLine = hgIcon(Calendar03Icon);
+const RiClipboardLine = hgIcon(ClipboardIcon);
+const RiCheckboxCircleLine = hgIcon(CheckmarkCircle01Icon);
+const RiAttachmentLine = hgIcon(Attachment01Icon);
+const RiChat3Line = hgIcon(Chat01Icon);
+const RiTeamLine = hgIcon(UserGroupIcon);
 import { useTasks, type TaskScope } from "@/hooks/use-tasks";
-import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
 import {
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
-  DragOverEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -46,32 +51,64 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useTaskRefresh } from "@/hooks/use-task-refresh";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const priorityConfig = {
-  high: {
-    label: "Alta",
-    variant: "destructive" as const,
-    color: "text-red-500",
+// ── Column meta — pastel header per prototype TK_COL ──
+const COLUMN_META = {
+  pending: {
+    label: "Por hacer",
+    bg: "#FDE4DE",
+    dot: "#E86A55",
+    ink: "#8A3A2A",
+    borderLeft: "#F3B6A9",
   },
-  medium: {
-    label: "Media",
-    variant: "warning" as const,
-    color: "text-yellow-500",
+  in_progress: {
+    label: "En progreso",
+    bg: "#FCE7CC",
+    dot: "#D9822B",
+    ink: "#7A4B1E",
+    borderLeft: "#EBC78D" as string | null,
   },
-  low: { label: "Baja", variant: "secondary" as const, color: "text-gray-500" },
-};
+  completed: {
+    label: "Completado",
+    bg: "#DCEEDD",
+    dot: "#4DA363",
+    ink: "#2E5A3A",
+    borderLeft: "#BCD4C1",
+  },
+} as const;
 
-const statusConfig = {
-  pending: { label: "Pendiente", variant: "secondary" as const },
-  in_progress: { label: "En progreso", variant: "warning" as const },
-  completed: { label: "Completada", variant: "success" as const },
-};
-
-const columns = [
-  { id: "pending", title: "Por hacer", color: "bg-gray-100" },
-  { id: "in_progress", title: "En progreso", color: "bg-blue-100" },
-  { id: "completed", title: "Finalizado", color: "bg-green-100" },
+const COLUMN_ORDER: Array<keyof typeof COLUMN_META> = [
+  "pending",
+  "in_progress",
+  "completed",
 ];
+
+// ── Priority — colored, with signal icon ──
+const PRIO = {
+  high: { label: "Alta", color: "#C0392B", Icon: RiSignalWifiLine },
+  medium: { label: "Media", color: "#D9822B", Icon: RiSignalWifi2Line },
+  low: { label: "Baja", color: "#6E7781", Icon: RiSignalWifi1Line },
+} as const;
+
+const PRIO_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+
+// ── Scope <-> tab mapping (preserves API behavior) ──
+const SCOPE_TABS: Array<{
+  key: TaskScope;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }> | null;
+}> = [
+  { key: "all", label: "Todas", Icon: null },
+  { key: "event", label: "De evento", Icon: RiCalendarEventLine },
+  { key: "standalone", label: "Generales", Icon: RiClipboardLine },
+];
+
+interface TaskAvatar {
+  initials: string;
+  color: string;
+  name: string;
+}
 
 interface Task {
   id: number;
@@ -81,16 +118,109 @@ interface Task {
   dueDate: string | null;
   eventName: string | null;
   eventId?: number | null;
+  eventType?: string | null;
+  customEventType?: string | null;
   sortOrder?: number | null;
+  participants?: TaskAvatar[];
+  participantCount?: number;
 }
 
-// Sortable Task Card Component
+// Event-type pill palette — matches the events page typePill mapping.
+const EVENT_TYPE_PILL: Record<string, { label: string; bg: string; fg: string }> = {
+  wedding:      { label: "Boda",        bg: "#FCE6E2", fg: "#B03A2E" },
+  pre_wedding:  { label: "Pre-Boda",    bg: "#E0F5EC", fg: "#007A49" },
+  post_wedding: { label: "Post-Boda",   bg: "#FCEBD9", fg: "#A24E0F" },
+  birthday:     { label: "Cumpleaños",  bg: "#EFE5FA", fg: "#5C2EAA" },
+  corporate:    { label: "Corporativo", bg: "#E1ECFB", fg: "#1F4FA8" },
+  social:       { label: "Social",      bg: "#FBF1D7", fg: "#8A6300" },
+  other:        { label: "Otro",        bg: "#ECEAE5", fg: "#5C5A55" },
+};
+
+const eventTypePill = (type?: string | null, customType?: string | null) => {
+  if (!type) return null;
+  const meta = EVENT_TYPE_PILL[type] || EVENT_TYPE_PILL.other;
+  const label = type === "other" && customType?.trim() ? customType.trim() : meta.label;
+  return { label, bg: meta.bg, fg: meta.fg };
+};
+
+// ── Avatar stack — overlapped circular initials, prototype style ──
+function AvatarStack({
+  participants,
+  size = 26,
+  max = 3,
+}: {
+  participants: TaskAvatar[];
+  size?: number;
+  max?: number;
+}) {
+  if (!participants.length) return null;
+  const visible = participants.slice(0, max);
+  const overflow = Math.max(0, participants.length - max);
+  return (
+    <div className="inline-flex" style={{ flexShrink: 0 }}>
+      {visible.map((p, i) => (
+        <span
+          key={i}
+          title={p.name}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            background: p.color,
+            color: "white",
+            fontSize: size * 0.42,
+            fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "2px solid #FFFFFF",
+            marginLeft: i === 0 ? 0 : -8,
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.04)",
+          }}
+        >
+          {p.initials}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            background: "var(--bg-subtle)",
+            color: "var(--ink-2)",
+            fontSize: size * 0.36,
+            fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "2px solid #FFFFFF",
+            marginLeft: -8,
+          }}
+        >
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const formatDate = (s: string | null) => {
+  if (!s) return null;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+};
+
+// ── Sortable card ──
 function SortableTaskCard({
   task,
   onClick,
+  onToggleComplete,
 }: {
   task: Task;
   onClick: () => void;
+  onToggleComplete: (taskId: number, currentStatus: string) => void;
 }) {
   const {
     attributes,
@@ -109,86 +239,204 @@ function SortableTaskCard({
     transition,
   };
 
+  const meta = COLUMN_META[task.status as keyof typeof COLUMN_META];
+  const prio = PRIO[task.priority as keyof typeof PRIO] ?? PRIO.low;
+  const PrioIcon = prio.Icon;
+  const isCompleted = task.status === "completed";
+  const dueLabel = formatDate(task.dueDate);
+  const tagPill = eventTypePill(task.eventType, task.customEventType);
+
   return (
-    <Card
+    <div
       ref={setNodeRef}
-      style={style}
-      className={cn(
-        "cursor-grab active:cursor-grabbing transition-shadow",
-        isDragging ? "opacity-50 shadow-lg z-50" : "hover:shadow-md",
-      )}
+      style={{
+        ...style,
+        background: "#FFFFFF",
+        border: "1px solid var(--line-1)",
+        borderLeft: meta?.borderLeft
+          ? `3px solid ${meta.borderLeft}`
+          : "1px solid var(--line-1)",
+        borderRadius: 10,
+        padding: "14px 14px 12px",
+        cursor: isDragging ? "grabbing" : "grab",
+        boxShadow: isDragging
+          ? "0 8px 16px rgba(0,0,0,0.15)"
+          : "0 1px 2px rgba(0,0,0,0.03)",
+        opacity: isDragging ? 0.6 : 1,
+        userSelect: "none",
+        minHeight: 184,
+      }}
+      className="flex flex-col gap-2.5"
       {...listeners}
       {...attributes}
     >
-      <CardContent
-        className="p-3"
+      <div
         onClick={(e) => {
           e.stopPropagation();
           onClick();
         }}
+        className="flex flex-col gap-2.5 flex-1"
       >
-        <div className="flex items-start justify-between gap-2">
-          <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
-          <RiDraggable className="h-4 w-4 text-muted-foreground shrink-0" />
+        {/* Header — event slot + title + avatar stack */}
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div
+              style={{
+                fontSize: 12,
+                color: task.eventName ? "#8B6F4E" : "var(--ink-4)",
+                fontWeight: 500,
+                marginBottom: 4,
+                minHeight: 16,
+                fontStyle: task.eventName ? "normal" : "italic",
+              }}
+              className="truncate"
+            >
+              {task.eventName || "Sin evento"}
+            </div>
+            <div
+              style={{
+                fontSize: 13.5,
+                fontWeight: 600,
+                color: isCompleted ? "var(--ink-3)" : "var(--ink-1)",
+                textDecoration: isCompleted ? "line-through" : "none",
+                textDecorationThickness: isCompleted ? "1.5px" : undefined,
+                lineHeight: 1.35,
+              }}
+            >
+              {task.title}
+            </div>
+          </div>
+          <AvatarStack participants={task.participants || []} />
         </div>
-        {task.eventName && (
-          <p className="text-xs text-muted-foreground mt-1 truncate">
-            {task.eventName}
-          </p>
-        )}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
+
+        {/* Tag pill (event type) + origin chip */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {tagPill ? (
+            <span
+              style={{
+                background: tagPill.bg,
+                color: tagPill.fg,
+                padding: "2px 9px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tagPill.label}
+            </span>
+          ) : (
+            <span
+              style={{
+                background: "var(--bg-subtle)",
+                color: "var(--ink-2)",
+                padding: "2px 9px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              General
+            </span>
+          )}
           <span
-            className={cn(
-              "px-2 py-0.5 rounded text-xs font-medium border",
-              task.priority === "high" &&
-                "bg-red-100 text-red-700 border-red-200",
-              task.priority === "medium" &&
-                "bg-yellow-100 text-yellow-700 border-yellow-200",
-              task.priority === "low" &&
-                "bg-green-100 text-green-700 border-green-200",
-            )}
+            className="inline-flex items-center gap-1"
+            style={{ fontSize: 11.5, color: "var(--ink-3)" }}
           >
-            {priorityConfig[task.priority as keyof typeof priorityConfig]
-              ?.label || task.priority}
+            {task.eventId ? (
+              <>
+                <RiCalendarEventLine className="h-3 w-3" />
+                De evento
+              </>
+            ) : (
+              <>
+                <RiClipboardLine className="h-3 w-3" />
+                General
+              </>
+            )}
           </span>
-          {task.dueDate && (
-            <span className="text-xs text-muted-foreground">
-              📅{" "}
-              {new Date(task.dueDate).toLocaleDateString("es-ES", {
-                day: "numeric",
-                month: "short",
-              })}
+        </div>
+
+        {/* Due date — slot always reserved */}
+        <div
+          className="inline-flex items-center gap-1.5"
+          style={{
+            fontSize: 12,
+            color: dueLabel ? "var(--ink-2)" : "var(--ink-4)",
+          }}
+        >
+          <RiCalendarLine className="h-3 w-3" />
+          <span>{dueLabel || "Sin fecha"}</span>
+        </div>
+
+        {/* Priority */}
+        <div
+          className="inline-flex items-center gap-1.5"
+          style={{ fontSize: 12, color: prio.color, marginTop: "auto" }}
+        >
+          <PrioIcon className="h-3.5 w-3.5" />
+          <span style={{ fontWeight: 500 }}>{prio.label}</span>
+        </div>
+
+        {/* Footer — counters + participant count */}
+        <div
+          className="flex items-center gap-3.5"
+          style={{
+            fontSize: 11.5,
+            color: "var(--ink-3)",
+            paddingTop: 6,
+            borderTop: "1px solid var(--line-2)",
+          }}
+        >
+          <span className="inline-flex items-center gap-1">
+            <RiCheckboxCircleLine className="h-3 w-3" />
+            0/0
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <RiAttachmentLine className="h-3 w-3" />
+            0
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <RiChat3Line className="h-3 w-3" />
+            0
+          </span>
+          {(task.participantCount || 0) > 0 && (
+            <span
+              className="inline-flex items-center gap-1"
+              style={{ marginLeft: "auto", color: "#5B8CC8", fontWeight: 500 }}
+              title="Participantes"
+            >
+              <RiTeamLine className="h-3 w-3" />
+              {task.participantCount}
             </span>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
-// Sortable Column Component with Quick Add
-function SortableColumn({
+// ── Column ──
+function TaskColumn({
   id,
-  title,
-  color,
   tasks,
   onTaskClick,
-  onAddTask,
   onQuickAdd,
+  onToggleComplete,
 }: {
-  id: string;
-  title: string;
-  color: string;
+  id: keyof typeof COLUMN_META;
   tasks: Task[];
   onTaskClick: (taskId: number) => void;
-  onAddTask: (status: string) => void;
   onQuickAdd: (title: string, status: string) => Promise<void>;
+  onToggleComplete: (taskId: number, currentStatus: string) => void;
 }) {
+  const meta = COLUMN_META[id];
   const { setNodeRef, isOver } = useDroppable({ id });
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const quickAddInputRef = React.useRef<HTMLInputElement>(null);
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
 
   const handleQuickAdd = async () => {
     if (!quickAddTitle.trim()) return;
@@ -207,98 +455,165 @@ function SortableColumn({
     setTimeout(() => quickAddInputRef.current?.focus(), 50);
   };
 
-  // Sort tasks by sortOrder
   const sortedTasks = [...tasks].sort(
     (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
   );
   const taskIds = sortedTasks.map((t) => t.id.toString());
 
   return (
-    <div className="flex flex-col">
+    <div
+      className="flex flex-col gap-2.5"
+      style={{
+        borderRadius: 10,
+        transition: "all 150ms ease",
+        background: isOver ? "rgba(0,0,0,0.02)" : "transparent",
+        padding: isOver ? 10 : 0,
+        marginLeft: isOver ? -10 : 0,
+        marginRight: isOver ? -10 : 0,
+      }}
+    >
+      {/* Column header — pastel pill */}
       <div
-        className={cn(
-          "rounded-t-lg px-4 py-3 font-medium flex items-center justify-between",
-          color,
-        )}
+        className="flex items-center gap-2"
+        style={{
+          background: meta.bg,
+          borderRadius: 10,
+          padding: "10px 14px",
+        }}
       >
-        <div className="flex items-center gap-2">
-          <span>{title}</span>
-          <Badge variant="secondary">{tasks.length}</Badge>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 hover:bg-white/50"
-          onClick={openQuickAdd}
-          title={`Agregar tarea en ${title}`}
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: meta.dot,
+            display: "inline-block",
+          }}
+        />
+        <span
+          style={{ fontSize: 13, fontWeight: 600, color: meta.ink }}
         >
-          <RiAddLine className="h-4 w-4" />
-        </Button>
+          {meta.label}
+        </span>
+        <span style={{ fontSize: 12, color: meta.ink, opacity: 0.7 }}>
+          {tasks.length}
+        </span>
+        <button
+          onClick={openQuickAdd}
+          className="ml-auto cursor-pointer inline-flex items-center justify-center"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: meta.ink,
+            padding: 2,
+          }}
+          title={`Agregar tarea en ${meta.label}`}
+          aria-label={`Agregar tarea en ${meta.label}`}
+        >
+          <RiAddLine className="h-3.5 w-3.5" />
+        </button>
       </div>
+
+      {/* Drop zone */}
       <div
         ref={setNodeRef}
-        className={cn(
-          "flex-1 bg-muted/30 rounded-b-lg p-2 min-h-100 space-y-2 transition-colors",
-          isOver && "bg-primary/10 ring-2 ring-primary ring-inset",
-        )}
+        className="flex flex-col gap-2.5"
+        style={{ minHeight: 200 }}
       >
-        {/* Quick Add Input */}
+        {/* Quick add */}
         {isQuickAddOpen && (
-          <Card className="border-primary border-2">
-            <CardContent className="p-2">
-              <Input
-                ref={quickAddInputRef}
-                value={quickAddTitle}
-                onChange={(e) => setQuickAddTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && quickAddTitle.trim()) {
-                    handleQuickAdd();
-                  } else if (e.key === "Escape") {
-                    setIsQuickAddOpen(false);
-                    setQuickAddTitle("");
-                  }
+          <div
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--color-primary)",
+              borderRadius: 10,
+              padding: 10,
+            }}
+          >
+            <input
+              ref={quickAddInputRef}
+              value={quickAddTitle}
+              onChange={(e) => setQuickAddTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && quickAddTitle.trim()) handleQuickAdd();
+                if (e.key === "Escape") {
+                  setIsQuickAddOpen(false);
+                  setQuickAddTitle("");
+                }
+              }}
+              placeholder="Título de la tarea..."
+              disabled={isCreating}
+              className="w-full outline-none"
+              style={{
+                fontSize: 13,
+                padding: "7px 9px",
+                border: "1px solid var(--line-1)",
+                borderRadius: 8,
+                background: "#FFFFFF",
+                color: "var(--ink-1)",
+              }}
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleQuickAdd}
+                disabled={!quickAddTitle.trim() || isCreating}
+                className="flex-1 inline-flex items-center justify-center cursor-pointer"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "var(--color-primary-ink)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: "6px 10px",
+                  border: "none",
+                  borderRadius: 8,
+                  opacity: !quickAddTitle.trim() || isCreating ? 0.6 : 1,
                 }}
-                placeholder="Título de la tarea..."
-                className="h-8 text-sm"
+              >
+                {isCreating ? "Creando..." : "Crear"}
+              </button>
+              <button
+                onClick={() => {
+                  setIsQuickAddOpen(false);
+                  setQuickAddTitle("");
+                }}
                 disabled={isCreating}
-                autoFocus
-              />
-              <div className="flex gap-2 mt-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs flex-1"
-                  onClick={handleQuickAdd}
-                  disabled={!quickAddTitle.trim() || isCreating}
-                >
-                  {isCreating ? "Creando..." : "Crear"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    setIsQuickAddOpen(false);
-                    setQuickAddTitle("");
-                  }}
-                  disabled={isCreating}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                className="cursor-pointer"
+                style={{
+                  background: "transparent",
+                  color: "var(--ink-2)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "6px 10px",
+                  border: "none",
+                  borderRadius: 8,
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         )}
+
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {sortedTasks.map((task) => (
             <SortableTaskCard
               key={task.id}
               task={task}
               onClick={() => onTaskClick(task.id)}
+              onToggleComplete={onToggleComplete}
             />
           ))}
         </SortableContext>
+
         {tasks.length === 0 && !isQuickAddOpen && (
-          <div className="text-center py-8 text-muted-foreground text-sm">
+          <div
+            className="text-center"
+            style={{
+              padding: "24px 12px",
+              fontSize: 12.5,
+              color: "var(--ink-3)",
+            }}
+          >
             {isOver ? "Soltar aquí" : "No hay tareas"}
           </div>
         )}
@@ -307,49 +622,55 @@ function SortableColumn({
   );
 }
 
-export function TasksPageContent() {
-  const [scope, setScope] = useState<TaskScope>("standalone");
-  const {
-    tasks: apiTasks,
-    stats,
-    loading,
-    refetch,
-  } = useTasks(undefined, scope);
+interface TasksPageContentProps {
+  /**
+   * If set, scopes the page to a single event: tasks only from this event,
+   * scope tabs hidden, and the create-task drawer pre-fills `eventId`.
+   * Used by the event workspace's Tasks tab to share UI with the global page.
+   */
+  eventId?: number;
+}
+
+export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
+  const isEventScoped = typeof eventId === "number";
+  const [scope, setScope] = useState<TaskScope>(isEventScoped ? "event" : "all");
+  const { tasks: apiTasks, loading, refetch } = useTasks(
+    isEventScoped ? eventId : undefined,
+    isEventScoped ? "event" : scope,
+  );
   const searchParams = useSearchParams();
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
   const [drawerInitialData, setDrawerInitialData] = useState<
-    { status?: string } | undefined
+    { status?: string; eventId?: number } | undefined
   >(undefined);
-  const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
 
+  // Filter / sort menus
+  const [prioFilter, setPrioFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [sortBy, setSortBy] = useState<"default" | "name-az" | "name-za" | "prio">("default");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   useTaskRefresh(refetch);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   const kanbanCollisionDetection: CollisionDetection = (args) => {
     const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions;
-    }
+    if (pointerCollisions.length > 0) return pointerCollisions;
     return closestCorners(args);
   };
 
-  // Sync local tasks with API tasks
   useEffect(() => {
-    if (apiTasks.length > 0) {
-      setLocalTasks(apiTasks as Task[]);
-    }
+    if (apiTasks.length > 0) setLocalTasks(apiTasks as Task[]);
   }, [apiTasks]);
 
   useEffect(() => {
@@ -366,11 +687,53 @@ export function TasksPageContent() {
     }
   }, [searchParams]);
 
-  const displayTasks = localTasks.length > 0 ? localTasks : [];
-  const filteredTasks = displayTasks.filter((task) =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Close popovers on outside click
+  useEffect(() => {
+    if (!filterOpen && !sortOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (filterOpen && filterRef.current && !filterRef.current.contains(t))
+        setFilterOpen(false);
+      if (sortOpen && sortRef.current && !sortRef.current.contains(t))
+        setSortOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("mousedown", handler);
+    };
+  }, [filterOpen, sortOpen]);
+
+  const displayTasks = localTasks;
+
+  const filteredTasks = useMemo(() => {
+    let result = displayTasks.filter((t) =>
+      t.title.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+    if (prioFilter !== "all") result = result.filter((t) => t.priority === prioFilter);
+    return result;
+  }, [displayTasks, searchTerm, prioFilter]);
+
+  const sortedDisplay = useMemo(() => {
+    if (sortBy === "default") return filteredTasks;
+    const arr = [...filteredTasks];
+    if (sortBy === "name-az") arr.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === "name-za") arr.sort((a, b) => b.title.localeCompare(a.title));
+    else if (sortBy === "prio")
+      arr.sort(
+        (a, b) => (PRIO_ORDER[a.priority] ?? 3) - (PRIO_ORDER[b.priority] ?? 3),
+      );
+    return arr;
+  }, [filteredTasks, sortBy]);
+
+  const tabCounts = useMemo(
+    () => ({
+      all: displayTasks.length,
+      event: displayTasks.filter((t) => !!t.eventId).length,
+      standalone: displayTasks.filter((t) => !t.eventId).length,
+    }),
+    [displayTasks],
   );
-  const completionRate = stats.completionRate;
 
   const handleTaskClick = (taskId: number) => {
     setSelectedTaskId(taskId);
@@ -387,9 +750,7 @@ export function TasksPageContent() {
 
   const handleDrawerClose = (open: boolean) => {
     setIsDrawerOpen(open);
-    if (!open) {
-      setDrawerInitialData(undefined);
-    }
+    if (!open) setDrawerInitialData(undefined);
   };
 
   const handleTaskCreated = (newTaskId: number) => {
@@ -398,7 +759,6 @@ export function TasksPageContent() {
     refetch();
   };
 
-  // Quick Add function for inline creation in Kanban columns
   const handleQuickAdd = async (title: string, status: string) => {
     try {
       const res = await fetch("/api/tasks", {
@@ -408,52 +768,58 @@ export function TasksPageContent() {
           title,
           status,
           priority: "medium",
+          ...(isEventScoped && eventId ? { eventId } : {}),
         }),
       });
-      if (res.ok) {
-        refetch();
-      }
+      if (res.ok) refetch();
     } catch (error) {
       console.error("Failed to create task:", error);
+    }
+  };
+
+  const handleToggleComplete = async (taskId: number, currentStatus: string) => {
+    const newStatus = currentStatus === "completed" ? "pending" : "completed";
+    setLocalTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+    );
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch {
+      refetch();
     }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = displayTasks.find((t) => t.id.toString() === active.id);
-    if (task) {
-      setActiveTask(task as Task);
-    }
+    if (task) setActiveTask(task as Task);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
-
     if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
     const draggedTask = displayTasks.find((t) => t.id.toString() === activeId);
-
     if (!draggedTask) return;
 
-    // Check if dropping on a column (status change) or on another task (reorder)
-    const isColumn = columns.some((c) => c.id === overId);
+    const isColumn = COLUMN_ORDER.includes(overId as keyof typeof COLUMN_META);
     const overTask = displayTasks.find((t) => t.id.toString() === overId);
 
     if (isColumn) {
-      // Dropping on a column - change status
       const newStatus = overId;
       if (draggedTask.status === newStatus) return;
-
-      // Optimistic update
       setLocalTasks((prev) =>
         prev.map((t) =>
           t.id.toString() === activeId ? { ...t, status: newStatus } : t,
         ),
       );
-
       try {
         const res = await fetch(`/api/tasks/${draggedTask.id}`, {
           method: "PATCH",
@@ -463,46 +829,36 @@ export function TasksPageContent() {
         if (!res.ok) throw new Error("Failed to update status");
       } catch (error) {
         console.error("Failed to update task status:", error);
-        refetch(); // Revert on error
+        refetch();
       }
     } else if (overTask) {
-      // Dropping on another task - reorder within same column or move to different column
       const sameColumn = draggedTask.status === overTask.status;
-
       if (sameColumn) {
-        // Reorder within same column
         const columnTasks = displayTasks
           .filter((t) => t.status === draggedTask.status)
           .sort(
             (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
           );
-
         const oldIndex = columnTasks.findIndex(
           (t) => t.id.toString() === activeId,
         );
         const newIndex = columnTasks.findIndex(
           (t) => t.id.toString() === overId,
         );
-
         if (oldIndex !== newIndex) {
-          const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
-          const items = reorderedTasks.map((t, index) => ({
+          const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+          const items = reordered.map((t, index) => ({
             taskId: t.id,
             sortOrder: index,
           }));
-
-          // Optimistic update
           setLocalTasks((prev) => {
-            const otherTasks = prev.filter(
-              (t) => t.status !== draggedTask.status,
-            );
-            const updatedColumnTasks = reorderedTasks.map((t, index) => ({
+            const others = prev.filter((t) => t.status !== draggedTask.status);
+            const updated = reordered.map((t, index) => ({
               ...t,
               sortOrder: index,
             }));
-            return [...otherTasks, ...updatedColumnTasks];
+            return [...others, ...updated];
           });
-
           try {
             await fetch("/api/tasks/reorder", {
               method: "POST",
@@ -514,33 +870,26 @@ export function TasksPageContent() {
             });
           } catch (error) {
             console.error("Failed to reorder tasks:", error);
-            refetch(); // Revert on error
+            refetch();
           }
         }
       } else {
-        // Move to different column and position
         const newStatus = overTask.status;
         const targetColumnTasks = displayTasks
           .filter((t) => t.status === newStatus)
           .sort(
             (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id - b.id,
           );
-
         const targetIndex = targetColumnTasks.findIndex(
           (t) => t.id.toString() === overId,
         );
-
-        // Optimistic update
-        setLocalTasks((prev) => {
-          const updated = prev.map((t) => {
-            if (t.id.toString() === activeId) {
-              return { ...t, status: newStatus, sortOrder: targetIndex };
-            }
-            return t;
-          });
-          return updated;
-        });
-
+        setLocalTasks((prev) =>
+          prev.map((t) =>
+            t.id.toString() === activeId
+              ? { ...t, status: newStatus, sortOrder: targetIndex }
+              : t,
+          ),
+        );
         try {
           const moveRes = await fetch(`/api/tasks/${draggedTask.id}`, {
             method: "PATCH",
@@ -552,7 +901,6 @@ export function TasksPageContent() {
           });
           if (!moveRes.ok) throw new Error("Failed to move task");
 
-          // Reorder the target column - include the moved task
           const items = [
             ...targetColumnTasks.slice(0, targetIndex).map((t, index) => ({
               taskId: t.id,
@@ -564,7 +912,6 @@ export function TasksPageContent() {
               sortOrder: targetIndex + 1 + index,
             })),
           ];
-
           await fetch("/api/tasks/reorder", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -575,7 +922,7 @@ export function TasksPageContent() {
           });
         } catch (error) {
           console.error("Failed to move task:", error);
-          refetch(); // Revert on error
+          refetch();
         }
       }
     }
@@ -585,125 +932,314 @@ export function TasksPageContent() {
   const canCreateTask = can("tasks:create");
   const canUpdateTask = can("tasks:update");
 
+  const PRIO_OPTIONS: Array<{ v: typeof prioFilter; l: string }> = [
+    { v: "all", l: "Todas" },
+    { v: "high", l: "Alta" },
+    { v: "medium", l: "Media" },
+    { v: "low", l: "Baja" },
+  ];
+
+  const SORT_OPTIONS: Array<{ v: typeof sortBy; l: string }> = [
+    { v: "default", l: "Por defecto" },
+    { v: "name-az", l: "Nombre A → Z" },
+    { v: "name-za", l: "Nombre Z → A" },
+    { v: "prio", l: "Prioridad" },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Tareas</h1>
-          <p className="text-muted-foreground">
-            {scope === "standalone"
-              ? "Tareas independientes, no asociadas a eventos"
-              : scope === "event"
-                ? "Tareas asociadas a eventos"
-                : "Todas las tareas de la organización"}
-          </p>
-        </div>
-        {canCreateTask && (
-          <Button className="gap-2" onClick={() => openCreateDrawer()}>
-            <RiAddLine className="h-4 w-4" />
-            Nueva Tarea
-          </Button>
-        )}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-4">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-12" />
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Total Tareas</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Completadas</p>
-                <p className="text-2xl font-bold text-green-500">
-                  {stats.completed}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">En Progreso</p>
-                <p className="text-2xl font-bold text-yellow-500">
-                  {stats.inProgress}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Progreso</p>
-                <div className="flex items-center gap-2">
-                  <Progress value={completionRate} className="flex-1" />
-                  <span className="text-sm font-medium">{completionRate}%</span>
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
-
-      {/* Filters and View Toggle */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="relative w-full sm:w-72">
-            <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+    <div className="space-y-4">
+      {/* Card panel — wraps toolbar + kanban (no in-page header — title lives in global topbar, matching prototype) */}
+      <div
+        style={{
+          background: "#FFFFFF",
+          border: "1px solid var(--line-1)",
+          borderRadius: 12,
+          padding: 18,
+        }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 flex-wrap" style={{ marginBottom: 14 }}>
+          {/* Search */}
+          <div
+            className="inline-flex items-center"
+            style={{
+              width: 260,
+              border: "1px solid var(--line-1)",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              padding: "6px 10px",
+              gap: 8,
+            }}
+          >
+            <RiSearchLine className="h-3.5 w-3.5 text-[var(--ink-3)]" />
+            <input
               placeholder="Buscar tareas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="flex-1 outline-none bg-transparent"
+              style={{
+                fontSize: 13,
+                color: "var(--ink-1)",
+              }}
+              aria-label="Buscar tareas"
             />
           </div>
-          <ScopeFilter
-            value={scope}
-            onChange={(v) => {
-              setScope(v as TaskScope);
-              setLocalTasks([]);
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-1 border rounded-lg p-1">
-          <Button
-            variant={viewMode === "kanban" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("kanban")}
-          >
-            <RiLayoutGridLine className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-          >
-            <RiListUnordered className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
 
-      {/* Kanban View */}
-      {viewMode === "kanban" ? (
-        loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Scope tabs — hidden when the page is scoped to a single event */}
+          {!isEventScoped && (
+          <div
+            className="inline-flex"
+            style={{
+              gap: 4,
+              background: "var(--bg-subtle)",
+              borderRadius: 10,
+              padding: 4,
+            }}
+          >
+            {SCOPE_TABS.map((t) => {
+              const active = scope === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => {
+                    setScope(t.key);
+                    setLocalTasks([]);
+                  }}
+                  className="inline-flex items-center cursor-pointer"
+                  style={{
+                    gap: 6,
+                    background: active ? "#FFFFFF" : "transparent",
+                    color: active ? "var(--ink-1)" : "var(--ink-3)",
+                    border: "none",
+                    padding: "6px 11px",
+                    borderRadius: 7,
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 500,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.06)" : undefined,
+                  }}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {t.Icon && <t.Icon className="h-3 w-3" />}
+                  <span>{t.label}</span>
+                  <span
+                    style={{
+                      background: active ? "var(--bg-subtle)" : "rgba(0,0,0,0.05)",
+                      color: "var(--ink-2)",
+                      padding: "1px 7px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t.key === "all"
+                      ? tabCounts.all
+                      : t.key === "event"
+                        ? tabCounts.event
+                        : tabCounts.standalone}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          )}
+
+          {/* Filter (priority) */}
+          <div ref={filterRef} className="relative">
+            <button
+              onClick={() => setFilterOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 cursor-pointer"
+              style={{
+                padding: "7px 11px",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                background: "#FFFFFF",
+                fontSize: 13,
+                color: "var(--ink-1)",
+              }}
+              aria-expanded={filterOpen}
+              aria-label="Abrir filtros"
+            >
+              <RiFilter3Line className="h-3.5 w-3.5" />
+              {prioFilter === "all"
+                ? "Filtrar"
+                : `Prioridad: ${PRIO[prioFilter as keyof typeof PRIO]?.label}`}
+            </button>
+            {filterOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  left: 0,
+                  minWidth: 180,
+                  background: "#FFFFFF",
+                  border: "1px solid var(--line-1)",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 24px rgba(15,16,18,.08)",
+                  padding: 6,
+                  zIndex: 30,
+                }}
+              >
+                <div
+                  className="uppercase text-[var(--ink-3)]"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: ".06em",
+                    padding: "6px 10px 4px",
+                  }}
+                >
+                  Prioridad
+                </div>
+                {PRIO_OPTIONS.map((o) => {
+                  const active = prioFilter === o.v;
+                  return (
+                    <button
+                      key={o.v}
+                      onClick={() => {
+                        setPrioFilter(o.v);
+                        setFilterOpen(false);
+                      }}
+                      className="w-full text-left cursor-pointer flex items-center"
+                      style={{
+                        padding: "8px 10px",
+                        border: "none",
+                        background: active ? "var(--bg-subtle)" : "transparent",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        color: "var(--ink-1)",
+                      }}
+                    >
+                      <span className="flex-1">{o.l}</span>
+                      {active && <RiCheckLine className="h-3 w-3" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sort */}
+          <div ref={sortRef} className="relative">
+            <button
+              onClick={() => setSortOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 cursor-pointer"
+              style={{
+                padding: "7px 11px",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                background: "#FFFFFF",
+                fontSize: 13,
+                color: "var(--ink-1)",
+              }}
+              aria-expanded={sortOpen}
+              aria-label="Abrir ordenamiento"
+            >
+              <RiSortDesc className="h-3.5 w-3.5" />
+              Ordenar por
+            </button>
+            {sortOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  left: 0,
+                  minWidth: 200,
+                  background: "#FFFFFF",
+                  border: "1px solid var(--line-1)",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 24px rgba(15,16,18,.08)",
+                  padding: 6,
+                  zIndex: 30,
+                }}
+              >
+                <div
+                  className="uppercase text-[var(--ink-3)]"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: ".06em",
+                    padding: "6px 10px 4px",
+                  }}
+                >
+                  Ordenar por
+                </div>
+                {SORT_OPTIONS.map((o) => {
+                  const active = sortBy === o.v;
+                  return (
+                    <button
+                      key={o.v}
+                      onClick={() => {
+                        setSortBy(o.v);
+                        setSortOpen(false);
+                      }}
+                      className="w-full text-left cursor-pointer flex items-center"
+                      style={{
+                        padding: "8px 10px",
+                        border: "none",
+                        background: active ? "var(--bg-subtle)" : "transparent",
+                        borderRadius: 6,
+                        fontSize: 13,
+                        color: "var(--ink-1)",
+                      }}
+                    >
+                      <span className="flex-1">{o.l}</span>
+                      {active && <RiCheckLine className="h-3 w-3" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {canCreateTask && (
+            <button
+              onClick={() => openCreateDrawer()}
+              className="inline-flex items-center gap-1.5 cursor-pointer ml-auto border-none transition-colors"
+              style={{
+                background: "var(--color-primary)",
+                color: "var(--color-primary-ink)",
+                padding: "8px 13px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--color-primary-hover)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "var(--color-primary)")
+              }
+              aria-label="Crear nueva tarea"
+            >
+              <RiAddLine className="h-3.5 w-3.5" />
+              Nueva tarea
+            </button>
+          )}
+        </div>
+
+        {/* Kanban */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-96" />
             ))}
           </div>
-        ) : filteredTasks.length === 0 && displayTasks.length === 0 ? (
+        ) : sortedDisplay.length === 0 && displayTasks.length === 0 ? (
           <div className="text-center py-12">
-            <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="font-medium mb-2">No hay tareas</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <RiCheckboxBlankCircleLine
+              className="mx-auto mb-3"
+              style={{ width: 36, height: 36, color: "var(--ink-3)" }}
+            />
+            <h3
+              style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}
+              className="mb-2"
+            >
+              No hay tareas
+            </h3>
+            <p
+              style={{ fontSize: 13, color: "var(--ink-3)" }}
+              className="mb-4"
+            >
               {scope === "standalone"
                 ? "No hay tareas independientes. Crea una tarea aquí o cambia el filtro."
                 : scope === "event"
@@ -711,10 +1247,21 @@ export function TasksPageContent() {
                   : "Crea tu primera tarea para comenzar"}
             </p>
             {canCreateTask && scope !== "event" && (
-              <Button onClick={() => openCreateDrawer()}>
-                <RiAddLine className="h-4 w-4 mr-2" />
-                Nueva Tarea
-              </Button>
+              <button
+                onClick={() => openCreateDrawer()}
+                className="inline-flex items-center gap-1.5 cursor-pointer border-none"
+                style={{
+                  background: "var(--color-primary)",
+                  color: "var(--color-primary-ink)",
+                  padding: "8px 13px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                }}
+              >
+                <RiAddLine className="h-3.5 w-3.5" />
+                Nueva tarea
+              </button>
             )}
           </div>
         ) : (
@@ -724,156 +1271,47 @@ export function TasksPageContent() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {columns.map((column) => (
-                <SortableColumn
-                  key={column.id}
-                  id={column.id}
-                  title={column.title}
-                  color={column.color}
+            <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 14 }}>
+              {COLUMN_ORDER.map((id) => (
+                <TaskColumn
+                  key={id}
+                  id={id}
                   tasks={
-                    filteredTasks.filter(
-                      (t) => t.status === column.id,
-                    ) as Task[]
+                    sortedDisplay.filter((t) => t.status === id) as Task[]
                   }
                   onTaskClick={handleTaskClick}
-                  onAddTask={openCreateDrawer}
                   onQuickAdd={handleQuickAdd}
+                  onToggleComplete={handleToggleComplete}
                 />
               ))}
             </div>
             <DragOverlay>
               {activeTask ? (
-                <Card className="shadow-xl rotate-3 cursor-grabbing">
-                  <CardContent className="p-3">
-                    <h4 className="font-medium text-sm">{activeTask.title}</h4>
-                    <span
-                      className={cn(
-                        "inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium border",
-                        activeTask.priority === "high" &&
-                          "bg-red-100 text-red-700 border-red-200",
-                        activeTask.priority === "medium" &&
-                          "bg-yellow-100 text-yellow-700 border-yellow-200",
-                        activeTask.priority === "low" &&
-                          "bg-green-100 text-green-700 border-green-200",
-                      )}
-                    >
-                      {priorityConfig[
-                        activeTask.priority as keyof typeof priorityConfig
-                      ]?.label || activeTask.priority}
-                    </span>
-                  </CardContent>
-                </Card>
+                <div
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid var(--line-1)",
+                    borderRadius: 10,
+                    padding: "14px 14px 12px",
+                    boxShadow: "0 12px 24px rgba(0,0,0,0.18)",
+                    transform: "rotate(2deg)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      color: "var(--ink-1)",
+                    }}
+                  >
+                    {activeTask.title}
+                  </div>
+                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
-        )
-      ) : (
-        /* List View */
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Lista de Tareas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : filteredTasks.length === 0 ? (
-              <div className="text-center py-12">
-                <RiCheckboxBlankCircleLine className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-medium mb-2">No hay tareas</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {displayTasks.length === 0
-                    ? scope === "standalone"
-                      ? "No hay tareas independientes. Crea una tarea aquí o cambia el filtro."
-                      : scope === "event"
-                        ? "No hay tareas asociadas a eventos."
-                        : "Crea tu primera tarea para comenzar"
-                    : "No hay tareas que coincidan con la búsqueda"}
-                </p>
-                {displayTasks.length === 0 && canCreateTask && scope !== "event" && (
-                  <Button onClick={() => openCreateDrawer()}>
-                    <RiAddLine className="h-4 w-4 mr-2" />
-                    Nueva Tarea
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleTaskClick(task.id)}
-                  >
-                    <button
-                      className="shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      {task.status === "completed" ? (
-                        <RiCheckboxCircleLine className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <RiCheckboxBlankCircleLine className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </button>
-
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`font-medium truncate ${
-                          task.status === "completed"
-                            ? "line-through text-muted-foreground"
-                            : ""
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      {task.eventName && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {task.eventName}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {task.dueDate && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <RiCalendarLine className="h-4 w-4" />
-                          {new Date(task.dueDate).toLocaleDateString()}
-                        </div>
-                      )}
-
-                      {task.priority && (
-                        <RiFlag2Line
-                          className={`h-4 w-4 ${
-                            priorityConfig[
-                              task.priority as keyof typeof priorityConfig
-                            ]?.color || "text-gray-500"
-                          }`}
-                        />
-                      )}
-
-                      <Badge
-                        variant={
-                          statusConfig[task.status as keyof typeof statusConfig]
-                            ?.variant || "secondary"
-                        }
-                      >
-                        {statusConfig[task.status as keyof typeof statusConfig]
-                          ?.label || task.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+        )}
+      </div>
 
       <TaskDrawer
         taskId={selectedTaskId}
@@ -884,7 +1322,11 @@ export function TasksPageContent() {
         onTaskCreated={handleTaskCreated}
         mode={drawerMode}
         readOnly={!canUpdateTask}
-        initialData={drawerInitialData}
+        initialData={
+          isEventScoped
+            ? { ...(drawerInitialData ?? {}), eventId }
+            : drawerInitialData
+        }
       />
     </div>
   );

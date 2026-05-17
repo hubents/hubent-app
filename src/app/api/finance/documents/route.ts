@@ -8,113 +8,100 @@ import {
   getProviderOrgForVendor,
 } from "@/lib/cross-org";
 import { db } from "@/db";
-import { organizations, providerEventAccess, eventCollaborations } from "@/db/schema";
+import { providerEventAccess, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok, badRequest, created, paginated } from "@/lib/api-handler";
 
 // GET /api/finance/documents - List documents
 export const GET = withMonitoring(
-  async (request: NextRequest) => {
-    const session = await requirePermission("finance:read");
-    const { searchParams } = new URL(request.url);
+  async (request: NextRequest) =>
+    apiHandler(async () => {
+      const session = await requirePermission("finance:read");
+      const { searchParams } = new URL(request.url);
 
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
-    const type = searchParams.get("type") || undefined;
-    const status = searchParams.get("status") || undefined;
-    const direction = searchParams.get("direction") || undefined;
-    const search = searchParams.get("search") || undefined;
-    const eventId = searchParams.get("eventId")
-      ? parseInt(searchParams.get("eventId")!, 10)
-      : undefined;
-    const contactId = searchParams.get("contactId")
-      ? parseInt(searchParams.get("contactId")!, 10)
-      : undefined;
-    const vendorId = searchParams.get("vendorId")
-      ? parseInt(searchParams.get("vendorId")!, 10)
-      : undefined;
-    const scope =
-      (searchParams.get("scope") as "standalone" | "event" | "all") ||
-      undefined;
+      const page = parseInt(searchParams.get("page") || "1", 10);
+      const limit = parseInt(searchParams.get("limit") || "50", 10);
+      const type = searchParams.get("type") || undefined;
+      const status = searchParams.get("status") || undefined;
+      const direction = searchParams.get("direction") || undefined;
+      const search = searchParams.get("search") || undefined;
+      const eventId = searchParams.get("eventId")
+        ? parseInt(searchParams.get("eventId")!, 10)
+        : undefined;
+      const contactId = searchParams.get("contactId")
+        ? parseInt(searchParams.get("contactId")!, 10)
+        : undefined;
+      const vendorId = searchParams.get("vendorId")
+        ? parseInt(searchParams.get("vendorId")!, 10)
+        : undefined;
+      const scope =
+        (searchParams.get("scope") as "standalone" | "event" | "all") ||
+        undefined;
 
-    const result = await getDocuments(session, {
-      page,
-      limit,
-      type,
-      status,
-      direction,
-      search,
-      eventId,
-      contactId,
-      vendorId,
-      scope,
-    });
+      const result = await getDocuments(session, {
+        page,
+        limit,
+        type,
+        status,
+        direction,
+        search,
+        eventId,
+        contactId,
+        vendorId,
+        scope,
+      });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    });
-  },
+      return paginated(result.data, result.meta);
+    }, "GET /api/finance/documents"),
   { name: "GET /api/finance/documents" },
 );
 
 // POST /api/finance/documents - Create document
 export const POST = withMonitoring(
-  async (request: NextRequest) => {
-    const session = await requirePermission("finance:create");
-    const body = await request.json();
+  async (request: NextRequest) =>
+    apiHandler(async () => {
+      const session = await requirePermission("finance:create");
+      const body = await request.json();
 
-    const { type, items } = body;
+      const { type, items } = body;
 
-    if (!type || !items || items.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "Type and items are required",
-          },
-        },
-        { status: 400 },
-      );
-    }
+      if (!type || !items || items.length === 0) {
+        return badRequest("Type and items are required");
+      }
 
-    const document = await createDocument(session, {
-      type,
-      companyId: body.companyId,
-      personId: body.personId,
-      contactId: body.contactId,
-      vendorId: body.vendorId,
-      eventId: body.eventId,
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      validUntil: body.validUntil ? new Date(body.validUntil) : undefined,
-      notes: body.notes,
-      termsAndConditions: body.termsAndConditions,
-      globalDiscount: body.globalDiscount,
-      globalDiscountType: body.globalDiscountType,
-      paymentMethod: body.paymentMethod,
-      bankAccountId: body.bankAccountId,
-      direction: body.direction,
-      currency: body.currency,
-      status: body.status,
-      items,
-    });
+      const document = await createDocument(session, {
+        type,
+        companyId: body.companyId,
+        personId: body.personId,
+        contactId: body.contactId,
+        vendorId: body.vendorId,
+        eventId: body.eventId,
+        dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+        validUntil: body.validUntil ? new Date(body.validUntil) : undefined,
+        notes: body.notes,
+        termsAndConditions: body.termsAndConditions,
+        globalDiscount: body.globalDiscount,
+        globalDiscountType: body.globalDiscountType,
+        paymentMethod: body.paymentMethod,
+        bankAccountId: body.bankAccountId,
+        direction: body.direction,
+        currency: body.currency,
+        status: body.status,
+        items,
+      });
 
-    // Auto-mirror: detect cross-org scenarios (non-blocking)
-    if (document && body.eventId) {
-      autoCreateMirror(
-        session.organizationId,
-        document.id,
-        body.eventId,
-        body.vendorId,
-      ).catch((e) => console.error("Auto-mirror creation failed:", e));
-    }
+      // Auto-mirror: detect cross-org scenarios (non-blocking)
+      if (document && body.eventId) {
+        autoCreateMirror(
+          session.organizationId,
+          document.id,
+          body.eventId,
+          body.vendorId,
+        ).catch((e) => console.error("Auto-mirror creation failed:", e));
+      }
 
-    return NextResponse.json({
-      success: true,
-      data: document,
-    });
-  },
+      return created(document);
+    }, "POST /api/finance/documents"),
   { name: "POST /api/finance/documents" },
 );
 

@@ -1,7 +1,7 @@
 /**
  * Tenant Type Configuration
  *
- * Central config for all organization types in HubEnts.
+ * Central config for all organization types in Hubents.
  * Designed to be extensible: add new types (venue, photographer, etc.)
  * without changing application code — just add a new entry here.
  *
@@ -30,7 +30,7 @@ export interface TenantTypeConfig {
   postRegisterRedirect: string;
 
   // --- Partners (directory) ---
-  /** Whether this type appears in Partners HubEnts (public directory) */
+  /** Whether this type appears in Partners Hubents (public directory) */
   isMarketplaceVisible: boolean;
   /** Whether this type can browse and interact with Partners */
   canBrowseMarketplace: boolean;
@@ -130,7 +130,7 @@ export const TENANT_TYPES: Record<string, TenantTypeConfig> = {
     canCreateEvents: true,
     canBeInvitedToEvents: true,
 
-    onboardingSteps: ["profile", "company-public-profile", "profile-preview", "team"],
+    onboardingSteps: ["profile", "module-selection", "company-public-profile", "profile-preview", "team"],
 
     sidebarSections: [
       "dashboard",

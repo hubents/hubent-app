@@ -1,42 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getContact, updateContact, deleteContact } from "@/lib/contacts";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 // GET /api/contacts/[id] - Get single contact
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { id } = await params;
 
     const contact = await getContact(session, parseInt(id, 10));
 
     if (!contact) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Contact not found" } },
-        { status: 404 }
-      );
+      return notFound("Contact not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error("GET /api/contacts/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch contact";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(contact);
+  }, "GET /api/contacts/[id]");
 }
 
 // PUT /api/contacts/[id] - Update contact
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
@@ -49,30 +36,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const updated = await updateContact(session, parseInt(id, 10), body);
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Contact not found" } },
-        { status: 404 }
-      );
+      return notFound("Contact not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    console.error("PUT /api/contacts/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update contact";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PUT /api/contacts/[id]");
 }
 
 // PATCH /api/contacts/[id] - Partial update contact
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
@@ -85,45 +58,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updated = await updateContact(session, parseInt(id, 10), body);
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Contact not found" } },
-        { status: 404 }
-      );
+      return notFound("Contact not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    console.error("PATCH /api/contacts/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update contact";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/contacts/[id]");
 }
 
 // DELETE /api/contacts/[id] - Delete contact (soft delete)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
 
     await deleteContact(session, parseInt(id, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Contact deleted" },
-    });
-  } catch (error) {
-    console.error("DELETE /api/contacts/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete contact";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Contact deleted" });
+  }, "DELETE /api/contacts/[id]");
 }

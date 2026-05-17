@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitials } from "@/lib/ui-utils";
 
 const AVATAR_COLORS = [
   "bg-gray-500 text-white",
@@ -11,13 +12,6 @@ const AVATAR_COLORS = [
   "bg-green-300 text-green-900",
   "bg-violet-300 text-violet-900",
 ];
-
-function getInitials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return parts[0][0]?.toUpperCase() || "?";
-}
 
 function getColor(index: number): string {
   return AVATAR_COLORS[index % AVATAR_COLORS.length];

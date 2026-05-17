@@ -74,8 +74,8 @@ export default function ChangelogPage() {
         <div className="mb-10">
           <h1 className="text-3xl font-bold mb-3">API Changelog</h1>
           <p className="text-muted-foreground">
-            Historial de cambios de la API pública de HubEnts. La API usa date-based versioning
-            a través del header <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">X-HubEnts-Version</code>.
+            Historial de cambios de la API pública de Hubents. La API usa date-based versioning
+            a través del header <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">X-Hubents-Version</code>.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export default function ChangelogPage() {
           <h3 className="font-medium text-sm mb-2">Sobre el versionado</h3>
           <ul className="text-sm text-muted-foreground space-y-1.5">
             <li>• La API usa <strong>date-based versioning</strong> (ej: <code className="text-xs bg-muted px-1 rounded font-mono">2025-01-01</code>)</li>
-            <li>• Cada request incluye el header <code className="text-xs bg-muted px-1 rounded font-mono">X-HubEnts-Version</code> con la version usada</li>
+            <li>• Cada request incluye el header <code className="text-xs bg-muted px-1 rounded font-mono">X-Hubents-Version</code> con la version usada</li>
             <li>• Los cambios backwards-compatible se aplican sin cambio de version</li>
             <li>• Los breaking changes incrementan la version y se documentan aqui</li>
             <li>• Podés fijar la version de tu API key para evitar breaking changes automaticos</li>
@@ -122,7 +122,7 @@ export default function ChangelogPage() {
 
       <footer className="border-t py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto flex items-center justify-between text-sm text-muted-foreground">
-          <p>© 2026 HubEnts — API v2026-03-14</p>
+          <p>© 2026 Hubents — API v2026-03-14</p>
           <div className="flex gap-4">
             <Link href="/developers" className="hover:text-foreground">Docs</Link>
             <a href="/api/v1/openapi" target="_blank" className="hover:text-foreground">OpenAPI</a>

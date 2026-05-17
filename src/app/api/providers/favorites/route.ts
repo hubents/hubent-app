@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerFavorites, organizations } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
+import { apiHandler, ok, created, notFound, badRequest, conflict } from "@/lib/api-handler";
 
 /**
  * GET /api/providers/favorites
  * Returns favorite provider IDs for the current user in their org
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
 
     const favorites = await db
@@ -23,19 +24,8 @@ export async function GET() {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: favorites.map((f) => f.providerOrgId),
-    });
-  } catch (error) {
-    console.error("GET /api/providers/favorites error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch favorites";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(favorites.map((f) => f.providerOrgId));
+  }, "GET /api/providers/favorites");
 }
 
 const addFavoriteSchema = z.object({
@@ -47,17 +37,14 @@ const addFavoriteSchema = z.object({
  * Add a provider to favorites
  */
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
 
     const body = await request.json();
     const parsed = addFavoriteSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0].message } },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0].message);
     }
 
     // Verify the target is a provider or planner (tenant) org
@@ -73,10 +60,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!providerOrg) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Organization not found");
     }
 
     // Check if already favorited
@@ -93,10 +77,7 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: { code: "CONFLICT", message: "Already in favorites" } },
-        { status: 409 }
-      );
+      return conflict("Already in favorites", "CONFLICT");
     }
 
     const [favorite] = await db
@@ -108,14 +89,6 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: favorite }, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/providers/favorites error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add favorite";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(favorite);
+  }, "POST /api/providers/favorites");
 }

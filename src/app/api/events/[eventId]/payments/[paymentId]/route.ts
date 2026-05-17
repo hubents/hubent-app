@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { eventPayments, taskPayments, tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updatePaymentRecord, deletePaymentRecord } from "@/lib/finance";
+import { apiHandler, ok, notFound, badRequest, forbidden } from "@/lib/api-handler";
 
 const LEGACY_EVENT_OFFSET = 200000;
 const LEGACY_TASK_OFFSET = 300000;
@@ -18,7 +19,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string; paymentId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
@@ -38,7 +39,7 @@ export async function PATCH(
         attachmentUrl: body.attachmentUrl,
         attachmentName: body.attachmentName,
       });
-      return NextResponse.json({ success: true, data: updated });
+      return ok(updated);
     }
 
     if (source === "legacy_event") {
@@ -54,7 +55,7 @@ export async function PATCH(
         .where(and(eq(eventPayments.id, realId), eq(eventPayments.eventId, eventIdNum)))
         .returning();
 
-      return NextResponse.json({ success: true, data: updated });
+      return ok(updated);
     }
 
     if (source === "legacy_task") {
@@ -63,14 +64,14 @@ export async function PATCH(
         .where(eq(taskPayments.id, realId))
         .limit(1);
       if (!tp) {
-        return NextResponse.json({ success: false, error: { message: "Payment not found" } }, { status: 404 });
+        return notFound("Payment not found");
       }
       const [task] = await db.select({ eventId: tasks.eventId, orgId: tasks.organizationId })
         .from(tasks)
         .where(and(eq(tasks.id, tp.taskId), eq(tasks.eventId, eventIdNum), eq(tasks.organizationId, session.organizationId)))
         .limit(1);
       if (!task) {
-        return NextResponse.json({ success: false, error: { message: "Payment does not belong to this event" } }, { status: 403 });
+        return forbidden("Payment does not belong to this event");
       }
 
       const updateData: Record<string, unknown> = {};
@@ -86,22 +87,18 @@ export async function PATCH(
         .where(eq(taskPayments.id, realId))
         .returning();
 
-      return NextResponse.json({ success: true, data: updated });
+      return ok(updated);
     }
 
-    return NextResponse.json({ success: false, error: { message: "Unknown payment source" } }, { status: 400 });
-  } catch (error) {
-    console.error("Error updating event payment:", error);
-    const message = error instanceof Error ? error.message : "Failed to update payment";
-    return NextResponse.json({ success: false, error: { code: "UPDATE_ERROR", message } }, { status: 400 });
-  }
+    return badRequest("Unknown payment source");
+  }, "PATCH /api/events/[eventId]/payments/[paymentId]");
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ eventId: string; paymentId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId, paymentId } = await params;
     const paymentIdNum = parseInt(paymentId, 10);
     const eventIdNum = parseInt(eventId, 10);
@@ -111,13 +108,13 @@ export async function DELETE(
 
     if (source === "unified") {
       await deletePaymentRecord(session, realId);
-      return NextResponse.json({ success: true });
+      return ok(null);
     }
 
     if (source === "legacy_event") {
       await db.delete(eventPayments)
         .where(and(eq(eventPayments.id, realId), eq(eventPayments.eventId, eventIdNum)));
-      return NextResponse.json({ success: true });
+      return ok(null);
     }
 
     if (source === "legacy_task") {
@@ -126,23 +123,19 @@ export async function DELETE(
         .where(eq(taskPayments.id, realId))
         .limit(1);
       if (!tp) {
-        return NextResponse.json({ success: false, error: { message: "Payment not found" } }, { status: 404 });
+        return notFound("Payment not found");
       }
       const [task] = await db.select({ eventId: tasks.eventId, orgId: tasks.organizationId })
         .from(tasks)
         .where(and(eq(tasks.id, tp.taskId), eq(tasks.eventId, eventIdNum), eq(tasks.organizationId, session.organizationId)))
         .limit(1);
       if (!task) {
-        return NextResponse.json({ success: false, error: { message: "Payment does not belong to this event" } }, { status: 403 });
+        return forbidden("Payment does not belong to this event");
       }
       await db.delete(taskPayments).where(eq(taskPayments.id, realId));
-      return NextResponse.json({ success: true });
+      return ok(null);
     }
 
-    return NextResponse.json({ success: false, error: { message: "Unknown payment source" } }, { status: 400 });
-  } catch (error) {
-    console.error("Error deleting event payment:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete payment";
-    return NextResponse.json({ success: false, error: { code: "DELETE_ERROR", message } }, { status: 400 });
-  }
+    return badRequest("Unknown payment source");
+  }, "DELETE /api/events/[eventId]/payments/[paymentId]");
 }

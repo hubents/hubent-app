@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { checkInGuest } from "@/lib/guests";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 
 // POST /api/events/[eventId]/guests/[guestId]/checkin - Check in a guest
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId, guestId } = await params;
     const session = await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
     const body = await request.json().catch(() => ({}));
@@ -17,15 +18,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       body.notes
     );
 
-    return NextResponse.json({
-      success: true,
-      data: checkin,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to check in guest";
-    return NextResponse.json(
-      { success: false, error: { code: "CHECKIN_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(checkin);
+  }, "POST /api/events/[eventId]/guests/[guestId]/checkin");
 }

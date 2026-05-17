@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { webhooks, webhookLogs, organizations } from "@/db/schema";
 import { eq, count, sql, desc, gt } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const thirtyDaysAgo = new Date();
@@ -78,16 +78,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        webhooks: webhooksWithStats,
-        recent_deliveries: recentDeliveries,
-      },
+    return ok({
+      webhooks: webhooksWithStats,
+      recent_deliveries: recentDeliveries,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch webhooks";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+  }, "GET /api/admin/api-platform/webhooks");
 }

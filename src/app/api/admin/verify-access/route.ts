@@ -1,18 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, notFound, badRequest, forbidden } from "@/lib/api-handler";
 
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const body = await request.json();
     const { email } = body;
 
     if (!email) {
-      return NextResponse.json(
-        { error: "Email es requerido" },
-        { status: 400 }
-      );
+      return badRequest("Email es requerido");
     }
 
     const user = await db.query.users.findFirst({
@@ -20,10 +18,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Usuario no encontrado" },
-        { status: 404 }
-      );
+      return notFound("Usuario no encontrado");
     }
 
     const adminRecord = await db.query.platformAdmins.findFirst({
@@ -31,21 +26,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!adminRecord) {
-      return NextResponse.json(
-        { error: "No tienes permisos de administrador" },
-        { status: 403 }
-      );
+      return forbidden("No tienes permisos de administrador");
     }
 
-    return NextResponse.json({
-      success: true,
-      level: adminRecord.level,
-    });
-  } catch (error) {
-    console.error("Verify admin access error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok({ level: adminRecord.level });
+  }, "POST /api/admin/verify-access");
 }

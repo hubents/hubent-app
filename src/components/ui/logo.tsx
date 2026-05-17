@@ -34,7 +34,7 @@ export function Logo({
     return (
       <Image
         src={logoSrc}
-        alt="HubEnts"
+        alt="Hubents"
         width={dimensions.logo * 4}
         height={dimensions.logo}
         className={cn("h-auto", className)}
@@ -48,7 +48,7 @@ export function Logo({
     <div className={cn("flex items-center gap-2", className)}>
       <Image
         src={logoSrc}
-        alt="HubEnts"
+        alt="Hubents"
         width={dimensions.isotipo}
         height={dimensions.isotipo}
         className="flex-shrink-0"

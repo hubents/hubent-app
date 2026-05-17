@@ -1,17 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, taskPayments, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyPaymentRegistered } from "@/lib/push-notifications";
 import { canAccessTask } from "@/lib/tenant";
+import { apiHandler, ok, badRequest, notFound, forbidden } from "@/lib/api-handler";
 
 // GET /api/tasks/[taskId]/payments - List payments for a task
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:read");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -28,20 +29,14 @@ export async function GET(
       );
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     // For eventScoped roles, verify task-level access
     if (session.eventScoped) {
       const access = await canAccessTask(session, taskIdNum);
       if (!access.allowed) {
-        return NextResponse.json(
-          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
-          { status: 403 }
-        );
+        return forbidden(access.reason || "Sin acceso");
       }
     }
 
@@ -68,15 +63,8 @@ export async function GET(
       .leftJoin(vendors, eq(taskPayments.vendorId, vendors.id))
       .where(eq(taskPayments.taskId, taskIdNum));
 
-    return NextResponse.json({ success: true, data: payments });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/payments error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch payments";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(payments);
+  }, "GET /api/tasks/[taskId]/payments");
 }
 
 // POST /api/tasks/[taskId]/payments - Add a payment to a task
@@ -84,7 +72,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -93,10 +81,7 @@ export async function POST(
     const { description, amount, date, vendorId, paymentMethod, notes } = body;
 
     if (!description || !amount) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Description and amount are required" } },
-        { status: 400 }
-      );
+      return badRequest("Description and amount are required");
     }
 
     // Verify task belongs to organization and get title for notification
@@ -111,20 +96,14 @@ export async function POST(
       );
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     // For eventScoped roles, verify task-level access
     if (session.eventScoped) {
       const access = await canAccessTask(session, taskIdNum);
       if (!access.allowed) {
-        return NextResponse.json(
-          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
-          { status: 403 }
-        );
+        return forbidden(access.reason || "Sin acceso");
       }
     }
 
@@ -152,15 +131,8 @@ export async function POST(
       session.user.userId
     ).catch(err => console.error("Push notification failed:", err));
 
-    return NextResponse.json({ success: true, data: payment });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/payments error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add payment";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(payment);
+  }, "POST /api/tasks/[taskId]/payments");
 }
 
 // DELETE /api/tasks/[taskId]/payments - Delete a payment
@@ -168,7 +140,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
@@ -176,10 +148,7 @@ export async function DELETE(
     const paymentId = searchParams.get("paymentId");
 
     if (!paymentId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Payment ID is required" } },
-        { status: 400 }
-      );
+      return badRequest("Payment ID is required");
     }
 
     // Verify task belongs to organization
@@ -194,20 +163,14 @@ export async function DELETE(
       );
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     // For eventScoped roles, verify task-level access
     if (session.eventScoped) {
       const access = await canAccessTask(session, taskIdNum);
       if (!access.allowed) {
-        return NextResponse.json(
-          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
-          { status: 403 }
-        );
+        return forbidden(access.reason || "Sin acceso");
       }
     }
 
@@ -220,13 +183,6 @@ export async function DELETE(
         )
       );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/tasks/[taskId]/payments error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete payment";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/tasks/[taskId]/payments");
 }

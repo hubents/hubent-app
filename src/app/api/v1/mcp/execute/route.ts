@@ -61,7 +61,7 @@ export const POST = withApiAuth(
       headers: {
         "Authorization": authHeader,
         "Content-Type": "application/json",
-        "X-HubEnts-Version": CURRENT_API_VERSION,
+        "X-Hubents-Version": CURRENT_API_VERSION,
       },
       body: fetchBody,
     });

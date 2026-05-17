@@ -3,44 +3,15 @@
 import { useState, useEffect, useCallback, use } from "react";
 import { useEvent } from "@/contexts/event-context";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  RiSaveLine,
-  RiDeleteBinLine,
-  RiMapPinLine,
-  RiUserAddLine,
-  RiMailSendLine,
-  RiCloseLine,
-} from "@remixicon/react";
-import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { LocationMap } from "@/components/ui/location-map";
 import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
+import { AddCollaboratorModal } from "@/components/events/add-collaborator-modal";
 import { toast } from "sonner";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Delete01Icon, MailSend01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 
+// ── Types ──────────────────────────────────────────────────────────────────────
 interface EventData {
   id: number;
   name: string;
@@ -75,574 +46,505 @@ interface Collaborator {
   invitationExpiresAt: string | null;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<string, string> = {
-  client: "Cliente",
-  organizer: "Organizador",
-  assistant: "Asistente",
-  sponsor: "Patrocinador",
-  speaker: "Ponente",
-  vendor: "Proveedor",
-  partner: "Partner",
-  other: "Otro",
+  client: "Cliente", organizer: "Organizador", assistant: "Asistente",
+  sponsor: "Patrocinador", speaker: "Ponente", vendor: "Proveedor", partner: "Partner", other: "Otro",
 };
 
-function getCollabDisplayName(c: Collaborator): string {
+function collabName(c: Collaborator) {
   return c.userName || c.userEmail || c.contactName || c.vendorName || "Sin nombre";
 }
-
-function getCollabSubtext(c: Collaborator): string | null {
+function collabSub(c: Collaborator) {
   if (c.userName && c.userEmail) return c.userEmail;
   if (c.contactEmail) return c.contactEmail;
   if (c.vendorCategory) return c.vendorCategory;
   return null;
 }
-
-function getCollabTypeColor(type: string): string {
-  if (type === "contact") return "bg-green-100 text-green-700";
-  if (type === "vendor" || type === "partner") return "bg-orange-100 text-orange-700";
-  return "bg-blue-100 text-blue-700";
+function collabInitials(c: Collaborator) {
+  return collabName(c).charAt(0).toUpperCase();
+}
+function collabColor(c: Collaborator) {
+  if (c.type === "contact") return { bg: "#D1FAE5", fg: "#065F46" };
+  if (c.type === "vendor" || c.type === "partner") return { bg: "#FEF3C7", fg: "#92400E" };
+  return { bg: "#DBEAFE", fg: "#1E40AF" };
 }
 
+// ── Design primitives ─────────────────────────────────────────────────────────
+const inp: React.CSSProperties = {
+  border: "1px solid var(--line-2)",
+  borderRadius: "var(--r-sm)",
+  padding: "7px 10px",
+  fontSize: 13,
+  color: "var(--ink-1)",
+  background: "var(--bg-panel)",
+  outline: "none",
+  width: "100%",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+};
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-2)", display: "block", marginBottom: 4 }}>{children}</label>;
+}
+
+function Chip({ children, color }: { children: React.ReactNode; color: "green" | "amber" | "gray" | "red" | "orange" | "outline" | "brand" }) {
+  const map: Record<string, React.CSSProperties> = {
+    green:   { background: "#DCFCE7", color: "#166534" },
+    amber:   { background: "#FEF3C7", color: "#92400E" },
+    gray:    { background: "#F3F4F6", color: "#6B7280" },
+    red:     { background: "#FEE2E2", color: "#991B1B" },
+    orange:  { background: "#FFEDD5", color: "#9A3412" },
+    outline: { background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)" },
+    brand:   { background: "var(--color-brand)", color: "white" },
+  };
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 7px", borderRadius: 999, fontSize: 11, fontWeight: 500, ...map[color] }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function EventDataForm({
+  event,
+  taskCount,
+  onSaved,
+  onCancelled,
+  onDeleted,
+}: {
+  event: EventData;
+  taskCount: number;
+  onSaved: (updated: EventData) => void;
+  onCancelled: (updated: EventData) => void;
+  onDeleted: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [form, setForm] = useState({
+    name: event.name || "",
+    type: event.type || "",
+    status: event.status || "",
+    date: event.date ? event.date.split("T")[0] : "",
+    endDate: event.endDate ? event.endDate.split("T")[0] : "",
+    location: event.location || "",
+    budget: event.budget || "",
+    description: event.description || "",
+  });
+
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success("Cambios guardados"); onSaved(data.data); }
+      else toast.error(data.error?.message || "Error al guardar");
+    } catch { toast.error("Error de conexión"); }
+    finally { setSaving(false); }
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success("Evento cancelado"); onCancelled(data.data); }
+      else toast.error(data.error?.message || "Error al cancelar");
+    } catch { toast.error("Error de conexión"); }
+    finally { setCancelling(false); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) onDeleted();
+      else toast.error(data.error?.message || "Error al eliminar");
+    } catch { toast.error("Error de conexión"); }
+    finally { setDeleting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Formulario */}
+      <div style={{ padding: 20, borderRadius: "var(--r-md)", border: "1px solid var(--line-1)", background: "var(--bg-panel)" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Datos del evento</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <FieldLabel>Nombre del evento *</FieldLabel>
+            <input style={inp} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ej: Boda de Juan y María" />
+          </div>
+          <div>
+            <FieldLabel>Tipo de evento</FieldLabel>
+            <select style={inp} value={form.type} onChange={(e) => set("type", e.target.value)}>
+              <option value="">Seleccionar tipo</option>
+              <option value="wedding">Boda</option>
+              <option value="prewedding">Pre-boda</option>
+              <option value="postwedding">Post-boda</option>
+              <option value="corporate">Corporativo</option>
+              <option value="birthday">Cumpleaños</option>
+              <option value="social">Social</option>
+              <option value="other">Otro</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel>Fecha de inicio</FieldLabel>
+            <input style={inp} type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel>Fecha de finalización</FieldLabel>
+            <input style={inp} type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel>Estado</FieldLabel>
+            <select style={inp} value={form.status} onChange={(e) => set("status", e.target.value)}>
+              <option value="">Seleccionar estado</option>
+              <option value="draft">Borrador</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="in_progress">En progreso</option>
+              <option value="completed">Completado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
+          <div>
+            <FieldLabel>Presupuesto total (€)</FieldLabel>
+            <input style={inp} type="number" value={form.budget} onChange={(e) => set("budget", e.target.value)} placeholder="0.00" />
+          </div>
+          <div style={{ gridColumn: "1/-1" }}>
+            <FieldLabel>Ubicación</FieldLabel>
+            <input style={inp} value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="Ej: Calle Falsa 123, Ciudad" />
+          </div>
+          <div style={{ gridColumn: "1/-1" }}>
+            <FieldLabel>Notas internas</FieldLabel>
+            <textarea style={{ ...inp, resize: "vertical" }} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Descripción del evento..." rows={3} />
+          </div>
+        </div>
+
+        {form.location && (
+          <div style={{ marginTop: 14 }}>
+            <LocationMap address={form.location} className="h-40" />
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            style={{ padding: "7px 16px", borderRadius: "var(--r-sm)", border: "none", background: "var(--color-brand)", color: "white", fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, fontFamily: "inherit" }}
+            onClick={handleSave} disabled={saving}
+          >
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+
+      {/* Zona de peligro */}
+      <div style={{ padding: 16, borderRadius: "var(--r-md)", border: "1px solid var(--line-1)", background: "var(--bg-panel)" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)", marginBottom: 12 }}>Zona de peligro</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {form.status !== "cancelled" && (
+            <button
+              style={{ padding: "7px 14px", borderRadius: "var(--r-sm)", border: "1px solid #FCD34D", background: "#FFFBEB", color: "#92400E", fontSize: 13, fontWeight: 500, cursor: cancelling ? "not-allowed" : "pointer", opacity: cancelling ? 0.7 : 1, fontFamily: "inherit" }}
+              onClick={() => {
+                const msg = taskCount > 0
+                  ? `El evento y sus ${taskCount} tarea(s) serán marcados como cancelados. ¿Continuar?`
+                  : "El evento será marcado como cancelado. Podrás restaurarlo más tarde. ¿Continuar?";
+                if (confirm(msg)) handleCancel();
+              }}
+              disabled={cancelling}
+            >
+              {cancelling ? "Cancelando..." : "Cancelar evento"}
+            </button>
+          )}
+          <button
+            style={{ padding: "7px 14px", borderRadius: "var(--r-sm)", border: "none", background: "#FEE2E2", color: "#991B1B", fontSize: 13, fontWeight: 500, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}
+            onClick={() => {
+              const msg = taskCount > 0
+                ? `Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos. Las ${taskCount} tarea(s) vinculadas serán desvinculadas. ¿Eliminar permanentemente?`
+                : "Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos. ¿Eliminar permanentemente?";
+              if (confirm(msg)) handleDelete();
+            }}
+            disabled={deleting}
+          >
+            <HugeiconsIcon icon={Delete01Icon} size={14} strokeWidth={1.5} />
+            {deleting ? "Eliminando..." : "Eliminar evento"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollaboratorsTab({
+  eventId,
+  collaborators,
+  onRefresh,
+}: {
+  eventId: number;
+  collaborators: Collaborator[];
+  onRefresh: () => void;
+}) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Collaborator | null>(null);
+
+  async function resendInvitation(invitationId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "PUT" });
+    const data = await res.json();
+    if (data.success) { toast.success("Invitación reenviada"); onRefresh(); }
+    else toast.error(data.error?.message || "Error al reenviar");
+  }
+
+  async function revokeInvitation(invitationId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("¿Revocar esta invitación?")) return;
+    const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.success) { toast.success("Invitación revocada"); onRefresh(); }
+    else toast.error(data.error?.message || "Error al revocar");
+  }
+
+  async function sendInvitation(participantId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}/invite`, { method: "POST" });
+    const data = await res.json();
+    if (data.success) { toast.success("Invitación enviada"); onRefresh(); }
+    else toast.error(data.error?.message || "Error al invitar");
+  }
+
+  async function removeCollaborator(participantId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("¿Revocar el acceso de este colaborador?")) return;
+    const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.success) { toast.success("Acceso revocado"); onRefresh(); }
+    else toast.error(data.error?.message || "Error al revocar");
+  }
+
+  return (
+    <>
+      <div style={{ padding: 16, borderRadius: "var(--r-md)", border: "1px solid var(--line-1)", background: "var(--bg-panel)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Colaboradores del evento</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+              Invita a personas de confianza y controla qué pueden ver y editar.
+            </div>
+          </div>
+          <button
+            style={{ padding: "5px 12px", borderRadius: "var(--r-sm)", border: "none", background: "var(--color-brand)", color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+            onClick={() => setAddOpen(true)}
+          >
+            Añadir colaborador
+          </button>
+        </div>
+
+        {collaborators.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {collaborators.map((c) => {
+              const { bg, fg } = collabColor(c);
+              const now = new Date();
+              const expires = c.invitationExpiresAt ? new Date(c.invitationExpiresAt) : null;
+              const isExpired = expires && expires < now;
+              const isExpiringSoon = expires && !isExpired && (expires.getTime() - now.getTime()) < 86400000;
+
+              return (
+                <div
+                  key={c.id}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", cursor: "pointer", transition: "background .15s" }}
+                  onClick={() => { setEditing(c); setDrawerOpen(true); }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  {/* Avatar */}
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: bg, color: fg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>
+                    {collabInitials(c)}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{collabName(c)}</span>
+                      {c.role && <Chip color="outline">{ROLE_LABELS[c.role] || c.role}</Chip>}
+                      {/* Status chips */}
+                      {c.invitationStatus === "active" && <Chip color="green">Activo</Chip>}
+                      {c.invitationStatus === "collab_pending" && <Chip color="amber">Pendiente</Chip>}
+                      {c.invitationStatus === "pending" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Chip color={isExpired ? "gray" : isExpiringSoon ? "red" : "amber"}>
+                            {isExpired ? "Expirada" : isExpiringSoon ? "Expira pronto" : "Pendiente"}
+                          </Chip>
+                          {c.invitationId && (
+                            <>
+                              <button style={{ padding: 4, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }} title="Reenviar" onClick={(e) => resendInvitation(c.invitationId!, e)}>
+                                <HugeiconsIcon icon={MailSend01Icon} size={14} strokeWidth={1.5} color="#3B82F6" />
+                              </button>
+                              <button style={{ padding: 4, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }} title="Revocar" onClick={(e) => revokeInvitation(c.invitationId!, e)}>
+                                <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={1.5} color="#EF4444" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {c.invitationStatus === "no_email" && c.contactId && <Chip color="gray">Sin email</Chip>}
+                      {c.invitationStatus === "not_invited" && c.contactId && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Chip color="orange">No invitado</Chip>
+                          <button style={{ padding: 4, background: "none", border: "none", cursor: "pointer", lineHeight: 0 }} title="Invitar" onClick={(e) => sendInvitation(c.id, e)}>
+                            <HugeiconsIcon icon={MailSend01Icon} size={14} strokeWidth={1.5} color="#3B82F6" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {collabSub(c) && (
+                      <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>{collabSub(c)}</div>
+                    )}
+                    {c.permissions && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                        {Object.entries(c.permissions)
+                          .filter(([, level]) => level !== "none")
+                          .map(([section, level]) => (
+                            <Chip key={section} color={level === "edit" ? "brand" : "outline"}>{section}</Chip>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    style={{ padding: 6, background: "none", border: "none", cursor: "pointer", lineHeight: 0, color: "#EF4444", flexShrink: 0 }}
+                    title="Revocar acceso"
+                    onClick={(e) => removeCollaborator(c.id, e)}
+                  >
+                    <HugeiconsIcon icon={Delete01Icon} size={15} strokeWidth={1.5} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>
+            No hay colaboradores asignados
+          </div>
+        )}
+      </div>
+
+      <CollaboratorDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        eventId={eventId}
+        onSuccess={onRefresh}
+        existingParticipants={collaborators}
+        editingParticipant={editing}
+      />
+      <AddCollaboratorModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        eventId={eventId}
+        onSuccess={onRefresh}
+      />
+    </>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function EventSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { setActiveEvent } = useEvent();
   const router = useRouter();
 
+  const [tab, setTab] = useState<"data" | "collabs">("data");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [taskCount, setTaskCount] = useState(0);
   const [event, setEvent] = useState<EventData | null>(null);
+  const [taskCount, setTaskCount] = useState(0);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingParticipant, setEditingParticipant] = useState<Collaborator | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "",
-    status: "",
-    date: "",
-    endDate: "",
-    location: "",
-    budget: "",
-    description: "",
-  });
 
   useEffect(() => {
-    async function fetchEvent() {
-      try {
-        const res = await fetch(`/api/events/${eventId}`);
-        const data = await res.json();
+    fetch(`/api/events/${eventId}`)
+      .then((r) => r.json())
+      .then((data) => {
         if (data.success) {
           setEvent(data.data);
           setActiveEvent(data.data);
           setTaskCount(data.data.taskCount || 0);
-          setFormData({
-            name: data.data.name || "",
-            type: data.data.type || "",
-            status: data.data.status || "",
-            date: data.data.date ? data.data.date.split("T")[0] : "",
-            endDate: data.data.endDate ? data.data.endDate.split("T")[0] : "",
-            location: data.data.location || "",
-            budget: data.data.budget || "",
-            description: data.data.description || "",
-          });
         }
-      } catch (error) {
-        console.error("Failed to fetch event:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchEvent();
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, [eventId, setActiveEvent]);
 
   const fetchCollaborators = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/collaborators`);
-      const data = await res.json();
-      if (data.success) {
-        setCollaborators(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch collaborators:", error);
-    }
+    const res = await fetch(`/api/events/${eventId}/collaborators`);
+    const data = await res.json();
+    if (data.success) setCollaborators(data.data || []);
   }, [eventId]);
 
-  useEffect(() => {
-    fetchCollaborators();
-  }, [fetchCollaborators]);
-
-  async function handleResendInvitation(invitationId: number, e: React.MouseEvent) {
-    e.stopPropagation();
-    try {
-      const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "PUT" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Invitación reenviada");
-        fetchCollaborators();
-      } else {
-        toast.error(data.error?.message || "Error al reenviar");
-      }
-    } catch {
-      toast.error("Error de conexión");
-    }
-  }
-
-  async function handleRevokeInvitation(invitationId: number, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm("¿Revocar esta invitación? El contacto ya no podrá aceptarla.")) return;
-    try {
-      const res = await fetch(`/api/invitations?id=${invitationId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Invitación revocada");
-        fetchCollaborators();
-      } else {
-        toast.error(data.error?.message || "Error al revocar");
-      }
-    } catch {
-      toast.error("Error de conexión");
-    }
-  }
-
-  async function handleSendInvitation(participantId: number, e: React.MouseEvent) {
-    e.stopPropagation();
-    try {
-      const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}/invite`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(data.data?.status === "invited" ? "Invitación enviada" : "Contacto vinculado");
-        fetchCollaborators();
-      } else {
-        toast.error(data.error?.message || "Error al invitar");
-      }
-    } catch {
-      toast.error("Error de conexión");
-    }
-  }
-
-  async function handleRemoveCollaborator(participantId: number) {
-    if (!confirm("¿Revocar el acceso de este colaborador al evento? Perderá acceso al chat, archivos y tareas. Esta acción no se puede deshacer.")) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/events/${eventId}/collaborators/${participantId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Acceso revocado");
-        fetchCollaborators();
-      } else {
-        toast.error(data.error?.message || "Error al revocar acceso");
-      }
-    } catch {
-      toast.error("Error de conexión");
-    }
-  }
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEvent(data.data);
-        setActiveEvent(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to save event:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    setCancelling(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEvent(data.data);
-        setActiveEvent(data.data);
-        setFormData((prev) => ({ ...prev, status: "cancelled" }));
-        // Show success message with cancelled tasks count
-        const cancelledTasks = data.meta?.cancelledTasks || 0;
-        if (cancelledTasks > 0) {
-          alert(`Evento cancelado. ${cancelledTasks} tarea(s) también fueron canceladas.`);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to cancel event:", error);
-    } finally {
-      setCancelling(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setActiveEvent(null);
-        router.push("/dashboard/events");
-      }
-    } catch (error) {
-      console.error("Failed to delete event:", error);
-    } finally {
-      setDeleting(false);
-    }
-  };
+  useEffect(() => { fetchCollaborators(); }, [fetchCollaborators]);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
-        <Skeleton className="h-48" />
-      </div>
+      <EventSectionGuard eventId={eventId} section="settings">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {[48, 280, 160].map((h, i) => (
+            <div key={i} style={{ height: h, borderRadius: "var(--r-md)", background: "var(--bg-subtle)", animation: "pulse 1.5s ease-in-out infinite" }} />
+          ))}
+        </div>
+      </EventSectionGuard>
     );
   }
 
   return (
     <EventSectionGuard eventId={eventId} section="settings">
-    <div className="space-y-6 max-w-3xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Configuración</h1>
-          <p className="text-[var(--muted-foreground)]">
-            Ajustes generales del evento
-          </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Tabs */}
+        <div style={{ display: "inline-flex", background: "var(--bg-subtle)", borderRadius: 999, padding: 3, gap: 2, alignSelf: "flex-start" }}>
+          {([["data", "Datos del evento"], ["collabs", "Colaboradores"]] as const).map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              style={{
+                padding: "7px 18px", borderRadius: 999, border: "none", cursor: "pointer",
+                fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                background: tab === k ? "white" : "transparent",
+                color: tab === k ? "var(--ink-1)" : "var(--ink-3)",
+                boxShadow: tab === k ? "var(--shadow-1)" : "none",
+                transition: "all .15s",
+              }}
+            >
+              {l}
+            </button>
+          ))}
         </div>
-        <div className="flex gap-2">
-          {formData.status !== "cancelled" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="gap-2 text-amber-600 border-amber-300 hover:bg-amber-50">
-                  Cancelar evento
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Cancelar este evento?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {taskCount > 0 ? (
-                      <>
-                        El evento y sus <strong>{taskCount} tarea(s)</strong> serán marcados como cancelados.
-                        Podrás restaurarlos más tarde cambiando el estado.
-                      </>
-                    ) : (
-                      "El evento será marcado como cancelado. Podrás restaurarlo más tarde cambiando el estado."
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Volver</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleCancel}
-                    disabled={cancelling}
-                    className="bg-amber-600 hover:bg-amber-700"
-                  >
-                    {cancelling ? "Cancelando..." : "Cancelar Evento"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="gap-2">
-                <RiDeleteBinLine className="h-4 w-4" />
-                Eliminar evento
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Eliminar este evento permanentemente?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Se eliminará el evento y todos sus datos asociados
-                  (invitados, cronograma, documentos del evento, etc.).
-                  {taskCount > 0 && (
-                    <> Las <strong>{taskCount} tarea(s)</strong> vinculadas serán desvinculadas pero no eliminadas.</>
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Volver</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {deleting ? "Eliminando..." : "Eliminar Permanentemente"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+
+        {/* Tab content */}
+        {tab === "data" && event && (
+          <EventDataForm
+            event={event}
+            taskCount={taskCount}
+            onSaved={(updated) => { setEvent(updated); setActiveEvent(updated); }}
+            onCancelled={(updated) => { setEvent(updated); setActiveEvent(updated); }}
+            onDeleted={() => { setActiveEvent(null); router.push("/dashboard/events"); }}
+          />
+        )}
+
+        {tab === "collabs" && (
+          <CollaboratorsTab
+            eventId={eventId}
+            collaborators={collaborators}
+            onRefresh={fetchCollaborators}
+          />
+        )}
       </div>
-
-      {/* General Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Información General</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Nombre del evento *</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ej: Boda de Juan y María"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de evento</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => setFormData({ ...formData, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="wedding">Boda</SelectItem>
-                  <SelectItem value="corporate">Corporativo</SelectItem>
-                  <SelectItem value="birthday">Cumpleaños</SelectItem>
-                  <SelectItem value="social">Social</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Fecha de inicio</Label>
-              <Input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Fecha de finalización</Label>
-              <Input
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Borrador</SelectItem>
-                  <SelectItem value="confirmed">Confirmado</SelectItem>
-                  <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="completed">Completado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Presupuesto</Label>
-              <Input
-                type="number"
-                value={formData.budget}
-                onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Descripción</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descripción del evento..."
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Location */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RiMapPinLine className="h-5 w-5" />
-            Ubicación
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Dirección</Label>
-            <Input
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="Ej: Calle Falsa 123, Ciudad"
-            />
-          </div>
-          <LocationMap address={formData.location} className="h-48" />
-        </CardContent>
-      </Card>
-
-      {/* Collaborators */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <RiUserAddLine className="h-5 w-5" />
-            Colaboradores
-          </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => { setEditingParticipant(null); setDrawerOpen(true); }}>
-            Agregar colaborador
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {collaborators.length > 0 ? (
-            <div className="space-y-2">
-              {collaborators.map((collab) => (
-                <div
-                  key={collab.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => { setEditingParticipant(collab); setDrawerOpen(true); }}
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${getCollabTypeColor(collab.type)}`}>
-                      {getCollabDisplayName(collab).charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{getCollabDisplayName(collab)}</p>
-                        {collab.role && (
-                          <Badge variant="outline" className="text-[10px] shrink-0">
-                            {ROLE_LABELS[collab.role] || collab.role}
-                          </Badge>
-                        )}
-                        {collab.invitationStatus === "active" && (
-                          <Badge className="text-[10px] shrink-0 bg-green-100 text-green-700 hover:bg-green-100">Activo</Badge>
-                        )}
-                        {collab.invitationStatus === "collab_pending" && (
-                          <Badge className="text-[10px] shrink-0 bg-amber-100 text-amber-700 hover:bg-amber-100">Pendiente de aceptación</Badge>
-                        )}
-                        {collab.invitationStatus === "pending" && (() => {
-                          const expires = collab.invitationExpiresAt ? new Date(collab.invitationExpiresAt) : null;
-                          const now = new Date();
-                          const isExpired = expires && expires < now;
-                          const isExpiringSoon = expires && !isExpired && (expires.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
-                          return (
-                            <div className="flex items-center gap-1 shrink-0">
-                              <Badge className={`text-[10px] ${
-                                isExpired ? "bg-gray-100 text-gray-500 hover:bg-gray-100" :
-                                isExpiringSoon ? "bg-red-100 text-red-600 hover:bg-red-100" :
-                                "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                              }`}>
-                                {isExpired ? "Expirada" : isExpiringSoon ? "Expira pronto" : "Pendiente"}
-                              </Badge>
-                              {collab.invitationId && (
-                                <>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Reenviar invitación" onClick={(e) => handleResendInvitation(collab.invitationId!, e)}>
-                                    <RiMailSendLine className="h-3.5 w-3.5 text-blue-600" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Revocar invitación" onClick={(e) => handleRevokeInvitation(collab.invitationId!, e)}>
-                                    <RiCloseLine className="h-3.5 w-3.5 text-red-500" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })()}
-                        {collab.invitationStatus === "no_email" && collab.contactId && (
-                          <Badge className="text-[10px] shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-100">Sin email</Badge>
-                        )}
-                        {collab.invitationStatus === "not_invited" && collab.contactId && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Badge className="text-[10px] bg-orange-100 text-orange-600 hover:bg-orange-100">No invitado</Badge>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Enviar invitación" onClick={(e) => handleSendInvitation(collab.id, e)}>
-                              <RiMailSendLine className="h-3.5 w-3.5 text-blue-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      {getCollabSubtext(collab) && (
-                        <p className="text-xs text-muted-foreground truncate">{getCollabSubtext(collab)}</p>
-                      )}
-                      {collab.permissions && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {Object.entries(collab.permissions)
-                            .filter(([, level]) => level !== "none")
-                            .map(([section, level]) => (
-                              <Badge key={section} variant={level === "edit" ? "default" : "secondary"} className="text-[10px]">
-                                {section}
-                              </Badge>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive shrink-0"
-                    title="Revocar acceso"
-                    onClick={(e) => { e.stopPropagation(); handleRemoveCollaborator(collab.id); }}
-                  >
-                    <RiDeleteBinLine className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center py-8 text-[var(--muted-foreground)]">
-              No hay colaboradores asignados
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <CollaboratorDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        eventId={eventId}
-        onSuccess={fetchCollaborators}
-        existingParticipants={collaborators}
-        editingParticipant={editingParticipant}
-      />
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="gap-2">
-          <RiSaveLine className="h-4 w-4" />
-          {saving ? "Guardando..." : "Guardar cambios"}
-        </Button>
-      </div>
-    </div>
     </EventSectionGuard>
   );
 }

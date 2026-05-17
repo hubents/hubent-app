@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { events, guests, rsvpResponses, rsvpSettings, rsvpItinerary, rsvpHotels, rsvpNearbyPlans, rsvpFaqs, guestCompanions, rsvpTransportOptions, rsvpTransportBookings } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { notifyGuestRsvp } from "@/lib/push-notifications";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // GET /api/rsvp/event/[eventId] - Get event info for public RSVP page
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
 
@@ -28,10 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .limit(1);
 
     if (event.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Event not found" },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     // Get RSVP settings
@@ -98,10 +96,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           .select({ totalSeats: sql<number>`COALESCE(SUM(${rsvpTransportBookings.seats}), 0)` })
           .from(rsvpTransportBookings)
           .where(eq(rsvpTransportBookings.transportOptionId, option.id));
-        
+
         const bookedSeats = Number(bookings[0]?.totalSeats) || 0;
         const availableSeats = option.capacity ? option.capacity - bookedSeats : null;
-        
+
         return {
           ...option,
           bookedSeats,
@@ -125,30 +123,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       enabled: true,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...event[0],
-        settings: rsvpConfig,
-        itinerary: rsvpConfig.showItinerary ? itinerary : [],
-        hotels: rsvpConfig.showHotels ? hotels : [],
-        nearbyPlans: rsvpConfig.showNearbyPlans ? nearbyPlans : [],
-        faqs: rsvpConfig.showFaqs ? faqs : [],
-        transportOptions: rsvpConfig.showTransport ? transportWithCounts : [],
-      },
+    return ok({
+      ...event[0],
+      settings: rsvpConfig,
+      itinerary: rsvpConfig.showItinerary ? itinerary : [],
+      hotels: rsvpConfig.showHotels ? hotels : [],
+      nearbyPlans: rsvpConfig.showNearbyPlans ? nearbyPlans : [],
+      faqs: rsvpConfig.showFaqs ? faqs : [],
+      transportOptions: rsvpConfig.showTransport ? transportWithCounts : [],
     });
-  } catch (error) {
-    console.error("Error fetching event for RSVP:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch event" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/rsvp/event/[eventId]");
 }
 
 // POST /api/rsvp/event/[eventId] - Submit RSVP response (public)
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const body = await request.json();
@@ -169,10 +158,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     } = body;
 
     if (!firstName || !email || !attending) {
-      return NextResponse.json(
-        { success: false, error: "firstName, email, and attending are required" },
-        { status: 400 }
-      );
+      return badRequest("firstName, email, and attending are required");
     }
 
     // Map attending to rsvp status
@@ -276,7 +262,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (companions && Array.isArray(companions) && companions.length > 0) {
       // Delete existing companions for this guest
       await db.delete(guestCompanions).where(eq(guestCompanions.guestId, guestId));
-      
+
       // Insert new companions
       for (const companion of companions) {
         if (companion.fullName) {
@@ -295,11 +281,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (selectedTransport && typeof selectedTransport === "number") {
       // Delete existing transport bookings for this guest
       await db.delete(rsvpTransportBookings).where(eq(rsvpTransportBookings.guestId, guestId));
-      
+
       // Calculate seats needed (guest + companions)
       const companionCount = companions && Array.isArray(companions) ? companions.filter((c: { fullName?: string }) => c.fullName).length : 0;
       const seatsNeeded = 1 + companionCount;
-      
+
       // Create new booking
       await db.insert(rsvpTransportBookings).values({
         guestId,
@@ -322,8 +308,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const guestName = lastName ? `${firstName} ${lastName}` : firstName;
       const companionCount = companions && Array.isArray(companions) ? companions.filter((c: { fullName?: string }) => c.fullName).length : 0;
       const guestCount = 1 + companionCount;
-      const response = statusMap[attending] === "confirmed" ? "confirmed" 
-        : statusMap[attending] === "declined" ? "declined" 
+      const response = statusMap[attending] === "confirmed" ? "confirmed"
+        : statusMap[attending] === "declined" ? "declined"
         : "maybe";
 
       notifyGuestRsvp(
@@ -336,15 +322,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ).catch(err => console.error("Push notification failed:", err));
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { guestId, status: statusMap[attending] },
-    });
-  } catch (error) {
-    console.error("Error submitting RSVP:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to submit RSVP" },
-      { status: 500 }
-    );
-  }
+    return ok({ guestId, status: statusMap[attending] });
+  }, "POST /api/rsvp/event/[eventId]");
 }

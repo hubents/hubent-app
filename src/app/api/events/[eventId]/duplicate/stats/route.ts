@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks, taskChecklistItems, formInstances } from "@/db/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -10,19 +10,13 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ eventId: string }> },
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("events:read");
     const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 
     if (isNaN(eventId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { code: "INVALID_ID", message: "Invalid event ID" },
-        },
-        { status: 400 },
-      );
+      return badRequest("Invalid event ID", "INVALID_ID");
     }
 
     const [taskResult] = await db
@@ -69,21 +63,11 @@ export async function GET(
         ),
       );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        taskCount: Number(taskResult.count),
-        checklistCount: Number(checklistResult.count),
-        taskFormCount: Number(taskFormResult.count),
-        landingFormCount: Number(landingFormResult.count),
-      },
+    return ok({
+      taskCount: Number(taskResult.count),
+      checklistCount: Number(checklistResult.count),
+      taskFormCount: Number(taskFormResult.count),
+      landingFormCount: Number(landingFormResult.count),
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to get event stats";
-    return NextResponse.json(
-      { success: false, error: { code: "STATS_ERROR", message } },
-      { status: 400 },
-    );
-  }
+  }, "GET /api/events/[eventId]/duplicate/stats");
 }

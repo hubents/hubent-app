@@ -1,12 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { RemixiconComponentType } from "@remixicon/react";
+import type React from "react";
 
 interface StatsCardProps {
   title: string;
   value: string | number;
   description?: string;
-  icon: RemixiconComponentType;
+  icon: React.ComponentType<{ className?: string }>;
   trend?: {
     value: number;
     isPositive: boolean;

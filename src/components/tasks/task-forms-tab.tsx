@@ -143,13 +143,31 @@ export function TaskFormsTab({ taskId }: { taskId: number }) {
                     <><RiSurveyLine className="h-3 w-3 mr-1" />Tarea</>
                   )}
                 </Badge>
-                <Link
-                  href={`/dashboard/forms/${fi.formId}`}
-                  className="font-medium text-sm text-primary hover:underline truncate"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {fi.formName || `Formulario #${fi.formId}`}
-                </Link>
+                {fi.slug ? (
+                  // If the instance has a slug, clicking the name opens the
+                  // public fill-in page in a new tab — this is what teammates
+                  // and external clients use to actually respond.
+                  <a
+                    href={`/f/${fi.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-sm text-primary hover:underline truncate"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Abrir formulario para rellenar"
+                  >
+                    {fi.formName || `Formulario #${fi.formId}`}
+                  </a>
+                ) : (
+                  // Fallback for legacy task instances created without a slug:
+                  // route to the form editor (no public URL exists yet).
+                  <Link
+                    href={`/dashboard/forms/${fi.formId}`}
+                    className="font-medium text-sm text-primary hover:underline truncate"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {fi.formName || `Formulario #${fi.formId}`}
+                  </Link>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{fi.submissionCount} resp.</span>

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   // All org types use unified /dashboard portal
   function buildRedirectUrl(orgType?: string) {
     const base = "/dashboard/finance/settings";
-    return `${appUrl}${base}?tab=payments`;
+    return `${appUrl}${base}?tab=cobros`;
   }
 
   // For early errors (no state yet), default to dashboard

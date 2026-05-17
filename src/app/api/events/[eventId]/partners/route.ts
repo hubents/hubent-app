@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess, requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { eventCollaborations, organizations, events, users, notifications } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { eq, and } from "drizzle-orm";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
 import { notifyProviderInvited } from "@/lib/push-notifications";
 import { dispatchWebhookEvent } from "@/lib/api/api-webhooks";
 import { randomBytes } from "crypto";
+import { apiHandler, ok, created, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -42,7 +43,7 @@ const DEFAULT_COLLAB_PERMISSIONS = {
  * List org-to-org collaborations for an event
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eid = parseInt(eventId);
     const session = await requireAuth();
@@ -60,10 +61,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         ),
       });
       if (!collab) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-          { status: 404 },
-        );
+        return notFound("Event not found");
       }
     }
 
@@ -83,6 +81,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         guestOrgType: organizations.orgType,
         guestCategory: organizations.providerCategory,
         guestLogo: organizations.logo,
+        guestTagline: organizations.tagline,
+        guestCity: organizations.city,
+        guestRegion: organizations.region,
+        guestVerified: organizations.verificationStatus,
       })
       .from(eventCollaborations)
       .leftJoin(organizations, eq(organizations.id, eventCollaborations.guestOrgId))
@@ -93,16 +95,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         ),
       );
 
-    return NextResponse.json({ success: true, data: collabs });
-  } catch (error) {
-    console.error("GET /api/events/[eventId]/partners error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status },
-    );
-  }
+    return ok(collabs);
+  }, "GET /api/events/[eventId]/partners");
 }
 
 /**
@@ -110,7 +104,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Invite any org (bilateral) to collaborate on an event
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eid = parseInt(eventId);
     const session = await requireEventSectionAccess(eid, "partners", "view");
@@ -119,10 +113,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: and(eq(events.id, eid), eq(events.organizationId, session.organizationId)),
     });
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 },
-      );
+      return notFound("Event not found");
     }
 
     const body = await request.json();
@@ -132,10 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const emailParse = inviteByEmailSchema.safeParse(body);
 
     if (!registeredParse.success && !emailParse.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Provide guestOrgId or email" } },
-        { status: 400 },
-      );
+      return badRequest("Provide guestOrgId or email");
     }
 
     const permissions = (registeredParse.success ? registeredParse.data.permissions : emailParse.data?.permissions) || DEFAULT_COLLAB_PERMISSIONS;
@@ -144,20 +132,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const { guestOrgId } = registeredParse.data;
 
       if (guestOrgId === session.organizationId) {
-        return NextResponse.json(
-          { success: false, error: { code: "VALIDATION_ERROR", message: "Cannot invite your own organization" } },
-          { status: 400 },
-        );
+        return badRequest("Cannot invite your own organization");
       }
 
       const guestOrg = await db.query.organizations.findFirst({
         where: eq(organizations.id, guestOrgId),
       });
       if (!guestOrg) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-          { status: 404 },
-        );
+        return notFound("Organization not found");
       }
 
       // Duplicate check handled by UNIQUE constraint; catch the error
@@ -222,7 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }).execute().catch((e) => console.error("Insert collaboration notification failed:", e));
         }
 
-        return NextResponse.json({ success: true, data: newCollab }, { status: 201 });
+        return created(newCollab);
       } catch (err: unknown) {
         if (err && typeof err === "object" && "code" in err && err.code === "23505") {
           return NextResponse.json(
@@ -265,20 +247,51 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         hostOrg?.name || "Un organizador",
       ).catch((e) => console.error("Failed to send partner invitation email:", e));
 
-      return NextResponse.json({ success: true, data: newCollab }, { status: 201 });
+      return created(newCollab);
     }
 
-    return NextResponse.json(
-      { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid request" } },
-      { status: 400 },
-    );
-  } catch (error) {
-    console.error("POST /api/events/[eventId]/partners error:", error);
-    const message = error instanceof Error ? error.message : "Failed to invite";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "INVITE_ERROR", message } },
-      { status },
-    );
-  }
+    return badRequest("Invalid request");
+  }, "POST /api/events/[eventId]/partners");
+}
+
+/**
+ * PATCH /api/events/[eventId]/partners
+ * Update collaboration status (confirmed / rejected)
+ */
+const patchSchema = z.object({
+  id: z.number(),
+  status: z.enum(["active", "rejected", "pending"]),
+});
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
+    const { eventId } = await params;
+    const eid = parseInt(eventId);
+    const session = await requireAuth();
+
+    const event = await db.query.events.findFirst({
+      where: and(eq(events.id, eid), eq(events.organizationId, session.organizationId)),
+    });
+    if (!event) return notFound("Event not found");
+
+    const body = patchSchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return badRequest("id y status son obligatorios");
+
+    const { id, status } = body.data;
+
+    const [updated] = await db
+      .update(eventCollaborations)
+      .set({ status, ...(status === "active" ? { acceptedAt: new Date() } : {}) })
+      .where(
+        and(
+          eq(eventCollaborations.id, id),
+          eq(eventCollaborations.eventId, eid),
+          eq(eventCollaborations.hostOrgId, session.organizationId),
+        ),
+      )
+      .returning();
+
+    if (!updated) return notFound("Collaboration not found");
+    return ok(updated);
+  }, "PATCH /api/events/[eventId]/partners");
 }

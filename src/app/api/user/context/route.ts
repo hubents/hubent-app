@@ -1,20 +1,13 @@
-import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { events, organizationMembers, organizations, subscriptionPlans } from "@/db/schema";
 import { eq, count } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 // GET /api/user/context - Get current user context including organization
 export async function GET() {
-  try {
-    const session = await getSession();
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
-        { status: 401 }
-      );
-    }
+  return apiHandler(async () => {
+    const session = await requireAuth();
 
     let tenantStats = undefined;
 
@@ -48,24 +41,15 @@ export async function GET() {
       };
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        userId: session.user.userId,
-        email: session.user.email,
-        name: session.user.name,
-        platformLevel: session.user.platformLevel,
-        isImpersonating: session.isImpersonating ?? false,
-        currentOrganization: session.user.currentOrganization,
-        organizations: session.user.organizations,
-        tenantStats,
-      },
+    return ok({
+      userId: session.user.userId,
+      email: session.user.email,
+      name: session.user.name,
+      platformLevel: session.user.platformLevel,
+      isImpersonating: session.isImpersonating ?? false,
+      currentOrganization: session.user.currentOrganization,
+      organizations: session.user.organizations,
+      tenantStats,
     });
-  } catch (error) {
-    console.error("Get user context error:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "ERROR", message: "Failed to get user context" } },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/user/context");
 }

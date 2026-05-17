@@ -4,28 +4,23 @@ import { organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
 import { cookies } from "next/headers";
+import { apiHandler, ok, notFound, badRequest, forbidden } from "@/lib/api-handler";
 
 // POST /api/admin/impersonate - Start impersonating a tenant
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
-    
+
     // Only super_admin can impersonate
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Only super admins can impersonate tenants" } },
-        { status: 403 }
-      );
+      return forbidden("Only super admins can impersonate tenants");
     }
 
     const body = await request.json();
     const { slug, organizationId } = body;
 
     if (!slug && !organizationId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "slug or organizationId required" } },
-        { status: 400 }
-      );
+      return badRequest("slug or organizationId required");
     }
 
     // Find the organization
@@ -45,15 +40,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!org) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Organization not found");
     }
 
     // Set impersonation cookies
     const cookieStore = await cookies();
-    
+
     // Set the org ID cookie
     cookieStore.set("hubents-org-id", org.id.toString(), {
       path: "/",
@@ -78,27 +70,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        organizationId: org.id,
-        organizationName: org.name,
-        organizationSlug: org.slug,
-      },
+    return ok({
+      organizationId: org.id,
+      organizationName: org.name,
+      organizationSlug: org.slug,
     });
-  } catch (error) {
-    console.error("Impersonate error:", error);
-    const message = error instanceof Error ? error.message : "Failed to impersonate";
-    return NextResponse.json(
-      { success: false, error: { code: "IMPERSONATE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+  }, "POST /api/admin/impersonate");
 }
 
 // DELETE /api/admin/impersonate - Stop impersonating
 export async function DELETE() {
-  try {
+  return apiHandler(async () => {
     const cookieStore = await cookies();
 
     // Get original org ID
@@ -106,7 +88,7 @@ export async function DELETE() {
 
     // Clear impersonation cookies
     cookieStore.delete("hubents-impersonating");
-    
+
     // Restore original org or clear
     if (originalOrgId) {
       cookieStore.set("hubents-org-id", originalOrgId, {
@@ -123,11 +105,5 @@ export async function DELETE() {
       success: true,
       message: "Impersonation ended",
     });
-  } catch (error) {
-    console.error("End impersonate error:", error);
-    return NextResponse.json(
-      { success: false, error: { code: "ERROR", message: "Failed to end impersonation" } },
-      { status: 500 }
-    );
-  }
+  }, "DELETE /api/admin/impersonate");
 }

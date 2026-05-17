@@ -3,21 +3,19 @@ import { db } from "@/db";
 import { announcements } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/session";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { id } = await params;
     const announcementId = parseInt(id);
     if (isNaN(announcementId)) {
-      return NextResponse.json(
-        { success: false, error: "ID inválido" },
-        { status: 400 }
-      );
+      return badRequest("ID inválido");
     }
     const body = await request.json();
 
@@ -43,36 +41,24 @@ export async function PATCH(
       .returning();
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: "Anuncio no encontrado" },
-        { status: 404 }
-      );
+      return notFound("Anuncio no encontrado");
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    console.error("PATCH /api/admin/announcements/[id] error:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al actualizar anuncio" },
-      { status: 500 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/admin/announcements/[id]");
 }
 
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { id } = await params;
     const announcementId = parseInt(id);
     if (isNaN(announcementId)) {
-      return NextResponse.json(
-        { success: false, error: "ID inválido" },
-        { status: 400 }
-      );
+      return badRequest("ID inválido");
     }
 
     const [deleted] = await db
@@ -81,18 +67,9 @@ export async function DELETE(
       .returning();
 
     if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: "Anuncio no encontrado" },
-        { status: 404 }
-      );
+      return notFound("Anuncio no encontrado");
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/admin/announcements/[id] error:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al eliminar anuncio" },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/admin/announcements/[id]");
 }

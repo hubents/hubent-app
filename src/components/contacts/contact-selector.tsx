@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Av } from "@/components/ui/ds";
 import {
   Command,
   CommandEmpty,
@@ -16,13 +15,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiUserLine,
-  RiBuilding2Line,
-  RiAddLine,
-  RiCloseLine,
-} from "@remixicon/react";
+  PlusSignIcon,
+  Cancel01Icon,
+  Building01Icon,
+} from "@hugeicons/core-free-icons";
+
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoX = hgIcon(Cancel01Icon);
+const IcoBuilding = hgIcon(Building01Icon);
 
 interface Contact {
   id: number;
@@ -61,13 +63,9 @@ export function ContactSelector({
         const params = new URLSearchParams();
         if (search) params.set("search", search);
         params.set("limit", "20");
-
         const res = await fetch(`/api/contacts?${params.toString()}`);
         const data = await res.json();
-
-        if (data.success) {
-          setContacts(data.data || []);
-        }
+        if (data.success) setContacts(data.data?.data || []);
       } catch (error) {
         console.error("Failed to fetch contacts:", error);
       } finally {
@@ -81,53 +79,35 @@ export function ContactSelector({
 
   const handleSelect = (contact: Contact) => {
     onSelect(contact);
-    if (!multiple) {
-      setOpen(false);
-    }
+    if (!multiple) setOpen(false);
     setSearch("");
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const isSelected = (contactId: number) => {
-    return selectedContacts.some((c) => c.id === contactId);
-  };
+  const isSelected = (contactId: number) => selectedContacts.some((c) => c.id === contactId);
 
   return (
     <div className={className}>
       {/* Selected contacts */}
       {selectedContacts.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div className="flex flex-wrap gap-1.5 mb-2">
           {selectedContacts.map((contact) => (
-            <Badge
+            <div
               key={contact.id}
-              variant="secondary"
-              className="gap-1 pr-1"
+              className="inline-flex items-center gap-1.5 rounded-[999px] text-[12px] font-medium pl-1 pr-1.5"
+              style={{ background: "var(--bg-subtle)", color: "var(--ink-1)", padding: "2px 4px 2px 2px" }}
             >
-              {contact.type === "company" ? (
-                <RiBuilding2Line className="h-3 w-3" />
-              ) : (
-                <RiUserLine className="h-3 w-3" />
-              )}
-              {contact.name}
+              <Av src={contact.avatar} name={contact.name} size={20} />
+              <span>{contact.name}</span>
               {onRemove && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 ml-1 hover:bg-destructive/20"
+                <button
                   onClick={() => onRemove(contact.id)}
+                  className="h-4 w-4 rounded-full inline-flex items-center justify-center cursor-pointer border-none bg-transparent transition-colors hover:bg-[var(--line-1)]"
+                  aria-label="Quitar"
                 >
-                  <RiCloseLine className="h-3 w-3" />
-                </Button>
+                  <IcoX className="h-2.5 w-2.5 text-[var(--ink-3)]" />
+                </button>
               )}
-            </Badge>
+            </div>
           ))}
         </div>
       )}
@@ -135,15 +115,16 @@ export function ContactSelector({
       {/* Selector */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
+          <button
+            type="button"
+            aria-haspopup="listbox"
             aria-expanded={open}
-            className="w-full justify-start gap-2"
+            className="w-full inline-flex items-center justify-start gap-2 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
           >
-            <RiAddLine className="h-4 w-4" />
+            <IcoPlus className="h-3.5 w-3.5 text-[var(--ink-3)]" />
             {placeholder}
-          </Button>
+          </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align="start">
           <Command shouldFilter={false}>
@@ -154,7 +135,7 @@ export function ContactSelector({
             />
             <CommandList>
               {loading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
+                <div className="py-6 text-center text-[12.5px] text-[var(--ink-3)]">
                   Buscando...
                 </div>
               ) : contacts.length === 0 ? (
@@ -167,29 +148,25 @@ export function ContactSelector({
                       value={contact.id.toString()}
                       onSelect={() => handleSelect(contact)}
                       disabled={isSelected(contact.id)}
-                      className="flex items-center gap-3 cursor-pointer"
+                      className="flex items-center gap-2.5 cursor-pointer"
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={contact.avatar || undefined} />
-                        <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                          {contact.type === "company" ? (
-                            <RiBuilding2Line className="h-4 w-4" />
-                          ) : (
-                            getInitials(contact.name)
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Av src={contact.avatar} name={contact.name} size={28} />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{contact.name}</p>
+                        <p className="text-[12.5px] font-medium text-[var(--ink-1)] truncate">{contact.name}</p>
                         {contact.email && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {contact.email}
-                          </p>
+                          <p className="text-[11px] text-[var(--ink-3)] truncate">{contact.email}</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <span
+                        className="inline-flex items-center rounded-[999px] text-[10.5px] px-1.5 py-0.5 flex-shrink-0"
+                        style={{
+                          background: "transparent",
+                          color: "var(--ink-3)",
+                          border: "1px solid var(--line-1)",
+                        }}
+                      >
                         {contact.type === "company" ? "Empresa" : "Persona"}
-                      </Badge>
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>

@@ -56,6 +56,7 @@ export async function getUserOrganizations(userId: string) {
       logo: organizations.logo,
       status: organizations.status,
       orgType: organizations.orgType,
+      providerModule: organizations.providerModule,
       role: roles.slug,
       roleName: roles.name,
       eventScoped: roles.eventScoped,
@@ -121,6 +122,7 @@ export async function getUserOrganizations(userId: string) {
           logo: organizations.logo,
           status: organizations.status,
           orgType: organizations.orgType,
+          providerModule: organizations.providerModule,
           role: roles.slug,
           roleName: roles.name,
           eventScoped: roles.eventScoped,
@@ -201,6 +203,7 @@ export async function buildUserContext(
         logo: organizations.logo,
         status: organizations.status,
         orgType: organizations.orgType,
+        providerModule: organizations.providerModule,
       })
       .from(organizations)
       .where(eq(organizations.id, currentOrgId))
@@ -245,6 +248,7 @@ export async function buildUserContext(
           name: currentOrg.name,
           slug: currentOrg.slug,
           orgType: (currentOrg.orgType ?? "tenant") as OrgType,
+          providerModule: (currentOrg as Record<string, unknown>).providerModule as string | null | undefined,
           role: currentOrg.role as TenantRole,
           permissions: currentOrgPermissions,
           eventScoped: (currentOrg as Record<string, unknown>).eventScoped as boolean | undefined,
@@ -279,6 +283,7 @@ export async function createTenantSession(userContext: UserContext): Promise<Ten
     user: userContext,
     organizationId: orgId,
     orgType: userContext.currentOrganization.orgType ?? "tenant",
+    providerModule: userContext.currentOrganization.providerModule ?? null,
     role: userContext.currentOrganization.role,
     permissions: userContext.currentOrganization.permissions,
     eventScoped: userContext.currentOrganization.eventScoped ?? false,

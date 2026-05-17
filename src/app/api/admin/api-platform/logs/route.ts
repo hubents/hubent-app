@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { apiKeys, apiKeyLogs, organizations } from "@/db/schema";
-import { eq, count, sql, desc, and, gt, lt, gte, lte, like } from "drizzle-orm";
+import { eq, count, desc, and, lt, gte, like } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { searchParams } = new URL(request.url);
@@ -72,21 +73,14 @@ export async function GET(request: NextRequest) {
       .innerJoin(apiKeys, eq(apiKeyLogs.apiKeyId, apiKeys.id))
       .where(whereClause);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        logs,
-        pagination: {
-          page,
-          limit,
-          total: totalResult?.count ?? 0,
-          totalPages: Math.ceil((totalResult?.count ?? 0) / limit),
-        },
+    return ok({
+      logs,
+      pagination: {
+        page,
+        limit,
+        total: totalResult?.count ?? 0,
+        totalPages: Math.ceil((totalResult?.count ?? 0) / limit),
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch logs";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+  }, "GET /api/admin/api-platform/logs");
 }

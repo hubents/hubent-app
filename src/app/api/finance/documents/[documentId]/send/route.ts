@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { Resend } from "resend";
 import { requirePermission } from "@/lib/session";
 import { getDocument, updateDocumentStatus } from "@/lib/finance";
@@ -7,6 +7,7 @@ import { createPDF } from "@/lib/pdf-generator";
 import { db } from "@/db";
 import { organizations, contacts } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, notFound, badRequest, serverError } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
 
@@ -19,24 +20,19 @@ function getResendClient(): Resend {
 }
 
 function getFromEmail() {
-  return process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
+  return process.env.EMAIL_FROM || "Hubents <noreply@hubents.com>";
 }
 
 // POST /api/finance/documents/[documentId]/send - Send document via email
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { documentId } = await params;
     const body = await request.json().catch(() => ({}));
 
     const document = await getDocument(session, parseInt(documentId, 10));
 
-    if (!document) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Document not found" } },
-        { status: 404 }
-      );
-    }
+    if (!document) return notFound("Document not found");
 
     // Get contact info (single query for both recipient and template data)
     let contactInfo = null;
@@ -75,9 +71,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!recipientEmail) {
-      return NextResponse.json(
-        { success: false, error: { code: "NO_EMAIL", message: "No se encontró email del destinatario. Proporciona un email o asigna un contacto con email." } },
-        { status: 400 }
+      return badRequest(
+        "No se encontró email del destinatario. Proporciona un email o asigna un contacto con email.",
+        "NO_EMAIL"
       );
     }
 
@@ -88,7 +84,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         address: organizations.address,
         phone: organizations.phone,
         logo: organizations.logo,
-        // Fiscal data from organizations table
         fiscalName: organizations.fiscalName,
         taxId: organizations.taxId,
         fiscalAddress: organizations.fiscalAddress,
@@ -128,14 +123,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const pdfDocument = {
       ...document,
       status: document.status || "draft",
-      // Use fiscal data with fallbacks to general org data
       organizationName: org?.fiscalName || org?.name || undefined,
       organizationAddress: fiscalAddressFull || org?.address || undefined,
       organizationPhone: org?.fiscalPhone || org?.phone || undefined,
       organizationEmail: org?.fiscalEmail || undefined,
       organizationTaxId: org?.taxId || undefined,
       organizationLogo: logoDataUri,
-      contactName: recipientName || contactInfo?.name || document.vendor?.name || document.company?.legalName || 
+      contactName: recipientName || contactInfo?.name || document.vendor?.name || document.company?.legalName ||
         (document.person ? `${document.person.firstName} ${document.person.lastName || ""}`.trim() : null),
       contactEmail: contactInfo?.email || document.vendor?.email || document.company?.email || document.person?.email || null,
       contactPhone: contactInfo?.phone || document.vendor?.phone || document.company?.phone || document.person?.phone || null,
@@ -160,7 +154,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Send email with Resend
     const resend = getResendClient();
-    
+
     const { data, error } = await resend.emails.send({
       from: getFromEmail(),
       to: recipientEmail,
@@ -168,7 +162,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       html: emailHtml,
       attachments: [
         {
-          filename: isPDF 
+          filename: isPDF
             ? `${document.type}-${document.number}.pdf`
             : `${document.type}-${document.number}.html`,
           content: pdfBuffer.toString("base64"),
@@ -178,10 +172,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       console.error("Resend error:", error);
-      return NextResponse.json(
-        { success: false, error: { code: "EMAIL_ERROR", message: error.message || "Error al enviar email" } },
-        { status: 500 }
-      );
+      return serverError(error.message || "Error al enviar email");
     }
 
     // Update document status to 'sent' if it was draft
@@ -189,20 +180,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await updateDocumentStatus(session, document.id, "sent");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        messageId: data?.id,
-        sentTo: recipientEmail,
-        status: "sent",
-      },
+    return ok({
+      messageId: data?.id,
+      sentTo: recipientEmail,
+      status: "sent",
     });
-  } catch (error) {
-    console.error("Send document error:", error);
-    const message = error instanceof Error ? error.message : "Failed to send document";
-    return NextResponse.json(
-      { success: false, error: { code: "SEND_ERROR", message } },
-      { status: 500 }
-    );
-  }
+  }, "POST /api/finance/documents/[documentId]/send");
 }

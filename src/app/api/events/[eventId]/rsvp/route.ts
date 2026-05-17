@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { 
-  events, 
-  rsvpSettings, 
-  rsvpItinerary, 
-  rsvpHotels, 
-  rsvpNearbyPlans, 
+import {
+  events,
+  rsvpSettings,
+  rsvpItinerary,
+  rsvpHotels,
+  rsvpNearbyPlans,
   rsvpFaqs,
   guests,
   rsvpResponses,
@@ -15,12 +15,13 @@ import {
 } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { requireEventSectionAccess, requireFeature } from "@/lib/session";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // GET /api/events/[eventId]/rsvp - Get all RSVP data for an event
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "view");
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .limit(1);
 
     if (eventData.length === 0) {
-      return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
+      return notFound("Event not found");
     }
 
     // Get settings
@@ -126,30 +127,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })),
     };
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        event: eventData[0],
-        settings: settings[0] || null,
-        itinerary,
-        hotels,
-        nearbyPlans,
-        faqs,
-        stats,
-      },
+    return ok({
+      event: eventData[0],
+      settings: settings[0] || null,
+      itinerary,
+      hotels,
+      nearbyPlans,
+      faqs,
+      stats,
     });
-  } catch (error) {
-    console.error("Error fetching RSVP data:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch RSVP data" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/events/[eventId]/rsvp");
 }
 
 // PUT /api/events/[eventId]/rsvp - Update RSVP settings
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireFeature("rsvp");
@@ -187,12 +179,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating RSVP settings:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to update RSVP settings" },
-      { status: 500 }
-    );
-  }
+    return ok({ success: true });
+  }, "PUT /api/events/[eventId]/rsvp");
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { getDocuments } from "@/lib/finance";
+import { apiHandler, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -11,14 +12,11 @@ export async function GET(
   request: NextRequest,
   { params }: RouteParams
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId: eventIdStr } = await params;
     const eventId = parseInt(eventIdStr, 10);
     if (isNaN(eventId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid eventId" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid eventId");
     }
 
     const session = await requireEventSectionAccess(eventId, "finances", "view");
@@ -38,12 +36,5 @@ export async function GET(
       data: result.data,
       meta: result.meta,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch documents";
-    const status = message.includes("Forbidden") || message.includes("Unauthorized") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/events/[eventId]/documents/finance");
 }

@@ -16,8 +16,6 @@ import {
   RiImageLine,
   RiCheckLine,
   RiErrorWarningLine,
-  RiWifiLine,
-  RiWifiOffLine,
   RiMailLine,
   RiWhatsappLine,
   RiChat1Line,
@@ -42,9 +40,9 @@ interface TaskChatProps {
   participants?: Array<{ userId: string; userName?: string; userEmail?: string; userImage?: string }>;
 }
 
-export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
+export function TaskChat({ taskId }: TaskChatProps) {
   const { data: session } = useSession();
-  const { messages, loading, sending, sendMessage, deleteMessage, refetch, isRealtime, canComment } = useTaskMessages(taskId);
+  const { messages, loading, sending, sendMessage, deleteMessage, refetch, canComment } = useTaskMessages(taskId);
   const [newMessage, setNewMessage] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [chatMode, setChatMode] = useState<"comment" | "email" | "whatsapp">("comment");
@@ -65,7 +63,7 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
   const channelName = taskId ? `private-task-${taskId}` : null;
   const presenceChannelName = taskId ? `presence-task-${taskId}` : null;
   const { typingUsers, setTyping } = useTypingIndicator(channelName);
-  const { members: activeViewers } = usePresenceChannel(presenceChannelName);
+  usePresenceChannel(presenceChannelName);
 
   // Fetch integration status
   useEffect(() => {
@@ -351,87 +349,6 @@ export function TaskChat({ taskId, participants = [] }: TaskChatProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat Header - Enhanced */}
-      <div className="px-4 py-3 border-b border-border shrink-0 bg-gradient-to-r from-background to-muted/30">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-sm">Comentarios</h3>
-            {/* Real-time indicator */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-colors ${
-                    isRealtime 
-                      ? 'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20' 
-                      : 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20'
-                  }`}>
-                    {isRealtime ? (
-                      <>
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                        </span>
-                        <span>En vivo</span>
-                      </>
-                    ) : (
-                      <><RiWifiOffLine className="h-3 w-3" /><span>Offline</span></>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isRealtime 
-                    ? "Mensajes en tiempo real activos" 
-                    : "Modo offline - los mensajes se actualizan cada 15s"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          {/* Active viewers - Enhanced */}
-          {activeViewers.length > 0 && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 bg-muted/50 rounded-full pl-1 pr-2.5 py-1">
-                    <div className="flex items-center -space-x-2">
-                      {activeViewers.slice(0, 3).map((viewer) => (
-                        <Avatar key={viewer.id} className="h-6 w-6 border-2 border-background ring-1 ring-primary/10">
-                          <AvatarImage src={viewer.info.image} />
-                          <AvatarFallback className="text-[10px] bg-primary/10 font-medium">
-                            {viewer.info.name?.charAt(0) || "?"}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {activeViewers.length > 3 && (
-                        <div className="h-6 w-6 rounded-full bg-primary/10 border-2 border-background flex items-center justify-center text-[10px] font-semibold text-primary">
-                          +{activeViewers.length - 3}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium text-muted-foreground">
-                      {activeViewers.length === 1 ? "1 viendo" : `${activeViewers.length} viendo`}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="p-3">
-                  <p className="font-semibold mb-2 text-sm">👀 {activeViewers.length} {activeViewers.length === 1 ? "persona" : "personas"} viendo</p>
-                  <ul className="text-xs space-y-1.5">
-                    {activeViewers.map((v) => (
-                      <li key={v.id} className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={v.info.image} />
-                          <AvatarFallback className="text-[8px]">{v.info.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span>{v.info.name || v.info.email}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-      </div>
-
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (

@@ -2,10 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useEvent } from "@/contexts/event-context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Btn, Inp, Pill, PCard } from "@/components/ui/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
@@ -147,7 +144,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/providers?${params}`);
       const data = await res.json();
       if (data.success) {
-        setDirectoryProviders(data.data || []);
+        setDirectoryProviders(data.data?.data || []);
       }
     } catch (error) {
       console.error("Failed to fetch Partners directory:", error);
@@ -227,13 +224,13 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex gap-2">
           {canEditVendors && (
-            <Button className="gap-2" onClick={() => setShowInviteDrawer(true)}>
+            <Btn variant="primary" onClick={() => setShowInviteDrawer(true)}>
               <RiAddLine className="h-4 w-4" />
               Invitar Partner
-            </Button>
+            </Btn>
           )}
           <Link href="/dashboard/partners">
-            <Button variant="outline">Partners</Button>
+            <Btn variant="outline">Partners</Btn>
           </Link>
         </div>
       </div>
@@ -241,7 +238,7 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
       {/* Search */}
       <div className="relative max-w-md">
         <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
-        <Input
+        <Inp
           placeholder="Buscar partners..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -258,27 +255,25 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {platformProviders.map((pp) => {
-              const statusMap: Record<string, { label: string; variant: "success" | "warning" | "secondary" | "destructive" }> = {
-                active: { label: "Activo", variant: "success" },
-                pending: { label: "Pendiente", variant: "warning" },
-                rejected: { label: "Rechazado", variant: "destructive" },
-                revoked: { label: "Revocado", variant: "secondary" },
+              const statusMap: Record<string, { label: string; bg: string; color: string }> = {
+                active: { label: "Activo", bg: "#DCFCE7", color: "#166534" },
+                pending: { label: "Pendiente", bg: "#FEF9C3", color: "#854D0E" },
+                rejected: { label: "Rechazado", bg: "#FEE2E2", color: "#991B1B" },
+                revoked: { label: "Revocado", bg: "var(--bg-subtle)", color: "var(--ink-2)" },
               };
               const st = statusMap[pp.status] || statusMap.pending;
               return (
-                <Card key={pp.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                        <RiShieldCheckLine className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{pp.guestName}</p>
-                        <Badge variant={st.variant} className="mt-0.5">{st.label}</Badge>
-                      </div>
+                <PCard key={pp.id}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                      <RiShieldCheckLine className="h-5 w-5 text-purple-600" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{pp.guestName}</p>
+                      <Pill bg={st.bg} color={st.color} style={{ marginTop: 2 }}>{st.label}</Pill>
+                    </div>
+                  </div>
+                </PCard>
               );
             })}
           </div>
@@ -293,11 +288,11 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <p className="text-sm text-muted-foreground">
-              Busca en Partners HubEnts. Tus favoritos aparecen primero.
+              Busca en Partners Hubents. Tus favoritos aparecen primero.
             </p>
             <div className="relative">
               <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <Inp
                 value={providerSearch}
                 onChange={(e) => setProviderSearch(e.target.value)}
                 placeholder="Buscar en Partners..."
@@ -326,16 +321,16 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
                         </div>
                       </div>
                       {alreadyInvited ? (
-                        <Badge variant="secondary">Invitado</Badge>
+                        <Pill bg="var(--bg-subtle)" color="var(--ink-2)">Invitado</Pill>
                       ) : (
-                        <Button
+                        <Btn
                           size="sm"
                           onClick={() => handleInviteProvider(dp.id)}
                           disabled={inviting}
                         >
                           <RiSendPlaneLine className="h-3.5 w-3.5 mr-1" />
                           Invitar
-                        </Button>
+                        </Btn>
                       )}
                     </div>
                   );
@@ -350,74 +345,69 @@ export default function EventVendorsPage({ params }: { params: Promise<{ id: str
       {filteredVendors.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredVendors.map((vendor) => (
-            <Card key={vendor.id} className="group">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
-                      <RiStore2Line className="h-5 w-5 text-[var(--primary)]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{vendor.vendorName}</h3>
-                      {vendor.category && (
-                        <Badge variant="secondary" className="mt-1">
-                          {vendor.category}
-                        </Badge>
-                      )}
-                    </div>
+            <PCard key={vendor.id} className="group">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center">
+                    <RiStore2Line className="h-5 w-5 text-[var(--primary)]" />
                   </div>
-                  {canEditVendors && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 text-[var(--destructive)]"
-                    onClick={() => handleRemoveVendor(vendor.id)}
-                  >
-                    <RiDeleteBinLine className="h-4 w-4" />
-                  </Button>
-                  )}
+                  <div>
+                    <h3 className="font-semibold">{vendor.vendorName}</h3>
+                    {vendor.category && (
+                      <Pill bg="var(--bg-subtle)" color="var(--ink-2)" style={{ marginTop: 4 }}>
+                        {vendor.category}
+                      </Pill>
+                    )}
+                  </div>
                 </div>
-
-                {vendor.service && (
-                  <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-                    {vendor.service}
-                  </p>
+                {canEditVendors && (
+                <Btn
+                  variant="ghost"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 text-[var(--destructive)]"
+                  onClick={() => handleRemoveVendor(vendor.id)}
+                >
+                  <RiDeleteBinLine className="h-4 w-4" />
+                </Btn>
                 )}
+              </div>
 
-                <div className="mt-3 pt-3 border-t space-y-1 text-sm">
-                  {vendor.contactEmail && (
-                    <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                      <RiMailLine className="h-4 w-4" />
-                      <span>{vendor.contactEmail}</span>
-                    </div>
-                  )}
-                  {vendor.contactPhone && (
-                    <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                      <RiPhoneLine className="h-4 w-4" />
-                      <span>{vendor.contactPhone}</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+              {vendor.service && (
+                <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+                  {vendor.service}
+                </p>
+              )}
+
+              <div className="mt-3 pt-3 border-t space-y-1 text-sm">
+                {vendor.contactEmail && (
+                  <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                    <RiMailLine className="h-4 w-4" />
+                    <span>{vendor.contactEmail}</span>
+                  </div>
+                )}
+                {vendor.contactPhone && (
+                  <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
+                    <RiPhoneLine className="h-4 w-4" />
+                    <span>{vendor.contactPhone}</span>
+                  </div>
+                )}
+              </div>
+            </PCard>
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RiStore2Line className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-4" />
-            <h3 className="font-semibold mb-2">No hay partners asignados</h3>
-            <p className="text-[var(--muted-foreground)] mb-4">
-              Invita partners a este evento para colaborar
-            </p>
-            {canEditVendors && (
-            <Button onClick={() => setShowInviteDrawer(true)}>
-              <RiAddLine className="h-4 w-4 mr-2" />
-              Invitar primer Partner
-            </Button>
-            )}
-          </CardContent>
-        </Card>
+        <PCard style={{ textAlign: "center", padding: "48px 24px" }}>
+          <RiStore2Line className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-4" />
+          <h3 className="font-semibold mb-2">No hay partners asignados</h3>
+          <p className="text-[var(--muted-foreground)] mb-4">
+            Invita partners a este evento para colaborar
+          </p>
+          {canEditVendors && (
+          <Btn onClick={() => setShowInviteDrawer(true)}>
+            <RiAddLine className="h-4 w-4 mr-2" />
+            Invitar primer Partner
+          </Btn>
+          )}
+        </PCard>
       )}
     </div>
     </EventSectionGuard>

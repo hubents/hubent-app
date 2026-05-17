@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { taskVideos, tasks } from "@/db/schema";
+import { taskVideos } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { apiHandler, ok, badRequest, notFound, created } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
 // GET /api/tasks/[taskId]/videos - List task videos
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:read");
     const { taskId } = await params;
 
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     const videos = await db
@@ -34,24 +32,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(taskVideos.taskId, parseInt(taskId, 10)))
       .orderBy(asc(taskVideos.sortOrder));
 
-    return NextResponse.json({
-      success: true,
-      data: videos,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/videos error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch videos";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(videos);
+  }, "GET /api/tasks/[taskId]/videos");
 }
 
 // POST /api/tasks/[taskId]/videos - Add video to task
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
@@ -59,10 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { youtubeUrl, title, description, sortOrder } = body;
 
     if (!youtubeUrl) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "youtubeUrl is required" } },
-        { status: 400 }
-      );
+      return badRequest("youtubeUrl is required");
     }
 
     const task = await db.query.tasks.findFirst({
@@ -74,10 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     if (session.eventScoped && task.eventId) {
@@ -92,34 +73,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sortOrder: sortOrder || 0,
     }).returning();
 
-    return NextResponse.json({
-      success: true,
-      data: video,
-    });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/videos error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add video";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(video);
+  }, "POST /api/tasks/[taskId]/videos");
 }
 
 // DELETE /api/tasks/[taskId]/videos - Delete video
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("videoId");
 
     if (!videoId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "videoId is required" } },
-        { status: 400 }
-      );
+      return badRequest("videoId is required");
     }
 
     const task = await db.query.tasks.findFirst({
@@ -131,10 +98,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     if (session.eventScoped && task.eventId) {
@@ -149,15 +113,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Video deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete video";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Video deleted" });
+  }, "DELETE /api/tasks/[taskId]/videos");
 }

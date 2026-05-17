@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, organizations, organizationMembers, roles, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 /**
  * Helper function to ensure user has an organization
@@ -97,133 +98,99 @@ async function ensureUserHasOrganization(userId: string, userEmail: string, user
   return newMembership;
 }
 
-function profileErrorResponse(error: unknown): NextResponse {
-  const message = error instanceof Error ? error.message : "Internal Server Error";
-  if (message.includes("Unauthorized")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (message.includes("No organization found")) {
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
-  console.error("GET/PATCH /api/user/profile:", error);
-  return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-}
-
 export async function GET() {
-  const authSession = await auth();
+  return apiHandler(async () => {
+    const authSession = await auth();
 
-  if (!authSession?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!authSession?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+        { status: 401 }
+      );
+    }
 
-  const userId = authSession.user.id;
-  const userEmail = authSession.user.email || "";
-  const userName = authSession.user.name;
+    const userId = authSession.user.id;
+    const userEmail = authSession.user.email || "";
+    const userName = authSession.user.name;
 
-  try {
     await ensureUserHasOrganization(userId, userEmail, userName ?? null);
-  } catch (error) {
-    console.error("Error ensuring organization:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
 
-  let tenantSession;
-  try {
-    tenantSession = await requireAuth();
-  } catch (error) {
-    return profileErrorResponse(error);
-  }
+    const tenantSession = await requireAuth();
 
-  try {
     const user = await db.query.users.findFirst({
       where: eq(users.id, userId),
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return notFound("User not found");
     }
 
     const organization = await db.query.organizations.findFirst({
       where: eq(organizations.id, tenantSession.organizationId),
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          phone: null, // Users table doesn't have phone, could add later
-        },
-        organization: organization
-          ? {
-              id: organization.id,
-              name: organization.name,
-              slug: organization.slug,
-              logo: organization.logo,
-              phone: organization.phone,
-              website: organization.website,
-              address: organization.address,
-              // Fiscal data
-              fiscalName: organization.fiscalName,
-              taxId: organization.taxId,
-              fiscalAddress: organization.fiscalAddress,
-              fiscalCity: organization.fiscalCity,
-              fiscalPostalCode: organization.fiscalPostalCode,
-              fiscalCountry: organization.fiscalCountry,
-              fiscalEmail: organization.fiscalEmail,
-              fiscalPhone: organization.fiscalPhone,
-              invoiceLogo: organization.invoiceLogo,
-            }
-          : null,
+    return ok({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        phone: null, // Users table doesn't have phone, could add later
       },
+      organization: organization
+        ? {
+            id: organization.id,
+            name: organization.name,
+            slug: organization.slug,
+            logo: organization.logo,
+            phone: organization.phone,
+            website: organization.website,
+            address: organization.address,
+            // Fiscal data
+            fiscalName: organization.fiscalName,
+            taxId: organization.taxId,
+            fiscalAddress: organization.fiscalAddress,
+            fiscalCity: organization.fiscalCity,
+            fiscalPostalCode: organization.fiscalPostalCode,
+            fiscalCountry: organization.fiscalCountry,
+            fiscalEmail: organization.fiscalEmail,
+            fiscalPhone: organization.fiscalPhone,
+            invoiceLogo: organization.invoiceLogo,
+          }
+        : null,
     });
-  } catch (error) {
-    console.error("Error fetching profile:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
+  }, "GET /api/user/profile");
 }
 
 export async function PATCH(request: Request) {
-  const authSession = await auth();
+  return apiHandler(async () => {
+    const authSession = await auth();
 
-  if (!authSession?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!authSession?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } },
+        { status: 401 }
+      );
+    }
 
-  const userId = authSession.user.id;
-  const userEmail = authSession.user.email || "";
-  const userName = authSession.user.name;
+    const userId = authSession.user.id;
+    const userEmail = authSession.user.email || "";
+    const userName = authSession.user.name;
 
-  try {
     await ensureUserHasOrganization(userId, userEmail, userName ?? null);
-  } catch (error) {
-    console.error("Error ensuring organization:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
 
-  let tenantSession;
-  try {
-    tenantSession = await requireAuth();
-  } catch (error) {
-    return profileErrorResponse(error);
-  }
+    const tenantSession = await requireAuth();
 
-  try {
     const body = await request.json();
-    const { name, phone, organization: orgData } = body;
+    const { name, image, organization: orgData } = body;
 
     // Update user fields (always the authenticated NextAuth user)
-    if (name !== undefined) {
-      await db
-        .update(users)
-        .set({
-          name,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
+    const userUpdate: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) userUpdate.name = name;
+    if (image !== undefined) userUpdate.image = image === "" ? null : image;
+
+    if (name !== undefined || image !== undefined) {
+      await db.update(users).set(userUpdate).where(eq(users.id, userId));
     }
 
     // Update organization if provided — scoped to active tenant (cookie / impersonation)
@@ -261,12 +228,6 @@ export async function PATCH(request: Request) {
         .where(eq(organizations.id, tenantSession.organizationId));
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Perfil actualizado correctamente",
-    });
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
+    return ok({ message: "Perfil actualizado correctamente" });
+  }, "PATCH /api/user/profile");
 }

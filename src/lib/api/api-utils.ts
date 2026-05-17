@@ -194,7 +194,7 @@ export function hashBody(body: unknown): string {
 export function apiHeaders(requestId: string, extra?: Record<string, string>): Record<string, string> {
   return {
     "X-Request-Id": requestId,
-    "X-HubEnts-Version": CURRENT_API_VERSION,
+    "X-Hubents-Version": CURRENT_API_VERSION,
     "Cache-Control": "no-store",
     ...extra,
   };

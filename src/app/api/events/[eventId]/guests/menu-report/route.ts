@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { guests, rsvpResponses, guestCompanions } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // GET /api/events/[eventId]/guests/menu-report - Get menu report
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "guests", "view");
@@ -67,19 +68,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { guests: 0, companions: 0, total: 0 }
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        report,
-        totals,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to generate menu report";
-    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "REPORT_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ report, totals });
+  }, "GET /api/events/[eventId]/guests/menu-report");
 }

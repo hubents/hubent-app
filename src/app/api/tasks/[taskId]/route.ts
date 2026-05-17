@@ -5,19 +5,20 @@ import { tasks, users, eventParticipants, taskParticipants, eventCollaborations 
 import { eq, and } from "drizzle-orm";
 import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/push-notifications";
 import { canAccessTask } from "@/lib/tenant";
+import { apiHandler, ok, notFound, forbidden } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
 // GET /api/tasks/[taskId] - Get single task
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:read");
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
 
     // First try loading task owned by session org
     let task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) => 
+      where: (t, { eq, and }) =>
         and(
           eq(t.id, taskIdNum),
           eq(t.organizationId, session.organizationId)
@@ -65,41 +66,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     // For eventScoped roles on owned tasks, verify access
     if (session.eventScoped && task.organizationId === session.organizationId) {
       const access = await canAccessTask(session, taskIdNum);
       if (!access.allowed) {
-        return NextResponse.json(
-          { success: false, error: { code: "FORBIDDEN", message: access.reason || "Sin acceso" } },
-          { status: 403 }
-        );
+        return forbidden(access.reason || "Sin acceso");
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: task,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch task";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(task);
+  }, "GET /api/tasks/[taskId]");
 }
 
 // PATCH /api/tasks/[taskId] - Update task
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
@@ -154,10 +138,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .returning();
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     // Send push notifications for relevant changes (async, don't wait)
@@ -185,24 +166,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       ).catch(err => console.error("Push notification failed:", err));
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    console.error("PATCH /api/tasks/[taskId] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update task";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/tasks/[taskId]");
 }
 
 // DELETE /api/tasks/[taskId] - Delete task
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
 
@@ -225,15 +195,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Task deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete task";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Task deleted" });
+  }, "DELETE /api/tasks/[taskId]");
 }

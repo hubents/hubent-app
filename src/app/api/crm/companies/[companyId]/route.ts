@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getCompany, updateCompany, deleteCompany, getCompanyPeople } from "@/lib/crm";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ companyId: string }> };
 
 // GET /api/crm/companies/[companyId] - Get single company
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { companyId } = await params;
     const { searchParams } = new URL(request.url);
@@ -15,10 +16,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const company = await getCompany(session, parseInt(companyId, 10));
 
     if (!company) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Company not found" } },
-        { status: 404 }
-      );
+      return notFound("Company not found");
     }
 
     let people: Awaited<ReturnType<typeof getCompanyPeople>> = [];
@@ -26,25 +24,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       people = await getCompanyPeople(parseInt(companyId, 10));
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...company,
-        people: includePeople ? people : undefined,
-      },
+    return ok({
+      ...company,
+      people: includePeople ? people : undefined,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch company";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/crm/companies/[companyId]");
 }
 
 // PATCH /api/crm/companies/[companyId] - Update company
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { companyId } = await params;
     const body = await request.json();
@@ -52,42 +41,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updated = await updateCompany(session, parseInt(companyId, 10), body);
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Company not found" } },
-        { status: 404 }
-      );
+      return notFound("Company not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update company";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/crm/companies/[companyId]");
 }
 
 // DELETE /api/crm/companies/[companyId] - Delete company
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { companyId } = await params;
 
     await deleteCompany(session, parseInt(companyId, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Company deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete company";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Company deleted" });
+  }, "DELETE /api/crm/companies/[companyId]");
 }

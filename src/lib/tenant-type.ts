@@ -51,7 +51,7 @@ export function dbOrgTypeToSlug(dbOrgType: string): string | undefined {
 }
 
 /**
- * Whether this orgType is visible in Partners HubEnts (public directory).
+ * Whether this orgType is visible in Partners Hubents (public directory).
  * Use instead of: orgType === "provider"
  */
 export function isMarketplaceType(dbOrgType: string): boolean {

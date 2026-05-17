@@ -98,20 +98,20 @@ export function ParticipantSelector({
       ]);
 
       const providersData = await providersRes.json();
-      if (providersData.success && Array.isArray(providersData.data)) {
-        setPartnersProviders(providersData.data);
+      if (providersData.success && Array.isArray(providersData.data?.data)) {
+        setPartnersProviders(providersData.data.data);
       }
 
       if (favoritesRes) {
         const favData = await favoritesRes.json();
-        if (favData.success && Array.isArray(favData.data)) {
-          setFavorites(favData.data);
+        if (favData.success && Array.isArray(favData.data?.data)) {
+          setFavorites(favData.data.data);
         }
       }
 
       const contactsData = await contactsRes.json();
-      if (contactsData.success && Array.isArray(contactsData.data)) {
-        setContacts(contactsData.data);
+      if (contactsData.success && Array.isArray(contactsData.data?.data)) {
+        setContacts(contactsData.data.data);
       }
     } catch (err) {
       console.error("Failed to search participants:", err);
@@ -338,7 +338,7 @@ export function ParticipantSelector({
                 </div>
               )}
 
-              {/* Partners HubEnts directory */}
+              {/* Partners Hubents directory */}
               {filteredPartnersDirectory.length > 0 && (
                 <div>
                   <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 flex items-center gap-2">

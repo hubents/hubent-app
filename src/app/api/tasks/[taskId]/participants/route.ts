@@ -1,41 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
-import { 
-  addTaskParticipant, 
-  removeTaskParticipant, 
+import {
+  addTaskParticipant,
+  removeTaskParticipant,
   updateTaskParticipant,
-  getTaskParticipants 
+  getTaskParticipants
 } from "@/lib/invitations";
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { notifyAddedAsParticipant } from "@/lib/push-notifications";
 import { ensureVendorForProviderOrg } from "@/lib/cross-org";
+import { apiHandler, ok, badRequest, created } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
-
-// GET /api/tasks/[taskId]/participants - List task participants
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
-    await requirePermission("tasks:read");
-    const { taskId } = await params;
-
-    const participants = await getTaskParticipants(parseInt(taskId, 10));
-
-    return NextResponse.json({
-      success: true,
-      data: participants,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/participants error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch participants";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
-}
 
 async function enforceTaskEditAccess(taskIdNum: number, organizationId: number, eventScoped: boolean): Promise<void> {
   if (!eventScoped) return;
@@ -48,9 +24,20 @@ async function enforceTaskEditAccess(taskIdNum: number, organizationId: number, 
   }
 }
 
+// GET /api/tasks/[taskId]/participants - List task participants
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
+    await requirePermission("tasks:read");
+    const { taskId } = await params;
+
+    const participants = await getTaskParticipants(parseInt(taskId, 10));
+    return ok(participants);
+  }, "GET /api/tasks/[taskId]/participants");
+}
+
 // POST /api/tasks/[taskId]/participants - Add participant to task (user or vendor)
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
@@ -59,17 +46,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { userId, vendorId, contactId, providerOrgId, type, canEdit, canComment } = body;
 
     if (!userId && !vendorId && !contactId && !providerOrgId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "userId, vendorId, contactId, or providerOrgId is required" } },
-        { status: 400 }
-      );
+      return badRequest("userId, vendorId, contactId, or providerOrgId is required");
     }
 
     if (!type) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "type is required" } },
-        { status: 400 }
-      );
+      return badRequest("type is required");
     }
 
     let resolvedVendorId = vendorId;
@@ -108,24 +89,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: participant,
-    });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/participants error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add participant";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : message.includes("already") ? 409 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(participant);
+  }, "POST /api/tasks/[taskId]/participants");
 }
 
 // PATCH /api/tasks/[taskId]/participants - Update participant permissions
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
@@ -134,35 +104,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { participantId, canEdit, canComment } = body;
 
     if (!participantId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "participantId is required" } },
-        { status: 400 }
-      );
+      return badRequest("participantId is required");
     }
 
     const updated = await updateTaskParticipant(
-      session, 
-      parseInt(taskId, 10), 
+      session,
+      parseInt(taskId, 10),
       participantId,
       { canEdit, canComment }
     );
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update participant";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/tasks/[taskId]/participants");
 }
 
 // DELETE /api/tasks/[taskId]/participants - Remove participant from task
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     await enforceTaskEditAccess(parseInt(taskId, 10), session.organizationId, session.eventScoped);
@@ -170,27 +128,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const participantId = searchParams.get("participantId");
 
     if (!participantId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "participantId is required" } },
-        { status: 400 }
-      );
+      return badRequest("participantId is required");
     }
 
     await removeTaskParticipant(
-      session, 
-      parseInt(taskId, 10), 
+      session,
+      parseInt(taskId, 10),
       parseInt(participantId, 10)
     );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Participant removed" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to remove participant";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Participant removed" });
+  }, "DELETE /api/tasks/[taskId]/participants");
 }

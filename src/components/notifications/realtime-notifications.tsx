@@ -11,17 +11,28 @@
 import { useCallback } from "react";
 import { useUserNotifications } from "@/hooks/use-pusher";
 import { toast } from "sonner";
-import { 
-  RiChat1Line, 
-  RiEditLine,
-  RiUserAddLine,
-  RiCalendarEventLine,
-  RiCheckDoubleLine,
-  RiContactsLine,
-  RiTargetLine,
-  RiMoneyDollarCircleLine,
-  RiFileTextLine,
-} from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import {
+  BubbleChatIcon,
+  PencilEdit01Icon,
+  UserAdd01Icon,
+  Calendar03Icon,
+  CheckmarkSquare02Icon,
+  ContactBookIcon,
+  Target01Icon,
+  Wallet01Icon,
+  File02Icon,
+} from "@hugeicons/core-free-icons";
+
+const RiChat1Line = hgIcon(BubbleChatIcon);
+const RiEditLine = hgIcon(PencilEdit01Icon);
+const RiUserAddLine = hgIcon(UserAdd01Icon);
+const RiCalendarEventLine = hgIcon(Calendar03Icon);
+const RiCheckDoubleLine = hgIcon(CheckmarkSquare02Icon);
+const RiContactsLine = hgIcon(ContactBookIcon);
+const RiTargetLine = hgIcon(Target01Icon);
+const RiMoneyDollarCircleLine = hgIcon(Wallet01Icon);
+const RiFileTextLine = hgIcon(File02Icon);
 import { useRouter, usePathname } from "next/navigation";
 
 interface InAppNotification {

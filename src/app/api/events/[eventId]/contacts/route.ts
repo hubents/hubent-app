@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { eventParticipants, contacts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok, created, badRequest } from "@/lib/api-handler";
 
 // GET - List contacts linked to an event (reads from event_participants)
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "general", "view");
@@ -29,12 +30,8 @@ export async function GET(
       .innerJoin(contacts, eq(eventParticipants.contactId, contacts.id))
       .where(and(eq(eventParticipants.eventId, eventIdNum), eq(eventParticipants.type, "contact")));
 
-    return NextResponse.json({ success: true, data: linkedContacts });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch contacts";
-    const status = message.includes("Forbidden") ? 403 : message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+    return ok(linkedContacts);
+  }, "GET /api/events/[eventId]/contacts");
 }
 
 // POST - Link contact to event (writes to event_participants)
@@ -42,7 +39,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "general", "edit");
@@ -50,7 +47,7 @@ export async function POST(
     const { contactId, role } = body;
 
     if (!contactId) {
-      return NextResponse.json({ success: false, error: "contactId is required" }, { status: 400 });
+      return badRequest("contactId is required");
     }
 
     const cId = typeof contactId === "number" ? contactId : parseInt(contactId, 10);
@@ -62,7 +59,7 @@ export async function POST(
       .limit(1);
 
     if (existing) {
-      return NextResponse.json({ success: true, data: existing });
+      return ok(existing);
     }
 
     const [participant] = await db.insert(eventParticipants).values({
@@ -73,11 +70,8 @@ export async function POST(
       invitedBy: session.user.userId,
     }).returning();
 
-    return NextResponse.json({ success: true, data: participant });
-  } catch (error) {
-    console.error("Error linking contact to event:", error);
-    return NextResponse.json({ success: false, error: "Failed to link contact" }, { status: 500 });
-  }
+    return created(participant);
+  }, "POST /api/events/[eventId]/contacts");
 }
 
 // DELETE - Unlink contact from event (deletes from event_participants)
@@ -85,7 +79,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "general", "edit");
@@ -93,7 +87,7 @@ export async function DELETE(
     const contactId = searchParams.get("contactId");
 
     if (!contactId) {
-      return NextResponse.json({ success: false, error: "contactId is required" }, { status: 400 });
+      return badRequest("contactId is required");
     }
 
     await db.delete(eventParticipants).where(
@@ -103,9 +97,6 @@ export async function DELETE(
       )
     );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error unlinking contact from event:", error);
-    return NextResponse.json({ success: false, error: "Failed to unlink contact" }, { status: 500 });
-  }
+    return ok(null);
+  }, "DELETE /api/events/[eventId]/contacts");
 }

@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { rsvpNearbyPlans } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // POST /api/events/[eventId]/rsvp/nearby-plans - Add nearby plan
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { name, description, category, address, website, imageUrl, orderIndex } = body;
 
     if (!name) {
-      return NextResponse.json({ success: false, error: "Name is required" }, { status: 400 });
+      return badRequest("Name is required");
     }
 
     const newItem = await db
@@ -34,16 +35,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: newItem[0] });
-  } catch (error) {
-    console.error("Error creating nearby plan:", error);
-    return NextResponse.json({ success: false, error: "Failed to create nearby plan" }, { status: 500 });
-  }
+    return ok(newItem[0]);
+  }, "POST /api/events/[eventId]/rsvp/nearby-plans");
 }
 
 // PUT /api/events/[eventId]/rsvp/nearby-plans - Update nearby plan
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -52,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id, name, description, category, address, website, imageUrl, orderIndex } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
@@ -68,16 +66,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       })
       .where(and(eq(rsvpNearbyPlans.id, id), eq(rsvpNearbyPlans.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating nearby plan:", error);
-    return NextResponse.json({ success: false, error: "Failed to update nearby plan" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "PUT /api/events/[eventId]/rsvp/nearby-plans");
 }
 
 // DELETE /api/events/[eventId]/rsvp/nearby-plans - Delete nearby plan
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -85,16 +80,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
       .delete(rsvpNearbyPlans)
       .where(and(eq(rsvpNearbyPlans.id, parseInt(id)), eq(rsvpNearbyPlans.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting nearby plan:", error);
-    return NextResponse.json({ success: false, error: "Failed to delete nearby plan" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "DELETE /api/events/[eventId]/rsvp/nearby-plans");
 }

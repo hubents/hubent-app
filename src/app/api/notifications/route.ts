@@ -1,27 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // GET /api/notifications - Get user notifications
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { searchParams } = new URL(request.url);
-    
+
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const unreadOnly = searchParams.get("unread") === "true";
 
-    let query = db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, session.user.userId))
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit);
+    const whereClause = unreadOnly
+      ? and(eq(notifications.userId, session.user.userId), eq(notifications.read, false))
+      : eq(notifications.userId, session.user.userId);
 
-    if (unreadOnly) {
-      query = db
+    const [results, unreadRows] = await Promise.all([
+      db
+        .select()
+        .from(notifications)
+        .where(whereClause)
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit),
+      db
         .select()
         .from(notifications)
         .where(
@@ -29,41 +33,16 @@ export async function GET(request: NextRequest) {
             eq(notifications.userId, session.user.userId),
             eq(notifications.read, false)
           )
-        )
-        .orderBy(desc(notifications.createdAt))
-        .limit(limit);
-    }
+        ),
+    ]);
 
-    const results = await query;
-
-    // Count unread
-    const unreadCount = await db
-      .select()
-      .from(notifications)
-      .where(
-        and(
-          eq(notifications.userId, session.user.userId),
-          eq(notifications.read, false)
-        )
-      );
-
-    return NextResponse.json({
-      success: true,
-      data: results,
-      unreadCount: unreadCount.length,
-    });
-  } catch (error) {
-    console.error("GET /api/notifications error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch notifications" },
-      { status: 500 }
-    );
-  }
+    return ok(results, 200, { unreadCount: unreadRows.length });
+  }, "GET /api/notifications");
 }
 
 // PATCH /api/notifications - Mark notifications as read
 export async function PATCH(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const body = await request.json();
     const { notificationIds, markAllRead } = body;
@@ -87,40 +66,30 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("PATCH /api/notifications error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to update notifications" },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "PATCH /api/notifications");
 }
 
-// DELETE /api/notifications - Delete old notifications
+// DELETE /api/notifications - Delete a notification
 export async function DELETE(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { searchParams } = new URL(request.url);
     const notificationId = searchParams.get("id");
 
-    if (notificationId) {
-      await db
-        .delete(notifications)
-        .where(
-          and(
-            eq(notifications.id, parseInt(notificationId, 10)),
-            eq(notifications.userId, session.user.userId)
-          )
-        );
+    if (!notificationId) {
+      return badRequest("Notification ID is required");
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/notifications error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to delete notification" },
-      { status: 500 }
-    );
-  }
+    await db
+      .delete(notifications)
+      .where(
+        and(
+          eq(notifications.id, parseInt(notificationId, 10)),
+          eq(notifications.userId, session.user.userId)
+        )
+      );
+
+    return ok(null);
+  }, "DELETE /api/notifications");
 }

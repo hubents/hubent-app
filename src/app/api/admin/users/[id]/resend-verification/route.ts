@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, verificationTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
 import { sendVerificationEmail } from "@/lib/email";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || "https://app.hubents.com";
 }
 
 export async function POST(
-  request: NextRequest,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { id } = await params;
@@ -23,14 +23,11 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     if (user.emailVerified) {
-      return NextResponse.json(
-        { error: "El usuario ya está verificado" },
-        { status: 400 }
-      );
+      return badRequest("El usuario ya está verificado");
     }
 
     const token = crypto.randomUUID();
@@ -47,15 +44,6 @@ export async function POST(
 
     await sendVerificationEmail(user.email, verifyUrl);
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Email de verificación enviado" 
-    });
-  } catch (error) {
-    console.error("Resend verification error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Email de verificación enviado" });
+  }, "POST /api/admin/users/[id]/resend-verification");
 }

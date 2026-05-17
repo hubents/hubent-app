@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect, Suspense, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,40 +11,54 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  RiAddLine,
-  RiSearchLine,
-  RiMoreLine,
-  RiEditLine,
-  RiFileCopyLine,
-  RiDeleteBinLine,
-  RiSendPlaneLine,
-  RiCheckLine,
-  RiEyeLine,
-  RiCheckDoubleLine,
-  RiExchangeLine,
-  RiMoneyDollarCircleLine,
-  RiTruckLine,
-  RiFileDownloadLine,
-} from "@remixicon/react";
+  Search01Icon,
+  PlusSignIcon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  ArrowUpDownIcon,
+  Tick01Icon,
+  MoreVerticalIcon,
+  PencilEdit02Icon,
+  Copy01Icon,
+  Delete01Icon,
+  Exchange01Icon,
+  MailSend01Icon,
+  Cancel01Icon,
+  EyeIcon,
+  TruckIcon,
+  Download01Icon,
+  HandCoinsIcon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons";
+import { hgIcon } from "@/components/ui/hg-icon";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
-import { FinanceToolbar } from "@/components/finance/finance-toolbar";
-import { downloadDocumentPDF } from "@/lib/pdf-download";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
-import { cn } from "@/lib/utils";
+import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { useUserSession } from "@/hooks/use-user-session";
-import { type ScopeValue } from "@/components/ui/scope-filter";
+import { getInitials as initials, avColor } from "@/lib/ui-utils";
+
+const IcoSearch       = hgIcon(Search01Icon);
+const IcoPlus         = hgIcon(PlusSignIcon);
+const IcoChevDown     = hgIcon(ArrowDown01Icon);
+const IcoChevUp       = hgIcon(ArrowUp01Icon);
+const IcoSort         = hgIcon(ArrowUpDownIcon);
+const IcoCheck        = hgIcon(Tick01Icon);
+const IcoMore         = hgIcon(MoreVerticalIcon);
+const IcoEdit         = hgIcon(PencilEdit02Icon);
+const IcoCopy         = hgIcon(Copy01Icon);
+const IcoTrash        = hgIcon(Delete01Icon);
+const IcoExchange     = hgIcon(Exchange01Icon);
+const IcoSend         = hgIcon(MailSend01Icon);
+const IcoX            = hgIcon(Cancel01Icon);
+const IcoEye          = hgIcon(EyeIcon);
+const IcoTruck        = hgIcon(TruckIcon);
+const IcoDownload     = hgIcon(Download01Icon);
+const IcoHandCoins    = hgIcon(HandCoinsIcon);
+const IcoCheckDouble  = hgIcon(CheckmarkCircle01Icon);
 
 interface DocumentItem {
   id: number;
@@ -83,73 +95,84 @@ interface Proforma {
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
+  vendorName: string | null;
   eventName: string | null;
   items: DocumentItem[];
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Borrador", color: "bg-gray-100 text-gray-700" },
-  approved: { label: "Aprobada", color: "bg-indigo-100 text-indigo-700" },
-  sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  paid: { label: "Pagada", color: "bg-emerald-100 text-emerald-700" },
-  cancelled: { label: "Cancelada", color: "bg-gray-100 text-gray-500" },
+const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
+  draft:     { bg: "#EDEAE3", fg: "#5B5649", label: "Borrador" },
+  approved:  { bg: "#D4E7F0", fg: "#2F6A85", label: "Aprobada" },
+  sent:      { bg: "#FCEFC9", fg: "#8A6A1A", label: "Pendiente" },
+  paid:      { bg: "#D9ECD1", fg: "#1F6A3A", label: "Pagada" },
+  cancelled: { bg: "#F8D4D4", fg: "#8B2A2A", label: "Cancelada" },
 };
 
-type DirectionTab = "all" | "outgoing" | "incoming";
-const directionTabs: { key: DirectionTab; label: string }[] = [
-  { key: "all", label: "Todas" },
-  { key: "outgoing", label: "Cobros" },
-  { key: "incoming", label: "Pagos" },
-];
-
-const proformaStatusTabs = [
-  { key: "all", label: "Todas" },
-  { key: "draft", label: "Borrador" },
-  { key: "approved", label: "Aprobada" },
-  { key: "sent", label: "Pendiente" },
-  { key: "paid", label: "Pagada" },
-  { key: "cancelled", label: "Cancelada" },
+type StatusFilter = "all" | "draft" | "approved" | "sent" | "paid" | "cancelled";
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all",       label: "Todas" },
+  { value: "draft",     label: "Borrador" },
+  { value: "approved",  label: "Aprobada" },
+  { value: "sent",      label: "Pendiente" },
+  { value: "paid",      label: "Pagada" },
+  { value: "cancelled", label: "Cancelada" },
 ];
 
 export default function ProformasPage() {
+  return (
+    <Suspense>
+      <ProformasContent />
+    </Suspense>
+  );
+}
+
+function ProformasContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { can } = useUserSession();
+
   const [proformas, setProformas] = useState<Proforma[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
-  const [scope, setScope] = useState<ScopeValue>("standalone");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [scope, setScope] = useState<ScopeValue>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Drawer state
+  type SortKey = "client" | "issueDate" | "number" | "status" | "total";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const cycleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
-  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<
-    "proforma" | "invoice" | "delivery_note"
-  >("proforma");
-
-  // Preview state
+  const [drawerInitialData, setDrawerInitialData] = useState<Record<string, unknown> | undefined>(undefined);
+  const [drawerType, setDrawerType] = useState<"proforma" | "invoice" | "delivery_note">("proforma");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<Proforma | null>(null);
 
+  useEffect(() => { fetchProformas(); }, [page, statusFilter, scope]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    fetchProformas();
-  }, [page, statusFilter, directionTab, scope]);
+    if (searchParams.get("new") === "true") {
+      openNewDrawer();
+      router.replace("/dashboard/finance/proformas");
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchProformas() {
     try {
-      const params = new URLSearchParams({
-        type: "proforma",
-        page: page.toString(),
-        limit: "20",
-      });
+      setFetchError(null);
+      const params = new URLSearchParams({ type: "proforma", page: page.toString(), limit: "20" });
       if (statusFilter !== "all") params.set("status", statusFilter);
-      if (directionTab !== "all") params.set("direction", directionTab);
-      if (searchTerm) params.set("search", searchTerm);
       if (scope !== "all") params.set("scope", scope);
-
+      if (searchTerm) params.set("search", searchTerm);
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -157,9 +180,14 @@ export default function ProformasPage() {
           setProformas(data.data || []);
           setTotalPages(data.meta?.totalPages || 1);
         }
+      } else {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error?.message || `Error del servidor (${res.status})`;
+        setFetchError(msg);
+        toast.error(msg);
       }
-    } catch (error) {
-      console.error("Failed to fetch proformas:", error);
+    } catch {
+      setFetchError("No se pudo conectar con el servidor");
       toast.error("Error al cargar proformas");
     } finally {
       setLoading(false);
@@ -169,24 +197,13 @@ export default function ProformasPage() {
   async function deleteProforma(id: number) {
     if (!confirm("¿Estás seguro de eliminar esta proforma?")) return;
     try {
-      const res = await fetch(`/api/finance/documents/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        toast.success("Proforma eliminada");
-        fetchProformas();
-      } else {
-        toast.error("Error al eliminar");
-      }
-    } catch (error) {
-      toast.error("Error al eliminar");
-    }
+      const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
+      if (res.ok) { toast.success("Proforma eliminada"); fetchProformas(); }
+      else { const d = await res.json().catch(() => null); toast.error(d?.error?.message || "Error al eliminar"); }
+    } catch { toast.error("Error al eliminar"); }
   }
 
-  async function fetchDocAndOpenDrawer(
-    id: number,
-    targetType: "proforma" | "invoice" | "delivery_note",
-  ) {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "proforma" | "invoice" | "delivery_note") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -195,22 +212,14 @@ export default function ProformasPage() {
           const doc = data.data;
           const isDeliveryNote = targetType === "delivery_note";
           setDrawerInitialData({
-            contactId: doc.contactId,
-            vendorId: doc.vendorId,
-            eventId: doc.eventId,
+            contactId: doc.contactId, vendorId: doc.vendorId, eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote
-              ? undefined
-              : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote
-              ? undefined
-              : parseFloat(doc.globalDiscount || "0") || undefined,
-            globalDiscountType: isDeliveryNote
-              ? undefined
-              : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote ? undefined : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
-            items: doc.items?.map((item: any) => ({
+            items: doc.items?.map((item: Record<string, string>) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
               unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
@@ -224,9 +233,7 @@ export default function ProformasPage() {
           setDrawerOpen(true);
         }
       }
-    } catch (error) {
-      toast.error("Error al cargar documento");
-    }
+    } catch { toast.error("Error al cargar documento"); }
   }
 
   async function updateStatus(id: number, status: string) {
@@ -237,366 +244,424 @@ export default function ProformasPage() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(
-          `Estado actualizado a ${statusConfig[status]?.label || status}`,
-        );
+        toast.success(`Estado actualizado a ${STATUS_PILL[status]?.label || status}`);
         fetchProformas();
       } else {
-        toast.error("Error al actualizar estado");
+        const d = await res.json().catch(() => null);
+        toast.error(d?.error?.message || "Error al actualizar estado");
       }
-    } catch (error) {
-      toast.error("Error al actualizar estado");
-    }
+    } catch { toast.error("Error al actualizar estado"); }
   }
 
   function openNewDrawer() {
-    setEditingId(undefined);
-    setDrawerInitialData(undefined);
-    setDrawerType("proforma");
-    setDrawerOpen(true);
+    setEditingId(undefined); setDrawerInitialData(undefined); setDrawerType("proforma"); setDrawerOpen(true);
   }
-
   function openEditDrawer(id: number) {
-    setEditingId(id);
-    setDrawerInitialData(undefined);
-    setDrawerType("proforma");
-    setDrawerOpen(true);
+    setEditingId(id); setDrawerInitialData(undefined); setDrawerType("proforma"); setDrawerOpen(true);
   }
-
   async function openPreview(id: number) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.success && data.data) {
-          setPreviewDoc(data.data);
-          setPreviewOpen(true);
-        }
+        if (data.success && data.data) { setPreviewDoc(data.data); setPreviewOpen(true); }
       }
-    } catch (error) {
-      toast.error("Error al cargar documento");
-    }
+    } catch { toast.error("Error al cargar documento"); }
   }
 
-  const formatCurrency = (amount: string, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-    }).format(parseFloat(amount || "0"));
-  };
+  const formatCurrency = (amount: string, currency = "EUR") =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(parseFloat(amount || "0"));
 
-  const getClientName = (doc: Proforma) => {
-    if (doc.contactName) return doc.contactName;
-    if (doc.companyName) return doc.companyName;
-    if (doc.personFirstName) {
-      return `${doc.personFirstName} ${doc.personLastName || ""}`.trim();
-    }
-    return "Sin cliente";
-  };
+  const getClientName = (doc: Proforma) =>
+    doc.contactName ||
+    doc.companyName ||
+    (doc.personFirstName ? `${doc.personFirstName} ${doc.personLastName || ""}`.trim() : "") ||
+    doc.vendorName ||
+    "Sin cliente";
 
-  function handleSearchSubmit() {
-    setPage(1);
-    fetchProformas();
-  }
+  const sortedProformas = useMemo(() => {
+    if (!sort) return proformas;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const valueOf = (p: Proforma): string | number => {
+      switch (sort.key) {
+        case "client":    return getClientName(p).toLowerCase();
+        case "issueDate": return p.issueDate ? new Date(p.issueDate).getTime() : 0;
+        case "number":    return p.number || "";
+        case "status":    return p.status;
+        case "total":     return parseFloat(p.total || "0");
+      }
+    };
+    return [...proformas].sort((a, b) => {
+      const va = valueOf(a), vb = valueOf(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }, [proformas, sort]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const kpis = useMemo(() => {
+    const sum = (arr: Proforma[]) => arr.reduce((acc, p) => acc + parseFloat(p.total || "0"), 0);
+    const total      = sum(proformas);
+    const pagadas    = proformas.filter((p) => p.status === "paid");
+    const pendientes = proformas.filter((p) => p.status === "sent" || p.status === "approved");
+    const cancelled  = proformas.filter((p) => p.status === "cancelled");
+    const pct = (n: number) => total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
+    return [
+      { label: "Total emitido",  value: formatCurrency(String(total)),           delta: "",                    sub: "del listado" },
+      { label: "Pagadas",        value: formatCurrency(String(sum(pagadas))),     delta: pct(sum(pagadas)),     sub: "del total" },
+      { label: "Pendientes",     value: formatCurrency(String(sum(pendientes))),  delta: pct(sum(pendientes)),  sub: "del total" },
+      { label: "Canceladas",     value: formatCurrency(String(sum(cancelled))),   delta: pct(sum(cancelled)),   sub: "del total" },
+    ];
+  }, [proformas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-10 w-48" />
-        </div>
-        <Skeleton className="h-96" />
+      <div className="flex flex-col gap-4">
+        <div className="h-[72px] rounded-[12px] opacity-60" style={{ background: "var(--bg-subtle)" }} />
+        <div className="h-[380px] rounded-[12px] opacity-40" style={{ background: "var(--bg-subtle)" }} />
       </div>
     );
   }
 
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (!sort || sort.key !== k) return <IcoSort className="h-3 w-3 opacity-30" />;
+    return sort.dir === "asc" ? <IcoChevUp className="h-3 w-3" /> : <IcoChevDown className="h-3 w-3" />;
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Proformas</h1>
-          <p className="text-muted-foreground">
-            Facturas proforma para anticipos y presupuestos formales
-          </p>
-        </div>
-        {can("finance:create") && (
-          <Button onClick={openNewDrawer}>
-            <RiAddLine className="mr-2 h-4 w-4" />
-            Nueva Proforma
-          </Button>
-        )}
+    <div className="flex flex-col gap-4">
+
+      {/* ── KPI strip — connected cells ── */}
+      <div
+        className="grid grid-cols-2 md:grid-cols-4 rounded-[12px] overflow-hidden"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {kpis.map((k, i) => (
+          <div
+            key={i}
+            className="px-5 py-4"
+            style={{ borderLeft: i > 0 ? "1px solid var(--line-1)" : "none" }}
+          >
+            <div className="text-[12px] text-[var(--ink-3)] font-medium mb-1.5">{k.label}</div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-[22px] font-semibold text-[var(--ink-1)]" style={{ letterSpacing: "-0.02em" }}>
+                {k.value}
+              </span>
+              {k.delta && (
+                <span className="text-[11px] font-medium text-[var(--ink-3)]">{k.delta}</span>
+              )}
+              <span className="text-[10.5px] text-[var(--ink-3)]">{k.sub}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <FinanceToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onSearchSubmit={handleSearchSubmit}
-        searchPlaceholder="Buscar por número o cliente..."
-        scope={scope}
-        onScopeChange={(v) => {
-          setScope(v);
-          setPage(1);
-        }}
-        directions={directionTabs}
-        activeDirection={directionTab}
-        onDirectionChange={(key) => {
-          setDirectionTab(key as DirectionTab);
-          setPage(1);
-        }}
-        statusTabs={proformaStatusTabs}
-        activeStatus={statusFilter}
-        onStatusChange={(key) => {
-          setStatusFilter(key);
-          setPage(1);
-        }}
-      />
+      {/* ── Table card ── */}
+      <div
+        className="rounded-[12px] p-[18px]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+          {/* Search */}
+          <div
+            className="flex items-center gap-2 rounded-[8px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: "8px 12px", width: 280 }}
+          >
+            <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Buscar por número o cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchProformas(); } }}
+              className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+            />
+          </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Pagado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proformas.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center py-8 text-muted-foreground"
+          <ScopeFilter value={scope} onChange={(v) => { setScope(v); setPage(1); }} />
+
+          <div className="ml-auto">
+            {can("finance:create") && (
+              <button
+                onClick={openNewDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors"
+                style={{ background: "var(--ink-1)", color: "#FFFFFF", border: "1px solid var(--ink-1)" }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nueva Proforma
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Status pill filters */}
+        <div className="flex items-center mb-4">
+          <div
+            className="inline-flex gap-1 rounded-[8px]"
+            style={{ background: "var(--bg-subtle)", padding: 3 }}
+          >
+            {STATUS_OPTIONS.map((o) => {
+              const active = statusFilter === o.value;
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
+                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "5px 12px",
+                    background: active ? "#FFFFFF" : "transparent",
+                    color: active ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: active ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Table */}
+        {fetchError ? (
+          <div className="text-center py-10">
+            <div className="text-[13px] font-medium mb-3" style={{ color: "#B8412D" }}>{fetchError}</div>
+            <button
+              onClick={fetchProformas}
+              className="px-3 py-1.5 rounded-[7px] text-[12.5px] cursor-pointer"
+              style={{ border: "1px solid var(--line-strong)", background: "#FFFFFF" }}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : proformas.length === 0 ? (
+          <div className="text-center py-14">
+            <div className="text-[14px] font-semibold text-[var(--ink-1)] mb-1">No hay proformas</div>
+            <div className="text-[12.5px] text-[var(--ink-3)] mb-4">
+              {searchTerm ? "No se encontraron resultados para esa búsqueda" : "Crea tu primera proforma con el botón de arriba"}
+            </div>
+            {!searchTerm && can("finance:create") && (
+              <button
+                onClick={openNewDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer mx-auto"
+                style={{ background: "var(--ink-1)", color: "#FFFFFF", border: "1px solid var(--ink-1)" }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nueva Proforma
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th onClick={() => cycleSort("client")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Cliente <SortIcon k="client" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("issueDate")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Fecha <SortIcon k="issueDate" /></span>
+                  </th>
+                  <th>Pagado</th>
+                  <th onClick={() => cycleSort("status")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Estado <SortIcon k="status" /></span>
+                  </th>
+                  <th
+                    onClick={() => cycleSort("total")}
+                    style={{ cursor: "pointer", userSelect: "none", textAlign: "right" }}
                   >
-                    No hay proformas
-                  </TableCell>
-                </TableRow>
-              ) : (
-                proformas.map((doc: Proforma) => (
-                  <TableRow
-                    key={doc.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openEditDrawer(doc.id)}
-                  >
-                    <TableCell>
-                      {doc.issueDate
-                        ? format(new Date(doc.issueDate), "dd MMM yyyy", {
-                            locale: es,
-                          })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>{getClientName(doc)}</TableCell>
-                    <TableCell className="font-medium">{doc.number}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const total = parseFloat(doc.total || "0");
-                        const paid = parseFloat(doc.paidAmount || "0");
-                        if (paid <= 0)
-                          return (
-                            <span className="text-muted-foreground">-</span>
-                          );
-                        const pct =
-                          total > 0 ? Math.min((paid / total) * 100, 100) : 0;
-                        return (
+                    <span className="inline-flex items-center gap-1 justify-end w-full">
+                      <SortIcon k="total" /> Total
+                    </span>
+                  </th>
+                  <th style={{ width: 44 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProformas.map((doc) => {
+                  const pill = STATUS_PILL[doc.status] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", label: doc.status };
+                  const clientName = getClientName(doc);
+                  const total = parseFloat(doc.total || "0");
+                  const paid = parseFloat(doc.paidAmount || "0");
+                  const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                  return (
+                    <tr
+                      key={doc.id}
+                      onClick={() => openPreview(doc.id)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {/* Cliente */}
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="flex-shrink-0 flex items-center justify-center rounded-full text-white"
+                            style={{ width: 30, height: 30, background: avColor(clientName), fontSize: 11, fontWeight: 600 }}
+                          >
+                            {initials(clientName)}
+                          </div>
+                          <span className="text-[13px] font-medium text-[var(--ink-1)]">{clientName}</span>
+                        </div>
+                      </td>
+                      {/* Número */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{doc.number}</span>
+                      </td>
+                      {/* Fecha */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)]">
+                          {doc.issueDate
+                            ? format(new Date(doc.issueDate), "d MMM yyyy", { locale: es })
+                            : "—"}
+                        </span>
+                      </td>
+                      {/* Pagado */}
+                      <td>
+                        {paid <= 0 ? (
+                          <span className="text-[13px] text-[var(--ink-3)]">—</span>
+                        ) : (
                           <div className="flex items-center gap-2 min-w-[100px]">
-                            <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-1.5 flex-1 rounded-full overflow-hidden" style={{ background: "var(--line-1)" }}>
                               <div
-                                className="h-full bg-emerald-500 rounded-full"
-                                style={{ width: `${pct}%` }}
+                                className="h-full rounded-full"
+                                style={{ width: `${pct}%`, background: "#1F6A3A" }}
                               />
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-[11.5px] text-[var(--ink-3)] whitespace-nowrap">
                               {pct.toFixed(0)}%
                             </span>
                           </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(doc.total, doc.currency)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          statusConfig[doc.status]?.color || "bg-gray-100"
-                        }
-                      >
-                        {statusConfig[doc.status]?.label || doc.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <RiMoreLine className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => openEditDrawer(doc.id)}
-                          >
-                            <RiEditLine className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openPreview(doc.id)}>
-                            <RiEyeLine className="mr-2 h-4 w-4" />
-                            Vista previa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              fetchDocAndOpenDrawer(doc.id, "proforma")
-                            }
-                          >
-                            <RiFileCopyLine className="mr-2 h-4 w-4" />
-                            Duplicar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              downloadDocumentPDF(
-                                doc.id,
-                                `proforma-${doc.number}.pdf`,
-                              )
-                            }
-                          >
-                            <RiFileDownloadLine className="mr-2 h-4 w-4" />
-                            Descargar PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {doc.status === "draft" && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => updateStatus(doc.id, "approved")}
-                              >
-                                <RiCheckDoubleLine className="mr-2 h-4 w-4" />
-                                Aprobar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => updateStatus(doc.id, "sent")}
-                              >
-                                <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                Marcar como Pendiente
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {doc.status === "approved" && (
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(doc.id, "sent")}
+                        )}
+                      </td>
+                      {/* Estado */}
+                      <td>
+                        <span
+                          className="inline-flex items-center rounded-[999px] text-[11.5px] font-medium"
+                          style={{ background: pill.bg, color: pill.fg, padding: "3px 10px" }}
+                        >
+                          {pill.label}
+                        </span>
+                      </td>
+                      {/* Total */}
+                      <td style={{ textAlign: "right" }}>
+                        <span className="text-[13px] font-semibold text-[var(--ink-1)]">
+                          {formatCurrency(doc.total, doc.currency)}
+                        </span>
+                      </td>
+                      {/* Acciones */}
+                      <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="inline-flex items-center justify-center rounded-[6px] transition-colors hover:bg-[var(--bg-subtle)] cursor-pointer border-none bg-transparent"
+                              style={{ width: 28, height: 28, color: "var(--ink-3)" }}
                             >
-                              <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                              Marcar como Pendiente
+                              <IcoMore className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openPreview(doc.id)}>
+                              <IcoEye className="mr-2 h-4 w-4" /> Vista previa
                             </DropdownMenuItem>
-                          )}
-                          {doc.status === "sent" && (
-                            <DropdownMenuItem
-                              onClick={() => updateStatus(doc.id, "paid")}
-                            >
-                              <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                              Marcar como Pagada
+                            <DropdownMenuItem onClick={() => openEditDrawer(doc.id)}>
+                              <IcoEdit className="mr-2 h-4 w-4" /> Editar
                             </DropdownMenuItem>
-                          )}
-                          {(doc.status === "sent" || doc.status === "paid") && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                fetchDocAndOpenDrawer(doc.id, "invoice")
-                              }
-                            >
-                              <RiExchangeLine className="mr-2 h-4 w-4" />
-                              Convertir a Factura
-                            </DropdownMenuItem>
-                          )}
-                          {(doc.status === "sent" || doc.status === "paid") && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                fetchDocAndOpenDrawer(doc.id, "delivery_note")
-                              }
-                            >
-                              <RiTruckLine className="mr-2 h-4 w-4" />
-                              Convertir a Albarán
-                            </DropdownMenuItem>
-                          )}
-                          {doc.status !== "paid" &&
-                            doc.status !== "cancelled" && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  updateStatus(doc.id, "cancelled")
-                                }
-                              >
-                                <RiCheckLine className="mr-2 h-4 w-4" />
-                                Cancelar
+
+                            {/* Status transitions */}
+                            <DropdownMenuSeparator />
+                            {doc.status === "draft" && (
+                              <>
+                                <DropdownMenuItem onClick={() => updateStatus(doc.id, "approved")}>
+                                  <IcoCheckDouble className="mr-2 h-4 w-4" /> Aprobar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
+                                  <IcoSend className="mr-2 h-4 w-4" /> Marcar como Pendiente
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {doc.status === "approved" && (
+                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "sent")}>
+                                <IcoSend className="mr-2 h-4 w-4" /> Marcar como Pendiente
                               </DropdownMenuItem>
                             )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => deleteProforma(doc.id)}
-                          >
-                            <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                            {doc.status === "sent" && (
+                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "paid")}>
+                                <IcoHandCoins className="mr-2 h-4 w-4" /> Marcar como Pagada
+                              </DropdownMenuItem>
+                            )}
+                            {(doc.status === "sent" || doc.status === "paid") && (
+                              <>
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "invoice")}>
+                                  <IcoExchange className="mr-2 h-4 w-4" /> Convertir a Factura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "delivery_note")}>
+                                  <IcoTruck className="mr-2 h-4 w-4" /> Convertir a Albarán
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {doc.status !== "paid" && doc.status !== "cancelled" && (
+                              <DropdownMenuItem onClick={() => updateStatus(doc.id, "cancelled")}>
+                                <IcoX className="mr-2 h-4 w-4" /> Cancelar
+                              </DropdownMenuItem>
+                            )}
 
-      {/* Pagination */}
-      <div className="flex justify-center">
-        <NumericPagination
-          currentPage={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(doc.id, "proforma")}>
+                              <IcoCopy className="mr-2 h-4 w-4" /> Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => downloadDocumentPDF(doc.id, `proforma-${doc.number}.pdf`)}>
+                              <IcoDownload className="mr-2 h-4 w-4" /> Descargar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onClick={() => deleteProforma(doc.id)}>
+                              <IcoTrash className="mr-2 h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Document Drawer */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center">
+          <NumericPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        </div>
+      )}
+
+      {/* Drawers */}
       <DocumentDrawer
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) {
-            setDrawerInitialData(undefined);
-            setDrawerType("proforma");
-          }
+          if (!open) { setDrawerInitialData(undefined); setDrawerType("proforma"); }
         }}
         type={drawerType}
         documentId={editingId}
         initialData={drawerInitialData}
         onSuccess={fetchProformas}
-        onDuplicate={() => {
-          setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, "proforma");
-        }}
+        onDuplicate={() => { setDrawerOpen(false); if (editingId) fetchDocAndOpenDrawer(editingId, "proforma"); }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId)
-            fetchDocAndOpenDrawer(
-              editingId,
-              targetType as "proforma" | "invoice" | "delivery_note",
-            );
+          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "proforma" | "invoice" | "delivery_note");
         }}
       />
 
-      {/* Document Preview */}
       <DocumentPreview
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         document={previewDoc}
-        onEdit={() => {
-          setPreviewOpen(false);
-          if (previewDoc) openEditDrawer(previewDoc.id);
-        }}
+        onEdit={() => { setPreviewOpen(false); if (previewDoc) openEditDrawer(previewDoc.id); }}
         onRefresh={fetchProformas}
       />
     </div>

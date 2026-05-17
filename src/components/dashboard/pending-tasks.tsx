@@ -1,7 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RiArrowRightLine, RiCheckboxCircleLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { ArrowRight01Icon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
+
+const RiArrowRightLine = hgIcon(ArrowRight01Icon);
+const RiCheckboxCircleLine = hgIcon(CheckmarkCircle01Icon);
 import { mockTasks } from "@/lib/mock-data";
 import Link from "next/link";
 

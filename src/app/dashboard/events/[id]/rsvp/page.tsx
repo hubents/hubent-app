@@ -6,45 +6,52 @@ import { useEvent } from "@/contexts/event-context";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  RiShareLine,
-  RiMailSendLine,
-  RiWhatsappLine,
-  RiLinkM,
-  RiEyeLine,
-  RiSettings4Line,
-  RiQuestionLine,
-  RiMapPinLine,
-  RiCalendarLine,
-  RiHotelLine,
-  RiCheckLine,
-  RiLoader4Line,
-  RiAddLine,
-  RiDeleteBinLine,
-  RiEditLine,
-  RiImageAddLine,
-  RiCompassLine,
-  RiTimeLine,
-  RiBusLine,
-} from "@remixicon/react";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
+  Cancel01Icon,
+  PlusSignIcon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  Edit02Icon,
+  Delete01Icon,
+  Image01Icon,
+  Message01Icon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  Hotel01Icon,
+  Bus01Icon,
+  SparklesIcon,
+  HelpCircleIcon,
+  PaintBoardIcon,
+  SmartPhone01Icon,
+  Copy01Icon,
+  QrCode01Icon,
+  SentIcon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 import { useFileUpload } from "@/hooks/use-file-upload";
+
+const IcoX = hgIcon(Cancel01Icon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
+const IcoChevUp = hgIcon(ArrowUp01Icon);
+const IcoEdit = hgIcon(Edit02Icon);
+const IcoTrash = hgIcon(Delete01Icon);
+const IcoImage = hgIcon(Image01Icon);
+const IcoMessage = hgIcon(Message01Icon);
+const IcoCheckCircle = hgIcon(CheckmarkCircle02Icon);
+const IcoClock = hgIcon(Clock01Icon);
+const IcoHotel = hgIcon(Hotel01Icon);
+const IcoBus = hgIcon(Bus01Icon);
+const IcoSparkles = hgIcon(SparklesIcon);
+const IcoHelp = hgIcon(HelpCircleIcon);
+const IcoPalette = hgIcon(PaintBoardIcon);
+const IcoPhone = hgIcon(SmartPhone01Icon);
+const IcoCopy = hgIcon(Copy01Icon);
+const IcoQr = hgIcon(QrCode01Icon);
+const IcoSend = hgIcon(SentIcon);
+const IcoUpload = hgIcon(Upload01Icon);
 
 interface RsvpSettings {
   enabled: boolean;
@@ -59,6 +66,7 @@ interface RsvpSettings {
   showLocation: boolean;
   showFaqs: boolean;
   showTransport: boolean;
+  menuOptions: string[];
 }
 
 interface ItineraryItem {
@@ -117,22 +125,30 @@ interface TransportOption {
   orderIndex: number;
 }
 
-interface Guest {
-  id: number;
-  firstName: string;
-  lastName: string | null;
-  email: string | null;
-}
+type ThemeKey = "ivory" | "sage" | "dusty" | "night";
 
+const THEME_PALETTES: Record<ThemeKey, { label: string; gradient: string }> = {
+  ivory: { label: "Ivory", gradient: "linear-gradient(135deg, #FBF7EF, #E8D9C5)" },
+  sage: { label: "Sage", gradient: "linear-gradient(135deg, #DFE8DD, #AEC1A4)" },
+  dusty: { label: "Dusty", gradient: "linear-gradient(135deg, #F5DCD9, #D88E8A)" },
+  night: { label: "Night", gradient: "linear-gradient(135deg, #2A3242, #6A7A91)" },
+};
+
+// =============================================================================
+// Page
+// =============================================================================
 export default function EventRsvpPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const eventId = parseInt(id, 10);
   const { activeEvent, setActiveEvent } = useEvent();
   const { eventScoped } = useUserSessionContext();
   const { canEdit } = useEventPermissions(eventId, eventScoped);
-  const canEditRsvp = canEdit("rsvp");
+  const ed = canEdit("rsvp");
 
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"editor" | "preview">("editor");
+  const [theme, setTheme] = useState<ThemeKey>("ivory");
+
   const [settings, setSettings] = useState<RsvpSettings>({
     enabled: true,
     deadline: null,
@@ -146,6 +162,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     showLocation: true,
     showFaqs: true,
     showTransport: false,
+    menuOptions: ["Carne", "Pescado", "Vegetariano"],
   });
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
@@ -153,446 +170,155 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
   const [nearbyPlans, setNearbyPlans] = useState<NearbyPlan[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [transportOptions, setTransportOptions] = useState<TransportOption[]>([]);
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<ItineraryItem | Hotel | NearbyPlan | Faq | TransportOption | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [showSendDialog, setShowSendDialog] = useState(false);
-  const [guests, setGuests] = useState<Guest[]>([]);
-  const [selectedGuests, setSelectedGuests] = useState<number[]>([]);
-  const [inviteMessage, setInviteMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  const initialSettingsRef = useRef<string>("");
-  const [rsvpStats, setRsvpStats] = useState<{
-    totalGuests: number;
-    confirmed: number;
-    declined: number;
-    pending: number;
-    totalCompanions: number;
-    totalAttending: number;
-    transport: { name: string; capacity: number | null; booked: number; available: number | null }[];
-  } | null>(null);
+  const [rsvpStats, setRsvpStats] = useState({
+    total: 0,
+    confirmed: 0,
+    pending: 0,
+    declined: 0,
+  });
 
-  // File upload hook for cover image
-  const { upload: uploadImage, uploading: uploadingImage, error: uploadError } = useFileUpload({
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const initialSettingsRef = useRef<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Drawers
+  const [hotelDrawerOpen, setHotelDrawerOpen] = useState(false);
+  const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
+  const [busDrawerOpen, setBusDrawerOpen] = useState(false);
+  const [editingBus, setEditingBus] = useState<TransportOption | null>(null);
+  const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<NearbyPlan | null>(null);
+  const [itineraryDrawerOpen, setItineraryDrawerOpen] = useState(false);
+  const [editingItinerary, setEditingItinerary] = useState<ItineraryItem | null>(null);
+  const [faqDrawerOpen, setFaqDrawerOpen] = useState(false);
+  const [editingFaq, setEditingFaq] = useState<Faq | null>(null);
+
+  const { upload: uploadImage, uploading: uploadingImage } = useFileUpload({
     folder: `events/${eventId}/cover`,
     allowedTypes: ["image/*"],
     onSuccess: async (result) => {
       setCoverImage(result.url);
-      // Save to event
-      await fetch(`/api/events/${eventId}/rsvp`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverImage: result.url }),
-      });
+      try {
+        const res = await fetch(`/api/events/${eventId}/rsvp`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coverImage: result.url }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Error al guardar la portada");
+        }
+        toast.success("Portada actualizada");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error al guardar";
+        toast.error(msg);
+      }
+    },
+    onError: (msg) => {
+      // When the storage backend isn't configured (typical in dev/staging
+      // without R2 secrets), point the user at the URL-paste fallback.
+      if (msg.includes("almacenamiento") || msg.includes("CONFIG")) {
+        toast.error(
+          "El almacenamiento de imágenes no está configurado. Pega una URL en el campo de abajo.",
+        );
+      } else {
+        toast.error(msg);
+      }
     },
   });
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await uploadImage(file);
-    }
-  };
-
+  // Fetch initial data
   useEffect(() => {
+    let cancelled = false;
     async function fetchData() {
       try {
-        // Fetch event
         const eventRes = await fetch(`/api/events/${eventId}`);
         const eventData = await eventRes.json();
-        if (eventData.success) {
+        if (!cancelled && eventData.success) {
           setActiveEvent(eventData.data);
           setCoverImage(eventData.data.coverImage || null);
         }
 
-        // Fetch RSVP data
         const rsvpRes = await fetch(`/api/events/${eventId}/rsvp`);
         const rsvpData = await rsvpRes.json();
-        if (rsvpData.success) {
+        if (!cancelled && rsvpData.success) {
           if (rsvpData.data.settings) {
-            setSettings({
-              enabled: rsvpData.data.settings.enabled ?? true,
-              deadline: rsvpData.data.settings.deadline || null,
-              allowPlusOne: rsvpData.data.settings.allowPlusOne ?? false,
-              maxCompanionsPerGuest: rsvpData.data.settings.maxCompanionsPerGuest ?? 1,
-              askDietaryRestrictions: rsvpData.data.settings.askDietaryRestrictions ?? true,
-              customMessage: rsvpData.data.settings.customMessage || "",
-              showItinerary: rsvpData.data.settings.showItinerary ?? true,
-              showHotels: rsvpData.data.settings.showHotels ?? true,
-              showNearbyPlans: rsvpData.data.settings.showNearbyPlans ?? true,
-              showLocation: rsvpData.data.settings.showLocation ?? true,
-              showFaqs: rsvpData.data.settings.showFaqs ?? true,
-              showTransport: rsvpData.data.settings.showTransport ?? false,
-            });
-            // Store initial settings for change detection
-            initialSettingsRef.current = JSON.stringify({
-              enabled: rsvpData.data.settings.enabled ?? true,
-              deadline: rsvpData.data.settings.deadline || null,
-              allowPlusOne: rsvpData.data.settings.allowPlusOne ?? false,
-              maxCompanionsPerGuest: rsvpData.data.settings.maxCompanionsPerGuest ?? 1,
-              askDietaryRestrictions: rsvpData.data.settings.askDietaryRestrictions ?? true,
-              customMessage: rsvpData.data.settings.customMessage || "",
-              showItinerary: rsvpData.data.settings.showItinerary ?? true,
-              showHotels: rsvpData.data.settings.showHotels ?? true,
-              showNearbyPlans: rsvpData.data.settings.showNearbyPlans ?? true,
-              showLocation: rsvpData.data.settings.showLocation ?? true,
-              showFaqs: rsvpData.data.settings.showFaqs ?? true,
-              showTransport: rsvpData.data.settings.showTransport ?? false,
-            });
-          } else {
-            initialSettingsRef.current = JSON.stringify(settings);
+            const s = rsvpData.data.settings;
+            const next: RsvpSettings = {
+              enabled: s.enabled ?? true,
+              deadline: s.deadline || null,
+              allowPlusOne: s.allowPlusOne ?? false,
+              maxCompanionsPerGuest: s.maxCompanionsPerGuest ?? 1,
+              askDietaryRestrictions: s.askDietaryRestrictions ?? true,
+              customMessage: s.customMessage || "",
+              showItinerary: s.showItinerary ?? true,
+              showHotels: s.showHotels ?? true,
+              showNearbyPlans: s.showNearbyPlans ?? true,
+              showLocation: s.showLocation ?? true,
+              showFaqs: s.showFaqs ?? true,
+              showTransport: s.showTransport ?? false,
+              menuOptions:
+                Array.isArray(s.menuOptions) && s.menuOptions.length > 0
+                  ? s.menuOptions
+                  : ["Carne", "Pescado", "Vegetariano"],
+            };
+            setSettings(next);
+            initialSettingsRef.current = JSON.stringify(next);
           }
           setItinerary(rsvpData.data.itinerary || []);
           setHotels(rsvpData.data.hotels || []);
           setNearbyPlans(rsvpData.data.nearbyPlans || []);
           setFaqs(rsvpData.data.faqs || []);
           if (rsvpData.data.stats) {
-            setRsvpStats(rsvpData.data.stats);
+            setRsvpStats({
+              total: rsvpData.data.stats.totalGuests || 0,
+              confirmed: rsvpData.data.stats.confirmed || 0,
+              pending: rsvpData.data.stats.pending || 0,
+              declined: rsvpData.data.stats.declined || 0,
+            });
           }
         }
 
-        // Fetch transport options
         const transportRes = await fetch(`/api/events/${eventId}/rsvp/transport`);
         const transportData = await transportRes.json();
-        if (transportData.success) {
+        if (!cancelled && transportData.success) {
           setTransportOptions(transportData.data || []);
         }
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("Failed to fetch RSVP data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchData();
-  }, [eventId, setActiveEvent]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
-  // Detect changes in settings
+  // Detect setting changes
   useEffect(() => {
-    if (initialSettingsRef.current && !loading) {
-      const currentSettings = JSON.stringify(settings);
-      setHasChanges(currentSettings !== initialSettingsRef.current);
+    if (!loading && initialSettingsRef.current) {
+      setHasChanges(JSON.stringify(settings) !== initialSettingsRef.current);
     }
   }, [settings, loading]);
 
-  // Warn before leaving with unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasChanges) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasChanges]);
+  const rsvpUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/rsvp/${eventId}` : "";
+  const publicLink = rsvpUrl.replace(/^https?:\/\//, "");
 
-  const rsvpUrl = typeof window !== "undefined" 
-    ? `${window.location.origin}/rsvp/${eventId}` 
-    : "";
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(rsvpUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(
-      `¡Estás invitado! Confirma tu asistencia aquí: ${rsvpUrl}`
-    );
-    window.open(`https://wa.me/?text=${message}`, "_blank");
-  };
-
-  const fetchGuests = async () => {
+  const handleCopyLink = async () => {
+    if (typeof navigator === "undefined") return;
     try {
-      const res = await fetch(`/api/events/${eventId}/guests`);
-      const data = await res.json();
-      if (data.success) {
-        setGuests(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch guests:", error);
+      await navigator.clipboard.writeText(rsvpUrl);
+      toast.success("Link copiado");
+    } catch {
+      toast.error("No se pudo copiar el link");
     }
   };
 
-  const handleOpenSendDialog = async () => {
-    await fetchGuests();
-    setShowSendDialog(true);
-    setSendResult(null);
-  };
-
-  const handleToggleGuest = (guestId: number) => {
-    setSelectedGuests((prev) =>
-      prev.includes(guestId)
-        ? prev.filter((id) => id !== guestId)
-        : [...prev, guestId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    const guestsWithEmail = guests.filter((g) => g.email);
-    if (selectedGuests.length === guestsWithEmail.length) {
-      setSelectedGuests([]);
-    } else {
-      setSelectedGuests(guestsWithEmail.map((g) => g.id));
-    }
-  };
-
-  const handleSendInvitations = async () => {
-    if (selectedGuests.length === 0) return;
-    setSending(true);
-    setSendResult(null);
-
-    try {
-      const res = await fetch(`/api/events/${eventId}/invitations/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          guestIds: selectedGuests,
-          customMessage: inviteMessage,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSendResult(data.data);
-        setSelectedGuests([]);
-      }
-    } catch (error) {
-      console.error("Failed to send invitations:", error);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // CRUD functions for itinerary
-  const handleAddItinerary = async (item: Partial<ItineraryItem>) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setItinerary([...itinerary, data.data]);
-        setEditingSection(null);
-      }
-    } catch (error) {
-      console.error("Failed to add itinerary:", error);
-    }
-  };
-
-  const handleDeleteItinerary = async (id: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/rsvp/itinerary?id=${id}`, { method: "DELETE" });
-      setItinerary(itinerary.filter((i) => i.id !== id));
-    } catch (error) {
-      console.error("Failed to delete itinerary:", error);
-    }
-  };
-
-  const handleEditItinerary = async (item: ItineraryItem) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setItinerary(itinerary.map((i) => (i.id === item.id ? item : i)));
-        setEditingSection(null);
-        setEditingItem(null);
-      }
-    } catch (error) {
-      console.error("Failed to edit itinerary:", error);
-    }
-  };
-
-  // CRUD functions for hotels
-  const handleAddHotel = async (item: Partial<Hotel>) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setHotels([...hotels, data.data]);
-        setEditingSection(null);
-      }
-    } catch (error) {
-      console.error("Failed to add hotel:", error);
-    }
-  };
-
-  const handleDeleteHotel = async (id: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/rsvp/hotels?id=${id}`, { method: "DELETE" });
-      setHotels(hotels.filter((h) => h.id !== id));
-    } catch (error) {
-      console.error("Failed to delete hotel:", error);
-    }
-  };
-
-  const handleEditHotel = async (item: Hotel) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setHotels(hotels.map((h) => (h.id === item.id ? item : h)));
-        setEditingSection(null);
-        setEditingItem(null);
-      }
-    } catch (error) {
-      console.error("Failed to edit hotel:", error);
-    }
-  };
-
-  // CRUD functions for nearby plans
-  const handleAddNearbyPlan = async (item: Partial<NearbyPlan>) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNearbyPlans([...nearbyPlans, data.data]);
-        setEditingSection(null);
-      }
-    } catch (error) {
-      console.error("Failed to add nearby plan:", error);
-    }
-  };
-
-  const handleDeleteNearbyPlan = async (id: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/rsvp/nearby-plans?id=${id}`, { method: "DELETE" });
-      setNearbyPlans(nearbyPlans.filter((p) => p.id !== id));
-    } catch (error) {
-      console.error("Failed to delete nearby plan:", error);
-    }
-  };
-
-  const handleEditNearbyPlan = async (item: NearbyPlan) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNearbyPlans(nearbyPlans.map((p) => (p.id === item.id ? item : p)));
-        setEditingSection(null);
-        setEditingItem(null);
-      }
-    } catch (error) {
-      console.error("Failed to edit nearby plan:", error);
-    }
-  };
-
-  // CRUD functions for FAQs
-  const handleAddFaq = async (item: Partial<Faq>) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFaqs([...faqs, data.data]);
-        setEditingSection(null);
-      }
-    } catch (error) {
-      console.error("Failed to add FAQ:", error);
-    }
-  };
-
-  const handleDeleteFaq = async (id: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/rsvp/faqs?id=${id}`, { method: "DELETE" });
-      setFaqs(faqs.filter((f) => f.id !== id));
-    } catch (error) {
-      console.error("Failed to delete FAQ:", error);
-    }
-  };
-
-  const handleEditFaq = async (item: Faq) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFaqs(faqs.map((f) => (f.id === item.id ? item : f)));
-        setEditingSection(null);
-        setEditingItem(null);
-      }
-    } catch (error) {
-      console.error("Failed to update FAQ:", error);
-    }
-  };
-
-  // CRUD functions for transport
-  const handleAddTransport = async (item: Partial<TransportOption>) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTransportOptions([...transportOptions, data.data]);
-        setEditingSection(null);
-      }
-    } catch (error) {
-      console.error("Failed to add transport:", error);
-    }
-  };
-
-  const handleDeleteTransport = async (id: number) => {
-    try {
-      await fetch(`/api/events/${eventId}/rsvp/transport?id=${id}`, { method: "DELETE" });
-      setTransportOptions(transportOptions.filter((t) => t.id !== id));
-    } catch (error) {
-      console.error("Failed to delete transport:", error);
-    }
-  };
-
-  const handleEditTransport = async (item: TransportOption) => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTransportOptions(transportOptions.map((t) => (t.id === item.id ? item : t)));
-        setEditingSection(null);
-        setEditingItem(null);
-      }
-    } catch (error) {
-      console.error("Failed to edit transport:", error);
-    }
-  };
-
-  // Save settings
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
@@ -602,7 +328,7 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
         body: JSON.stringify({ settings, coverImage }),
       });
       if (res.ok) {
-        toast.success("Cambios guardados correctamente");
+        toast.success("Cambios guardados");
         setHasChanges(false);
         initialSettingsRef.current = JSON.stringify(settings);
       } else {
@@ -616,1348 +342,2522 @@ export default function EventRsvpPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Always reset the input so re-selecting the same file fires `onChange`
+    // (browsers de-dupe by value otherwise).
+    e.target.value = "";
+    if (file) await uploadImage(file);
+  };
+
+  // Save a cover image URL directly (no upload — used when the user pastes
+  // an external image link, or to clear the current cover).
+  const saveCoverUrl = async (url: string | null) => {
+    setCoverImage(url);
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: url }),
+      });
+      if (!res.ok) throw new Error("Error al guardar la portada");
+      toast.success(url ? "Portada actualizada" : "Portada eliminada");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al guardar";
+      toast.error(msg);
+    }
+  };
+
+  // Itinerary CRUD
+  const saveItinerary = async (item: Partial<ItineraryItem>) => {
+    if (editingItinerary) {
+      const merged = { ...editingItinerary, ...item };
+      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setItinerary((prev) => prev.map((i) => (i.id === merged.id ? merged : i)));
+      }
+    } else {
+      const res = await fetch(`/api/events/${eventId}/rsvp/itinerary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...item, orderIndex: itinerary.length }),
+      });
+      const data = await res.json();
+      if (data.success) setItinerary((prev) => [...prev, data.data]);
+    }
+    setItineraryDrawerOpen(false);
+    setEditingItinerary(null);
+  };
+  const deleteItinerary = async (id: number) => {
+    await fetch(`/api/events/${eventId}/rsvp/itinerary?id=${id}`, { method: "DELETE" });
+    setItinerary((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  // Hotels CRUD
+  const saveHotel = async (item: Partial<Hotel>) => {
+    if (editingHotel) {
+      const merged = { ...editingHotel, ...item };
+      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHotels((prev) => prev.map((h) => (h.id === merged.id ? merged : h)));
+      }
+    } else {
+      const res = await fetch(`/api/events/${eventId}/rsvp/hotels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...item, orderIndex: hotels.length }),
+      });
+      const data = await res.json();
+      if (data.success) setHotels((prev) => [...prev, data.data]);
+    }
+    setHotelDrawerOpen(false);
+    setEditingHotel(null);
+  };
+  const deleteHotel = async (id: number) => {
+    await fetch(`/api/events/${eventId}/rsvp/hotels?id=${id}`, { method: "DELETE" });
+    setHotels((prev) => prev.filter((h) => h.id !== id));
+  };
+
+  // Plans CRUD
+  const savePlan = async (item: Partial<NearbyPlan>) => {
+    if (editingPlan) {
+      const merged = { ...editingPlan, ...item };
+      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNearbyPlans((prev) => prev.map((p) => (p.id === merged.id ? merged : p)));
+      }
+    } else {
+      const res = await fetch(`/api/events/${eventId}/rsvp/nearby-plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...item, orderIndex: nearbyPlans.length }),
+      });
+      const data = await res.json();
+      if (data.success) setNearbyPlans((prev) => [...prev, data.data]);
+    }
+    setPlanDrawerOpen(false);
+    setEditingPlan(null);
+  };
+  const deletePlan = async (id: number) => {
+    await fetch(`/api/events/${eventId}/rsvp/nearby-plans?id=${id}`, { method: "DELETE" });
+    setNearbyPlans((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Bus / Transport CRUD
+  const saveBus = async (item: Partial<TransportOption>) => {
+    if (editingBus) {
+      const merged = { ...editingBus, ...item };
+      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTransportOptions((prev) => prev.map((t) => (t.id === merged.id ? merged : t)));
+      }
+    } else {
+      const res = await fetch(`/api/events/${eventId}/rsvp/transport`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...item,
+          isActive: true,
+          orderIndex: transportOptions.length,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) setTransportOptions((prev) => [...prev, data.data]);
+    }
+    setBusDrawerOpen(false);
+    setEditingBus(null);
+  };
+  const deleteBus = async (id: number) => {
+    await fetch(`/api/events/${eventId}/rsvp/transport?id=${id}`, { method: "DELETE" });
+    setTransportOptions((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // FAQ CRUD
+  const saveFaq = async (item: Partial<Faq>) => {
+    if (editingFaq) {
+      const merged = { ...editingFaq, ...item };
+      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFaqs((prev) => prev.map((f) => (f.id === merged.id ? merged : f)));
+      }
+    } else {
+      const res = await fetch(`/api/events/${eventId}/rsvp/faqs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...item, orderIndex: faqs.length }),
+      });
+      const data = await res.json();
+      if (data.success) setFaqs((prev) => [...prev, data.data]);
+    }
+    setFaqDrawerOpen(false);
+    setEditingFaq(null);
+  };
+  const deleteFaq = async (id: number) => {
+    await fetch(`/api/events/${eventId}/rsvp/faqs?id=${id}`, { method: "DELETE" });
+    setFaqs((prev) => prev.filter((f) => f.id !== id));
+  };
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+      <EventSectionGuard eventId={eventId} section="rsvp">
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-40 w-full" />
         </div>
-      </div>
+      </EventSectionGuard>
     );
   }
 
   return (
     <EventSectionGuard eventId={eventId} section="rsvp">
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">RSVP e Invitaciones</h1>
-          <p className="text-[var(--muted-foreground)]">
-            Configura la página de confirmación y envía invitaciones
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/rsvp/${eventId}`} target="_blank">
-            <Button variant="outline" className="gap-2">
-              <RiEyeLine className="h-4 w-4" />
-              Vista previa
-            </Button>
-          </Link>
-          {canEditRsvp && (
-          <Button className="gap-2" onClick={handleOpenSendDialog}>
-            <RiMailSendLine className="h-4 w-4" />
-            Enviar invitaciones
-          </Button>
-          )}
-          {hasChanges && canEditRsvp && (
-            <Button 
-              onClick={handleSaveSettings} 
-              disabled={saving}
-              className="gap-2"
-            >
-              {saving ? (
-                <>
-                  <RiLoader4Line className="h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <RiCheckLine className="h-4 w-4" />
-                  Guardar
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
+      <div className="flex flex-col gap-3.5">
+        {!ed && <ReadOnlyBanner />}
 
-      {/* Stats Dashboard */}
-      {rsvpStats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">Total Invitados</p>
-            <p className="text-2xl font-bold">{rsvpStats.totalGuests}</p>
-          </Card>
-          <Card className="p-4 border-green-200 bg-green-50">
-            <p className="text-sm text-green-700">Confirmados</p>
-            <p className="text-2xl font-bold text-green-700">{rsvpStats.confirmed}</p>
-          </Card>
-          <Card className="p-4 border-yellow-200 bg-yellow-50">
-            <p className="text-sm text-yellow-700">Pendientes</p>
-            <p className="text-2xl font-bold text-yellow-700">{rsvpStats.pending}</p>
-          </Card>
-          <Card className="p-4 border-red-200 bg-red-50">
-            <p className="text-sm text-red-700">Rechazados</p>
-            <p className="text-2xl font-bold text-red-700">{rsvpStats.declined}</p>
-          </Card>
-          <Card className="p-4 border-blue-200 bg-blue-50">
-            <p className="text-sm text-blue-700">Acompañantes</p>
-            <p className="text-2xl font-bold text-blue-700">{rsvpStats.totalCompanions}</p>
-          </Card>
-          <Card className="p-4 border-purple-200 bg-purple-50">
-            <p className="text-sm text-purple-700">Total Asistentes</p>
-            <p className="text-2xl font-bold text-purple-700">{rsvpStats.totalAttending}</p>
-          </Card>
-        </div>
-      )}
-
-      {/* Transport Stats */}
-      {rsvpStats && rsvpStats.transport && rsvpStats.transport.length > 0 && settings.showTransport && (
-        <Card className="p-4">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <RiBusLine className="h-4 w-4" />
-            Reservas de Transporte
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {rsvpStats.transport.map((t, i) => (
-              <div key={i} className="p-3 rounded-lg border bg-muted/30">
-                <p className="font-medium">{t.name}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary rounded-full" 
-                      style={{ width: t.capacity ? `${(t.booked / t.capacity) * 100}%` : '0%' }}
-                    />
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {t.booked}/{t.capacity || '∞'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Send Invitations Drawer */}
-      <Sheet open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Enviar Invitaciones por Email</SheetTitle>
-            <SheetDescription>
-              Selecciona los invitados a los que deseas enviar la invitación
-            </SheetDescription>
-          </SheetHeader>
-
-          {sendResult ? (
-            <div className="py-6 text-center">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <RiCheckLine className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">¡Invitaciones enviadas!</h3>
-              <p className="text-muted-foreground">
-                {sendResult.sent} enviadas correctamente
-                {sendResult.failed > 0 && `, ${sendResult.failed} fallidas`}
-              </p>
-              <Button className="mt-4" onClick={() => setShowSendDialog(false)}>
-                Cerrar
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4 px-4 py-4">
-              {guests.length > 0 ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                      {selectedGuests.length === guests.filter((g) => g.email).length
-                        ? "Deseleccionar todos"
-                        : "Seleccionar todos"}
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                      {selectedGuests.length} seleccionados
-                    </span>
-                  </div>
-
-                  <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
-                    {guests.map((guest) => (
-                      <div
-                        key={guest.id}
-                        className={cn(
-                          "flex items-center gap-3 p-3",
-                          !guest.email && "opacity-50"
-                        )}
-                      >
-                        <Checkbox
-                          checked={selectedGuests.includes(guest.id)}
-                          onCheckedChange={() => handleToggleGuest(guest.id)}
-                          disabled={!guest.email}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">
-                            {guest.firstName} {guest.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {guest.email || "Sin email"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Mensaje personalizado (opcional)</Label>
-                    <Textarea
-                      placeholder="Añade un mensaje especial para los invitados..."
-                      value={inviteMessage}
-                      onChange={(e) => setInviteMessage(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowSendDialog(false)}>
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={handleSendInvitations}
-                      disabled={sending || selectedGuests.length === 0}
-                      className="gap-2"
-                    >
-                      {sending ? (
-                        <>
-                          <RiLoader4Line className="h-4 w-4 animate-spin" />
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <RiMailSendLine className="h-4 w-4" />
-                          Enviar ({selectedGuests.length})
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    No hay invitados registrados
-                  </p>
-                  <Link href={`/dashboard/events/${eventId}/guests`}>
-                    <Button variant="outline">Añadir invitados</Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Share Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiShareLine className="h-5 w-5" />
-              Compartir invitación
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Enlace de RSVP</Label>
-              <div className="flex gap-2">
-                <Input value={rsvpUrl} readOnly className="flex-1" />
-                <Button variant="outline" onClick={handleCopyLink}>
-                  {copied ? "¡Copiado!" : <RiLinkM className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="gap-2" onClick={handleShareWhatsApp}>
-                <RiWhatsappLine className="h-4 w-4 text-green-600" />
-                WhatsApp
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <RiMailSendLine className="h-4 w-4 text-blue-600" />
-                Email
-              </Button>
-            </div>
-
-            <div className="pt-4 border-t">
-              <p className="text-sm text-[var(--muted-foreground)] mb-3">
-                Estadísticas de invitaciones
-              </p>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold">0</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">Enviadas</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">0</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">Abiertas</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">0</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">Respondidas</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Settings Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiSettings4Line className="h-5 w-5" />
-              Configuración de RSVP
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">RSVP Activo</p>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Permitir confirmaciones
-                </p>
-              </div>
-              <Switch
-                checked={settings.enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, enabled: checked })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Permitir acompañantes</p>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  {settings.allowPlusOne 
-                    ? `Máximo ${settings.maxCompanionsPerGuest} acompañante${settings.maxCompanionsPerGuest > 1 ? "s" : ""} por invitado`
-                    : "Los invitados no pueden traer acompañantes"}
-                </p>
-              </div>
-              <Switch
-                checked={settings.allowPlusOne}
-                onCheckedChange={(checked) => setSettings({ ...settings, allowPlusOne: checked })}
-              />
-            </div>
-
-            {settings.allowPlusOne && (
-              <div className="space-y-2 pl-4 border-l-2 border-[var(--primary)]/20">
-                <Label>Máximo de acompañantes por invitado</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={settings.maxCompanionsPerGuest}
-                    onChange={(e) => setSettings({ ...settings, maxCompanionsPerGuest: parseInt(e.target.value) || 1 })}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">persona{settings.maxCompanionsPerGuest > 1 ? "s" : ""}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Preferencias alimentarias</p>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Preguntar por restricciones
-                </p>
-              </div>
-              <Switch
-                checked={settings.askDietaryRestrictions}
-                onCheckedChange={(checked) => setSettings({ ...settings, askDietaryRestrictions: checked })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Fecha límite de confirmación</Label>
-              <Input
-                type="date"
-                value={settings.deadline || ""}
-                onChange={(e) => setSettings({ ...settings, deadline: e.target.value })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-
-        {/* Cover Image */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiImageAddLine className="h-5 w-5" />
-              Imagen del evento
-            </CardTitle>
-            <div>
-              <input
-                type="file"
-                id="cover-image-upload"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => document.getElementById("cover-image-upload")?.click()}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? (
-                  <>
-                    <RiLoader4Line className="h-4 w-4 mr-2 animate-spin" />
-                    Subiendo...
-                  </>
-                ) : (
-                  "Cambiar foto"
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {uploadError && (
-              <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-                {uploadError}
-              </div>
-            )}
-            {coverImage ? (
-              <div className="relative h-48 rounded-lg overflow-hidden group">
-                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => document.getElementById("cover-image-upload")?.click()}
-                  >
-                    Cambiar imagen
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <label
-                htmlFor="cover-image-upload"
-                className="h-48 rounded-lg bg-muted flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors border-2 border-dashed border-muted-foreground/25"
-              >
-                <div className="text-center text-muted-foreground">
-                  <RiImageAddLine className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Haz clic para añadir una imagen</p>
-                  <p className="text-xs mt-1">JPG, PNG, GIF hasta 10MB</p>
-                  <p className="text-xs mt-1 opacity-75">Tamaño recomendado: 1920x600 px (ratio 3.2:1)</p>
-                </div>
-              </label>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Itinerary Section */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiCalendarLine className="h-5 w-5" />
-              Itinerario
-              <Switch
-                checked={settings.showItinerary}
-                onCheckedChange={(checked) => setSettings({ ...settings, showItinerary: checked })}
-              />
-            </CardTitle>
-            {canEditRsvp && (
-            <Button size="sm" className="gap-1" onClick={() => setEditingSection("itinerary")}>
-              <RiAddLine className="h-4 w-4" />
-              Añadir
-            </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {settings.showItinerary && itinerary.length === 0 && (
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
-                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
-              </div>
-            )}
-            {itinerary.length > 0 ? (
-              <div className="space-y-3">
-                {itinerary.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg border">
-                    <RiTimeLine className="h-5 w-5 text-primary mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-medium">{item.title}</p>
-                      {item.description && <p className="text-sm text-muted-foreground">{item.description}</p>}
-                      {item.startTime && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(item.startTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                          {item.endTime && ` - ${new Date(item.endTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
-                        </p>
-                      )}
-                    </div>
-                    {canEditRsvp && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingItem(item);
-                        setEditingSection("itinerary-edit");
-                      }}>
-                        <RiEditLine className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteItinerary(item.id)}>
-                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <RiCalendarLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Añade el cronograma del evento</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Hotels Section */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiHotelLine className="h-5 w-5" />
-              Hoteles
-              <Switch
-                checked={settings.showHotels}
-                onCheckedChange={(checked) => setSettings({ ...settings, showHotels: checked })}
-              />
-            </CardTitle>
-            {canEditRsvp && (
-            <Button size="sm" className="gap-1" onClick={() => setEditingSection("hotel")}>
-              <RiAddLine className="h-4 w-4" />
-              Añadir
-            </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {settings.showHotels && hotels.length === 0 && (
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
-                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
-              </div>
-            )}
-            {hotels.length > 0 ? (
-              <div className="space-y-3">
-                {hotels.map((hotel) => (
-                  <div key={hotel.id} className="flex items-start gap-3 p-3 rounded-lg border">
-                    <div className="flex-1">
-                      <p className="font-medium">{hotel.name}</p>
-                      {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
-                      {hotel.priceRange && <p className="text-xs text-muted-foreground">{hotel.priceRange}</p>}
-                    </div>
-                    {canEditRsvp && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingItem(hotel);
-                        setEditingSection("hotel-edit");
-                      }}>
-                        <RiEditLine className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteHotel(hotel.id)}>
-                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <RiHotelLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Recomienda hoteles cercanos</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Nearby Plans Section */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiCompassLine className="h-5 w-5" />
-              Planes cercanos
-              <Switch
-                checked={settings.showNearbyPlans}
-                onCheckedChange={(checked) => setSettings({ ...settings, showNearbyPlans: checked })}
-              />
-            </CardTitle>
-            {canEditRsvp && (
-            <Button size="sm" className="gap-1" onClick={() => setEditingSection("nearbyPlan")}>
-              <RiAddLine className="h-4 w-4" />
-              Añadir
-            </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {settings.showNearbyPlans && nearbyPlans.length === 0 && (
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
-                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
-              </div>
-            )}
-            {nearbyPlans.length > 0 ? (
-              <div className="space-y-3">
-                {nearbyPlans.map((plan) => (
-                  <div key={plan.id} className="flex items-start gap-3 p-3 rounded-lg border">
-                    <div className="flex-1">
-                      <p className="font-medium">{plan.name}</p>
-                      {plan.category && <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>}
-                      {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
-                    </div>
-                    {canEditRsvp && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingItem(plan);
-                        setEditingSection("nearbyPlan-edit");
-                      }}>
-                        <RiEditLine className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteNearbyPlan(plan.id)}>
-                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <RiCompassLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Sugiere actividades cercanas</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Transport Section */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiBusLine className="h-5 w-5" />
-              Transporte
-              <Switch
-                checked={settings.showTransport}
-                onCheckedChange={(checked) => setSettings({ ...settings, showTransport: checked })}
-              />
-            </CardTitle>
-            {canEditRsvp && (
-            <Button size="sm" className="gap-1" onClick={() => setEditingSection("transport")}>
-              <RiAddLine className="h-4 w-4" />
-              Añadir
-            </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {settings.showTransport && transportOptions.length === 0 && (
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
-                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
-              </div>
-            )}
-            {transportOptions.length > 0 ? (
-              <div className="space-y-3">
-                {transportOptions.map((transport) => (
-                  <div key={transport.id} className="flex items-start gap-3 p-3 rounded-lg border">
-                    <div className="flex-1">
-                      <p className="font-medium">{transport.name}</p>
-                      {transport.departureLocation && (
-                        <p className="text-sm text-muted-foreground">
-                          Salida: {transport.departureLocation} {transport.departureTime && `- ${transport.departureTime}`}
-                        </p>
-                      )}
-                      {transport.returnTime && (
-                        <p className="text-sm text-muted-foreground">Regreso: {transport.returnTime}</p>
-                      )}
-                      {transport.capacity && (
-                        <p className="text-xs text-muted-foreground">Capacidad: {transport.capacity} personas</p>
-                      )}
-                    </div>
-                    {canEditRsvp && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingItem(transport);
-                        setEditingSection("transport-edit");
-                      }}>
-                        <RiEditLine className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteTransport(transport.id)}>
-                        <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <RiBusLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Configura opciones de transporte</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* FAQs Section */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiQuestionLine className="h-5 w-5" />
-              Preguntas frecuentes
-              <Switch
-                checked={settings.showFaqs}
-                onCheckedChange={(checked) => setSettings({ ...settings, showFaqs: checked })}
-              />
-            </CardTitle>
-            {canEditRsvp && (
-            <Button size="sm" className="gap-1" onClick={() => setEditingSection("faq")}>
-              <RiAddLine className="h-4 w-4" />
-              Añadir FAQ
-            </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {settings.showFaqs && faqs.length === 0 && (
-              <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
-                ⚠️ Esta sección está activa pero vacía. Los invitados no verán nada hasta que agregues contenido.
-              </div>
-            )}
-            {faqs.length > 0 ? (
-              <div className="space-y-3">
-                {faqs.map((faq) => (
-                  <div key={faq.id} className="p-3 rounded-lg border">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{faq.question}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{faq.answer}</p>
-                      </div>
-                      {canEditRsvp && (
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditingItem(faq); setEditingSection("faq-edit"); }}>
-                          <RiEditLine className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteFaq(faq.id)}>
-                          <RiDeleteBinLine className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <RiQuestionLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Añade preguntas frecuentes para tus invitados</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Custom Message */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Mensaje personalizado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="Escribe un mensaje personalizado para tus invitados..."
-              value={settings.customMessage}
-              onChange={(e) => setSettings({ ...settings, customMessage: e.target.value })}
-              rows={4}
-            />
-            <p className="text-sm text-muted-foreground mt-2">
-              Este mensaje aparecerá en la página de RSVP y en las invitaciones enviadas.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Save Button */}
-        {canEditRsvp && (
-        <div className="lg:col-span-2 flex justify-end">
-          <Button 
-            onClick={handleSaveSettings} 
-            disabled={saving || !hasChanges}
-            className="gap-2"
+        {/* Top bar — tabs + public link + actions */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div
+            className="inline-flex gap-1 rounded-[8px]"
+            style={{ background: "var(--bg-subtle)", padding: 3 }}
           >
-            {saving ? (
-              <>
-                <RiLoader4Line className="h-4 w-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <RiCheckLine className="h-4 w-4" />
-                {hasChanges ? "Guardar cambios" : "Sin cambios"}
-              </>
-            )}
-          </Button>
+            {(["editor", "preview"] as const).map((k) => {
+              const active = tab === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setTab(k)}
+                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "6px 14px",
+                    background: active ? "#FFFFFF" : "transparent",
+                    color: active ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: active ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  {k === "editor" ? "Editor" : "Vista previa"}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <div
+              className="inline-flex items-center gap-1.5 rounded-[8px]"
+              style={{
+                background: "var(--bg-subtle)",
+                border: "1px solid var(--line-1)",
+                padding: "7px 12px",
+                fontSize: 12,
+                color: "var(--ink-2)",
+              }}
+            >
+              <IcoSend className="h-3 w-3" />
+              <span style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>
+                {publicLink}
+              </span>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+            >
+              <IcoCopy className="h-3 w-3" />
+              Copiar
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+            >
+              <IcoQr className="h-3 w-3" />
+              QR
+            </button>
+            <button
+              onClick={handleSaveSettings}
+              disabled={saving || !ed}
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-1.5 text-[12.5px] font-semibold cursor-pointer transition-colors border-none"
+              style={{
+                background: "var(--color-primary)",
+                color: "#FFFFFF",
+                opacity: saving || !ed ? 0.5 : 1,
+              }}
+            >
+              <IcoSend className="h-3 w-3" />
+              {saving ? "Guardando..." : hasChanges ? "Publicar*" : "Publicar"}
+            </button>
+          </div>
         </div>
+
+        {tab === "editor" ? (
+          <div
+            className="grid gap-3.5"
+            style={{
+              gridTemplateColumns: "minmax(0, 1fr) 380px",
+              alignItems: "flex-start",
+            }}
+          >
+            {/* Editor column */}
+            <div className="flex flex-col gap-3.5">
+              {/* KPI strip */}
+              <div className="grid grid-cols-4 gap-2.5">
+                <RsvpKpi label="Total" value={rsvpStats.total} tone="ink" />
+                <RsvpKpi label="Confirmados" value={rsvpStats.confirmed} tone="success" />
+                <RsvpKpi label="Pendientes" value={rsvpStats.pending} tone="warn" />
+                <RsvpKpi label="Rechazados" value={rsvpStats.declined} tone="danger" />
+              </div>
+
+              {/* Portada */}
+              <RsvpBlock title="Portada" icon={<IcoImage className="h-3.5 w-3.5" />}>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "120px 1fr" }}>
+                  <div
+                    style={{
+                      height: 80,
+                      borderRadius: 8,
+                      backgroundImage: coverImage ? `url(${coverImage})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      background: coverImage
+                        ? `url(${coverImage})`
+                        : "var(--bg-subtle)",
+                      backgroundRepeat: "no-repeat",
+                      border: "1px solid var(--line-1)",
+                    }}
+                  />
+                  <div className="flex flex-col gap-2 justify-center">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!ed || uploadingImage}
+                        className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                        style={{
+                          background: "#FFFFFF",
+                          border: "1px solid var(--line-strong)",
+                          padding: "5px 10px",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          color: "var(--ink-1)",
+                          opacity: !ed || uploadingImage ? 0.5 : 1,
+                        }}
+                      >
+                        <IcoUpload className="h-3 w-3" />
+                        {uploadingImage ? "Subiendo..." : "Subir imagen"}
+                      </button>
+                      {coverImage && ed && (
+                        <button
+                          onClick={() => saveCoverUrl(null)}
+                          className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                          style={{
+                            background: "#FFFFFF",
+                            border: "1px solid var(--line-1)",
+                            padding: "5px 10px",
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: "var(--ink-2)",
+                          }}
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="…o pega una URL: https://images.unsplash.com/…"
+                      defaultValue={coverImage || ""}
+                      disabled={!ed}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== (coverImage || "")) saveCoverUrl(v);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      className="drawer-form-field"
+                      style={{
+                        width: "100%",
+                        padding: "5px 8px",
+                        border: "1px solid var(--line-1)",
+                        borderRadius: 6,
+                        fontSize: 11.5,
+                        background: "#FFFFFF",
+                        color: "var(--ink-1)",
+                        outline: "none",
+                      }}
+                    />
+                    <div className="text-[11px] text-[var(--ink-3)]">
+                      JPG / PNG · proporción 3:2 recomendada
+                    </div>
+                  </div>
+                </div>
+              </RsvpBlock>
+
+              {/* Bienvenida */}
+              <RsvpBlock title="Bienvenida" icon={<IcoMessage className="h-3.5 w-3.5" />}>
+                <FormField label="Mensaje principal">
+                  <textarea
+                    rows={2}
+                    readOnly={!ed}
+                    value={settings.customMessage}
+                    onChange={(e) =>
+                      setSettings((s) => ({ ...s, customMessage: e.target.value }))
+                    }
+                  />
+                </FormField>
+                <div className="grid grid-cols-3 gap-2.5 mt-2.5">
+                  <FormField label="Fecha">
+                    <input
+                      type="date"
+                      defaultValue={
+                        activeEvent?.date
+                          ? new Date(activeEvent.date).toISOString().split("T")[0]
+                          : ""
+                      }
+                      disabled
+                    />
+                  </FormField>
+                  <FormField label="Hora">
+                    <input
+                      type="time"
+                      defaultValue={
+                        activeEvent?.date
+                          ? new Date(activeEvent.date).toTimeString().slice(0, 5)
+                          : ""
+                      }
+                      disabled
+                    />
+                  </FormField>
+                  <FormField label="Lugar">
+                    <input defaultValue={activeEvent?.location || ""} disabled />
+                  </FormField>
+                </div>
+              </RsvpBlock>
+
+              {/* Configuración asistencia */}
+              <RsvpBlock
+                title="Configuración de asistencia"
+                icon={<IcoCheckCircle className="h-3.5 w-3.5" />}
+              >
+                <div className="grid grid-cols-2 gap-2.5">
+                  <FormField label="Fecha límite RSVP">
+                    <input
+                      type="date"
+                      value={settings.deadline || ""}
+                      disabled={!ed}
+                      onChange={(e) =>
+                        setSettings((s) => ({ ...s, deadline: e.target.value || null }))
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Máximo acompañantes">
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={
+                        settings.allowPlusOne ? settings.maxCompanionsPerGuest : 0
+                      }
+                      disabled={!ed || !settings.allowPlusOne}
+                      title={
+                        settings.allowPlusOne
+                          ? undefined
+                          : "Activa primero «Permitir acompañante adicional»"
+                      }
+                      style={{
+                        opacity: settings.allowPlusOne ? 1 : 0.5,
+                        cursor: settings.allowPlusOne ? "auto" : "not-allowed",
+                      }}
+                      onChange={(e) =>
+                        setSettings((s) => ({
+                          ...s,
+                          maxCompanionsPerGuest: Math.max(
+                            0,
+                            Math.min(10, parseInt(e.target.value || "0", 10)),
+                          ),
+                        }))
+                      }
+                    />
+                  </FormField>
+                </div>
+                <label className="flex items-center gap-2 mt-3 cursor-pointer text-[12.5px] text-[var(--ink-1)]">
+                  <input
+                    type="checkbox"
+                    checked={settings.askDietaryRestrictions}
+                    disabled={!ed}
+                    onChange={(e) =>
+                      setSettings((s) => ({
+                        ...s,
+                        askDietaryRestrictions: e.target.checked,
+                      }))
+                    }
+                  />
+                  Preguntar restricciones alimentarias
+                </label>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer text-[12.5px] text-[var(--ink-1)]">
+                  <input
+                    type="checkbox"
+                    checked={settings.allowPlusOne}
+                    disabled={!ed}
+                    onChange={(e) =>
+                      setSettings((s) => ({ ...s, allowPlusOne: e.target.checked }))
+                    }
+                  />
+                  Permitir acompañante adicional
+                </label>
+
+                {/* Opciones de menú — inline subsection (matches prototype) */}
+                <div
+                  className="text-[11.5px] font-semibold uppercase mt-3"
+                  style={{
+                    letterSpacing: "0.06em",
+                    color: "var(--ink-3)",
+                  }}
+                >
+                  Opciones de menú
+                </div>
+                <div className="text-[11.5px] text-[var(--ink-3)] mt-1 mb-2.5">
+                  Aparecen en el formulario público y en la columna
+                  &quot;Menú&quot; del listado de invitados.
+                </div>
+                <MenuOptionsEditor
+                  options={settings.menuOptions}
+                  disabled={!ed}
+                  onChange={(next) =>
+                    setSettings((s) => ({ ...s, menuOptions: next }))
+                  }
+                />
+              </RsvpBlock>
+
+              {/* Horarios */}
+              <RsvpSection
+                title="Horarios del día"
+                icon={<IcoClock className="h-3.5 w-3.5" />}
+                count={itinerary.length}
+                enabled={settings.showItinerary}
+                onToggle={
+                  ed
+                    ? () =>
+                        setSettings((s) => ({ ...s, showItinerary: !s.showItinerary }))
+                    : undefined
+                }
+                emptyText="Sin horarios. Añade el primero."
+                onAdd={
+                  ed
+                    ? () => {
+                        setEditingItinerary(null);
+                        setItineraryDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                items={itinerary.map((it) => ({
+                  id: it.id,
+                  primary: it.title,
+                  cells: [
+                    fmtTime(it.startTime) || "",
+                    it.title,
+                    it.location || "",
+                    it.description || "",
+                  ],
+                  raw: it,
+                }))}
+                columnWidths={[70, 160, 140, null]}
+                onEditItem={
+                  ed
+                    ? (raw) => {
+                        setEditingItinerary(raw as ItineraryItem);
+                        setItineraryDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                onDeleteItem={ed ? (id) => deleteItinerary(id) : undefined}
+              />
+
+              {/* Hoteles */}
+              <RsvpSection
+                title="Hoteles recomendados"
+                icon={<IcoHotel className="h-3.5 w-3.5" />}
+                count={hotels.length}
+                enabled={settings.showHotels}
+                onToggle={
+                  ed
+                    ? () => setSettings((s) => ({ ...s, showHotels: !s.showHotels }))
+                    : undefined
+                }
+                emptyText="Sin hoteles. Añade el primero."
+                onAdd={
+                  ed
+                    ? () => {
+                        setEditingHotel(null);
+                        setHotelDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                items={hotels.map((h) => ({
+                  id: h.id,
+                  primary: h.name,
+                  cells: [
+                    h.name,
+                    h.distance || "",
+                    h.priceRange || "",
+                    h.website
+                      ? h.website.replace(/^https?:\/\//, "")
+                      : h.address || "",
+                  ],
+                  raw: h,
+                }))}
+                columnWidths={[null, 130, 110, 160]}
+                onEditItem={
+                  ed
+                    ? (raw) => {
+                        setEditingHotel(raw as Hotel);
+                        setHotelDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                onDeleteItem={ed ? (id) => deleteHotel(id) : undefined}
+              />
+
+              {/* Buses — Sí/No explicit ("¿Habrá autobuses?") */}
+              <RsvpSection
+                title="¿Habrá autobuses?"
+                icon={<IcoBus className="h-3.5 w-3.5" />}
+                count={transportOptions.length}
+                enabled={settings.showTransport}
+                yesNoMode
+                noMessage="No se ofrecerán autobuses para este evento. Los invitados verán solo la opción de llegar por su cuenta."
+                onToggle={
+                  ed
+                    ? () =>
+                        setSettings((s) => ({ ...s, showTransport: !s.showTransport }))
+                    : undefined
+                }
+                emptyText="Sin autobuses. Añade el primero."
+                onAdd={
+                  ed
+                    ? () => {
+                        setEditingBus(null);
+                        setBusDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                items={transportOptions.map((t) => ({
+                  id: t.id,
+                  primary: t.name,
+                  cells: [
+                    fmtTime(t.departureTime) || "",
+                    t.name,
+                    t.departureLocation || "",
+                    t.capacity != null ? `${t.capacity} plazas` : "",
+                  ],
+                  raw: t,
+                }))}
+                columnWidths={[80, null, null, 110]}
+                onEditItem={
+                  ed
+                    ? (raw) => {
+                        setEditingBus(raw as TransportOption);
+                        setBusDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                onDeleteItem={ed ? (id) => deleteBus(id) : undefined}
+              />
+
+              {/* Planes */}
+              <RsvpSection
+                title="Planes y actividades"
+                icon={<IcoSparkles className="h-3.5 w-3.5" />}
+                count={nearbyPlans.length}
+                enabled={settings.showNearbyPlans}
+                onToggle={
+                  ed
+                    ? () =>
+                        setSettings((s) => ({
+                          ...s,
+                          showNearbyPlans: !s.showNearbyPlans,
+                        }))
+                    : undefined
+                }
+                emptyText="Sin planes. Añade el primero."
+                onAdd={
+                  ed
+                    ? () => {
+                        setEditingPlan(null);
+                        setPlanDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                items={nearbyPlans.map((p) => ({
+                  id: p.id,
+                  primary: p.name,
+                  cells: [
+                    p.name,
+                    p.category || "",
+                    p.address || "",
+                    p.website
+                      ? p.website.replace(/^https?:\/\//, "")
+                      : "",
+                  ],
+                  raw: p,
+                }))}
+                columnWidths={[null, 130, 160, 140]}
+                onEditItem={
+                  ed
+                    ? (raw) => {
+                        setEditingPlan(raw as NearbyPlan);
+                        setPlanDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                onDeleteItem={ed ? (id) => deletePlan(id) : undefined}
+              />
+
+              {/* FAQ */}
+              <RsvpSection
+                title="Preguntas frecuentes"
+                icon={<IcoHelp className="h-3.5 w-3.5" />}
+                count={faqs.length}
+                enabled={settings.showFaqs}
+                onToggle={
+                  ed
+                    ? () => setSettings((s) => ({ ...s, showFaqs: !s.showFaqs }))
+                    : undefined
+                }
+                emptyText="Sin preguntas. Añade la primera."
+                onAdd={
+                  ed
+                    ? () => {
+                        setEditingFaq(null);
+                        setFaqDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                items={faqs.map((f) => ({
+                  id: f.id,
+                  primary: f.question,
+                  cells: [f.question, f.answer],
+                  raw: f,
+                }))}
+                columnWidths={[260, null]}
+                onEditItem={
+                  ed
+                    ? (raw) => {
+                        setEditingFaq(raw as Faq);
+                        setFaqDrawerOpen(true);
+                      }
+                    : undefined
+                }
+                onDeleteItem={ed ? (id) => deleteFaq(id) : undefined}
+              />
+
+              {/* Tema · paleta */}
+              <RsvpBlock title="Tema · paleta" icon={<IcoPalette className="h-3.5 w-3.5" />}>
+                <div className="flex gap-2.5 flex-wrap">
+                  {(Object.entries(THEME_PALETTES) as [ThemeKey, { label: string; gradient: string }][]).map(
+                    ([k, t]) => {
+                      const selected = theme === k;
+                      return (
+                        <button
+                          key={k}
+                          disabled={!ed}
+                          onClick={() => ed && setTheme(k)}
+                          className="flex flex-col items-center gap-1.5 cursor-pointer"
+                          style={{
+                            padding: 6,
+                            borderRadius: 8,
+                            background: selected ? "var(--bg-subtle)" : "transparent",
+                            border: selected
+                              ? "2px solid var(--ink-1)"
+                              : "2px solid transparent",
+                            cursor: ed ? "pointer" : "default",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 64,
+                              height: 42,
+                              borderRadius: 6,
+                              background: t.gradient,
+                            }}
+                          />
+                          <div className="text-[11px] text-[var(--ink-2)]">{t.label}</div>
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              </RsvpBlock>
+            </div>
+
+            {/* Right column — mobile preview */}
+            <div style={{ position: "sticky", top: 12 }}>
+              <div
+                className="text-[11px] font-semibold uppercase text-[var(--ink-3)] mb-2 flex items-center gap-1.5"
+                style={{ letterSpacing: "0.08em" }}
+              >
+                <IcoPhone className="h-3 w-3" />
+                Vista previa en vivo
+              </div>
+              <MobilePreview
+                eventName={activeEvent?.name || "Evento"}
+                eventDate={activeEvent?.date}
+                location={activeEvent?.location}
+                coverImage={coverImage}
+                customMessage={settings.customMessage}
+                theme={theme}
+                settings={settings}
+                itinerary={itinerary}
+                hotels={hotels}
+                nearbyPlans={nearbyPlans}
+                faqs={faqs}
+                transportOptions={transportOptions}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-center py-6">
+            <MobilePreview
+              eventName={activeEvent?.name || "Evento"}
+              eventDate={activeEvent?.date}
+              location={activeEvent?.location}
+              coverImage={coverImage}
+              customMessage={settings.customMessage}
+              theme={theme}
+              size="lg"
+              settings={settings}
+              itinerary={itinerary}
+              hotels={hotels}
+              nearbyPlans={nearbyPlans}
+              faqs={faqs}
+              transportOptions={transportOptions}
+            />
+          </div>
         )}
       </div>
 
-      {/* Add Itinerary Drawer */}
-      <Sheet open={editingSection === "itinerary"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Añadir al itinerario</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const timeValue = formData.get("startTime") as string;
-            // Convert time (HH:mm) to a full datetime for today
-            const startTime = timeValue ? new Date(`2000-01-01T${timeValue}:00`).toISOString() : null;
-            handleAddItinerary({
-              title: formData.get("title") as string,
-              description: formData.get("description") as string,
-              startTime,
-              location: formData.get("location") as string,
-            });
-          }} className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Título *</Label>
-              <Input name="title" required placeholder="Ej: Ceremonia" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea name="description" placeholder="Detalles del momento..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Hora</Label>
-                <Input name="startTime" type="time" />
-              </div>
-              <div className="space-y-2">
-                <Label>Lugar</Label>
-                <Input name="location" placeholder="Ubicación" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
-              <Button type="submit">Añadir</Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+      {/* Drawers */}
+      <ItineraryDrawer
+        open={itineraryDrawerOpen}
+        onClose={() => {
+          setItineraryDrawerOpen(false);
+          setEditingItinerary(null);
+        }}
+        editing={editingItinerary}
+        onSave={saveItinerary}
+      />
+      <HotelDrawer
+        open={hotelDrawerOpen}
+        onClose={() => {
+          setHotelDrawerOpen(false);
+          setEditingHotel(null);
+        }}
+        editing={editingHotel}
+        onSave={saveHotel}
+      />
+      <BusDrawer
+        open={busDrawerOpen}
+        onClose={() => {
+          setBusDrawerOpen(false);
+          setEditingBus(null);
+        }}
+        editing={editingBus}
+        onSave={saveBus}
+      />
+      <PlanDrawer
+        open={planDrawerOpen}
+        onClose={() => {
+          setPlanDrawerOpen(false);
+          setEditingPlan(null);
+        }}
+        editing={editingPlan}
+        onSave={savePlan}
+      />
+      <FaqDrawer
+        open={faqDrawerOpen}
+        onClose={() => {
+          setFaqDrawerOpen(false);
+          setEditingFaq(null);
+        }}
+        editing={editingFaq}
+        onSave={saveFaq}
+      />
+    </EventSectionGuard>
+  );
+}
 
-      {/* Edit Itinerary Drawer */}
-      <Sheet open={editingSection === "itinerary-edit"} onOpenChange={(open) => {
-        if (!open) {
-          setEditingSection(null);
-          setEditingItem(null);
-        }
-      }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar itinerario</SheetTitle>
-          </SheetHeader>
-          {editingItem && "title" in editingItem && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const timeValue = formData.get("startTime") as string;
-              const startTime = timeValue ? new Date(`2000-01-01T${timeValue}:00`).toISOString() : null;
-              handleEditItinerary({
-                ...(editingItem as ItineraryItem),
-                title: formData.get("title") as string,
-                description: formData.get("description") as string,
-                startTime,
-                location: formData.get("location") as string,
-              });
-            }} className="space-y-4 px-4 py-4">
-              <div className="space-y-2">
-                <Label>Título *</Label>
-                <Input 
-                  name="title" 
-                  required 
-                  defaultValue={(editingItem as ItineraryItem).title} 
-                  placeholder="Ej: Ceremonia" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Textarea 
-                  name="description" 
-                  defaultValue={(editingItem as ItineraryItem).description || ""} 
-                  placeholder="Detalles del momento..." 
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Hora</Label>
-                  <Input 
-                    name="startTime" 
-                    type="time" 
-                    defaultValue={(editingItem as ItineraryItem).startTime 
-                      ? new Date((editingItem as ItineraryItem).startTime!).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", hour12: false })
-                      : ""
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Lugar</Label>
-                  <Input 
-                    name="location" 
-                    defaultValue={(editingItem as ItineraryItem).location || ""} 
-                    placeholder="Ubicación" 
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setEditingSection(null);
-                  setEditingItem(null);
-                }}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
-              </div>
-            </form>
-          )}
-        </SheetContent>
-      </Sheet>
+// =============================================================================
+// Helper components — match the prototype's WsRsvp helpers
+// =============================================================================
 
-      {/* Add Hotel Drawer */}
-      <Sheet open={editingSection === "hotel"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Añadir hotel</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            handleAddHotel({
-              name: formData.get("name") as string,
-              description: formData.get("description") as string,
-              address: formData.get("address") as string,
-              phone: formData.get("phone") as string,
-              website: formData.get("website") as string,
-              priceRange: formData.get("priceRange") as string,
-              distance: formData.get("distance") as string,
-            });
-          }} className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input name="name" required placeholder="Nombre del hotel" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea name="description" placeholder="Descripción breve..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Dirección</Label>
-              <Input name="address" placeholder="Dirección completa" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Teléfono</Label>
-                <Input name="phone" placeholder="+54 11 1234-5678" />
-              </div>
-              <div className="space-y-2">
-                <Label>Rango de precios</Label>
-                <Input name="priceRange" placeholder="$$$ - $$$$" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Sitio web</Label>
-                <Input name="website" placeholder="https://..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Distancia</Label>
-                <Input name="distance" placeholder="A 5 min del evento" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
-              <Button type="submit">Añadir</Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+function ReadOnlyBanner() {
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 rounded-[8px] text-[12px] text-[var(--ink-2)]"
+      style={{
+        padding: "8px 12px",
+        background: "var(--bg-subtle)",
+        border: "1px solid var(--line-1)",
+        width: "fit-content",
+      }}
+    >
+      Modo solo lectura — no puedes hacer cambios en este módulo
+    </div>
+  );
+}
 
-      {/* Edit Hotel Drawer */}
-      <Sheet open={editingSection === "hotel-edit"} onOpenChange={(open) => {
-        if (!open) {
-          setEditingSection(null);
-          setEditingItem(null);
-        }
-      }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar hotel</SheetTitle>
-          </SheetHeader>
-          {editingItem && "priceRange" in editingItem && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              handleEditHotel({
-                ...(editingItem as Hotel),
-                name: formData.get("name") as string,
-                description: formData.get("description") as string,
-                address: formData.get("address") as string,
-                phone: formData.get("phone") as string,
-                website: formData.get("website") as string,
-                priceRange: formData.get("priceRange") as string,
-                distance: formData.get("distance") as string,
-              });
-            }} className="space-y-4 px-4 py-4">
-              <div className="space-y-2">
-                <Label>Nombre *</Label>
-                <Input name="name" required defaultValue={(editingItem as Hotel).name} placeholder="Nombre del hotel" />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Textarea name="description" defaultValue={(editingItem as Hotel).description || ""} placeholder="Descripción breve..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Dirección</Label>
-                <Input name="address" defaultValue={(editingItem as Hotel).address || ""} placeholder="Dirección completa" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Teléfono</Label>
-                  <Input name="phone" defaultValue={(editingItem as Hotel).phone || ""} placeholder="+54 11 1234-5678" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Rango de precios</Label>
-                  <Input name="priceRange" defaultValue={(editingItem as Hotel).priceRange || ""} placeholder="$$$ - $$$$" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Sitio web</Label>
-                  <Input name="website" defaultValue={(editingItem as Hotel).website || ""} placeholder="https://..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Distancia</Label>
-                  <Input name="distance" defaultValue={(editingItem as Hotel).distance || ""} placeholder="A 5 min del evento" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setEditingSection(null);
-                  setEditingItem(null);
-                }}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
-              </div>
-            </form>
-          )}
-        </SheetContent>
-      </Sheet>
+function RsvpKpi({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "ink" | "success" | "warn" | "danger";
+}) {
+  const tones: Record<string, string> = {
+    ink: "var(--ink-1)",
+    success: "#4F7A5E",
+    warn: "#B88325",
+    danger: "#B55450",
+  };
+  return (
+    <div
+      className="rounded-[12px]"
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid var(--line-1)",
+        padding: "10px 12px",
+      }}
+    >
+      <div
+        className="text-[10.5px] font-semibold uppercase text-[var(--ink-3)]"
+        style={{ letterSpacing: "0.06em" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-[22px] font-semibold mt-0.5"
+        style={{ color: tones[tone], letterSpacing: "-0.02em" }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
 
-      {/* Add Nearby Plan Drawer */}
-      <Sheet open={editingSection === "nearbyPlan"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Añadir plan cercano</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            handleAddNearbyPlan({
-              name: formData.get("name") as string,
-              description: formData.get("description") as string,
-              category: formData.get("category") as string,
-              address: formData.get("address") as string,
-              website: formData.get("website") as string,
-            });
-          }} className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input name="name" required placeholder="Nombre del lugar" />
-            </div>
-            <div className="space-y-2">
-              <Label>Categoría</Label>
-              <Input name="category" placeholder="Restaurante, Bar, Museo..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea name="description" placeholder="Por qué lo recomiendas..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Dirección</Label>
-              <Input name="address" placeholder="Dirección" />
-            </div>
-            <div className="space-y-2">
-              <Label>Sitio web</Label>
-              <Input name="website" placeholder="https://..." />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
-              <Button type="submit">Añadir</Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+function RsvpBlock({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-[12px] rsvp-block"
+      style={{
+        background: "#FFFFFF",
+        border: "1px solid var(--line-1)",
+        padding: 14,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-2.5">
+        {icon && <span style={{ color: "var(--ink-3)" }}>{icon}</span>}
+        <div className="text-[13px] font-semibold text-[var(--ink-1)]">{title}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
 
-      {/* Edit Nearby Plan Drawer */}
-      <Sheet open={editingSection === "nearbyPlan-edit"} onOpenChange={(open) => {
-        if (!open) {
-          setEditingSection(null);
-          setEditingItem(null);
-        }
-      }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar plan cercano</SheetTitle>
-          </SheetHeader>
-          {editingItem && "category" in editingItem && !("priceRange" in editingItem) && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              handleEditNearbyPlan({
-                ...(editingItem as NearbyPlan),
-                name: formData.get("name") as string,
-                description: formData.get("description") as string,
-                category: formData.get("category") as string,
-                address: formData.get("address") as string,
-                website: formData.get("website") as string,
-              });
-            }} className="space-y-4 px-4 py-4">
-              <div className="space-y-2">
-                <Label>Nombre *</Label>
-                <Input name="name" required defaultValue={(editingItem as NearbyPlan).name} placeholder="Nombre del lugar" />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoría</Label>
-                <Input name="category" defaultValue={(editingItem as NearbyPlan).category || ""} placeholder="Restaurante, Bar, Museo..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Textarea name="description" defaultValue={(editingItem as NearbyPlan).description || ""} placeholder="Por qué lo recomiendas..." />
-              </div>
-              <div className="space-y-2">
-                <Label>Dirección</Label>
-                <Input name="address" defaultValue={(editingItem as NearbyPlan).address || ""} placeholder="Dirección" />
-              </div>
-              <div className="space-y-2">
-                <Label>Sitio web</Label>
-                <Input name="website" defaultValue={(editingItem as NearbyPlan).website || ""} placeholder="https://..." />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setEditingSection(null);
-                  setEditingItem(null);
-                }}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
-              </div>
-            </form>
-          )}
-        </SheetContent>
-      </Sheet>
+interface SectionItem {
+  id: number;
+  primary: string;
+  secondary?: string;
+  /**
+   * When set, the row renders as a grid of cells (matching the prototype's
+   * column-based layout) instead of the default `primary + secondary` stack.
+   * `cells.length` must match the parent section's `columnWidths.length`.
+   */
+  cells?: string[];
+  raw: unknown;
+}
 
-      {/* Add FAQ Drawer */}
-      <Sheet open={editingSection === "faq"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Añadir pregunta frecuente</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            handleAddFaq({
-              question: formData.get("question") as string,
-              answer: formData.get("answer") as string,
-            });
-          }} className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Pregunta *</Label>
-              <Input name="question" required placeholder="¿Cuál es el código de vestimenta?" />
-            </div>
-            <div className="space-y-2">
-              <Label>Respuesta *</Label>
-              <Textarea name="answer" required placeholder="Formal / Semi-formal..." rows={3} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
-              <Button type="submit">Añadir</Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
-
-      {/* Edit FAQ Drawer */}
-      <Sheet open={editingSection === "faq-edit"} onOpenChange={(open) => { if (!open) { setEditingSection(null); setEditingItem(null); } }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar pregunta frecuente</SheetTitle>
-          </SheetHeader>
-          {editingItem && "question" in editingItem && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              handleEditFaq({
-                ...(editingItem as Faq),
-                question: formData.get("question") as string,
-                answer: formData.get("answer") as string,
-              });
-            }} className="space-y-4 px-4 py-4">
-              <div className="space-y-2">
-                <Label>Pregunta *</Label>
-                <Input name="question" required defaultValue={(editingItem as Faq).question} />
-              </div>
-              <div className="space-y-2">
-                <Label>Respuesta *</Label>
-                <Textarea name="answer" required defaultValue={(editingItem as Faq).answer} rows={3} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => { setEditingSection(null); setEditingItem(null); }}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
-              </div>
-            </form>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Add Transport Drawer */}
-      <Sheet open={editingSection === "transport"} onOpenChange={(open) => !open && setEditingSection(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Añadir opción de transporte</SheetTitle>
-          </SheetHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            handleAddTransport({
-              name: formData.get("name") as string,
-              description: formData.get("description") as string,
-              departureLocation: formData.get("departureLocation") as string,
-              departureAddress: formData.get("departureAddress") as string,
-              departureTime: formData.get("departureTime") as string,
-              returnTime: formData.get("returnTime") as string,
-              capacity: parseInt(formData.get("capacity") as string) || null,
-            });
-          }} className="space-y-4 px-4 py-4">
-            <div className="space-y-2">
-              <Label>Nombre *</Label>
-              <Input name="name" required placeholder="Ej: Bus desde Capital Federal" />
-            </div>
-            <div className="space-y-2">
-              <Label>Descripción</Label>
-              <Textarea name="description" placeholder="Detalles del servicio..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Punto de salida</Label>
-                <Input name="departureLocation" placeholder="Ej: Obelisco" />
-              </div>
-              <div className="space-y-2">
-                <Label>Dirección de salida</Label>
-                <Input name="departureAddress" placeholder="Av. 9 de Julio..." />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Hora salida</Label>
-                <Input name="departureTime" type="time" />
-              </div>
-              <div className="space-y-2">
-                <Label>Hora regreso</Label>
-                <Input name="returnTime" type="time" />
-              </div>
-              <div className="space-y-2">
-                <Label>Capacidad</Label>
-                <Input name="capacity" type="number" placeholder="50" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditingSection(null)}>Cancelar</Button>
-              <Button type="submit">Añadir</Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
-
-      {/* Edit Transport Drawer */}
-      <Sheet open={editingSection === "transport-edit"} onOpenChange={(open) => {
-        if (!open) {
-          setEditingSection(null);
-          setEditingItem(null);
-        }
-      }}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Editar opción de transporte</SheetTitle>
-          </SheetHeader>
-          {editingItem && "departureLocation" in editingItem && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              handleEditTransport({
-                ...(editingItem as TransportOption),
-                name: formData.get("name") as string,
-                description: formData.get("description") as string,
-                departureLocation: formData.get("departureLocation") as string,
-                departureAddress: formData.get("departureAddress") as string,
-                departureTime: formData.get("departureTime") as string,
-                returnTime: formData.get("returnTime") as string,
-                capacity: parseInt(formData.get("capacity") as string) || null,
-              });
-            }} className="space-y-4 px-4 py-4">
-              <div className="space-y-2">
-                <Label>Nombre *</Label>
-                <Input name="name" required defaultValue={(editingItem as TransportOption).name} placeholder="Ej: Bus desde Capital Federal" />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Textarea name="description" defaultValue={(editingItem as TransportOption).description || ""} placeholder="Detalles del servicio..." />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Punto de salida</Label>
-                  <Input name="departureLocation" defaultValue={(editingItem as TransportOption).departureLocation || ""} placeholder="Ej: Obelisco" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Dirección de salida</Label>
-                  <Input name="departureAddress" defaultValue={(editingItem as TransportOption).departureAddress || ""} placeholder="Av. 9 de Julio..." />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Hora salida</Label>
-                  <Input name="departureTime" type="time" defaultValue={(editingItem as TransportOption).departureTime || ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Hora regreso</Label>
-                  <Input name="returnTime" type="time" defaultValue={(editingItem as TransportOption).returnTime || ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Capacidad</Label>
-                  <Input name="capacity" type="number" defaultValue={(editingItem as TransportOption).capacity || ""} placeholder="50" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setEditingSection(null);
-                  setEditingItem(null);
-                }}>Cancelar</Button>
-                <Button type="submit">Guardar</Button>
-              </div>
-            </form>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Sticky Save Bar */}
-      {hasChanges && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 flex items-center justify-between gap-4 shadow-lg">
-          <div className="flex items-center gap-2 text-sm">
-            <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-muted-foreground">Tienes cambios sin guardar</span>
-          </div>
-          <Button 
-            onClick={handleSaveSettings} 
-            disabled={saving}
-            className="gap-2"
+function RsvpSection({
+  title,
+  icon,
+  count,
+  enabled,
+  onToggle,
+  items,
+  emptyText,
+  onAdd,
+  onEditItem,
+  onDeleteItem,
+  yesNoMode,
+  noMessage,
+  columnWidths,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  count: number;
+  enabled: boolean;
+  onToggle?: () => void;
+  items: SectionItem[];
+  emptyText: string;
+  onAdd?: () => void;
+  onEditItem?: (raw: unknown) => void;
+  onDeleteItem?: (id: number) => void;
+  /**
+   * When set, the section renders a more explicit "Sí / No" segmented
+   * control instead of the generic "Incluir / Oculto" toggle, and shows
+   * `noMessage` when the answer is "No". Used by sections where it's
+   * meaningful to explicitly say it won't happen (e.g. autobuses).
+   */
+  yesNoMode?: boolean;
+  noMessage?: string;
+  /**
+   * Optional column widths for cell-based rows (matches prototype layout).
+   * `null` = `1fr`, `number` = fixed px. Length must match `item.cells`.
+   */
+  columnWidths?: Array<number | null>;
+}) {
+  const actionsCol = onEditItem || onDeleteItem ? "62px" : "0px";
+  const gridTemplate = columnWidths
+    ? columnWidths.map((w) => (w == null ? "1fr" : `${w}px`)).join(" ") +
+      " " +
+      actionsCol
+    : "";
+  const [open, setOpen] = useState(true);
+  return (
+    <div
+      className="rounded-[12px] overflow-hidden"
+      style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+    >
+      <div
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 w-full text-left cursor-pointer"
+        style={{
+          padding: "12px 14px",
+          borderBottom: open ? "1px solid var(--line-1)" : "none",
+        }}
+      >
+        {icon && <span style={{ color: "var(--ink-3)" }}>{icon}</span>}
+        <div className="text-[13px] font-semibold text-[var(--ink-1)]">{title}</div>
+        <span
+          className="inline-flex items-center rounded-[999px] text-[11px] px-2 py-0.5"
+          style={{ background: "var(--bg-subtle)", color: "var(--ink-3)" }}
+        >
+          {count}
+        </span>
+        {yesNoMode ? (
+          <div
+            className="ml-auto inline-flex gap-1 rounded-[999px]"
+            style={{ background: "var(--bg-subtle)", padding: 2 }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {saving ? (
-              <>
-                <RiLoader4Line className="h-4 w-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <RiCheckLine className="h-4 w-4" />
-                Guardar cambios
-              </>
-            )}
-          </Button>
+            {([
+              { v: true, label: "Sí", bg: "#4F7A5E", fg: "#FFFFFF" },
+              { v: false, label: "No", bg: "var(--ink-1)", fg: "#FFFFFF" },
+            ] as const).map((opt) => {
+              const active = enabled === opt.v;
+              return (
+                <button
+                  key={String(opt.v)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (active || !onToggle) return;
+                    onToggle();
+                  }}
+                  className="inline-flex items-center justify-center cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "3px 12px",
+                    borderRadius: 999,
+                    background: active ? opt.bg : "transparent",
+                    color: active ? opt.fg : "var(--ink-3)",
+                    fontSize: 11.5,
+                    fontWeight: active ? 600 : 500,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <label
+            className="ml-auto inline-flex items-center gap-1.5 cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-[11px] text-[var(--ink-3)]">
+              {enabled ? "Incluir" : "Oculto"}
+            </span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle?.();
+              }}
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: 30,
+                height: 16,
+                background: enabled ? "#4F7A5E" : "var(--line-strong)",
+                borderRadius: 999,
+                cursor: onToggle ? "pointer" : "default",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: enabled ? 16 : 2,
+                  width: 12,
+                  height: 12,
+                  background: "#fff",
+                  borderRadius: "50%",
+                  transition: "left .15s",
+                }}
+              />
+            </span>
+          </label>
+        )}
+        {open ? (
+          <IcoChevUp className="h-3.5 w-3.5 text-[var(--ink-3)] ml-1.5" />
+        ) : (
+          <IcoChevDown className="h-3.5 w-3.5 text-[var(--ink-3)] ml-1.5" />
+        )}
+      </div>
+
+      {open && (
+        <div style={{ padding: "10px 14px 14px" }}>
+          {yesNoMode && !enabled ? (
+            <div
+              className="text-[12.5px] text-[var(--ink-2)] py-3 px-3 rounded-[8px]"
+              style={{ background: "var(--bg-subtle)", border: "1px dashed var(--line-1)" }}
+            >
+              {noMessage || "Esta sección no se incluirá en la invitación pública."}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-[12px] text-[var(--ink-3)] py-2">{emptyText}</div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {items.map((it) => {
+                const useCells = !!(columnWidths && it.cells);
+                return (
+                  <div
+                    key={it.id}
+                    onClick={() => onEditItem?.(it.raw)}
+                    className="rounded-[8px]"
+                    style={{
+                      padding: useCells ? "14px 12px" : "10px 12px",
+                      border: "1px solid var(--line-1)",
+                      background: "#FFFFFF",
+                      cursor: onEditItem ? "pointer" : "default",
+                      display: useCells ? "grid" : "flex",
+                      gridTemplateColumns: useCells ? gridTemplate : undefined,
+                      alignItems: "center",
+                      gap: useCells ? 12 : 12,
+                    }}
+                  >
+                    {useCells ? (
+                      <>
+                        {it.cells!.map((cell, i) => (
+                          <div
+                            key={i}
+                            className="text-[12.5px] truncate"
+                            style={{
+                              color:
+                                i === 0 ? "var(--ink-1)" : "var(--ink-2)",
+                              fontWeight: i === 0 ? 500 : 400,
+                            }}
+                          >
+                            {cell || "—"}
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-end gap-1">
+                          {onEditItem && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditItem(it.raw);
+                              }}
+                              className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+                              aria-label="Editar"
+                            >
+                              <IcoEdit className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {onDeleteItem && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("¿Eliminar este elemento?"))
+                                  onDeleteItem(it.id);
+                              }}
+                              className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--color-danger)]"
+                              aria-label="Eliminar"
+                            >
+                              <IcoTrash className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12.5px] font-medium text-[var(--ink-1)] truncate">
+                            {it.primary}
+                          </div>
+                          {it.secondary && (
+                            <div className="text-[11px] text-[var(--ink-3)] truncate mt-0.5">
+                              {it.secondary}
+                            </div>
+                          )}
+                        </div>
+                        {onEditItem && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditItem(it.raw);
+                            }}
+                            className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+                            aria-label="Editar"
+                          >
+                            <IcoEdit className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {onDeleteItem && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("¿Eliminar este elemento?"))
+                                onDeleteItem(it.id);
+                            }}
+                            className="bg-transparent border-none cursor-pointer p-1 text-[var(--ink-3)] hover:text-[var(--color-danger)]"
+                            aria-label="Eliminar"
+                          >
+                            <IcoTrash className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {onAdd && !(yesNoMode && !enabled) && (
+            <div className="mt-2.5">
+              <button
+                onClick={onAdd}
+                className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                style={{
+                  background: "#FFFFFF",
+                  border: "1px solid var(--line-strong)",
+                  padding: "5px 10px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "var(--ink-1)",
+                }}
+              >
+                <IcoPlus className="h-3 w-3" />
+                Añadir
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
-    </EventSectionGuard>
+  );
+}
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 drawer-form-field">
+      <label className="text-[12px] font-medium text-[var(--ink-2)]">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// =============================================================================
+// MenuOptionsEditor — editable list of menu choices for the event.
+// Shared with the public RSVP form (guest's menu select) and the dashboard
+// guests list (per-guest "Menú" dropdown).
+// =============================================================================
+function MenuOptionsEditor({
+  options,
+  disabled,
+  onChange,
+}: {
+  options: string[];
+  disabled?: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const update = (i: number, v: string) =>
+    onChange(options.map((o, j) => (j === i ? v : o)));
+  const remove = (i: number) =>
+    onChange(options.filter((_, j) => j !== i));
+  const add = () => onChange([...options, "Nueva opción"]);
+
+  return (
+    <div className="flex flex-col gap-2 drawer-form-field">
+      {options.map((opt, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            value={opt}
+            disabled={disabled}
+            onChange={(e) => update(i, e.target.value)}
+            placeholder="Ej. Vegetariano"
+            style={{
+              flex: 1,
+              padding: "6px 10px",
+              border: "1px solid var(--line-1)",
+              borderRadius: 6,
+              fontSize: 12.5,
+              background: "#FFFFFF",
+              color: "var(--ink-1)",
+              outline: "none",
+            }}
+          />
+          {!disabled && options.length > 1 && (
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label="Quitar opción"
+              className="cursor-pointer"
+              style={{
+                background: "none",
+                border: "none",
+                padding: 6,
+                color: "var(--ink-3)",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <IcoX className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      {!disabled && (
+        <button
+          type="button"
+          onClick={add}
+          className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)] w-fit mt-1"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-strong)",
+            padding: "5px 10px",
+            fontSize: 12,
+            fontWeight: 500,
+            color: "var(--ink-1)",
+          }}
+        >
+          <IcoPlus className="h-3 w-3" />
+          Añadir opción
+        </button>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Mobile preview — simplified phone frame matching the prototype's accent
+// =============================================================================
+
+function MobilePreview({
+  eventName,
+  eventDate,
+  location,
+  coverImage,
+  customMessage,
+  theme,
+  size = "md",
+  settings,
+  itinerary,
+  hotels,
+  nearbyPlans,
+  faqs,
+  transportOptions,
+}: {
+  eventName: string;
+  eventDate?: string | null;
+  location?: string | null;
+  coverImage?: string | null;
+  customMessage?: string;
+  theme: ThemeKey;
+  size?: "md" | "lg";
+  settings: RsvpSettings;
+  itinerary: ItineraryItem[];
+  hotels: Hotel[];
+  nearbyPlans: NearbyPlan[];
+  faqs: Faq[];
+  transportOptions: TransportOption[];
+}) {
+  const w = size === "lg" ? 380 : 340;
+  const innerH = size === "lg" ? 700 : 620;
+  const themeBg = THEME_PALETTES[theme].gradient;
+  const themeAccent: Record<ThemeKey, string> = {
+    ivory: "#B88A3A",
+    sage: "#4F7A5E",
+    dusty: "#C15B4C",
+    night: "#5B6F98",
+  };
+  const accent = themeAccent[theme];
+  const eventTimeStr = eventDate
+    ? new Date(eventDate).toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+  const dateLabel = eventDate
+    ? new Date(eventDate).toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "Fecha por confirmar";
+
+  // Always apply a darkening gradient so the white hero text is readable
+  // regardless of theme or whether a cover image is set.
+  const heroBg = coverImage
+    ? `linear-gradient(rgba(0,0,0,0.20), rgba(0,0,0,0.55)), url(${coverImage}) center/cover`
+    : `linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.50)), ${themeBg}`;
+
+  const welcomeText =
+    customMessage && customMessage.trim().length > 0
+      ? customMessage
+      : "Acompáñanos en este día tan especial. Confirma tu asistencia abajo.";
+
+  const sortedItinerary = [...itinerary].sort(
+    (a, b) =>
+      a.orderIndex - b.orderIndex ||
+      (a.startTime || "").localeCompare(b.startTime || ""),
+  );
+  const sortedHotels = [...hotels].sort((a, b) => a.orderIndex - b.orderIndex);
+  const sortedPlans = [...nearbyPlans].sort((a, b) => a.orderIndex - b.orderIndex);
+  const sortedFaqs = [...faqs].sort((a, b) => a.orderIndex - b.orderIndex);
+  const activeBuses = transportOptions
+    .filter((t) => t.isActive)
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const showItinerary = settings.showItinerary && sortedItinerary.length > 0;
+  const showHotels = settings.showHotels && sortedHotels.length > 0;
+  const showBuses = settings.showTransport && activeBuses.length > 0;
+  const showPlans = settings.showNearbyPlans && sortedPlans.length > 0;
+  const showFaqs = settings.showFaqs && sortedFaqs.length > 0;
+
+  return (
+    <div
+      style={{
+        width: w,
+        margin: "0 auto",
+        border: "10px solid #1E1C1A",
+        borderRadius: 38,
+        background: "#1E1C1A",
+        boxShadow:
+          "0 18px 40px -16px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.10)",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* Notch */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 110,
+          height: 22,
+          background: "#1E1C1A",
+          borderRadius: "0 0 14px 14px",
+          zIndex: 2,
+        }}
+      />
+
+      <div
+        style={{
+          height: innerH,
+          overflowX: "hidden",
+          overflowY: "auto",
+          background: "#FBFAF7",
+          borderRadius: 28,
+        }}
+      >
+        {/* Hero */}
+        <div style={{ height: 180, background: heroBg, position: "relative" }}>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              left: 0,
+              right: 0,
+              color: "#FFFFFF",
+              textAlign: "center",
+              padding: "0 14px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9.5,
+                letterSpacing: "0.3em",
+                textTransform: "uppercase",
+                opacity: 0.85,
+              }}
+            >
+              Te invitamos
+            </div>
+            <div
+              style={{
+                fontFamily:
+                  '"Playfair Display", "Cormorant Garamond", "Georgia", serif',
+                fontSize: 28,
+                fontWeight: 600,
+                margin: "6px 0 4px",
+                letterSpacing: "-0.01em",
+                lineHeight: 1.1,
+                textShadow: "0 1px 4px rgba(0,0,0,0.25)",
+              }}
+            >
+              {eventName}
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.95, letterSpacing: "0.02em" }}>
+              {dateLabel}
+              {eventTimeStr ? ` · ${eventTimeStr}` : ""}
+              {location ? ` · ${location}` : ""}
+            </div>
+          </div>
+        </div>
+
+        {/* Welcome + RSVP CTA */}
+        <div style={{ padding: "18px 20px", background: "#FBFAF7" }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: "var(--ink-2)",
+              lineHeight: 1.55,
+              textAlign: "center",
+              fontStyle: customMessage ? "normal" : "italic",
+              opacity: customMessage ? 1 : 0.78,
+            }}
+          >
+            {welcomeText}
+          </div>
+          {/* Ornamental flourish — small line + dot */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              margin: "14px 0 4px",
+            }}
+          >
+            <span
+              style={{
+                width: 32,
+                height: 1,
+                background: accent,
+                opacity: 0.4,
+              }}
+            />
+            <span
+              style={{
+                width: 4,
+                height: 4,
+                borderRadius: "50%",
+                background: accent,
+                opacity: 0.6,
+              }}
+            />
+            <span
+              style={{
+                width: 32,
+                height: 1,
+                background: accent,
+                opacity: 0.4,
+              }}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 8,
+              marginTop: 12,
+            }}
+          >
+            <button
+              disabled
+              style={{
+                padding: "10px 20px",
+                background: accent,
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "default",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Asistiré
+            </button>
+            <button
+              disabled
+              style={{
+                padding: "10px 20px",
+                background: "#FFFFFF",
+                color: "var(--ink-2)",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "default",
+                letterSpacing: "0.02em",
+              }}
+            >
+              No podré
+            </button>
+          </div>
+          {settings.deadline && (
+            <div
+              style={{
+                fontSize: 10.5,
+                color: "var(--ink-3)",
+                textAlign: "center",
+                marginTop: 8,
+              }}
+            >
+              Confirma antes del{" "}
+              {new Date(settings.deadline).toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "long",
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Horarios */}
+        {showItinerary && (
+          <PreviewSection title="Horarios" accent={accent}>
+            {sortedItinerary.map((it) => (
+              <div
+                key={it.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "52px 1fr",
+                  gap: 10,
+                  padding: "8px 0",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: accent,
+                  }}
+                >
+                  {fmtTime(it.startTime) || "—"}
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: "var(--ink-1)",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {it.title}
+                  </div>
+                  {it.description && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--ink-3)",
+                        marginTop: 2,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {it.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </PreviewSection>
+        )}
+
+        {/* Dónde dormir */}
+        {showHotels && (
+          <PreviewSection title="Dónde dormir" accent={accent}>
+            {sortedHotels.map((h) => (
+              <div key={h.id} style={{ padding: "12px 0" }}>
+                <div
+                  style={{
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "var(--ink-1)",
+                  }}
+                >
+                  {h.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--ink-3)",
+                    marginTop: 2,
+                  }}
+                >
+                  {[h.distance, h.priceRange].filter(Boolean).join(" · ") ||
+                    h.address ||
+                    ""}
+                </div>
+                {h.website && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: accent,
+                      marginTop: 3,
+                      textDecoration: "underline",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {h.website.replace(/^https?:\/\//, "")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </PreviewSection>
+        )}
+
+        {/* Transporte */}
+        {showBuses && (
+          <PreviewSection title="Transporte" accent={accent}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                marginTop: 4,
+              }}
+            >
+              {activeBuses.map((b) => (
+                <div
+                  key={b.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "6px 10px",
+                    background: "var(--bg-subtle)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: accent,
+                      minWidth: 40,
+                    }}
+                  >
+                    {fmtTime(b.departureTime) || "—"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ink-2)",
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {b.departureLocation
+                      ? `${b.name} · sale de ${b.departureLocation}`
+                      : b.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PreviewSection>
+        )}
+
+        {/* Actividades */}
+        {showPlans && (
+          <PreviewSection title="Actividades" accent={accent}>
+            {sortedPlans.map((p) => (
+              <div key={p.id} style={{ padding: "10px 0" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: "var(--ink-1)",
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                  {p.category && (
+                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                      {p.category}
+                    </div>
+                  )}
+                </div>
+                {p.address && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ink-3)",
+                      marginTop: 4,
+                    }}
+                  >
+                    {p.address}
+                  </div>
+                )}
+                {p.website && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: accent,
+                      marginTop: 4,
+                      textDecoration: "underline",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {p.website.replace(/^https?:\/\//, "")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </PreviewSection>
+        )}
+
+        {/* FAQ */}
+        {showFaqs && (
+          <PreviewSection title="Preguntas frecuentes" accent={accent}>
+            {sortedFaqs.map((f) => (
+              <div key={f.id} style={{ padding: "8px 0" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--ink-1)",
+                  }}
+                >
+                  {f.question}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--ink-3)",
+                    marginTop: 2,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {f.answer}
+                </div>
+              </div>
+            ))}
+          </PreviewSection>
+        )}
+
+        <div style={{ height: 40 }} />
+      </div>
+    </div>
+  );
+}
+
+function PreviewSection({
+  title,
+  accent,
+  children,
+}: {
+  title: string;
+  accent: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        padding: "16px 20px 14px",
+        borderTop: "1px solid rgba(0,0,0,0.06)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.18em",
+            color: accent,
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            flex: 1,
+            height: 1,
+            background: accent,
+            opacity: 0.18,
+          }}
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// "08:30:00" / "08:30" → "08:30"; ISO datetime → "HH:MM" (UTC, no TZ shift).
+// We always write itinerary times as "1970-01-01T<HH:MM>:00.000Z" so reading
+// them back via UTC keeps the exact value the user entered.
+function fmtTime(value: string | null | undefined): string {
+  if (!value) return "";
+  if (/^\d{2}:\d{2}$/.test(value)) return value;
+  if (/^\d{2}:\d{2}:\d{2}/.test(value)) return value.slice(0, 5);
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+// Extract "HH:MM" from any of: null/undefined, "HH:MM", "HH:MM:SS", ISO datetime.
+function isoToHHMM(value: string | null | undefined): string {
+  return fmtTime(value);
+}
+
+// =============================================================================
+// Drawers — Itinerary / Hotel / Bus / Plan / Faq
+// =============================================================================
+
+function DrawerShell({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  onSave,
+  isEditing,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  onSave: () => void;
+  isEditing: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(30,25,20,0.28)",
+        display: "flex",
+        justifyContent: "flex-end",
+        zIndex: 100,
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(520px, 96vw)",
+          background: "#FFFFFF",
+          boxShadow: "-20px 0 40px -10px rgba(0,0,0,.18)",
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          borderLeft: "1px solid var(--line-1)",
+        }}
+      >
+        <div
+          className="flex items-center"
+          style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-1)" }}
+        >
+          <div>
+            <div
+              className="text-[16px] font-semibold text-[var(--ink-1)]"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              {title}
+            </div>
+            {subtitle && (
+              <div className="text-[12px] text-[var(--ink-3)] mt-0.5">{subtitle}</div>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-auto bg-transparent border-none cursor-pointer p-1.5 text-[var(--ink-3)]"
+          >
+            <IcoX className="h-4 w-4" />
+          </button>
+        </div>
+        <div
+          className="flex-1 overflow-auto"
+          style={{ padding: "20px 22px" }}
+        >
+          {children}
+        </div>
+        <div
+          className="flex gap-2 justify-end"
+          style={{
+            padding: "14px 20px",
+            borderTop: "1px solid var(--line-1)",
+          }}
+        >
+          <button
+            onClick={onClose}
+            className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--line-strong)",
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              color: "var(--ink-1)",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onSave}
+            className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors border-none"
+            style={{
+              background: "var(--ink-1)",
+              color: "#FFFFFF",
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            {isEditing ? "Guardar" : "Añadir"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItineraryDrawer({
+  open,
+  onClose,
+  editing,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: ItineraryItem | null;
+  onSave: (item: Partial<ItineraryItem>) => void;
+}) {
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    startTime: "",
+    endTime: "",
+    location: "",
+  });
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        title: editing?.title || "",
+        description: editing?.description || "",
+        startTime: isoToHHMM(editing?.startTime),
+        endTime: isoToHHMM(editing?.endTime),
+        location: editing?.location || "",
+      });
+    }
+  }, [open, editing]);
+  return (
+    <DrawerShell
+      open={open}
+      onClose={onClose}
+      title={editing ? "Editar horario" : "Añadir horario"}
+      subtitle="Define el momento del día y dónde."
+      onSave={() =>
+        onSave({
+          title: form.title,
+          description: form.description || null,
+          // The DB column is `timestamp`. Pack the user-entered "HH:MM" into a
+          // fixed-date UTC ISO string so it round-trips losslessly without
+          // timezone shifts. fmtTime() extracts back to "HH:MM".
+          startTime: form.startTime ? `1970-01-01T${form.startTime}:00.000Z` : null,
+          endTime: form.endTime ? `1970-01-01T${form.endTime}:00.000Z` : null,
+          location: form.location || null,
+        })
+      }
+      isEditing={!!editing}
+    >
+      <div className="grid gap-3 drawer-form-field">
+        <FormField label="Título *">
+          <input
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            placeholder="Ej. Ceremonia"
+          />
+        </FormField>
+        <div className="grid grid-cols-2 gap-2.5">
+          <FormField label="Hora inicio">
+            <input
+              type="time"
+              value={form.startTime}
+              onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+            />
+          </FormField>
+          <FormField label="Hora fin">
+            <input
+              type="time"
+              value={form.endTime}
+              onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
+            />
+          </FormField>
+        </div>
+        <FormField label="Lugar">
+          <input
+            value={form.location}
+            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+            placeholder="Ej. Iglesia San Miguel"
+          />
+        </FormField>
+        <FormField label="Descripción">
+          <textarea
+            rows={3}
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Detalles adicionales..."
+            style={{ resize: "vertical" }}
+          />
+        </FormField>
+      </div>
+    </DrawerShell>
+  );
+}
+
+function HotelDrawer({
+  open,
+  onClose,
+  editing,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: Hotel | null;
+  onSave: (item: Partial<Hotel>) => void;
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    address: "",
+    phone: "",
+    website: "",
+    priceRange: "",
+    distance: "",
+  });
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        name: editing?.name || "",
+        description: editing?.description || "",
+        address: editing?.address || "",
+        phone: editing?.phone || "",
+        website: editing?.website || "",
+        priceRange: editing?.priceRange || "",
+        distance: editing?.distance || "",
+      });
+    }
+  }, [open, editing]);
+  return (
+    <DrawerShell
+      open={open}
+      onClose={onClose}
+      title={editing ? "Editar hotel" : "Añadir hotel"}
+      subtitle="Completa todos los datos del hotel."
+      onSave={() =>
+        onSave({
+          name: form.name,
+          description: form.description || null,
+          address: form.address || null,
+          phone: form.phone || null,
+          website: form.website || null,
+          priceRange: form.priceRange || null,
+          distance: form.distance || null,
+        })
+      }
+      isEditing={!!editing}
+    >
+      <div className="grid gap-3 drawer-form-field">
+        <FormField label="Nombre *">
+          <input
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Nombre del hotel"
+          />
+        </FormField>
+        <FormField label="Descripción">
+          <textarea
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Descripción breve..."
+            style={{ resize: "vertical" }}
+          />
+        </FormField>
+        <FormField label="Dirección">
+          <input
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            placeholder="Dirección completa"
+          />
+        </FormField>
+        <div className="grid grid-cols-2 gap-2.5">
+          <FormField label="Teléfono">
+            <input
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+34 600 000 000"
+            />
+          </FormField>
+          <FormField label="Rango de precios">
+            <input
+              value={form.priceRange}
+              onChange={(e) => setForm((f) => ({ ...f, priceRange: e.target.value }))}
+              placeholder="$$ - $$$"
+            />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <FormField label="Sitio web">
+            <input
+              value={form.website}
+              onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+              placeholder="https://..."
+            />
+          </FormField>
+          <FormField label="Distancia">
+            <input
+              value={form.distance}
+              onChange={(e) => setForm((f) => ({ ...f, distance: e.target.value }))}
+              placeholder="A 5 min del evento"
+            />
+          </FormField>
+        </div>
+      </div>
+    </DrawerShell>
+  );
+}
+
+function BusDrawer({
+  open,
+  onClose,
+  editing,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: TransportOption | null;
+  onSave: (item: Partial<TransportOption>) => void;
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    departureLocation: "",
+    departureAddress: "",
+    departureTime: "",
+    returnTime: "",
+    capacity: "20",
+  });
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        name: editing?.name || "",
+        departureLocation: editing?.departureLocation || "",
+        departureAddress: editing?.departureAddress || "",
+        departureTime: editing?.departureTime || "",
+        returnTime: editing?.returnTime || "",
+        capacity: editing?.capacity ? String(editing.capacity) : "20",
+      });
+    }
+  }, [open, editing]);
+  return (
+    <DrawerShell
+      open={open}
+      onClose={onClose}
+      title={editing ? "Editar autobús" : "Añadir autobús"}
+      subtitle="Define origen, destino y capacidad."
+      onSave={() =>
+        onSave({
+          name: form.name || "Autobús",
+          departureLocation: form.departureLocation || null,
+          departureAddress: form.departureAddress || null,
+          departureTime: form.departureTime || null,
+          returnTime: form.returnTime || null,
+          capacity: parseInt(form.capacity, 10) || null,
+        })
+      }
+      isEditing={!!editing}
+    >
+      <div className="grid gap-3 drawer-form-field">
+        <FormField label="Nombre / etiqueta">
+          <input
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Ej. Bus al evento"
+          />
+        </FormField>
+        <FormField label="Punto de salida">
+          <input
+            value={form.departureLocation}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, departureLocation: e.target.value }))
+            }
+            placeholder="Plaza del Ayuntamiento"
+          />
+        </FormField>
+        <FormField label="Dirección de salida">
+          <input
+            value={form.departureAddress}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, departureAddress: e.target.value }))
+            }
+            placeholder="Calle Mayor 12, Madrid"
+          />
+        </FormField>
+        <div className="grid grid-cols-2 gap-2.5">
+          <FormField label="Hora salida">
+            <input
+              type="time"
+              value={form.departureTime}
+              onChange={(e) => setForm((f) => ({ ...f, departureTime: e.target.value }))}
+            />
+          </FormField>
+          <FormField label="Hora regreso">
+            <input
+              type="time"
+              value={form.returnTime}
+              onChange={(e) => setForm((f) => ({ ...f, returnTime: e.target.value }))}
+            />
+          </FormField>
+        </div>
+        <FormField label="Capacidad">
+          <input
+            type="number"
+            min="1"
+            value={form.capacity}
+            onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
+            placeholder="20"
+          />
+        </FormField>
+      </div>
+    </DrawerShell>
+  );
+}
+
+function PlanDrawer({
+  open,
+  onClose,
+  editing,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: NearbyPlan | null;
+  onSave: (item: Partial<NearbyPlan>) => void;
+}) {
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    category: "",
+    address: "",
+    website: "",
+  });
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        name: editing?.name || "",
+        description: editing?.description || "",
+        category: editing?.category || "",
+        address: editing?.address || "",
+        website: editing?.website || "",
+      });
+    }
+  }, [open, editing]);
+  return (
+    <DrawerShell
+      open={open}
+      onClose={onClose}
+      title={editing ? "Editar plan" : "Añadir plan"}
+      subtitle="Completa la actividad y su lugar."
+      onSave={() =>
+        onSave({
+          name: form.name,
+          description: form.description || null,
+          category: form.category || null,
+          address: form.address || null,
+          website: form.website || null,
+        })
+      }
+      isEditing={!!editing}
+    >
+      <div className="grid gap-3 drawer-form-field">
+        <FormField label="Nombre *">
+          <input
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Nombre del plan"
+          />
+        </FormField>
+        <FormField label="Categoría">
+          <input
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            placeholder="Ej. Restaurante"
+          />
+        </FormField>
+        <FormField label="Dirección">
+          <input
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            placeholder="Lugar"
+          />
+        </FormField>
+        <FormField label="Sitio web">
+          <input
+            value={form.website}
+            onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+            placeholder="https://..."
+          />
+        </FormField>
+        <FormField label="Descripción">
+          <textarea
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Descripción breve..."
+            style={{ resize: "vertical" }}
+          />
+        </FormField>
+      </div>
+    </DrawerShell>
+  );
+}
+
+function FaqDrawer({
+  open,
+  onClose,
+  editing,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: Faq | null;
+  onSave: (item: Partial<Faq>) => void;
+}) {
+  const [form, setForm] = useState({ question: "", answer: "" });
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm({
+        question: editing?.question || "",
+        answer: editing?.answer || "",
+      });
+    }
+  }, [open, editing]);
+  return (
+    <DrawerShell
+      open={open}
+      onClose={onClose}
+      title={editing ? "Editar pregunta" : "Añadir pregunta"}
+      subtitle="Pregunta frecuente y su respuesta."
+      onSave={() =>
+        onSave({
+          question: form.question,
+          answer: form.answer,
+        })
+      }
+      isEditing={!!editing}
+    >
+      <div className="grid gap-3 drawer-form-field">
+        <FormField label="Pregunta *">
+          <input
+            value={form.question}
+            onChange={(e) => setForm((f) => ({ ...f, question: e.target.value }))}
+            placeholder="¿Hay dress code?"
+          />
+        </FormField>
+        <FormField label="Respuesta *">
+          <textarea
+            rows={4}
+            value={form.answer}
+            onChange={(e) => setForm((f) => ({ ...f, answer: e.target.value }))}
+            placeholder="Detalles de la respuesta..."
+            style={{ resize: "vertical" }}
+          />
+        </FormField>
+      </div>
+    </DrawerShell>
   );
 }

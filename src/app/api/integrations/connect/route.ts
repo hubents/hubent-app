@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { authorizeToolkit, MVP_TOOLKITS, type ComposioToolkit } from "@/lib/composio";
+import { apiHandler, ok, badRequest, forbidden } from "@/lib/api-handler";
 
 export async function POST(req: Request) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const orgId = session.organizationId;
 
@@ -13,19 +13,13 @@ export async function POST(req: Request) {
       session.permissions?.includes("integrations:manage");
 
     if (!canManage) {
-      return NextResponse.json(
-        { success: false, error: "No tenés permisos para conectar integraciones" },
-        { status: 403 }
-      );
+      return forbidden("No tenés permisos para conectar integraciones");
     }
 
     const { toolkit } = await req.json();
 
     if (!toolkit || !MVP_TOOLKITS.includes(toolkit as ComposioToolkit)) {
-      return NextResponse.json(
-        { success: false, error: "Toolkit inválido" },
-        { status: 400 }
-      );
+      return badRequest("Toolkit inválido");
     }
 
     const portalPrefix = "/dashboard";
@@ -37,12 +31,6 @@ export async function POST(req: Request) {
       callbackUrl
     );
 
-    return NextResponse.json({ success: true, data: { redirectUrl } });
-  } catch (error) {
-    console.error("[Integrations] Connect error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error al conectar" },
-      { status: 500 }
-    );
-  }
+    return ok({ redirectUrl });
+  }, "POST /api/integrations/connect");
 }

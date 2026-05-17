@@ -4,34 +4,32 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 /**
  * POST /api/user/security
  * Change user password
  */
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "No autorizado" } },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
     const { currentPassword, newPassword } = body;
 
     if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Contraseña actual y nueva son requeridas" },
-        { status: 400 }
-      );
+      return badRequest("Contraseña actual y nueva son requeridas");
     }
 
     if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "La nueva contraseña debe tener al menos 8 caracteres" },
-        { status: 400 }
-      );
+      return badRequest("La nueva contraseña debe tener al menos 8 caracteres");
     }
 
     // Get user from database
@@ -40,28 +38,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     if (!user.passwordHash) {
-      return NextResponse.json(
-        { error: "Este usuario no tiene contraseña configurada (usa login social)" },
-        { status: 400 }
-      );
+      return badRequest("Este usuario no tiene contraseña configurada (usa login social)");
     }
 
     // Verify current password
     const isValid = await verifyPassword(currentPassword, user.passwordHash);
     if (!isValid) {
-      return NextResponse.json(
-        { error: "La contraseña actual es incorrecta" },
-        { status: 400 }
-      );
+      return badRequest("La contraseña actual es incorrecta");
     }
 
     // Hash and save new password
     const newPasswordHash = await hashPassword(newPassword);
-    
+
     await db
       .update(users)
       .set({
@@ -71,15 +63,6 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(users.id, session.user.id));
 
-    return NextResponse.json({
-      success: true,
-      message: "Contraseña actualizada correctamente",
-    });
-  } catch (error) {
-    console.error("Change password error:", error);
-    return NextResponse.json(
-      { error: "Error al cambiar la contraseña" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Contraseña actualizada correctamente" });
+  }, "POST /api/user/security");
 }

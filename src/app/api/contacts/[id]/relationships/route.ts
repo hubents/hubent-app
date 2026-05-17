@@ -1,24 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { contacts, contactRelationships } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
+import { apiHandler, ok, created, notFound, badRequest, conflict } from "@/lib/api-handler";
 
 // GET /api/contacts/[id]/relationships - Get all relationships for a contact
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { id } = await params;
     const contactId = parseInt(id, 10);
 
     if (isNaN(contactId)) {
-      return NextResponse.json(
-        { success: false, error: { message: "ID inválido" } },
-        { status: 400 }
-      );
+      return badRequest("ID inválido");
     }
 
     // Get the contact to determine its type
@@ -34,10 +32,7 @@ export async function GET(
       .limit(1);
 
     if (!contact) {
-      return NextResponse.json(
-        { success: false, error: { message: "Contacto no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Contacto no encontrado");
     }
 
     // Get relationships based on contact type
@@ -78,19 +73,8 @@ export async function GET(
         .where(eq(contactRelationships.companyContactId, contactId));
     }
 
-    return NextResponse.json({
-      success: true,
-      data: relationships,
-    });
-  } catch (error) {
-    console.error("GET /api/contacts/[id]/relationships error:", error);
-    const message = error instanceof Error ? error.message : "Error al obtener relaciones";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { message } },
-      { status }
-    );
-  }
+    return ok(relationships);
+  }, "GET /api/contacts/[id]/relationships");
 }
 
 // POST /api/contacts/[id]/relationships - Create a new relationship
@@ -98,7 +82,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const contactId = parseInt(id, 10);
@@ -106,10 +90,7 @@ export async function POST(
     const { relatedContactId, role, isPrimary } = body;
 
     if (isNaN(contactId) || !relatedContactId) {
-      return NextResponse.json(
-        { success: false, error: { message: "Datos inválidos" } },
-        { status: 400 }
-      );
+      return badRequest("Datos inválidos");
     }
 
     // Get both contacts to verify types and ownership
@@ -128,20 +109,14 @@ export async function POST(
       );
 
     if (contactsData.length !== 2) {
-      return NextResponse.json(
-        { success: false, error: { message: "Contactos no encontrados" } },
-        { status: 404 }
-      );
+      return notFound("Contactos no encontrados");
     }
 
     const mainContact = contactsData.find((c) => c.id === contactId);
     const relatedContact = contactsData.find((c) => c.id === relatedContactId);
 
     if (!mainContact || !relatedContact) {
-      return NextResponse.json(
-        { success: false, error: { message: "Contactos no encontrados" } },
-        { status: 404 }
-      );
+      return notFound("Contactos no encontrados");
     }
 
     // Determine person and company based on types
@@ -155,10 +130,7 @@ export async function POST(
       personContactId = relatedContactId;
       companyContactId = contactId;
     } else {
-      return NextResponse.json(
-        { success: false, error: { message: "Solo se pueden relacionar personas con empresas" } },
-        { status: 400 }
-      );
+      return badRequest("Solo se pueden relacionar personas con empresas");
     }
 
     // Check if relationship already exists
@@ -174,10 +146,7 @@ export async function POST(
       .limit(1);
 
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: { message: "La relación ya existe" } },
-        { status: 409 }
-      );
+      return conflict("La relación ya existe", "DUPLICATE");
     }
 
     // Create the relationship
@@ -191,19 +160,8 @@ export async function POST(
       })
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      data: newRelationship,
-    });
-  } catch (error) {
-    console.error("POST /api/contacts/[id]/relationships error:", error);
-    const message = error instanceof Error ? error.message : "Error al crear relación";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { message } },
-      { status }
-    );
-  }
+    return created(newRelationship);
+  }, "POST /api/contacts/[id]/relationships");
 }
 
 // DELETE /api/contacts/[id]/relationships - Delete a relationship
@@ -211,7 +169,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const contactId = parseInt(id, 10);
@@ -219,10 +177,7 @@ export async function DELETE(
     const relationshipId = parseInt(searchParams.get("relationshipId") || "", 10);
 
     if (isNaN(contactId) || isNaN(relationshipId)) {
-      return NextResponse.json(
-        { success: false, error: { message: "IDs inválidos" } },
-        { status: 400 }
-      );
+      return badRequest("IDs inválidos");
     }
 
     // Verify the contact belongs to the organization
@@ -238,10 +193,7 @@ export async function DELETE(
       .limit(1);
 
     if (!contact) {
-      return NextResponse.json(
-        { success: false, error: { message: "Contacto no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Contacto no encontrado");
     }
 
     // Delete the relationship
@@ -257,14 +209,6 @@ export async function DELETE(
         )
       );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/contacts/[id]/relationships error:", error);
-    const message = error instanceof Error ? error.message : "Error al eliminar relación";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { message } },
-      { status }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/contacts/[id]/relationships");
 }

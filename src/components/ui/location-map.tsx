@@ -32,7 +32,7 @@ export function LocationMap({ address, className }: LocationMapProps) {
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
           {
             headers: {
-              "User-Agent": "HubEnts Event Planner",
+              "User-Agent": "Hubents Event Planner",
             },
           }
         );

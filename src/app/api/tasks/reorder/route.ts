@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 interface ReorderItem {
   taskId: number;
@@ -11,16 +12,13 @@ interface ReorderItem {
 
 // POST /api/tasks/reorder - Reorder tasks within a column (per event)
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const body = await request.json();
     const { items, eventId } = body as { items: ReorderItem[]; eventId?: number | null };
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Items array is required" } },
-        { status: 400 }
-      );
+      return badRequest("Items array is required");
     }
 
     // Update each task's sortOrder
@@ -43,20 +41,13 @@ export async function POST(request: NextRequest) {
 
       await db
         .update(tasks)
-        .set({ 
+        .set({
           sortOrder: item.sortOrder,
           updatedAt: new Date(),
         })
         .where(and(...conditions));
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("POST /api/tasks/reorder error:", error);
-    const message = error instanceof Error ? error.message : "Failed to reorder tasks";
-    return NextResponse.json(
-      { success: false, error: { code: "REORDER_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "POST /api/tasks/reorder");
 }

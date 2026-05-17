@@ -68,6 +68,7 @@ export interface UserContext {
     name: string;
     slug: string;
     orgType: OrgType;
+    providerModule?: string | null;
     role: TenantRole;
     permissions: string[];
     eventScoped?: boolean;
@@ -87,6 +88,7 @@ export interface TenantSession {
   user: UserContext;
   organizationId: number;
   orgType: OrgType;
+  providerModule?: string | null;
   role: TenantRole;
   permissions: string[];
   eventScoped: boolean;
@@ -155,6 +157,7 @@ export interface EventSectionPermissions {
   finances?: "view" | "none";
   runsheet?: EventSectionLevel;
   calendar?: EventSectionLevel;
+  venue?: EventSectionLevel;
   settings?: "none";
 }
 
@@ -256,3 +259,146 @@ export interface ScheduleItem {
   notes?: string;
   sortOrder: number;
 }
+
+// ============================================
+// CRM — Leads & Pipeline
+// ============================================
+
+export interface Lead {
+  id: number;
+  title: string;
+  description?: string | null;
+  value: string | null;
+  currency: string | null;
+  stageId: number | null;
+  status: string | null;
+  probability: number | null;
+  expectedCloseDate: Date | null;
+  assignedTo: string | null;
+  createdAt: Date | null;
+  stageChangedAt: Date | null;
+  assignedUserName: string | null;
+  assignedUserImage: string | null;
+  contactId?: number | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactType?: string | null;
+  contactAvatar?: string | null;
+}
+
+export interface Stage {
+  id: number;
+  name: string;
+  color: string | null;
+  sortOrder: number | null;
+  isDefault?: boolean | null;
+  isWon: boolean | null;
+  isLost: boolean | null;
+  leads: Lead[];
+  totalValue: number;
+}
+
+// ============================================
+// Vendors
+// ============================================
+
+export interface Vendor {
+  id: number;
+  name: string;
+  category: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  website: string | null;
+  notes: string | null;
+  rating: number | null;
+  status: string | null;
+  createdAt: Date | null;
+}
+
+export interface VendorStats {
+  total: number;
+  active: number;
+  pending: number;
+}
+
+// ============================================
+// Events
+// ============================================
+
+export interface Event {
+  id: number;
+  name: string;
+  type: string | null;
+  status: string | null;
+  date: Date | null;
+  endDate: Date | null;
+  location: string | null;
+  guestCount: number | null;
+  budget: string | null;
+  description: string | null;
+  clientId: number | null;
+  createdAt: Date | null;
+  clientName: string | null;
+}
+
+// ============================================
+// Contacts
+// ============================================
+
+export interface Contact {
+  id: number;
+  organizationId: number;
+  type: "person" | "company";
+  name: string;
+  email: string | null;
+  phone: string | null;
+  phoneCountryCode: string | null;
+  avatar: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  tradeName: string | null;
+  taxId: string | null;
+  nieOrCif: string | null;
+  passportId: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  tags: string[] | null;
+  source: string | null;
+  isLead: boolean | null;
+  leadScore: number | null;
+  isVendor: boolean | null;
+  vendorCategory: string | null;
+  category: string | null;
+  userId: string | null;
+  eventCount: number;
+  createdAt: Date | null;
+  createdByName: string | null;
+}
+
+export interface ContactStats {
+  total: number;
+  persons: number;
+  companies: number;
+  vendors: number;
+}
+
+export interface UseContactsParams {
+  search?: string;
+  type?: string;
+  isLead?: boolean;
+  isVendor?: boolean;
+  city?: string;
+  tag?: string;
+  page?: number;
+  limit?: number;
+}
+
+// ============================================
+// Venue types — re-exported for external use
+// ============================================
+
+export type { VenueSpace, VenueBooking, VenueRate, BookingStatus } from "@/components/venues/venue-calendar";

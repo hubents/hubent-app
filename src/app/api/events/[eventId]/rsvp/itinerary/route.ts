@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { rsvpItinerary } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // POST /api/events/[eventId]/rsvp/itinerary - Add itinerary item
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { title, description, startTime, endTime, location, orderIndex } = body;
 
     if (!title) {
-      return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 });
+      return badRequest("Title is required");
     }
 
     const newItem = await db
@@ -33,16 +34,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: newItem[0] });
-  } catch (error) {
-    console.error("Error creating itinerary item:", error);
-    return NextResponse.json({ success: false, error: "Failed to create itinerary item" }, { status: 500 });
-  }
+    return ok(newItem[0]);
+  }, "POST /api/events/[eventId]/rsvp/itinerary");
 }
 
 // PUT /api/events/[eventId]/rsvp/itinerary - Update itinerary item
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -51,7 +49,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id, title, description, startTime, endTime, location, orderIndex } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
@@ -66,16 +64,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       })
       .where(and(eq(rsvpItinerary.id, id), eq(rsvpItinerary.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating itinerary item:", error);
-    return NextResponse.json({ success: false, error: "Failed to update itinerary item" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "PUT /api/events/[eventId]/rsvp/itinerary");
 }
 
 // DELETE /api/events/[eventId]/rsvp/itinerary - Delete itinerary item
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -83,16 +78,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
       .delete(rsvpItinerary)
       .where(and(eq(rsvpItinerary.id, parseInt(id)), eq(rsvpItinerary.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting itinerary item:", error);
-    return NextResponse.json({ success: false, error: "Failed to delete itinerary item" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "DELETE /api/events/[eventId]/rsvp/itinerary");
 }

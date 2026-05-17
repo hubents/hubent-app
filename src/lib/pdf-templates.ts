@@ -520,7 +520,7 @@ export function generateDocumentHTML(doc: FinanceDocument): string {
 
     <!-- Footer -->
     <div class="footer">
-      <p>Documento generado por HubEnts • ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+      <p>Documento generado por Hubents • ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
     </div>
   </div>
 </body>
@@ -634,7 +634,7 @@ export function generateDocumentEmailHTML(
           <tr>
             <td style="padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0; font-size: 13px; color: #9ca3af;">
-                © ${new Date().getFullYear()} HubEnts. Todos los derechos reservados.
+                © ${new Date().getFullYear()} Hubents. Todos los derechos reservados.
               </p>
             </td>
           </tr>

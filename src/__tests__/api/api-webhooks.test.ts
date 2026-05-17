@@ -109,9 +109,9 @@ describe("Webhook Payload Structure", () => {
 
   it("headers include all required fields", () => {
     const expectedHeaders = [
-      "X-HubEnts-Signature",
-      "X-HubEnts-Timestamp",
-      "X-HubEnts-Event",
+      "X-Hubents-Signature",
+      "X-Hubents-Timestamp",
+      "X-Hubents-Event",
       "Content-Type",
       "User-Agent",
     ];
@@ -119,10 +119,10 @@ describe("Webhook Payload Structure", () => {
     // Simulate what the dispatcher sends
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "X-HubEnts-Signature": "abc123",
-      "X-HubEnts-Timestamp": "1234567890",
-      "X-HubEnts-Event": "event.created",
-      "User-Agent": "HubEnts-Webhooks/1.0",
+      "X-Hubents-Signature": "abc123",
+      "X-Hubents-Timestamp": "1234567890",
+      "X-Hubents-Event": "event.created",
+      "User-Agent": "Hubents-Webhooks/1.0",
     };
 
     for (const h of expectedHeaders) {

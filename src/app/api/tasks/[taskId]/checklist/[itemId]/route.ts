@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, taskChecklistItems } from "@/db/schema";
+import { taskChecklistItems, tasks } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, badRequest, notFound, ok } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string; itemId: string }> };
 
@@ -19,21 +20,17 @@ export async function PATCH(
   request: NextRequest,
   { params }: RouteParams
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
     const itemIdNum = parseInt(itemId, 10);
 
-    if (isNaN(taskIdNum) || isNaN(itemIdNum)) {
-      return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
-    }
+    if (isNaN(taskIdNum) || isNaN(itemIdNum)) return badRequest("Invalid IDs");
 
     const task = await loadOwnedTask(taskIdNum, session.organizationId);
-    if (!task) {
-      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
-    }
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
@@ -48,9 +45,7 @@ export async function PATCH(
       ))
       .limit(1);
 
-    if (!existingItem) {
-      return NextResponse.json({ success: false, error: "Checklist item not found" }, { status: 404 });
-    }
+    if (!existingItem) return notFound("Checklist item not found");
 
     const body = await request.json();
     const { title, isCompleted, dueDate, sortOrder } = body;
@@ -88,35 +83,26 @@ export async function PATCH(
       .where(eq(taskChecklistItems.id, itemIdNum))
       .returning();
 
-    return NextResponse.json({ success: true, data: updatedItem });
-  } catch (error) {
-    console.error("PATCH /api/tasks/[taskId]/checklist/[itemId] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update checklist item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+    return ok(updatedItem);
+  }, "PATCH /api/tasks/[taskId]/checklist/[itemId]");
 }
 
 // DELETE /api/tasks/[taskId]/checklist/[itemId] - Delete checklist item
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
 
     const { taskId, itemId } = await params;
     const taskIdNum = parseInt(taskId, 10);
     const itemIdNum = parseInt(itemId, 10);
 
-    if (isNaN(taskIdNum) || isNaN(itemIdNum)) {
-      return NextResponse.json({ success: false, error: "Invalid IDs" }, { status: 400 });
-    }
+    if (isNaN(taskIdNum) || isNaN(itemIdNum)) return badRequest("Invalid IDs");
 
     const task = await loadOwnedTask(taskIdNum, session.organizationId);
-    if (!task) {
-      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
-    }
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
@@ -131,19 +117,12 @@ export async function DELETE(
       ))
       .limit(1);
 
-    if (!existingItem) {
-      return NextResponse.json({ success: false, error: "Checklist item not found" }, { status: 404 });
-    }
+    if (!existingItem) return notFound("Checklist item not found");
 
     await db
       .delete(taskChecklistItems)
       .where(eq(taskChecklistItems.id, itemIdNum));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/tasks/[taskId]/checklist/[itemId] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete checklist item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+    return ok(null);
+  }, "DELETE /api/tasks/[taskId]/checklist/[itemId]");
 }

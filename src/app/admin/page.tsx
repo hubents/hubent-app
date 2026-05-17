@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Platform Overview</h1>
           <p className="text-muted-foreground">
-            Métricas y estado de la plataforma HubEnts
+            Métricas y estado de la plataforma Hubents
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchData}>

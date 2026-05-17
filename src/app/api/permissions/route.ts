@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { permissions } from "@/db/schema";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 /**
  * GET /api/permissions
  * List all permissions grouped by resource
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePermission("team:read");
 
     const allPerms = await db
@@ -25,20 +25,9 @@ export async function GET() {
       grouped[perm.resource].push(perm);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        permissions: allPerms,
-        grouped,
-      },
+    return ok({
+      permissions: allPerms,
+      grouped,
     });
-  } catch (error) {
-    console.error("GET /api/permissions error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch permissions";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/permissions");
 }

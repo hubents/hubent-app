@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Av } from "@/components/ui/ds";
 import {
   RiDeleteBinLine,
   RiUserLine,
@@ -89,6 +89,10 @@ interface ContactDrawerProps {
   onOpenRelatedContact?: (contactId: number) => void;
   onContactCreated?: (contactId: number) => void;
   mode?: "view" | "create";
+  leadId?: number | null;
+  leadStages?: { id: number; name: string; color: string | null }[];
+  onLeadUpdated?: () => void;
+  onLeadDeleted?: () => void;
 }
 
 export function ContactDrawer({
@@ -353,15 +357,6 @@ export function ContactDrawer({
     onOpenChange(newOpen);
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
@@ -375,15 +370,13 @@ export function ContactDrawer({
               {isCreateMode ? (
                 /* Create Mode Header */
                 <div className="flex items-center gap-3 flex-1">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className={newContactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                      {newContactType === "company" ? (
-                        <RiBuilding2Line className="h-6 w-6" />
-                      ) : (
-                        <RiUserLine className="h-6 w-6" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center ${newContactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}`}>
+                    {newContactType === "company" ? (
+                      <RiBuilding2Line className="h-6 w-6" />
+                    ) : (
+                      <RiUserLine className="h-6 w-6" />
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <SheetTitle className="text-xl font-semibold">Nuevo Contacto</SheetTitle>
                     <div className="flex items-center gap-2">
@@ -451,16 +444,7 @@ export function ContactDrawer({
               ) : (
                 <>
                   <div className="relative group">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={contact?.avatar || undefined} />
-                      <AvatarFallback className={contact?.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                        {contact?.type === "company" ? (
-                          <RiBuilding2Line className="h-6 w-6" />
-                        ) : (
-                          getInitials(contact?.name || "")
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Av src={contact?.avatar} name={contact?.name} size={48} />
                     <button
                       onClick={() => setShowAvatarUploader(!showAvatarUploader)}
                       className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"

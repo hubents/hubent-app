@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { financialDocuments, roles, rolePermissions } from "@/db/schema";
 import { sql, eq, count } from "drizzle-orm";
 import { requirePermission } from "@/lib/session";
+import { apiHandler, forbidden } from "@/lib/api-handler";
 
 interface MigrationCheck {
   name: string;
@@ -21,14 +22,11 @@ async function testQuery(label: string, migration: string, fn: () => Promise<voi
 }
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:read");
 
     if (session.user.platformLevel !== "super_admin" && session.role !== "owner") {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Admin only" } },
-        { status: 403 }
-      );
+      return forbidden("Admin only");
     }
 
     // 1. Test migration 0037 columns by running real queries
@@ -85,11 +83,5 @@ export async function GET() {
       },
       missingMigrations: [...new Set(failedChecks.map((c) => c.migration))],
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Health check failed";
-    return NextResponse.json(
-      { success: false, error: { code: "HEALTH_CHECK_ERROR", message } },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/health");
 }

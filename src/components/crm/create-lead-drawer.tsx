@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { hgIcon } from "@/components/ui/hg-icon";
 import {
   Cancel01Icon,
@@ -80,7 +81,7 @@ export function CreateLeadDrawer({
     if (!open || contactMode !== "existing") return;
     fetch("/api/contacts?limit=50")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setContacts(d.data || []); })
+      .then((d) => { if (d.success) setContacts(d.data?.data || []); })
       .catch(() => {});
   }, [open, contactMode]);
 
@@ -140,25 +141,22 @@ export function CreateLeadDrawer({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[80] flex justify-end"
-      style={{ background: "rgba(20, 18, 12, 0.35)" }}
-      onClick={close}
+    <Sheet
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) close();
+      }}
     >
-      <div
-        className="flex flex-col overflow-y-auto"
+      <SheetContent
+        side="right"
+        className="overflow-y-auto bg-white border-0 rounded-l-2xl [&>button]:hidden"
         style={{
           width: 420,
-          background: "#FFFFFF",
-          borderTopLeftRadius: 16,
-          borderBottomLeftRadius: 16,
+          maxWidth: "100vw",
           padding: "24px 26px",
           gap: 14,
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start">
@@ -410,8 +408,8 @@ export function CreateLeadDrawer({
               ? "Crear contacto y lead"
               : "Crear lead"}
         </button>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

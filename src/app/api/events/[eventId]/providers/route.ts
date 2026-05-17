@@ -7,6 +7,7 @@ import { z } from "zod";
 import { sendProviderEventInvitationEmail } from "@/lib/email";
 import { ensureVendorForProviderOrg, ensureEventVendor, autoLinkVendorToEventTasks } from "@/lib/cross-org";
 import { notifyProviderInvited } from "@/lib/push-notifications";
+import { apiHandler, ok, created, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -20,7 +21,7 @@ const inviteSchema = z.object({
  * List providers assigned to an event
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eid = parseInt(eventId);
     const session = await requireEventSectionAccess(eid, "vendors", "view");
@@ -30,10 +31,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       where: and(eq(events.id, eid), eq(events.organizationId, session.organizationId)),
     });
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     const access = await db
@@ -58,16 +56,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({ success: true, data: access });
-  } catch (error) {
-    console.error("GET /api/events/[eventId]/providers error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(access);
+  }, "GET /api/events/[eventId]/providers");
 }
 
 /**
@@ -75,7 +65,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Invite a provider org to an event
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eid = parseInt(eventId);
     const session = await requireEventSectionAccess(eid, "vendors", "view");
@@ -85,29 +75,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: and(eq(events.id, eid), eq(events.organizationId, session.organizationId)),
     });
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     const body = await request.json();
     const parsed = inviteSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid data" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid data");
     }
 
     const { providerOrgId, vendorId } = parsed.data;
 
     if (!providerOrgId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "providerOrgId is required" } },
-        { status: 400 }
-      );
+      return badRequest("providerOrgId is required");
     }
 
     // Verify provider org exists and is a provider
@@ -116,10 +97,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!providerOrg || providerOrg.orgType !== "provider") {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Provider organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Provider organization not found");
     }
 
     const finalProviderOrgId = providerOrgId;
@@ -250,14 +228,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .catch((err) => console.error("[inviteProvider] autoLinkVendorToEventTasks failed:", err));
 
-    return NextResponse.json({ success: true, data: { ...newAccess, vendorId: finalVendorId } }, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/events/[eventId]/providers error:", error);
-    const message = error instanceof Error ? error.message : "Failed to invite";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "INVITE_ERROR", message } },
-      { status }
-    );
-  }
+    return created({ ...newAccess, vendorId: finalVendorId });
+  }, "POST /api/events/[eventId]/providers");
 }

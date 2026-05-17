@@ -1,11 +1,7 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { downloadDocumentPDF } from "@/lib/pdf-download";
 import {
   DropdownMenu,
@@ -15,41 +11,52 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  RiAddLine,
-  RiSearchLine,
-  RiMoreLine,
-  RiEditLine,
-  RiFileCopyLine,
-  RiDeleteBinLine,
-  RiExchangeLine,
-  RiSendPlaneLine,
-  RiCheckLine,
-  RiCloseLine,
-  RiEyeLine,
-  RiMoneyDollarCircleLine,
-  RiCheckDoubleLine,
-  RiTruckLine,
-  RiFileDownloadLine,
-  RiHandCoinLine,
-} from "@remixicon/react";
+  Search01Icon,
+  PlusSignIcon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  ArrowUpDownIcon,
+  Tick01Icon,
+  MoreVerticalIcon,
+  PencilEdit02Icon,
+  Copy01Icon,
+  Delete01Icon,
+  Exchange01Icon,
+  MailSend01Icon,
+  Cancel01Icon,
+  EyeIcon,
+  TruckIcon,
+  Download01Icon,
+  HandCoinsIcon,
+} from "@hugeicons/core-free-icons";
+import { hgIcon } from "@/components/ui/hg-icon";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DocumentDrawer } from "@/components/finance/document-drawer";
 import { DocumentPreview } from "@/components/finance/document-preview";
-import { FinanceToolbar } from "@/components/finance/finance-toolbar";
 import { NumericPagination } from "@/components/ui/numeric-pagination";
-import { cn } from "@/lib/utils";
+import { ScopeFilter, type ScopeValue } from "@/components/ui/scope-filter";
 import { useUserSession } from "@/hooks/use-user-session";
-import { type ScopeValue } from "@/components/ui/scope-filter";
+import { getInitials as initials, avColor } from "@/lib/ui-utils";
+
+const IcoSearch    = hgIcon(Search01Icon);
+const IcoPlus      = hgIcon(PlusSignIcon);
+const IcoChevDown  = hgIcon(ArrowDown01Icon);
+const IcoChevUp    = hgIcon(ArrowUp01Icon);
+const IcoSort      = hgIcon(ArrowUpDownIcon);
+const IcoCheck     = hgIcon(Tick01Icon);
+const IcoMore      = hgIcon(MoreVerticalIcon);
+const IcoEdit      = hgIcon(PencilEdit02Icon);
+const IcoCopy      = hgIcon(Copy01Icon);
+const IcoTrash     = hgIcon(Delete01Icon);
+const IcoExchange  = hgIcon(Exchange01Icon);
+const IcoSend      = hgIcon(MailSend01Icon);
+const IcoX         = hgIcon(Cancel01Icon);
+const IcoEye       = hgIcon(EyeIcon);
+const IcoTruck     = hgIcon(TruckIcon);
+const IcoDownload  = hgIcon(Download01Icon);
+const IcoHandCoins = hgIcon(HandCoinsIcon);
 
 interface DocumentItem {
   id: number;
@@ -93,34 +100,27 @@ interface Quote {
   items: DocumentItem[];
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-  draft: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  sent: { label: "Pendiente", color: "bg-blue-100 text-blue-700" },
-  accepted: { label: "Aceptado", color: "bg-green-100 text-green-700" },
-  rejected: { label: "Rechazado", color: "bg-red-100 text-red-700" },
-  payment_promise: {
-    label: "Promesa de pago",
-    color: "bg-amber-100 text-amber-700",
-  },
-  // Legacy fallbacks — cleaned up by migration 0044, kept for safety
-  partial: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
-  paid: { label: "Promesa de pago", color: "bg-amber-100 text-amber-700" },
+const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
+  draft:           { bg: "#EDEAE3", fg: "#5B5649", label: "Borrador" },
+  sent:            { bg: "#E8D4FF", fg: "#6B4BE0", label: "Enviado" },
+  accepted:        { bg: "#D9ECD1", fg: "#1F6A3A", label: "Aceptado" },
+  payment_promise: { bg: "#FCEFC9", fg: "#8A6A1A", label: "Promesa de pago" },
+  rejected:        { bg: "#F8D4D4", fg: "#8B2A2A", label: "Cancelado" },
+  cancelled:       { bg: "#F8D4D4", fg: "#8B2A2A", label: "Cancelado" },
+  approved:        { bg: "#D9ECD1", fg: "#1F6A3A", label: "Aceptado" },
+  paid:            { bg: "#D9ECD1", fg: "#1F6A3A", label: "Aceptado" },
+  delivered:       { bg: "#D9ECD1", fg: "#1F6A3A", label: "Aceptado" },
+  partial:         { bg: "#FCEFC9", fg: "#8A6A1A", label: "Promesa de pago" },
 };
 
-type StatusTab = "all" | "sent" | "accepted" | "rejected" | "payment_promise";
-const statusTabs: { key: StatusTab; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "sent", label: "Pendiente" },
-  { key: "accepted", label: "Aceptado" },
-  { key: "rejected", label: "Rechazado" },
-  { key: "payment_promise", label: "Promesa de pago" },
-];
-
-type DirectionTab = "all" | "outgoing" | "incoming";
-const directionTabs: { key: DirectionTab; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "outgoing", label: "Cobros" },
-  { key: "incoming", label: "Pagos" },
+type StatusFilter = "all" | "draft" | "sent" | "accepted" | "payment_promise" | "rejected";
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all",             label: "Todos" },
+  { value: "draft",           label: "Borrador" },
+  { value: "sent",            label: "Enviado" },
+  { value: "accepted",        label: "Aceptado" },
+  { value: "payment_promise", label: "Promesa de pago" },
+  { value: "rejected",        label: "Cancelado" },
 ];
 
 export default function QuotesPage() {
@@ -135,52 +135,49 @@ function QuotesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { can } = useUserSession();
+
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [directionTab, setDirectionTab] = useState<DirectionTab>("all");
-  const [scope, setScope] = useState<ScopeValue>("standalone");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [scope, setScope] = useState<ScopeValue>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Drawer state
+  type SortKey = "client" | "issueDate" | "number" | "status" | "total";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const cycleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
-  const [drawerInitialData, setDrawerInitialData] = useState<any>(undefined);
-  const [drawerType, setDrawerType] = useState<
-    "quote" | "invoice" | "delivery_note"
-  >("quote");
-
-  // Preview state
+  const [drawerInitialData, setDrawerInitialData] = useState<Record<string, unknown> | undefined>(undefined);
+  const [drawerType, setDrawerType] = useState<"quote" | "invoice" | "delivery_note">("quote");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
 
-  useEffect(() => {
-    fetchQuotes();
-  }, [page, statusFilter, directionTab, scope]);
+  useEffect(() => { fetchQuotes(); }, [page, statusFilter, scope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchParams.get("new") === "true") {
       openNewDrawer();
       router.replace("/dashboard/finance/quotes");
     }
-  }, [searchParams]);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchQuotes() {
     try {
       setFetchError(null);
-      const params = new URLSearchParams({
-        type: "quote",
-        page: page.toString(),
-        limit: "20",
-      });
+      const params = new URLSearchParams({ type: "quote", page: page.toString(), limit: "20" });
       if (statusFilter !== "all") params.set("status", statusFilter);
-      if (directionTab !== "all") params.set("direction", directionTab);
-      if (searchTerm) params.set("search", searchTerm);
       if (scope !== "all") params.set("scope", scope);
-
+      if (searchTerm) params.set("search", searchTerm);
       const res = await fetch(`/api/finance/documents?${params}`);
       if (res.ok) {
         const data = await res.json();
@@ -190,13 +187,11 @@ function QuotesContent() {
         }
       } else {
         const data = await res.json().catch(() => null);
-        const msg =
-          data?.error?.message || `Error del servidor (${res.status})`;
+        const msg = data?.error?.message || `Error del servidor (${res.status})`;
         setFetchError(msg);
         toast.error(msg);
       }
-    } catch (error) {
-      console.error("Failed to fetch quotes:", error);
+    } catch {
       setFetchError("No se pudo conectar con el servidor");
       toast.error("Error al cargar presupuestos");
     } finally {
@@ -206,27 +201,14 @@ function QuotesContent() {
 
   async function deleteQuote(id: number) {
     if (!confirm("¿Estás seguro de eliminar este presupuesto?")) return;
-
     try {
-      const res = await fetch(`/api/finance/documents/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        toast.success("Presupuesto eliminado");
-        fetchQuotes();
-      } else {
-        const data = await res.json().catch(() => null);
-        toast.error(data?.error?.message || "Error al eliminar");
-      }
-    } catch (error) {
-      toast.error("Error al eliminar");
-    }
+      const res = await fetch(`/api/finance/documents/${id}`, { method: "DELETE" });
+      if (res.ok) { toast.success("Presupuesto eliminado"); fetchQuotes(); }
+      else { const d = await res.json().catch(() => null); toast.error(d?.error?.message || "Error al eliminar"); }
+    } catch { toast.error("Error al eliminar"); }
   }
 
-  async function fetchDocAndOpenDrawer(
-    id: number,
-    targetType: "quote" | "invoice" | "delivery_note",
-  ) {
+  async function fetchDocAndOpenDrawer(id: number, targetType: "quote" | "invoice" | "delivery_note") {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
@@ -235,22 +217,14 @@ function QuotesContent() {
           const doc = data.data;
           const isDeliveryNote = targetType === "delivery_note";
           setDrawerInitialData({
-            contactId: doc.contactId,
-            vendorId: doc.vendorId,
-            eventId: doc.eventId,
+            contactId: doc.contactId, vendorId: doc.vendorId, eventId: doc.eventId,
             notes: doc.notes,
-            termsAndConditions: isDeliveryNote
-              ? undefined
-              : doc.termsAndConditions,
-            globalDiscount: isDeliveryNote
-              ? undefined
-              : parseFloat(doc.globalDiscount || "0") || undefined,
-            globalDiscountType: isDeliveryNote
-              ? undefined
-              : doc.globalDiscountType,
+            termsAndConditions: isDeliveryNote ? undefined : doc.termsAndConditions,
+            globalDiscount: isDeliveryNote ? undefined : parseFloat(doc.globalDiscount || "0") || undefined,
+            globalDiscountType: isDeliveryNote ? undefined : doc.globalDiscountType,
             paymentMethod: isDeliveryNote ? undefined : doc.paymentMethod,
             bankAccountId: isDeliveryNote ? undefined : doc.bankAccountId,
-            items: doc.items?.map((item: any) => ({
+            items: doc.items?.map((item: Record<string, string>) => ({
               description: item.description,
               quantity: parseFloat(item.quantity),
               unitPrice: isDeliveryNote ? 0 : parseFloat(item.unitPrice),
@@ -264,9 +238,7 @@ function QuotesContent() {
           setDrawerOpen(true);
         }
       }
-    } catch (error) {
-      toast.error("Error al cargar documento");
-    }
+    } catch { toast.error("Error al cargar documento"); }
   }
 
   async function updateStatus(id: number, status: string) {
@@ -277,463 +249,411 @@ function QuotesContent() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
-        toast.success(
-          `Estado actualizado a ${statusConfig[status]?.label || status}`,
-        );
+        toast.success(`Estado actualizado a ${STATUS_PILL[status]?.label || status}`);
         fetchQuotes();
-
-        // If accepted, ask if user wants to generate invoice
         if (status === "accepted") {
-          const generateInvoice = confirm(
-            "¿Deseas generar una factura a partir de este presupuesto?",
-          );
-          if (generateInvoice) {
-            await fetchDocAndOpenDrawer(id, "invoice");
-          }
+          const generate = confirm("¿Deseas generar una factura a partir de este presupuesto?");
+          if (generate) await fetchDocAndOpenDrawer(id, "invoice");
         }
       } else {
-        const data = await res.json().catch(() => null);
-        const errorMsg = data?.error?.message || "Error al actualizar estado";
-        toast.error(errorMsg);
+        const d = await res.json().catch(() => null);
+        toast.error(d?.error?.message || "Error al actualizar estado");
       }
-    } catch (error) {
-      toast.error("Error al actualizar estado");
-    }
+    } catch { toast.error("Error al actualizar estado"); }
   }
 
   function openNewDrawer() {
-    setEditingId(undefined);
-    setDrawerInitialData(undefined);
-    setDrawerType("quote");
-    setDrawerOpen(true);
+    setEditingId(undefined); setDrawerInitialData(undefined); setDrawerType("quote"); setDrawerOpen(true);
   }
-
   function openEditDrawer(id: number) {
-    setEditingId(id);
-    setDrawerInitialData(undefined);
-    setDrawerType("quote");
-    setDrawerOpen(true);
+    setEditingId(id); setDrawerInitialData(undefined); setDrawerType("quote"); setDrawerOpen(true);
   }
-
   async function openPreview(id: number) {
     try {
       const res = await fetch(`/api/finance/documents/${id}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.success && data.data) {
-          setPreviewQuote(data.data);
-          setPreviewOpen(true);
-        }
+        if (data.success && data.data) { setPreviewQuote(data.data); setPreviewOpen(true); }
       }
-    } catch (error) {
-      toast.error("Error al cargar documento");
-    }
+    } catch { toast.error("Error al cargar documento"); }
   }
 
-  const formatCurrency = (amount: string, currency = "EUR") => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency,
-    }).format(parseFloat(amount || "0"));
-  };
+  const formatCurrency = (amount: string, currency = "EUR") =>
+    new Intl.NumberFormat("es-ES", { style: "currency", currency }).format(parseFloat(amount || "0"));
 
-  const getClientName = (quote: Quote) => {
-    if (quote.contactName) return quote.contactName;
-    if (quote.companyName) return quote.companyName;
-    if (quote.personFirstName) {
-      return `${quote.personFirstName} ${quote.personLastName || ""}`.trim();
-    }
-    if (quote.vendorName) return quote.vendorName;
-    return "Sin cliente";
-  };
+  const getClientName = (q: Quote) =>
+    q.contactName ||
+    q.companyName ||
+    (q.personFirstName ? `${q.personFirstName} ${q.personLastName || ""}`.trim() : "") ||
+    q.vendorName ||
+    "Sin cliente";
 
-  function getDisplayStatus(quote: Quote): string {
-    if (
-      quote.validUntil &&
-      quote.status !== "accepted" &&
-      quote.status !== "rejected" &&
-      quote.status !== "cancelled"
-    ) {
-      if (new Date(quote.validUntil) < new Date()) return "overdue";
-    }
-    return quote.status;
-  }
+  const sortedQuotes = useMemo(() => {
+    if (!sort) return quotes;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const valueOf = (q: Quote): string | number => {
+      switch (sort.key) {
+        case "client":    return getClientName(q).toLowerCase();
+        case "issueDate": return q.issueDate ? new Date(q.issueDate).getTime() : 0;
+        case "number":    return q.number || "";
+        case "status":    return q.status;
+        case "total":     return parseFloat(q.total || "0");
+      }
+    };
+    return [...quotes].sort((a, b) => {
+      const va = valueOf(a), vb = valueOf(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }, [quotes, sort]);
 
-  function handleSearchSubmit() {
-    setPage(1);
-    fetchQuotes();
-  }
+  const kpis = useMemo(() => {
+    const sum = (arr: Quote[]) => arr.reduce((acc, q) => acc + parseFloat(q.total || "0"), 0);
+    const accepted  = quotes.filter(q => q.status === "accepted" || q.status === "payment_promise");
+    const pending   = quotes.filter(q => q.status === "sent");
+    const cancelled = quotes.filter(q => q.status === "rejected" || q.status === "cancelled");
+    const total     = sum(quotes);
+    const pct = (n: number) => total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
+    return [
+      { label: "Total emitido",  value: formatCurrency(String(total)), delta: "",                  sub: "del listado" },
+      { label: "Aceptados",      value: formatCurrency(String(sum(accepted))),  delta: pct(sum(accepted)),  sub: "del total" },
+      { label: "Pendientes",     value: formatCurrency(String(sum(pending))),   delta: pct(sum(pending)),   sub: "del total" },
+      { label: "Cancelados",     value: formatCurrency(String(sum(cancelled))), delta: pct(sum(cancelled)), sub: "del total" },
+    ];
+  }, [quotes]);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-10 w-48" />
-        </div>
-        <Skeleton className="h-96" />
+      <div className="flex flex-col gap-4">
+        <div className="h-[72px] rounded-[12px] opacity-60" style={{ background: "var(--bg-subtle)" }} />
+        <div className="h-[380px] rounded-[12px] opacity-40" style={{ background: "var(--bg-subtle)" }} />
       </div>
     );
   }
 
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (!sort || sort.key !== k) return <IcoSort className="h-3 w-3 opacity-30" />;
+    return sort.dir === "asc" ? <IcoChevUp className="h-3 w-3" /> : <IcoChevDown className="h-3 w-3" />;
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Presupuestos</h1>
-          <p className="text-muted-foreground">
-            Gestiona tus presupuestos y cotizaciones
-          </p>
+    <div className="flex flex-col gap-4">
+
+      {/* ── KPI strip — connected cells ── */}
+      <div
+        className="grid grid-cols-2 md:grid-cols-4 rounded-[12px] overflow-hidden"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {kpis.map((k, i) => (
+          <div
+            key={i}
+            className="px-5 py-4"
+            style={{ borderLeft: i > 0 ? "1px solid var(--line-1)" : "none" }}
+          >
+            <div className="text-[12px] text-[var(--ink-3)] font-medium mb-1.5">{k.label}</div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-[22px] font-semibold text-[var(--ink-1)]" style={{ letterSpacing: "-0.02em" }}>
+                {k.value}
+              </span>
+              {k.delta && (
+                <span className="text-[11px] font-medium text-[var(--ink-3)]">{k.delta}</span>
+              )}
+              <span className="text-[10.5px] text-[var(--ink-3)]">{k.sub}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Table card ── */}
+      <div
+        className="rounded-[12px] p-[18px]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+          {/* Search */}
+          <div
+            className="flex items-center gap-2 rounded-[8px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: "8px 12px", width: 280 }}
+          >
+            <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Buscar por cliente, número..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchQuotes(); } }}
+              className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+            />
+          </div>
+
+          <ScopeFilter value={scope} onChange={(v) => { setScope(v); setPage(1); }} />
+
+          <div className="ml-auto">
+            {can("finance:create") && (
+              <button
+                onClick={openNewDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors"
+                style={{ background: "var(--ink-1)", color: "#FFFFFF", border: "1px solid var(--ink-1)" }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nuevo presupuesto
+              </button>
+            )}
+          </div>
         </div>
-        {can("finance:create") && (
-          <Button onClick={openNewDrawer}>
-            <RiAddLine className="mr-2 h-4 w-4" />
-            Nuevo Presupuesto
-          </Button>
+
+        {/* Status pill filters */}
+        <div className="flex items-center mb-4">
+          <div
+            className="inline-flex gap-1 rounded-[8px]"
+            style={{ background: "var(--bg-subtle)", padding: 3 }}
+          >
+            {STATUS_OPTIONS.map((o) => {
+              const active = statusFilter === o.value;
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => { setStatusFilter(o.value); setPage(1); }}
+                  className="inline-flex items-center rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "5px 12px",
+                    background: active ? "#FFFFFF" : "transparent",
+                    color: active ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: active ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Table */}
+        {fetchError ? (
+          <div className="text-center py-10">
+            <div className="text-[13px] font-medium mb-3" style={{ color: "#B8412D" }}>{fetchError}</div>
+            <button
+              onClick={fetchQuotes}
+              className="px-3 py-1.5 rounded-[7px] text-[12.5px] cursor-pointer"
+              style={{ border: "1px solid var(--line-strong)", background: "#FFFFFF" }}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : quotes.length === 0 ? (
+          <div className="text-center py-14">
+            <div className="text-[14px] font-semibold text-[var(--ink-1)] mb-1">No hay presupuestos</div>
+            <div className="text-[12.5px] text-[var(--ink-3)] mb-4">
+              {searchTerm ? "No se encontraron resultados para esa búsqueda" : "Crea tu primer presupuesto con el botón de arriba"}
+            </div>
+            {!searchTerm && can("finance:create") && (
+              <button
+                onClick={openNewDrawer}
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer mx-auto"
+                style={{ background: "var(--ink-1)", color: "#FFFFFF", border: "1px solid var(--ink-1)" }}
+              >
+                <IcoPlus className="h-[14px] w-[14px]" />
+                Nuevo presupuesto
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th onClick={() => cycleSort("client")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Cliente <SortIcon k="client" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("number")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Número <SortIcon k="number" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("issueDate")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Fecha <SortIcon k="issueDate" /></span>
+                  </th>
+                  <th onClick={() => cycleSort("status")} style={{ cursor: "pointer", userSelect: "none" }}>
+                    <span className="inline-flex items-center gap-1">Estado <SortIcon k="status" /></span>
+                  </th>
+                  <th
+                    onClick={() => cycleSort("total")}
+                    style={{ cursor: "pointer", userSelect: "none", textAlign: "right" }}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end w-full">
+                      <SortIcon k="total" /> Total
+                    </span>
+                  </th>
+                  <th style={{ width: 44 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedQuotes.map((quote) => {
+                  const pill = STATUS_PILL[quote.status] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", label: quote.status };
+                  const clientName = getClientName(quote);
+                  return (
+                    <tr
+                      key={quote.id}
+                      onClick={() => openPreview(quote.id)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {/* Cliente */}
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="flex-shrink-0 flex items-center justify-center rounded-full text-[11.5px] font-semibold text-white"
+                            style={{ width: 30, height: 30, background: avColor(clientName), fontSize: 11 }}
+                          >
+                            {initials(clientName)}
+                          </div>
+                          <span className="text-[13px] font-medium text-[var(--ink-1)]">{clientName}</span>
+                        </div>
+                      </td>
+                      {/* Número */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)] font-mono">{quote.number}</span>
+                      </td>
+                      {/* Fecha */}
+                      <td>
+                        <span className="text-[13px] text-[var(--ink-2)]">
+                          {quote.issueDate
+                            ? format(new Date(quote.issueDate), "d MMM yyyy", { locale: es })
+                            : "—"}
+                        </span>
+                      </td>
+                      {/* Estado */}
+                      <td>
+                        <span
+                          className="inline-flex items-center rounded-[999px] text-[11.5px] font-medium"
+                          style={{ background: pill.bg, color: pill.fg, padding: "3px 10px" }}
+                        >
+                          {pill.label}
+                        </span>
+                      </td>
+                      {/* Total */}
+                      <td style={{ textAlign: "right" }}>
+                        <span className="text-[13px] font-semibold text-[var(--ink-1)]">
+                          {formatCurrency(quote.total, quote.currency)}
+                        </span>
+                      </td>
+                      {/* Acciones */}
+                      <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="inline-flex items-center justify-center rounded-[6px] transition-colors hover:bg-[var(--bg-subtle)] cursor-pointer border-none bg-transparent"
+                              style={{ width: 28, height: 28, color: "var(--ink-3)" }}
+                            >
+                              <IcoMore className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openPreview(quote.id)}>
+                              <IcoEye className="mr-2 h-4 w-4" /> Vista previa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDrawer(quote.id)}>
+                              <IcoEdit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+
+                            {/* Status transitions */}
+                            {(quote.status === "draft" || quote.status === "sent") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                  <IcoCheck className="mr-2 h-4 w-4" />
+                                  {quote.status === "sent" ? "Marcar como aceptado" : "Aceptar"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateStatus(quote.id, "rejected")}>
+                                  <IcoX className="mr-2 h-4 w-4" /> Rechazar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {quote.status !== "sent" && (
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "sent")}>
+                                <IcoSend className="mr-2 h-4 w-4" />
+                                {quote.status === "rejected" || quote.status === "cancelled" ? "Reactivar" : "Marcar como enviado"}
+                              </DropdownMenuItem>
+                            )}
+                            {quote.status === "accepted" && (
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "payment_promise")}>
+                                <IcoHandCoins className="mr-2 h-4 w-4" /> Promesa de pago
+                              </DropdownMenuItem>
+                            )}
+                            {quote.status === "payment_promise" && (
+                              <DropdownMenuItem onClick={() => updateStatus(quote.id, "accepted")}>
+                                <IcoCheck className="mr-2 h-4 w-4" /> Marcar como aceptado
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* Conversions */}
+                            {(quote.status === "accepted" || quote.status === "payment_promise") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "invoice")}>
+                                  <IcoExchange className="mr-2 h-4 w-4" /> Convertir a Factura
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "delivery_note")}>
+                                  <IcoTruck className="mr-2 h-4 w-4" /> Convertir a Albarán
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => fetchDocAndOpenDrawer(quote.id, "quote")}>
+                              <IcoCopy className="mr-2 h-4 w-4" /> Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => downloadDocumentPDF(quote.id, `presupuesto-${quote.number}.pdf`)}>
+                              <IcoDownload className="mr-2 h-4 w-4" /> Descargar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onClick={() => deleteQuote(quote.id)}>
+                              <IcoTrash className="mr-2 h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <FinanceToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onSearchSubmit={handleSearchSubmit}
-        searchPlaceholder="Buscar por número o cliente..."
-        scope={scope}
-        onScopeChange={(v) => {
-          setScope(v);
-          setPage(1);
-        }}
-        directions={directionTabs}
-        activeDirection={directionTab}
-        onDirectionChange={(key) => {
-          setDirectionTab(key as DirectionTab);
-          setPage(1);
-        }}
-        statusTabs={statusTabs}
-        activeStatus={statusFilter}
-        onStatusChange={(key) => {
-          setStatusFilter(key);
-          setPage(1);
-        }}
-      />
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Pagado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fetchError ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    <div className="text-red-600 font-medium">{fetchError}</div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => fetchQuotes()}
-                    >
-                      Reintentar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ) : quotes.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    No hay presupuestos
-                  </TableCell>
-                </TableRow>
-              ) : (
-                quotes.map((quote: Quote) => {
-                  const displayStatus = getDisplayStatus(quote);
-                  return (
-                    <TableRow
-                      key={quote.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => openEditDrawer(quote.id)}
-                    >
-                      <TableCell>
-                        {quote.issueDate
-                          ? format(new Date(quote.issueDate), "dd MMM yyyy", {
-                              locale: es,
-                            })
-                          : "-"}
-                      </TableCell>
-                      <TableCell>{getClientName(quote)}</TableCell>
-                      <TableCell className="font-medium">
-                        {quote.number}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const total = parseFloat(quote.total || "0");
-                          const paid = parseFloat(quote.paidAmount || "0");
-                          if (paid <= 0)
-                            return (
-                              <span className="text-muted-foreground">-</span>
-                            );
-                          const pct =
-                            total > 0 ? Math.min((paid / total) * 100, 100) : 0;
-                          return (
-                            <div className="flex items-center gap-2 min-w-[100px]">
-                              <div className="h-1.5 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-emerald-500 rounded-full"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {pct.toFixed(0)}%
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(quote.total, quote.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            statusConfig[displayStatus]?.color || "bg-gray-100"
-                          }
-                        >
-                          {statusConfig[displayStatus]?.label || quote.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <RiMoreLine className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {/* Status actions per state */}
-                            {quote.status === "sent" && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateStatus(quote.id, "accepted")
-                                  }
-                                >
-                                  <RiCheckLine className="mr-2 h-4 w-4" />
-                                  Aceptar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateStatus(quote.id, "rejected")
-                                  }
-                                >
-                                  <RiCloseLine className="mr-2 h-4 w-4" />
-                                  Rechazar
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {quote.status === "accepted" && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateStatus(quote.id, "payment_promise")
-                                  }
-                                >
-                                  <RiHandCoinLine className="mr-2 h-4 w-4" />
-                                  Promesa de pago
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => updateStatus(quote.id, "sent")}
-                                >
-                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                  Volver a Pendiente
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {quote.status === "rejected" && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => updateStatus(quote.id, "sent")}
-                                >
-                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                  Volver a Pendiente
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateStatus(quote.id, "accepted")
-                                  }
-                                >
-                                  <RiCheckLine className="mr-2 h-4 w-4" />
-                                  Aceptar
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {quote.status === "payment_promise" && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => openPreview(quote.id)}
-                                >
-                                  <RiMoneyDollarCircleLine className="mr-2 h-4 w-4" />
-                                  Registrar Pago
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    updateStatus(quote.id, "accepted")
-                                  }
-                                >
-                                  <RiCheckLine className="mr-2 h-4 w-4" />
-                                  Volver a Aceptado
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => updateStatus(quote.id, "sent")}
-                                >
-                                  <RiSendPlaneLine className="mr-2 h-4 w-4" />
-                                  Volver a Pendiente
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {/* Convert actions */}
-                            {(quote.status === "accepted" ||
-                              quote.status === "payment_promise") && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    fetchDocAndOpenDrawer(quote.id, "invoice")
-                                  }
-                                >
-                                  <RiExchangeLine className="mr-2 h-4 w-4" />
-                                  Convertir a Factura
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    fetchDocAndOpenDrawer(
-                                      quote.id,
-                                      "delivery_note",
-                                    )
-                                  }
-                                >
-                                  <RiTruckLine className="mr-2 h-4 w-4" />
-                                  Convertir a Albarán
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuSeparator />
-                            {/* Common actions */}
-                            <DropdownMenuItem
-                              onClick={() => openEditDrawer(quote.id)}
-                            >
-                              <RiEditLine className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openPreview(quote.id)}
-                            >
-                              <RiEyeLine className="mr-2 h-4 w-4" />
-                              Vista previa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                fetchDocAndOpenDrawer(quote.id, "quote")
-                              }
-                            >
-                              <RiFileCopyLine className="mr-2 h-4 w-4" />
-                              Duplicar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                downloadDocumentPDF(
-                                  quote.id,
-                                  `quote-${quote.number}.pdf`,
-                                )
-                              }
-                            >
-                              <RiFileDownloadLine className="mr-2 h-4 w-4" />
-                              Descargar PDF
-                            </DropdownMenuItem>
-                            {/* Delete only for sent/rejected */}
-                            {(quote.status === "sent" ||
-                              quote.status === "rejected") && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => deleteQuote(quote.id)}
-                                >
-                                  <RiDeleteBinLine className="mr-2 h-4 w-4" />
-                                  Eliminar
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       {/* Pagination */}
-      <div className="flex justify-center">
-        <NumericPagination
-          currentPage={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
-      </div>
+      {totalPages > 1 && (
+        <div className="flex justify-center">
+          <NumericPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        </div>
+      )}
 
-      {/* Document Drawer */}
+      {/* Drawers */}
       <DocumentDrawer
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) {
-            setDrawerInitialData(undefined);
-            setDrawerType("quote");
-          }
+          if (!open) { setDrawerInitialData(undefined); setDrawerType("quote"); }
         }}
         type={drawerType}
         documentId={editingId}
         initialData={drawerInitialData}
         onSuccess={fetchQuotes}
-        onDuplicate={() => {
-          setDrawerOpen(false);
-          if (editingId) fetchDocAndOpenDrawer(editingId, "quote");
-        }}
+        onDuplicate={() => { setDrawerOpen(false); if (editingId) fetchDocAndOpenDrawer(editingId, "quote"); }}
         onConvert={(targetType) => {
           setDrawerOpen(false);
-          if (editingId)
-            fetchDocAndOpenDrawer(
-              editingId,
-              targetType as "quote" | "invoice" | "delivery_note",
-            );
+          if (editingId) fetchDocAndOpenDrawer(editingId, targetType as "quote" | "invoice" | "delivery_note");
         }}
       />
 
-      {/* Document Preview */}
       <DocumentPreview
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         document={previewQuote}
-        onEdit={() => {
-          setPreviewOpen(false);
-          if (previewQuote) openEditDrawer(previewQuote.id);
-        }}
+        onEdit={() => { setPreviewOpen(false); if (previewQuote) openEditDrawer(previewQuote.id); }}
         onRefresh={fetchQuotes}
       />
     </div>

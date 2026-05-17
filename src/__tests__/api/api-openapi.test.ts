@@ -13,7 +13,7 @@ describe("OpenAPI Spec", () => {
   it("is a valid OpenAPI 3.1 document", () => {
     expect(spec.openapi).toBe("3.1.0");
     expect(spec.info).toBeDefined();
-    expect(spec.info.title).toBe("HubEnts Public API");
+    expect(spec.info.title).toBe("Hubents Public API");
     expect(spec.info.version).toBe("2026-03-14");
   });
 

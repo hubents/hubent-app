@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ok } from "@/lib/api-handler";
 import { db } from "@/db";
 import { requireAuth } from "@/lib/session";
 import {
@@ -660,7 +661,7 @@ export async function GET(request: NextRequest) {
     // Sort by date
     items.sort((a, b) => a.date.localeCompare(b.date));
 
-    return NextResponse.json({ success: true, data: items, allowedTypes });
+    return ok(items, 200, { allowedTypes });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error loading calendar";
     if (message.includes("Unauthorized") || message.includes("Please log in")) {

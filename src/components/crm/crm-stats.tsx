@@ -13,6 +13,7 @@ import {
   RiArrowDownLine,
 } from "@remixicon/react";
 import { useOrgCurrency } from "@/hooks/use-org-currency";
+import { fmtMoneyShort } from "@/lib/format";
 
 interface Stage {
   id: number;
@@ -99,12 +100,7 @@ export function CRMStats({ stages, loading }: CRMStatsProps) {
   // Format currency — compact for large numbers, full via orgFmt otherwise
   const formatCurrency = (value: number) => {
     if (value >= 1000) {
-      return new Intl.NumberFormat("es-ES", {
-        style: "currency",
-        currency: orgCurrency,
-        notation: "compact",
-        maximumFractionDigits: 1,
-      }).format(value);
+      return fmtMoneyShort(value, orgCurrency);
     }
     return orgFmt(value);
   };

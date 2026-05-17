@@ -1,18 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: { code: string; message: string };
-  meta?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import type { ApiResponse } from "@/types";
 
 interface UseApiOptions {
   immediate?: boolean;

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { getEventParticipant } from "@/lib/event-permissions";
 import { db } from "@/db";
 import { events, eventCollaborations, providerEventAccess } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -22,40 +23,37 @@ const DEFAULT_COLLAB_PERMISSIONS = {
  * GET /api/events/[eventId]/collaborators/me
  * Get the current user's participant record and permissions for this event
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
 
     if (!session.eventScoped) {
       // Check if event belongs to the user's org (host) or if they're a guest
-      const ownedEvent = await db.query.events.findFirst({
-        where: (e, { eq: eqFn, and: andFn }) =>
-          andFn(eqFn(e.id, id), eqFn(e.organizationId, session.organizationId)),
-        columns: { id: true },
-      });
+      const [ownedEvent] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(and(eq(events.id, id), eq(events.organizationId, session.organizationId)))
+        .limit(1);
 
       if (ownedEvent) {
         // Host org: full access
-        return NextResponse.json({
-          success: true,
-          data: {
-            isParticipant: true,
-            fullAccess: true,
-            isCollaborator: false,
-            permissions: {
-              general: "edit",
-              tasks: "edit",
-              guests: "edit",
-              rsvp: "edit",
-              vendors: "edit",
-              partners: "edit",
-              finances: "edit",
-              settings: "edit",
-              calendar: "edit",
-              runsheet: "edit",
-            },
+        return ok({
+          isParticipant: true,
+          fullAccess: true,
+          isCollaborator: false,
+          permissions: {
+            general: "edit",
+            tasks: "edit",
+            guests: "edit",
+            rsvp: "edit",
+            vendors: "edit",
+            partners: "edit",
+            finances: "edit",
+            settings: "edit",
+            calendar: "edit",
+            runsheet: "edit",
           },
         });
       }
@@ -74,14 +72,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .limit(1);
 
       if (collab) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            isParticipant: true,
-            fullAccess: false,
-            isCollaborator: true,
-            permissions: collab.permissions || DEFAULT_COLLAB_PERMISSIONS,
-          },
+        return ok({
+          isParticipant: true,
+          fullAccess: false,
+          isCollaborator: true,
+          permissions: collab.permissions || DEFAULT_COLLAB_PERMISSIONS,
         });
       }
 
@@ -99,36 +94,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .limit(1);
 
       if (legacyAccess) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            isParticipant: true,
-            fullAccess: false,
-            isCollaborator: true,
-            permissions: DEFAULT_COLLAB_PERMISSIONS,
-          },
+        return ok({
+          isParticipant: true,
+          fullAccess: false,
+          isCollaborator: true,
+          permissions: DEFAULT_COLLAB_PERMISSIONS,
         });
       }
 
       // Not owner and not guest: full access (org user viewing unknown event -- API gates will handle)
-      return NextResponse.json({
-        success: true,
-        data: {
-          isParticipant: true,
-          fullAccess: true,
-          isCollaborator: false,
-          permissions: {
-            general: "edit",
-            tasks: "edit",
-            guests: "edit",
-            rsvp: "edit",
-            vendors: "edit",
-            partners: "edit",
-            finances: "edit",
-            settings: "edit",
-            calendar: "edit",
-            runsheet: "edit",
-          },
+      return ok({
+        isParticipant: true,
+        fullAccess: true,
+        isCollaborator: false,
+        permissions: {
+          general: "edit",
+          tasks: "edit",
+          guests: "edit",
+          rsvp: "edit",
+          vendors: "edit",
+          partners: "edit",
+          finances: "edit",
+          settings: "edit",
+          calendar: "edit",
+          runsheet: "edit",
         },
       });
     }
@@ -136,41 +125,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const participant = await getEventParticipant(session.user.userId, id);
 
     if (!participant) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          isParticipant: false,
-          fullAccess: false,
-          permissions: null,
-        },
+      return ok({
+        isParticipant: false,
+        fullAccess: false,
+        permissions: null,
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        isParticipant: true,
-        fullAccess: false,
-        participantId: participant.id,
-        type: participant.type,
-        role: participant.role,
-        permissions: participant.permissions || {
-          general: "view",
-          tasks: "none",
-          guests: "none",
-          rsvp: "none",
-          vendors: "none",
-          finances: "none",
-          settings: "none",
-        },
+    return ok({
+      isParticipant: true,
+      fullAccess: false,
+      participantId: participant.id,
+      type: participant.type,
+      role: participant.role,
+      permissions: participant.permissions || {
+        general: "view",
+        tasks: "none",
+        guests: "none",
+        rsvp: "none",
+        vendors: "none",
+        finances: "none",
+        settings: "none",
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error";
-    const status = message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/events/[eventId]/collaborators/me");
 }

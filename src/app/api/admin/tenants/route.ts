@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/password";
 import { sendTenantWelcomeEmail } from "@/lib/email";
 import { requirePlatformAdmin } from "@/lib/session";
 import { getConfigByDbOrgType } from "@/lib/tenant-type";
+import { apiHandler, badRequest, forbidden } from "@/lib/api-handler";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -17,7 +18,7 @@ function generateTempPassword(): string {
 }
 
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { searchParams } = new URL(request.url);
@@ -158,34 +159,22 @@ export async function GET(request: NextRequest) {
         pendingVerification: Number(pendingVerificationCount[0]?.count ?? 0),
       },
     });
-  } catch (error) {
-    console.error("Error fetching tenants:", error);
-    return NextResponse.json(
-      { error: "Error al obtener tenants" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/tenants");
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     // Verify platform admin access (only super_admin can create tenants)
     const session = await requirePlatformAdmin();
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden crear tenants" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden crear tenants");
     }
 
     const body = await request.json();
     const { name, slug, planId, phone, website, ownerEmail, ownerName, sendWelcomeEmail, orgType } = body;
 
     if (!name || !slug) {
-      return NextResponse.json(
-        { error: "Nombre y slug son requeridos" },
-        { status: 400 }
-      );
+      return badRequest("Nombre y slug son requeridos");
     }
 
     // Check if slug already exists
@@ -194,10 +183,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingOrg) {
-      return NextResponse.json(
-        { error: "El slug ya está en uso" },
-        { status: 400 }
-      );
+      return badRequest("El slug ya está en uso");
     }
 
     let ownerId: string | null = null;
@@ -314,16 +300,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       tenant: newTenant,
       ownerCreated: !!tempPassword,
       welcomeEmailSent: sendWelcomeEmail && !!tempPassword,
     }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating tenant:", error);
-    return NextResponse.json(
-      { error: "Error al crear tenant" },
-      { status: 500 }
-    );
-  }
+  }, "POST /api/admin/tenants");
 }

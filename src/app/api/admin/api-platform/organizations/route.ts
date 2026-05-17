@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { apiKeys, apiKeyLogs, organizations, webhooks, subscriptions, subscriptionPlans } from "@/db/schema";
-import { eq, count, sql, desc, and, gt } from "drizzle-orm";
+import { eq, count, sql, desc, gt } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const thirtyDaysAgo = new Date();
@@ -110,10 +110,6 @@ export async function GET() {
       lastUsedAt: lastUsedByOrg[org.organizationId] ?? null,
     }));
 
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch organizations";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+    return ok(result);
+  }, "GET /api/admin/api-platform/organizations");
 }

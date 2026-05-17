@@ -93,43 +93,33 @@ export function usePayments() {
     vendorId?: number;
     notes?: string;
   }) => {
-    try {
-      const response = await fetch("/api/finance/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+    const response = await fetch("/api/finance/payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
 
-      const result = await response.json();
+    const result = await response.json();
 
-      if (result.success) {
-        fetchPayments();
-        return result.data;
-      }
-      return null;
-    } catch (err) {
-      console.error("Failed to create payment:", err);
-      return null;
+    if (result.success) {
+      fetchPayments();
+      return result.data;
     }
+    return null;
   }, [fetchPayments]);
 
   const updatePayment = useCallback(async (paymentId: number, data: Partial<Payment>) => {
-    try {
-      const response = await fetch(`/api/finance/payments/${paymentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+    const response = await fetch(`/api/finance/payments/${paymentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
 
-      if (response.ok) {
-        fetchPayments();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("Failed to update payment:", err);
-      return false;
+    if (response.ok) {
+      fetchPayments();
+      return true;
     }
+    return false;
   }, [fetchPayments]);
 
   const markAsPaid = useCallback(async (paymentId: number) => {

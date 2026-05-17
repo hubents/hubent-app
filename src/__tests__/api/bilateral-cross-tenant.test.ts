@@ -363,7 +363,12 @@ describe("Events page: dual-fetch + merge for collaborated events", () => {
   });
 
   it("pending events are not navigable (no Link wrapper)", () => {
-    expect(content).toContain('event._collabStatus === "pending" ?');
+    // Allow either the inline ternary (`event._collabStatus === "pending" ?`)
+    // or the equivalent `const isPending = ...` + `isPending ?` form. The
+    // post-prototype refactor extracted the boolean for readability.
+    expect(content).toMatch(
+      /(event\._collabStatus === "pending"\s*\?|const isPending\s*=\s*event\._collabStatus === "pending"[\s\S]*?isPending\s*\?)/,
+    );
   });
 
   it("shows Colaborador badge for active collaborated events", () => {

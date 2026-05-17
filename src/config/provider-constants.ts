@@ -64,25 +64,44 @@ export const PLAN_PROVIDER_PRO = "provider-pro" as const;
 // ─── Provider Categories ──────────────────────────────────────────────────────
 
 export const PROVIDER_CATEGORIES = [
-  "Catering",
-  "Decoración",
-  "Fotografía",
-  "Video",
-  "Música / DJ",
-  "Entretenimiento",
+  // Booking
+  "Venue",
+  "Salón de fiestas",
+  "Finca",
+  "Casa de campo",
+  "Hotel",
+  "Otro (Booking)",
+  // Logística
   "Florería",
-  "Venue / Salón",
-  "Wedding Planner",
-  "Iluminación",
+  "Decoración",
   "Mobiliario",
+  "Alquileres de insumos",
+  "Iluminación",
   "Sonido",
   "Transporte",
+  "Catering",
   "Pastelería",
-  "Invitaciones",
-  "Maquillaje / Peinado",
+  "Música / DJ",
+  "Shows / Performances",
+  "Audiovisual y producción",
   "Seguridad",
   "Limpieza",
-  "Otro",
+  "Otro (Logística)",
+  // Audiovisual
+  "Fotografía",
+  "Video",
+  "Content Creator",
+  "Operador de Dron",
+  "Otro (Audiovisual)",
+  // Otros servicios
+  "Maquillaje",
+  "Peinado",
+  "Papelería",
+  "Baile",
+  "Regalos",
+  "Pintor",
+  "Entretenimiento",
+  "Otros servicios",
 ] as const;
 
 export type ProviderCategory = (typeof PROVIDER_CATEGORIES)[number];
@@ -119,6 +138,56 @@ export function getOrgTypeLabel(orgType: string | null | undefined): string {
 export function getOrgTypeBadgeVariant(orgType: string | null | undefined): "default" | "secondary" {
   return orgType === "provider" ? "default" : "secondary";
 }
+
+/**
+ * Subset of categories that make sense per provider module.
+ * Used in onboarding to show only relevant options after the user picks their module.
+ * Always includes "Otro" as last option.
+ */
+export const CATEGORIES_BY_MODULE: Record<string, readonly string[]> = {
+  booking: [
+    "Venue",
+    "Salón de fiestas",
+    "Finca",
+    "Casa de campo",
+    "Hotel",
+    "Otro (Booking)",
+  ],
+  logistica: [
+    "Florería",
+    "Decoración",
+    "Mobiliario",
+    "Alquileres de insumos",
+    "Iluminación",
+    "Sonido",
+    "Transporte",
+    "Catering",
+    "Pastelería",
+    "Música / DJ",
+    "Shows / Performances",
+    "Audiovisual y producción",
+    "Seguridad",
+    "Limpieza",
+    "Otro (Logística)",
+  ],
+  audiovisual: [
+    "Fotografía",
+    "Video",
+    "Content Creator",
+    "Operador de Dron",
+    "Otro (Audiovisual)",
+  ],
+  otro: [
+    "Maquillaje",
+    "Peinado",
+    "Papelería",
+    "Baile",
+    "Regalos",
+    "Pintor",
+    "Entretenimiento",
+    "Otros servicios",
+  ],
+};
 
 // ─── Price Ranges ─────────────────────────────────────────────────────────────
 

@@ -1,22 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  RiAddLine,
-  RiUserLine,
-  RiBuilding2Line,
-  RiDeleteBinLine,
-  RiSearchLine,
-  RiLinksLine,
-} from "@remixicon/react";
+  PlusSignIcon,
+  UserCircleIcon,
+  Building01Icon,
+  Delete01Icon,
+  Search01Icon,
+  Link01Icon,
+} from "@hugeicons/core-free-icons";
+import { Av } from "@/components/ui/ds";
+
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoUser = hgIcon(UserCircleIcon);
+const IcoBuilding = hgIcon(Building01Icon);
+const IcoTrash = hgIcon(Delete01Icon);
+const IcoSearch = hgIcon(Search01Icon);
+const IcoLink = hgIcon(Link01Icon);
 
 interface Relationship {
   id: number;
@@ -62,9 +63,8 @@ export function ContactRelationshipsSection({
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<number | null>(null);
 
-  // Search for contacts of the opposite type
   const searchType = contactType === "person" ? "company" : "person";
-  const sectionTitle = contactType === "person" ? "Empresas" : "Personas de contacto";
+  const sectionTitle = contactType === "person" ? "Empresas relacionadas" : "Personas de contacto";
   const addButtonText = contactType === "person" ? "Relacionar empresa" : "Relacionar persona";
 
   useEffect(() => {
@@ -77,15 +77,12 @@ export function ContactRelationshipsSection({
           type: searchType,
           limit: "20",
         });
-        if (search) {
-          params.set("search", search);
-        }
+        if (search) params.set("search", search);
         const res = await fetch(`/api/contacts?${params}`);
         const data = await res.json();
         if (data.success) {
-          // Filter out already related contacts
           const relatedIds = relationships.map((r) => r.relatedContactId);
-          const filtered = data.data.filter(
+          const filtered = (data.data?.data || []).filter(
             (c: ContactOption) => c.id !== contactId && !relatedIds.includes(c.id)
           );
           setContacts(filtered);
@@ -123,132 +120,130 @@ export function ContactRelationshipsSection({
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
-    <div className="space-y-4 border-t pt-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <RiLinksLine className="h-4 w-4" />
-          {sectionTitle}
-        </h3>
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <RiAddLine className="h-4 w-4" />
-              {addButtonText}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align="end">
-            <div className="p-3 border-b">
-              <div className="relative">
-                <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={`Buscar ${searchType === "person" ? "persona" : "empresa"}...`}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
+    <div className="pt-5 border-t" style={{ borderColor: "var(--line-1)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <IcoLink className="h-4 w-4 text-[var(--ink-3)]" />
+          <h3 className="text-[13px] font-semibold text-[var(--ink-1)]">{sectionTitle}</h3>
+        </div>
+        <div className="relative">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+          >
+            <IcoPlus className="h-3 w-3" />
+            {addButtonText}
+          </button>
+
+          {isOpen && (
+            <div
+              className="absolute right-0 top-[calc(100%+4px)] w-80 rounded-[12px] z-50 overflow-hidden"
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid var(--line-1)",
+                boxShadow: "0 8px 28px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.05)",
+              }}
+            >
+              <div className="p-3 flex flex-col gap-2" style={{ borderBottom: "1px solid var(--line-1)" }}>
+                <div
+                  className="flex items-center gap-2 rounded-[8px]"
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid var(--line-strong)",
+                    padding: "7px 11px",
+                  }}
+                >
+                  <IcoSearch className="h-3 w-3 text-[var(--ink-3)]" />
+                  <input
+                    placeholder={`Buscar ${searchType === "person" ? "persona" : "empresa"}...`}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
+                  />
+                </div>
+                <input
+                  placeholder="Cargo / Rol (opcional)"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="text-[13px] outline-none"
+                  style={{
+                    padding: "8px 11px",
+                    border: "1px solid var(--line-strong)",
+                    borderRadius: 8,
+                    background: "#FFFFFF",
+                  }}
                 />
               </div>
-              <Input
-                placeholder="Cargo / Rol (opcional)"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="mt-2"
-              />
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  Buscando...
-                </div>
-              ) : contacts.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No se encontraron {searchType === "person" ? "personas" : "empresas"}
-                </div>
-              ) : (
-                contacts.map((contact) => (
-                  <button
-                    key={contact.id}
-                    onClick={() => handleAdd(contact)}
-                    disabled={adding}
-                    className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={contact.avatar || undefined} />
-                      <AvatarFallback className={contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                        {contact.type === "company" ? (
-                          <RiBuilding2Line className="h-4 w-4" />
-                        ) : (
-                          getInitials(contact.name)
+
+              <div className="max-h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="p-4 text-center text-[12.5px] text-[var(--ink-3)]">
+                    Buscando...
+                  </div>
+                ) : contacts.length === 0 ? (
+                  <div className="p-4 text-center text-[12.5px] text-[var(--ink-3)]">
+                    No se encontraron {searchType === "person" ? "personas" : "empresas"}
+                  </div>
+                ) : (
+                  contacts.map((contact) => (
+                    <button
+                      key={contact.id}
+                      onClick={() => handleAdd(contact)}
+                      disabled={adding}
+                      className="w-full flex items-center gap-2.5 p-2.5 cursor-pointer text-left bg-transparent border-none transition-colors hover:bg-[var(--bg-subtle)]"
+                    >
+                      <Av src={contact.avatar} name={contact.name} size={28} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12.5px] font-medium text-[var(--ink-1)] truncate">{contact.name}</p>
+                        {contact.email && (
+                          <p className="text-[11px] text-[var(--ink-3)] truncate">{contact.email}</p>
                         )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{contact.name}</p>
-                      {contact.email && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {contact.email}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
-          </PopoverContent>
-        </Popover>
+          )}
+        </div>
       </div>
 
       {relationships.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[12.5px] text-[var(--ink-3)]">
           Sin {contactType === "person" ? "empresas" : "personas"} relacionadas
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-1.5">
           {relationships.map((rel) => (
             <div
               key={rel.id}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group"
+              className="flex items-center gap-2.5 rounded-[8px] p-2 group transition-colors hover:bg-[var(--bg-subtle)]"
             >
               <button
                 onClick={() => onOpenRelatedContact?.(rel.relatedContactId)}
-                className="flex items-center gap-3 flex-1 min-w-0 text-left"
                 disabled={!onOpenRelatedContact}
+                className="flex items-center gap-2.5 flex-1 min-w-0 text-left bg-transparent border-none cursor-pointer p-0"
               >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={rel.relatedContactAvatar || undefined} />
-                  <AvatarFallback className={rel.relatedContactType === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                    {rel.relatedContactType === "company" ? (
-                      <RiBuilding2Line className="h-4 w-4" />
-                    ) : (
-                      <RiUserLine className="h-4 w-4" />
-                    )}
-                  </AvatarFallback>
-                </Avatar>
+                <Av src={rel.relatedContactAvatar} name={rel.relatedContactName} size={28} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate hover:underline">{rel.relatedContactName}</p>
+                  <p className="text-[12.5px] font-medium text-[var(--ink-1)] truncate hover:underline">
+                    {rel.relatedContactName}
+                  </p>
                   {rel.role && (
-                    <p className="text-xs text-muted-foreground">{rel.role}</p>
+                    <p className="text-[11px] text-[var(--ink-3)]">{rel.role}</p>
                   )}
                 </div>
               </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+              <button
                 onClick={() => handleRemove(rel.id)}
                 disabled={removing === rel.id}
+                className="h-7 w-7 rounded-[8px] inline-flex items-center justify-center cursor-pointer border-none bg-transparent transition-opacity opacity-0 group-hover:opacity-100"
+                title="Eliminar"
               >
-                <RiDeleteBinLine className="h-4 w-4" />
-              </Button>
+                <IcoTrash className="h-3.5 w-3.5 text-[var(--color-danger)]" />
+              </button>
             </div>
           ))}
         </div>

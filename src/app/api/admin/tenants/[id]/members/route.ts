@@ -1,21 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { organizationMembers, organizations, users, roles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler, ok, badRequest, notFound, forbidden } from "@/lib/api-handler";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { id } = await params;
     const orgId = parseInt(id);
 
     if (isNaN(orgId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const org = await db.query.organizations.findFirst({
@@ -23,7 +24,7 @@ export async function GET(
     });
 
     if (!org) {
-      return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+      return notFound("Organización no encontrada");
     }
 
     const members = await db
@@ -47,11 +48,9 @@ export async function GET(
     const availableRoles = await db
       .select({ id: roles.id, name: roles.name, slug: roles.slug })
       .from(roles)
-      .where(
-        eq(roles.isSystem, true)
-      );
+      .where(eq(roles.isSystem, true));
 
-    return NextResponse.json({
+    return ok({
       members: members.map((m) => ({
         membershipId: m.membershipId,
         userId: m.userId,
@@ -66,41 +65,32 @@ export async function GET(
       })),
       availableRoles,
     });
-  } catch (error) {
-    console.error("Error fetching members:", error);
-    return NextResponse.json(
-      { error: "Error al obtener miembros" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/tenants/[id]/members");
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden remover miembros" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden remover miembros");
     }
 
     const { id } = await params;
     const orgId = parseInt(id);
 
     if (isNaN(orgId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const body = await request.json();
     const { membershipId } = body;
 
     if (!membershipId) {
-      return NextResponse.json({ error: "membershipId requerido" }, { status: 400 });
+      return badRequest("membershipId requerido");
     }
 
     const membership = await db.query.organizationMembers.findFirst({
@@ -111,7 +101,7 @@ export async function DELETE(
     });
 
     if (!membership) {
-      return NextResponse.json({ error: "Membresía no encontrada" }, { status: 404 });
+      return notFound("Membresía no encontrada");
     }
 
     const org = await db.query.organizations.findFirst({
@@ -119,53 +109,38 @@ export async function DELETE(
     });
 
     if (org?.ownerId === membership.userId) {
-      return NextResponse.json(
-        { error: "No se puede remover al propietario de la organización" },
-        { status: 400 }
-      );
+      return badRequest("No se puede remover al propietario de la organización");
     }
 
     await db.delete(organizationMembers).where(eq(organizationMembers.id, membershipId));
 
-    return NextResponse.json({ success: true, message: "Miembro removido" });
-  } catch (error) {
-    console.error("Error removing member:", error);
-    return NextResponse.json(
-      { error: "Error al remover miembro" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Miembro removido" });
+  }, "DELETE /api/admin/tenants/[id]/members");
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden cambiar roles" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden cambiar roles");
     }
 
     const { id } = await params;
     const orgId = parseInt(id);
 
     if (isNaN(orgId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const body = await request.json();
     const { membershipId, roleId } = body;
 
     if (!membershipId || !roleId) {
-      return NextResponse.json(
-        { error: "membershipId y roleId son requeridos" },
-        { status: 400 }
-      );
+      return badRequest("membershipId y roleId son requeridos");
     }
 
     const membership = await db.query.organizationMembers.findFirst({
@@ -176,7 +151,7 @@ export async function PATCH(
     });
 
     if (!membership) {
-      return NextResponse.json({ error: "Membresía no encontrada" }, { status: 404 });
+      return notFound("Membresía no encontrada");
     }
 
     const role = await db.query.roles.findFirst({
@@ -184,7 +159,7 @@ export async function PATCH(
     });
 
     if (!role) {
-      return NextResponse.json({ error: "Rol no encontrado" }, { status: 404 });
+      return notFound("Rol no encontrado");
     }
 
     await db
@@ -192,15 +167,6 @@ export async function PATCH(
       .set({ roleId })
       .where(eq(organizationMembers.id, membershipId));
 
-    return NextResponse.json({
-      success: true,
-      message: `Rol actualizado a ${role.name}`,
-    });
-  } catch (error) {
-    console.error("Error changing role:", error);
-    return NextResponse.json(
-      { error: "Error al cambiar rol" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: `Rol actualizado a ${role.name}` });
+  }, "PATCH /api/admin/tenants/[id]/members");
 }

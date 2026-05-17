@@ -1,309 +1,477 @@
 "use client";
 
 import { useState, useEffect, useCallback, use } from "react";
-import Link from "next/link";
-import { useEvent } from "@/contexts/event-context";
 import { useOrgCurrency } from "@/hooks/use-org-currency";
 import { EventSectionGuard } from "@/components/events/event-section-guard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DocumentDrawer } from "@/components/finance/document-drawer";
+import { PaymentDrawer } from "@/components/finance/payment-drawer";
+import { DocumentPreview } from "@/components/finance/document-preview";
+import { useUserSessionContext } from "@/contexts/user-session-context";
+import { useEventPermissions } from "@/hooks/use-event-permissions";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiMoneyDollarCircleLine,
-  RiCheckLine,
-  RiTimeLine,
-  RiArrowUpLine,
-  RiArrowDownLine,
-  RiFileTextLine,
-  RiFileList2Line,
-  RiArrowRightSLine,
-} from "@remixicon/react";
-import { cn } from "@/lib/utils";
+  PlusSignIcon,
+  Wallet01Icon,
+  Tick02Icon,
+  Clock01Icon,
+  InvoiceIcon,
+  MoreHorizontalIcon,
+  File01Icon,
+  FileEditIcon,
+} from "@hugeicons/core-free-icons";
+import { toast } from "sonner";
 
-interface Payment {
-  id: number;
-  amount: string;
-  status: string;
-}
+const IcoPlus   = hgIcon(PlusSignIcon);
+const IcoWallet = hgIcon(Wallet01Icon);
+const IcoPaid   = hgIcon(Tick02Icon);
+const IcoPending= hgIcon(Clock01Icon);
+const IcoQuote  = hgIcon(File01Icon);
+const IcoInvoice= hgIcon(InvoiceIcon);
+const IcoMore   = hgIcon(MoreHorizontalIcon);
+const IcoReceipt= hgIcon(FileEditIcon);
 
 interface FinDoc {
   id: number;
+  type: string;
+  number: string;
+  status: string;
+  direction: string | null;
+  contactId: number | null;
+  vendorId: number | null;
+  issueDate: string;
+  dueDate: string | null;
   total: string;
+  paidAmount: string | null;
   currency: string;
+  contactName: string | null;
+  vendorName: string | null;
+  companyName: string | null;
+  personFirstName: string | null;
+  personLastName: string | null;
 }
 
-interface FinanceSummary {
-  budget: number;
-  totalPaid: number;
-  totalPending: number;
-  totalOverdue: number;
+interface DocGroup {
+  key: string;
+  emitter: string;
+  initials: string;
+  color: string;
+  docs: FinDoc[];
+  total: number;
+  paid: number;
+}
+
+const EMITTER_COLORS = [
+  "#6B8CE8","#8CC8B0","#C4A08C","#B89DC4","#C49A3C",
+  "#E8AC6B","#8CB8C8","#C48CA0","#A0C48C","#8CA0C4",
+];
+
+const DOC_STATUS: Record<string, { label: string; bg: string; ink: string }> = {
+  draft:   { label: "Borrador",  bg: "#F3F4F6", ink: "#374151" },
+  sent:    { label: "Enviado",   bg: "#DBEAFE", ink: "#1E40AF" },
+  partial: { label: "Parcial",   bg: "#FEF3C7", ink: "#92400E" },
+  paid:    { label: "Pagado",    bg: "#D1FAE5", ink: "#065F46" },
+  overdue: { label: "Vencido",   bg: "#FEE2E2", ink: "#991B1B" },
+  accepted:{ label: "Aceptado",  bg: "#D1FAE5", ink: "#065F46" },
+  rejected:{ label: "Rechazado", bg: "#FEE2E2", ink: "#991B1B" },
+  payment_promise: { label: "Promesa pago", bg: "#EDE9FE", ink: "#5B21B6" },
+};
+
+function isOverdue(doc: FinDoc) {
+  if (!doc.dueDate) return false;
+  if (doc.status === "paid" || doc.status === "cancelled") return false;
+  return new Date(doc.dueDate) < new Date();
+}
+
+function docStatus(doc: FinDoc) {
+  return DOC_STATUS[isOverdue(doc) ? "overdue" : doc.status] ?? DOC_STATUS.draft;
+}
+
+function emitterName(doc: FinDoc): string {
+  if (doc.vendorName) return doc.vendorName;
+  if (doc.contactName) return doc.contactName;
+  if (doc.companyName) return doc.companyName;
+  if (doc.personFirstName) return `${doc.personFirstName} ${doc.personLastName || ""}`.trim();
+  return "Sin emisor";
+}
+
+function toInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+}
+
+function groupByEmitter(docs: FinDoc[]): DocGroup[] {
+  const map = new Map<string, DocGroup>();
+  let colorIdx = 0;
+  for (const doc of docs) {
+    const key = doc.vendorId ? `v${doc.vendorId}` : doc.contactId ? `c${doc.contactId}` : "manual";
+    if (!map.has(key)) {
+      const name = emitterName(doc);
+      map.set(key, {
+        key,
+        emitter: name,
+        initials: toInitials(name),
+        color: EMITTER_COLORS[colorIdx++ % EMITTER_COLORS.length],
+        docs: [],
+        total: 0,
+        paid: 0,
+      });
+    }
+    const g = map.get(key)!;
+    g.docs.push(doc);
+    g.total += parseFloat(doc.total || "0");
+    g.paid  += parseFloat(doc.paidAmount || "0");
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
 }
 
 export default function EventFinancesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const eventId = parseInt(id, 10);
-  const { setActiveEvent } = useEvent();
-
-  const [loading, setLoading] = useState(true);
+  const { eventScoped } = useUserSessionContext();
+  const { canEdit } = useEventPermissions(eventId, eventScoped);
+  const canEditFinances = canEdit("finances");
   const { formatCurrency } = useOrgCurrency();
-  const [quotesCount, setQuotesCount] = useState(0);
-  const [quotesTotal, setQuotesTotal] = useState(0);
-  const [invoicesCount, setInvoicesCount] = useState(0);
-  const [invoicesTotal, setInvoicesTotal] = useState(0);
-  const [paymentsCount, setPaymentsCount] = useState(0);
-  const [summary, setSummary] = useState<FinanceSummary>({
-    budget: 0,
-    totalPaid: 0,
-    totalPending: 0,
-    totalOverdue: 0,
-  });
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const eventRes = await fetch(`/api/events/${eventId}`);
-        const eventData = await eventRes.json();
-        if (eventData.success) {
-          setActiveEvent(eventData.data);
-          setSummary((prev) => ({ ...prev, budget: parseFloat(eventData.data.budget || "0") }));
-        }
+  const [loading, setLoading]   = useState(true);
+  const [docs, setDocs]         = useState<FinDoc[]>([]);
+  const [budget, setBudget]     = useState(0);
 
-        // Fetch payments
-        const paymentsRes = await fetch(`/api/events/${eventId}/payments`);
-        const paymentsData = await paymentsRes.json();
-        if (paymentsData.success) {
-          const paymentsList: Payment[] = paymentsData.data || [];
-          setPaymentsCount(paymentsList.length);
-          const paid = paymentsList
-            .filter((p) => p.status === "paid" || p.status === "complete")
-            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
-          const pending = paymentsList
-            .filter((p) => p.status === "pending")
-            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
-          const overdue = paymentsList
-            .filter((p) => p.status === "overdue")
-            .reduce((sum, p) => sum + parseFloat(p.amount), 0);
-          setSummary((prev) => ({ ...prev, totalPaid: paid, totalPending: pending, totalOverdue: overdue }));
-        }
+  // Drawer / preview state
+  const [drawerOpen, setDrawerOpen]           = useState(false);
+  const [drawerDocId, setDrawerDocId]         = useState<number | undefined>();
+  const [drawerType, setDrawerType]           = useState<"quote" | "invoice">("invoice");
+  const [drawerInitial, setDrawerInitial]     = useState<Record<string, unknown> | undefined>();
+  const [previewOpen, setPreviewOpen]         = useState(false);
+  const [previewDoc, setPreviewDoc]           = useState<Record<string, unknown> | null>(null);
+  const [paymentOpen, setPaymentOpen]         = useState(false);
+  const [paymentDoc, setPaymentDoc]           = useState<FinDoc | null>(null);
 
-        // Fetch quotes count
-        try {
-          const quotesRes = await fetch(`/api/events/${eventId}/documents/finance?type=quote&limit=100`);
-          if (quotesRes.ok) {
-            const quotesData = await quotesRes.json();
-            if (quotesData.success) {
-              const docs: FinDoc[] = quotesData.data || [];
-              setQuotesCount(docs.length);
-              setQuotesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
-            }
-          }
-        } catch { /* skip on error */ }
+  // Row menu
+  const [menuDocId, setMenuDocId] = useState<number | null>(null);
 
-        // Fetch invoices count
-        try {
-          const invoicesRes = await fetch(`/api/events/${eventId}/documents/finance?type=invoice&limit=100`);
-          if (invoicesRes.ok) {
-            const invoicesData = await invoicesRes.json();
-            if (invoicesData.success) {
-              const docs: FinDoc[] = invoicesData.data || [];
-              setInvoicesCount(docs.length);
-              setInvoicesTotal(docs.reduce((sum, d) => sum + parseFloat(d.total || "0"), 0));
-            }
-          }
-        } catch { /* skip on error */ }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchData = useCallback(async () => {
+    try {
+      const [eventRes, quotesRes, invoicesRes] = await Promise.all([
+        fetch(`/api/events/${eventId}`),
+        fetch(`/api/events/${eventId}/documents/finance?type=quote&limit=200`),
+        fetch(`/api/events/${eventId}/documents/finance?type=invoice&limit=200`),
+      ]);
+      const [eventData, quotesData, invoicesData] = await Promise.all([
+        eventRes.json(), quotesRes.json(), invoicesRes.json(),
+      ]);
+      if (eventData.success) setBudget(parseFloat(eventData.data?.budget || "0"));
+      const all: FinDoc[] = [
+        ...(quotesData.success ? quotesData.data || [] : []),
+        ...(invoicesData.success ? invoicesData.data || [] : []),
+      ];
+      all.sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime());
+      setDocs(all);
+    } catch {
+      toast.error("Error al cargar los documentos");
+    } finally {
+      setLoading(false);
     }
-    fetchData();
-  }, [eventId, setActiveEvent]);
+  }, [eventId]);
 
-  const totalSpent = summary.totalPaid + summary.totalPending + summary.totalOverdue;
-  const budgetUsedPercent = summary.budget > 0 ? Math.round((totalSpent / summary.budget) * 100) : 0;
-  const remaining = summary.budget - totalSpent;
-  const basePath = `/dashboard/events/${eventId}/finances`;
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Close row menu on outside click
+  useEffect(() => {
+    if (!menuDocId) return;
+    const h = () => setMenuDocId(null);
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [menuDocId]);
+
+  const openNew = (type: "quote" | "invoice") => {
+    setDrawerDocId(undefined);
+    setDrawerType(type);
+    setDrawerInitial({ eventId });
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (doc: FinDoc) => {
+    setDrawerDocId(doc.id);
+    setDrawerType(doc.type as "quote" | "invoice");
+    setDrawerInitial(undefined);
+    setDrawerOpen(true);
+  };
+
+  const openPreview = async (docId: number) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/documents/finance/${docId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setPreviewDoc(data.data);
+        setPreviewOpen(true);
+      }
+    } catch {
+      toast.error("Error al cargar el documento");
+    }
+  };
+
+  const openPayment = (doc: FinDoc) => {
+    setPaymentDoc(doc);
+    setPaymentOpen(true);
+  };
+
+  const handleDelete = async (doc: FinDoc) => {
+    if (!confirm(`¿Eliminar este documento (#${doc.number})?`)) return;
+    try {
+      await fetch(`/api/finance/documents/${doc.id}`, { method: "DELETE" });
+      toast.success("Documento eliminado");
+      fetchData();
+    } catch {
+      toast.error("Error al eliminar");
+    }
+  };
+
+  // KPIs
+  const invoicesDocs = docs.filter(d => d.type === "invoice");
+  const quotesDocs   = docs.filter(d => d.type === "quote");
+  const totalBilled  = invoicesDocs.reduce((s, d) => s + parseFloat(d.total || "0"), 0);
+  const totalPaid    = invoicesDocs.reduce((s, d) => s + parseFloat(d.paidAmount || "0"), 0);
+  const totalPending = invoicesDocs
+    .filter(d => d.status !== "paid")
+    .reduce((s, d) => s + (parseFloat(d.total || "0") - parseFloat(d.paidAmount || "0")), 0);
+  const paidPct = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0;
+
+  const groups = groupByEmitter(docs);
+
+  const formatDate = (s: string) => {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+  };
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-        <Skeleton className="h-32" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {[1,2,3].map(i => (
+          <div key={i} style={{ height: 80, borderRadius: 12, background: "var(--bg-subtle)", animation: "pulse 1.5s ease-in-out infinite" }} />
+        ))}
       </div>
     );
   }
 
   return (
     <EventSectionGuard eventId={eventId} section="finances">
-    <div className="space-y-6">
-      {/* Header */}
-      <h1 className="text-2xl font-bold">Finanzas</h1>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Presupuesto</p>
-                <p className="text-2xl font-bold">{formatCurrency(summary.budget)}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <RiMoneyDollarCircleLine className="h-5 w-5 text-blue-600" />
-              </div>
+        {/* Toolbar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-1)" }}>
+              Finanzas del evento
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600">Pagado</p>
-                <p className="text-2xl font-bold text-green-700">{formatCurrency(summary.totalPaid)}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <RiCheckLine className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-yellow-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-yellow-600">Pendiente</p>
-                <p className="text-2xl font-bold text-yellow-700">{formatCurrency(summary.totalPending)}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                <RiTimeLine className="h-5 w-5 text-yellow-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn(remaining < 0 ? "border-red-200" : "border-gray-200")}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Disponible</p>
-                <p className={cn("text-2xl font-bold", remaining < 0 ? "text-red-600" : "text-gray-900")}>
-                  {formatCurrency(remaining)}
-                </p>
-              </div>
-              <div className={cn(
-                "h-10 w-10 rounded-lg flex items-center justify-center",
-                remaining < 0 ? "bg-red-100" : "bg-gray-100"
-              )}>
-                {remaining < 0 ? (
-                  <RiArrowDownLine className="h-5 w-5 text-red-600" />
-                ) : (
-                  <RiArrowUpLine className="h-5 w-5 text-gray-600" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Budget Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Uso del Presupuesto</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between text-sm">
-            <span>Gastado: {formatCurrency(totalSpent)} de {formatCurrency(summary.budget)}</span>
-            <span className={cn(budgetUsedPercent > 100 ? "text-red-600" : "")}>
-              {budgetUsedPercent}%
-            </span>
-          </div>
-          <Progress
-            value={Math.min(budgetUsedPercent, 100)}
-            className={cn("h-3", budgetUsedPercent > 100 && "[&>div]:bg-red-500")}
-          />
-          <div className="flex gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-green-500" />
-              <span>Pagado ({Math.round((summary.totalPaid / (totalSpent || 1)) * 100)}%)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-yellow-500" />
-              <span>Pendiente ({Math.round((summary.totalPending / (totalSpent || 1)) * 100)}%)</span>
+            <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 2 }}>
+              {docs.length} documento{docs.length !== 1 ? "s" : ""} · {groups.length} proveedor{groups.length !== 1 ? "es" : ""}
             </div>
           </div>
-        </CardContent>
-      </Card>
+          {canEditFinances && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => openNew("quote")}
+                className="inline-flex items-center gap-1.5 cursor-pointer border-none"
+                style={{ background: "var(--bg-subtle)", color: "var(--ink-1)", border: "1px solid var(--line-strong)", padding: "7px 13px", borderRadius: 8, fontSize: 13, fontWeight: 500 }}
+              >
+                <IcoQuote className="h-3.5 w-3.5" />
+                Presupuesto
+              </button>
+              <button
+                onClick={() => openNew("invoice")}
+                className="inline-flex items-center gap-1.5 cursor-pointer border-none transition-colors"
+                style={{ background: "var(--color-primary)", color: "var(--color-primary-ink)", padding: "7px 13px", borderRadius: 8, fontSize: 13, fontWeight: 600 }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--color-primary-hover)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "var(--color-primary)")}
+              >
+                <IcoPlus className="h-3.5 w-3.5" />
+                Factura
+              </button>
+            </div>
+          )}
+        </div>
 
-      {/* Section Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href={`${basePath}/quotes`}>
-          <Card className="hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <RiFileTextLine className="h-5 w-5 text-blue-600" />
+        {/* KPI strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {[
+            { label: "Presupuesto evento", value: formatCurrency(budget), icon: IcoWallet, bg: "#EEF2FF", ink: "#3730A3" },
+            { label: "Facturado", value: formatCurrency(totalBilled), sub: `${invoicesDocs.length} factura${invoicesDocs.length !== 1 ? "s" : ""}`, icon: IcoInvoice, bg: "#EDE9FE", ink: "#5B21B6" },
+            { label: "Cobrado", value: formatCurrency(totalPaid), sub: `${paidPct}% del total`, icon: IcoPaid, bg: "#D1FAE5", ink: "#065F46" },
+            { label: "Pendiente", value: formatCurrency(Math.max(0, totalPending)), sub: `${quotesDocs.length} ppto${quotesDocs.length !== 1 ? "s" : ""}`, icon: IcoPending, bg: "#FEF3C7", ink: "#92400E" },
+          ].map(kpi => (
+            <div key={kpi.label} style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: ".05em" }}>{kpi.label}</span>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: kpi.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <kpi.icon className="h-3.5 w-3.5" style={{ color: kpi.ink }} />
                 </div>
-                <RiArrowRightSLine className="h-5 w-5 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold text-lg">Presupuestos</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {quotesCount} presupuesto{quotesCount !== 1 ? "s" : ""}
-                {quotesCount > 0 && ` · ${formatCurrency(quotesTotal)}`}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--ink-1)", letterSpacing: "-0.02em" }}>{kpi.value}</div>
+              {kpi.sub && <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>{kpi.sub}</div>}
+            </div>
+          ))}
+        </div>
 
-        <Link href={`${basePath}/invoices`}>
-          <Card className="hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <RiFileList2Line className="h-5 w-5 text-purple-600" />
-                </div>
-                <RiArrowRightSLine className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-lg">Facturas</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {invoicesCount} factura{invoicesCount !== 1 ? "s" : ""}
-                {invoicesCount > 0 && ` · ${formatCurrency(invoicesTotal)}`}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
+        {/* Progress bar */}
+        {totalBilled > 0 && (
+          <div style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: 12, padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-2)" }}>Cobrado sobre facturado</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-1)" }}>{paidPct}%</span>
+            </div>
+            <div style={{ height: 7, background: "var(--bg-subtle)", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.min(paidPct, 100)}%`, background: paidPct >= 100 ? "#4DA363" : "var(--color-primary)", borderRadius: 999, transition: "width .4s ease" }} />
+            </div>
+          </div>
+        )}
 
-        <Link href={`${basePath}/payments`}>
-          <Card className="hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer h-full">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
-                  <RiMoneyDollarCircleLine className="h-5 w-5 text-green-600" />
+        {/* Documents grouped by emitter */}
+        {docs.length === 0 ? (
+          <div style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: 12, padding: "48px 24px", textAlign: "center" }}>
+            <IcoReceipt className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--ink-3)", opacity: 0.4 }} />
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>Sin documentos aún</div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", maxWidth: 340, margin: "0 auto" }}>
+              Añade facturas o presupuestos de cada proveedor del evento para que el cliente vea todo en un solo lugar.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {groups.map(group => (
+              <div key={group.key} style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: 12, overflow: "hidden" }}>
+                {/* Group header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid var(--line-1)", background: "var(--bg-subtle)" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: group.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#FFFFFF", flexShrink: 0 }}>
+                    {group.initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-1)" }}>{group.emitter}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                      {group.docs.length} documento{group.docs.length !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-1)" }}>{formatCurrency(group.total)}</div>
+                    {group.paid > 0 && (
+                      <div style={{ fontSize: 11.5, color: "#065F46" }}>{formatCurrency(group.paid)} cobrado</div>
+                    )}
+                  </div>
                 </div>
-                <RiArrowRightSLine className="h-5 w-5 text-muted-foreground" />
+
+                {/* Doc rows */}
+                {group.docs.map((doc, i) => {
+                  const st = docStatus(doc);
+                  const isLast = i === group.docs.length - 1;
+                  const isInvoice = doc.type === "invoice";
+                  const menuOpen = menuDocId === doc.id;
+                  return (
+                    <div
+                      key={doc.id}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: isLast ? "none" : "1px solid var(--line-1)", position: "relative" }}
+                    >
+                      {/* Doc type icon */}
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: isInvoice ? "#EDE9FE" : "#DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {isInvoice
+                          ? <IcoInvoice className="h-3.5 w-3.5" style={{ color: "#5B21B6" }} />
+                          : <IcoQuote   className="h-3.5 w-3.5" style={{ color: "#1E40AF" }} />}
+                      </div>
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>
+                            {isInvoice ? "Factura" : "Presupuesto"} #{doc.number}
+                          </span>
+                          <span style={{ background: st.bg, color: st.ink, borderRadius: 999, fontSize: 10.5, fontWeight: 600, padding: "1px 8px" }}>
+                            {st.label}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 1 }}>
+                          {formatDate(doc.issueDate)}
+                          {doc.dueDate && ` · vence ${formatDate(doc.dueDate)}`}
+                        </div>
+                      </div>
+
+                      {/* Amount */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>
+                          {formatCurrency(parseFloat(doc.total || "0"))}
+                        </div>
+                        {doc.paidAmount && parseFloat(doc.paidAmount) > 0 && (
+                          <div style={{ fontSize: 11, color: "#065F46" }}>
+                            {formatCurrency(parseFloat(doc.paidAmount))} cobrado
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ position: "relative", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => setMenuDocId(menuOpen ? null : doc.id)}
+                          className="cursor-pointer border-none"
+                          style={{ background: menuOpen ? "var(--bg-subtle)" : "transparent", padding: "4px 6px", borderRadius: 6, display: "flex", color: "var(--ink-3)" }}
+                        >
+                          <IcoMore className="h-4 w-4" />
+                        </button>
+                        {menuOpen && (
+                          <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: 10, minWidth: 190, padding: 6, boxShadow: "0 12px 32px rgba(15,16,18,.12)", zIndex: 50 }}>
+                            <DocMenuItem label="Vista previa" onClick={() => { openPreview(doc.id); setMenuDocId(null); }} />
+                            {canEditFinances && doc.status !== "paid" && (
+                              <DocMenuItem label="Editar" onClick={() => { openEdit(doc); setMenuDocId(null); }} />
+                            )}
+                            {canEditFinances && isInvoice && (doc.status === "sent" || doc.status === "partial" || doc.status === "draft") && (
+                              <DocMenuItem label="Registrar pago" onClick={() => { openPayment(doc); setMenuDocId(null); }} highlight />
+                            )}
+                            {canEditFinances && doc.status !== "paid" && (
+                              <DocMenuItem label="Eliminar" onClick={() => { handleDelete(doc); setMenuDocId(null); }} danger />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <h3 className="font-semibold text-lg">Pagos</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {paymentsCount} pago{paymentsCount !== 1 ? "s" : ""}
-                {summary.totalPaid > 0 && ` · ${formatCurrency(summary.totalPaid)} pagado`}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Drawers */}
+      <DocumentDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        documentId={drawerDocId}
+        type={drawerType}
+        initialData={drawerInitial}
+        onSuccess={() => { setDrawerOpen(false); fetchData(); }}
+      />
+      <DocumentPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewDoc as any}
+      />
+      {paymentDoc && (
+        <PaymentDrawer
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          documentId={paymentDoc.id}
+          defaultDirection={(paymentDoc.direction as "incoming" | "outgoing") || "outgoing"}
+          onSuccess={() => { setPaymentOpen(false); fetchData(); }}
+        />
+      )}
     </EventSectionGuard>
+  );
+}
+
+function DocMenuItem({ label, onClick, danger, highlight }: { label: string; onClick: () => void; danger?: boolean; highlight?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left cursor-pointer border-none flex items-center"
+      style={{ gap: 8, padding: "8px 10px", borderRadius: 6, background: "transparent", fontSize: 13, fontWeight: 500, color: danger ? "#C33" : highlight ? "var(--color-primary)" : "var(--ink-1)" }}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-subtle)")}
+      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+    >
+      {label}
+    </button>
   );
 }

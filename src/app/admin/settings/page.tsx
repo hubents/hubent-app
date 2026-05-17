@@ -76,7 +76,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Configuración</h1>
         <p className="text-muted-foreground">
-          Configuración global de la plataforma HubEnts
+          Configuración global de la plataforma Hubents
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Nombre de la Plataforma</label>
-              <Input defaultValue="HubEnts" placeholder="Nombre de la plataforma" />
+              <Input defaultValue="Hubents" placeholder="Nombre de la plataforma" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">URL de la Plataforma</label>

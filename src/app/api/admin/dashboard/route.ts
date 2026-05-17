@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { db } from "@/db";
 import {
   organizations,
@@ -10,11 +9,12 @@ import { requirePlatformAdmin } from "@/lib/session";
 import { eq, count, and, lt, desc, sql } from "drizzle-orm";
 import { runHealthChecks } from "@/lib/monitoring/health-checks";
 import { logger } from "@/lib/monitoring/logger";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const now = new Date();
@@ -73,7 +73,7 @@ export async function GET() {
 
       // Daily signups last 30 days (all org types)
       db.execute(sql`
-        SELECT 
+        SELECT
           DATE(created_at) as date,
           COUNT(*) as count
         FROM organizations
@@ -128,48 +128,41 @@ export async function GET() {
       label: ORG_TYPE_LABELS[row.orgType || "tenant"] || row.orgType || "Otro",
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        kpis: {
-          organizations: { value: orgsCount, delta: calcDelta(orgsCount, orgsPrevCount) },
-          users: { value: usersCount, delta: calcDelta(usersCount, usersPrevCount) },
-          activeSubscriptions: { value: activeSubsCount, delta: calcDelta(activeSubsCount, activeSubsPrevCount) },
-          mrr: { value: mrr },
-          arr: { value: mrr * 12 },
-        },
-        health,
-        recentOrganizations: recentOrganizations.map((t) => ({
-          id: t.id,
-          name: t.name,
-          slug: t.slug,
-          orgType: t.orgType,
-          status: t.status,
-          createdAt: t.createdAt?.toISOString(),
-        })),
-        dailySignups: (dailySignups.rows || dailySignups || []).map((r: Record<string, unknown>) => ({
-          date: String(r.date).slice(0, 10),
-          count: Number(r.count),
-        })),
-        planDistribution: planDistribution.map((p) => ({
-          name: p.planName,
-          slug: p.planSlug,
-          count: p.count,
-          mrr: Number(p.priceMonthly || 0) * p.count,
-        })),
-        orgTypeDistribution: orgTypeDistributionMapped,
-        recentErrors: recentErrors.map((e) => ({
-          timestamp: e.timestamp,
-          level: e.level,
-          message: e.message,
-          path: e.context.path,
-          statusCode: e.context.statusCode,
-        })),
+    return ok({
+      kpis: {
+        organizations: { value: orgsCount, delta: calcDelta(orgsCount, orgsPrevCount) },
+        users: { value: usersCount, delta: calcDelta(usersCount, usersPrevCount) },
+        activeSubscriptions: { value: activeSubsCount, delta: calcDelta(activeSubsCount, activeSubsPrevCount) },
+        mrr: { value: mrr },
+        arr: { value: mrr * 12 },
       },
+      health,
+      recentOrganizations: recentOrganizations.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        orgType: t.orgType,
+        status: t.status,
+        createdAt: t.createdAt?.toISOString(),
+      })),
+      dailySignups: (dailySignups.rows || dailySignups || []).map((r: Record<string, unknown>) => ({
+        date: String(r.date).slice(0, 10),
+        count: Number(r.count),
+      })),
+      planDistribution: planDistribution.map((p) => ({
+        name: p.planName,
+        slug: p.planSlug,
+        count: p.count,
+        mrr: Number(p.priceMonthly || 0) * p.count,
+      })),
+      orgTypeDistribution: orgTypeDistributionMapped,
+      recentErrors: recentErrors.map((e) => ({
+        timestamp: e.timestamp,
+        level: e.level,
+        message: e.message,
+        path: e.context.path,
+        statusCode: e.context.statusCode,
+      })),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to get dashboard data";
-    const status = message.includes("Unauthorized") || message.includes("Platform admin") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+  }, "GET /api/admin/dashboard");
 }

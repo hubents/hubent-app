@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+// Guideline alert colors
+const ALERT_GREEN  = "#17A95C";
+const ALERT_YELLOW = "#D97706";
+const ALERT_RED    = "#E85D4E";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Btn } from "@/components/ui/ds";
 import { hgIcon } from "@/components/ui/hg-icon";
 import {
   Cancel01Icon,
@@ -58,6 +65,10 @@ export function StageConfigDrawer({
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
+  // CRM alert thresholds (days in stage)
+  const [alertYellow, setAlertYellow] = useState(4);
+  const [alertRed, setAlertRed] = useState(8);
+
   const refetchAll = () => {
     onStagesChanged?.();
     onStageCreated?.();
@@ -65,16 +76,27 @@ export function StageConfigDrawer({
     onStageDeleted?.();
   };
 
-  // Load stages: prefer prop; otherwise fetch from API
+  // Load stages + org CRM alert thresholds on open
   useEffect(() => {
     if (!open) return;
     if (stagesProp && stagesProp.length > 0) {
       setStages(stagesProp.map((s) => ({ ...s })));
-      return;
+    } else {
+      fetch("/api/crm/stages")
+        .then((r) => r.json())
+        .then((d) => { if (d.success) setStages(d.data.map((s: Stage) => ({ ...s }))); })
+        .catch(() => {});
     }
-    fetch("/api/crm/stages")
+    // Load saved alert thresholds
+    fetch("/api/organizations/profile")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setStages(d.data.map((s: Stage) => ({ ...s }))); })
+      .then((d) => {
+        if (d.success && d.data?.settings?.crmAlerts) {
+          const { yellow, red } = d.data.settings.crmAlerts;
+          if (typeof yellow === "number") setAlertYellow(yellow);
+          if (typeof red === "number") setAlertRed(red);
+        }
+      })
       .catch(() => {});
   }, [open, stagesProp]);
 
@@ -179,6 +201,15 @@ export function StageConfigDrawer({
         }
       }
 
+      // Save alert thresholds to org settings
+      const y = Math.max(1, alertYellow);
+      const r = Math.max(y + 1, alertRed);
+      await fetch("/api/organizations/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { crmAlerts: { yellow: y, red: r } } }),
+      });
+
       toast("Embudo actualizado");
       close();
       refetchAll();
@@ -189,22 +220,21 @@ export function StageConfigDrawer({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[80] flex justify-end"
-      style={{ background: "rgba(20, 18, 12, 0.4)" }}
-      onClick={close}
+    <Sheet
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) close();
+      }}
     >
-      <div
-        className="flex flex-col"
+      <SheetContent
+        side="right"
+        className="bg-white border-0 p-0 gap-0 [&>button]:hidden"
         style={{
           width: 440,
-          background: "#FFFFFF",
+          maxWidth: "100vw",
           boxShadow: "-8px 0 28px rgba(0,0,0,0.1)",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -402,43 +432,109 @@ export function StageConfigDrawer({
               </button>
             </div>
           </div>
+
+          {/* CRM Alert thresholds */}
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line-1)" }}>
+            <div
+              className="text-[11px] font-semibold uppercase text-[var(--ink-3)] mb-3"
+              style={{ letterSpacing: "0.06em" }}
+            >
+              Alertas por tiempo en etapa
+            </div>
+            <p style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}>
+              El contador "D" en cada lead cambia de color según los días que lleva en su etapa actual.
+            </p>
+
+            {/* Visual scale */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {[
+                { color: ALERT_GREEN,  bg: "#D1FAE5", label: "Verde",    tip: `0–${alertYellow - 1}D` },
+                { color: ALERT_YELLOW, bg: "#FEF3C7", label: "Amarillo", tip: `${alertYellow}–${alertRed - 1}D` },
+                { color: ALERT_RED,    bg: "#FEE2E2", label: "Rojo",     tip: `${alertRed}D+` },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    flex: 1, borderRadius: 8, padding: "8px 10px",
+                    background: item.bg, border: `1px solid ${item.color}33`,
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: item.color, margin: "0 auto 4px" }} />
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: item.color }}>{item.label}</div>
+                  <div style={{ fontSize: 10.5, color: item.color, opacity: 0.8, marginTop: 1 }}>{item.tip}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Threshold inputs */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <ThresholdInput
+                label="Amarillo a partir de"
+                color={ALERT_YELLOW}
+                value={alertYellow}
+                min={1}
+                max={alertRed - 1}
+                onChange={(v) => setAlertYellow(Math.min(v, alertRed - 1))}
+              />
+              <ThresholdInput
+                label="Rojo a partir de"
+                color={ALERT_RED}
+                value={alertRed}
+                min={alertYellow + 1}
+                max={365}
+                onChange={(v) => setAlertRed(Math.max(v, alertYellow + 1))}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        <div
-          className="flex gap-2.5"
-          style={{
-            padding: "14px 24px 20px",
-            borderTop: "1px solid var(--line-1)",
-          }}
-        >
-          <button
-            onClick={close}
-            className="cursor-pointer border-none rounded-[8px] text-[14px] font-medium"
-            style={{
-              flex: 1,
-              background: "var(--bg-subtle)",
-              color: "var(--ink-1)",
-              padding: 11,
-            }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={save}
-            disabled={loading}
-            className="cursor-pointer rounded-[8px] text-[14px] font-semibold inline-flex items-center justify-center gap-1.5"
-            style={{
-              flex: 2,
-              background: loading ? "var(--line-strong)" : "var(--color-primary)",
-              color: "#FFFFFF",
-              border: "1px solid " + (loading ? "var(--line-strong)" : "var(--color-primary)"),
-              padding: 11,
-            }}
-          >
+        <div style={{ display: "flex", gap: 10, padding: "14px 24px 20px", borderTop: "1px solid var(--line-1)" }}>
+          <Btn variant="ghost" onClick={close} style={{ flex: 1 }}>Cancelar</Btn>
+          <Btn onClick={save} disabled={loading} style={{ flex: 2 }}>
             {loading ? "Guardando..." : "Guardar cambios"}
-          </button>
+          </Btn>
         </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ThresholdInput({
+  label, color, value, min, max, onChange,
+}: {
+  label: string; color: string; value: number;
+  min: number; max: number; onChange: (v: number) => void;
+}) {
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-3)", marginBottom: 5 }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <button
+          onClick={() => onChange(Math.max(min, value - 1))}
+          style={{
+            width: 26, height: 26, borderRadius: 6, border: "1px solid var(--line-strong)",
+            background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700,
+            color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >−</button>
+        <div style={{
+          flex: 1, textAlign: "center", fontSize: 15, fontWeight: 700,
+          color, padding: "4px 0",
+        }}>
+          {value}D
+        </div>
+        <button
+          onClick={() => onChange(Math.min(max, value + 1))}
+          style={{
+            width: 26, height: 26, borderRadius: 6, border: "1px solid var(--line-strong)",
+            background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700,
+            color: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >+</button>
       </div>
     </div>
   );

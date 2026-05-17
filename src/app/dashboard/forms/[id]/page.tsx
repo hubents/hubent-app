@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Btn, Inp, Ta, Pill } from "@/components/ui/ds";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -314,9 +311,9 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
     return (
       <div className="p-6 text-center">
         <p className="text-muted-foreground">Formulario no encontrado</p>
-        <Button variant="ghost" className="mt-4" onClick={() => router.push(backPath)}>
+        <Btn variant="ghost" style={{ marginTop: 16 }} onClick={() => router.push(backPath)}>
           <RiArrowLeftLine className="h-4 w-4 mr-2" /> Volver
-        </Button>
+        </Btn>
       </div>
     );
   }
@@ -333,19 +330,19 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
       {/* Top bar */}
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(backPath)}>
+          <button style={{ background: "transparent", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 8 }} onClick={() => router.push(backPath)}>
             <RiArrowLeftLine className="h-5 w-5" />
-          </Button>
+          </button>
           <div>
             <div className="flex items-center gap-2">
-              <Input
+              <Inp
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="text-lg font-semibold border-none shadow-none p-0 h-auto focus-visible:ring-0"
                 placeholder="Nombre del formulario"
                 disabled={!canEdit}
               />
-              <Badge className={st.color}>{st.label}</Badge>
+              <Pill className={st.color}>{st.label}</Pill>
               {(() => {
                 const landingSlug = form.instances?.find((i) => i.type === "landing" && i.slug)?.slug;
                 if (!landingSlug) return null;
@@ -365,23 +362,23 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
 
         <div className="flex items-center gap-2">
           {canEdit && form.status === "draft" && (
-            <Button variant="outline" size="sm" onClick={() => setActivateDialogOpen(true)}>
+            <Btn variant="outline" size="sm" onClick={() => setActivateDialogOpen(true)}>
               <RiPlayLine className="h-4 w-4 mr-1" /> Activar
-            </Button>
+            </Btn>
           )}
           {canEdit && form.status === "active" && (
-            <Button variant="outline" size="sm" onClick={() => handleStatusChange("paused")}>
+            <Btn variant="outline" size="sm" onClick={() => handleStatusChange("paused")}>
               <RiPauseLine className="h-4 w-4 mr-1" /> Pausar
-            </Button>
+            </Btn>
           )}
           {canEdit && form.status === "paused" && (
-            <Button variant="outline" size="sm" onClick={() => handleStatusChange("active")}>
+            <Btn variant="outline" size="sm" onClick={() => handleStatusChange("active")}>
               <RiPlayLine className="h-4 w-4 mr-1" /> Reactivar
-            </Button>
+            </Btn>
           )}
 
           {canEdit && (
-            <Button onClick={handleSave} disabled={saving} className="relative">
+            <Btn onClick={handleSave} disabled={saving} style={{ position: "relative" }}>
               {saving ? (
                 <RiLoader4Line className="h-4 w-4 mr-1 animate-spin" />
               ) : saved ? (
@@ -393,7 +390,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
               {hasUnsavedChanges && !saving && !saved && (
                 <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500" />
               )}
-            </Button>
+            </Btn>
           )}
         </div>
       </div>
@@ -429,11 +426,11 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
               <div className="space-y-3">
                 <div>
                   <Label>Nombre del formulario</Label>
-                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Briefing de boda" />
+                  <Inp value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Briefing de boda" />
                 </div>
                 <div>
                   <Label>Descripción</Label>
-                  <Textarea
+                  <Ta
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Describe el propósito del formulario..."
@@ -453,22 +450,22 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                   <div className="relative h-40 rounded-lg overflow-hidden group">
                     <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
+                      <Btn
                         type="button"
-                        variant="secondary"
+                        variant="primary"
                         size="sm"
                         onClick={() => document.getElementById("cover-upload")?.click()}
                       >
                         Cambiar
-                      </Button>
-                      <Button
+                      </Btn>
+                      <Btn
                         type="button"
-                        variant="destructive"
+                        variant="danger"
                         size="sm"
                         onClick={() => setCoverImage(null)}
                       >
                         <RiCloseLine className="h-4 w-4" />
-                      </Button>
+                      </Btn>
                     </div>
                   </div>
                 ) : (
@@ -503,15 +500,13 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                     <div className="relative h-16 w-16 rounded-lg overflow-hidden group border">
                       <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
+                        <button
                           type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="h-6 w-6"
+                          style={{ background: "#C0392B", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 6, color: "#fff" }}
                           onClick={() => setLogoUrl(null)}
                         >
                           <RiCloseLine className="h-3.5 w-3.5" />
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -561,7 +556,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                       onChange={(e) => setPrimaryColor(e.target.value)}
                       className="h-10 w-10 rounded border cursor-pointer"
                     />
-                    <Input
+                    <Inp
                       value={primaryColor}
                       onChange={(e) => setPrimaryColor(e.target.value)}
                       className="flex-1"
@@ -571,7 +566,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                 </div>
                 <div>
                   <Label>Texto del botón</Label>
-                  <Input
+                  <Inp
                     value={submitButtonText}
                     onChange={(e) => setSubmitButtonText(e.target.value)}
                     placeholder="Enviar"
@@ -586,7 +581,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
               <div className="space-y-3">
                 <div>
                   <Label>Título</Label>
-                  <Input
+                  <Inp
                     value={thankYouTitle}
                     onChange={(e) => setThankYouTitle(e.target.value)}
                     placeholder="¡Gracias!"
@@ -594,7 +589,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                 </div>
                 <div>
                   <Label>Mensaje</Label>
-                  <Textarea
+                  <Ta
                     value={thankYouMessage}
                     onChange={(e) => setThankYouMessage(e.target.value)}
                     placeholder="Tu respuesta ha sido registrada."
@@ -603,7 +598,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                 </div>
                 <div>
                   <Label>URL de redirección (opcional)</Label>
-                  <Input
+                  <Inp
                     value={redirectUrl}
                     onChange={(e) => setRedirectUrl(e.target.value)}
                     placeholder="https://..."
@@ -619,15 +614,15 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Campos</h2>
-                <Badge variant="secondary">{builderFields.length} campos</Badge>
+                <Pill bg="var(--bg-subtle)" color="var(--ink-2)">{builderFields.length} campos</Pill>
               </div>
               <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
                 <p className="text-sm">
                   Usa el tab <strong>Campos</strong> para agregar, ordenar y configurar los campos del formulario.
                 </p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setActiveTab("fields")}>
+                <Btn variant="outline" size="sm" style={{ marginTop: 12 }} onClick={() => setActiveTab("fields")}>
                   <RiLayoutLine className="h-4 w-4 mr-2" /> Ir al editor de campos
-                </Button>
+                </Btn>
               </div>
             </section>
           </div>
@@ -755,7 +750,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
               </div>
 
               {/* Footer */}
-              <p className="text-center text-xs text-gray-400 mt-6">Formulario creado con HubEnts</p>
+              <p className="text-center text-xs text-gray-400 mt-6">Formulario creado con Hubents</p>
             </div>
           </div>
         </TabsContent>
@@ -779,7 +774,7 @@ export function FormEditorContent({ backPath = "/dashboard/forms" }: { backPath?
                 {notifyOnResponse && (
                   <div>
                     <Label>Email de notificación (opcional)</Label>
-                    <Input
+                    <Inp
                       type="email"
                       value={notifyEmail}
                       onChange={(e) => setNotifyEmail(e.target.value)}
@@ -939,13 +934,13 @@ function GdprFields({ gdprText, setGdprText, gdprLink, setGdprLink, formName, fo
       <div>
         <div className="flex items-center justify-between mb-1">
           <Label>Texto del consentimiento</Label>
-          <Button
+          <Btn
             type="button"
             variant="outline"
             size="sm"
             onClick={generateWithEnti}
             disabled={generating}
-            className="gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+            style={{ color: "#7C3AED", borderColor: "#DDD6FE" }}
           >
             {generating ? (
               <RiLoader4Line className="h-3.5 w-3.5 animate-spin" />
@@ -953,9 +948,9 @@ function GdprFields({ gdprText, setGdprText, gdprLink, setGdprLink, formName, fo
               <RiSparklingLine className="h-3.5 w-3.5" />
             )}
             {generating ? "Generando..." : "Generar con HubIA"}
-          </Button>
+          </Btn>
         </div>
-        <Textarea
+        <Ta
           value={gdprText}
           onChange={(e) => setGdprText(e.target.value)}
           placeholder="Acepto la política de privacidad."
@@ -976,7 +971,7 @@ function GdprFields({ gdprText, setGdprText, gdprLink, setGdprLink, formName, fo
       </div>
       <div>
         <Label>Link a política de privacidad</Label>
-        <Input
+        <Inp
           value={gdprLink}
           onChange={(e) => setGdprLink(e.target.value)}
           placeholder="https://..."
@@ -1104,14 +1099,14 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
     <div className="space-y-3">
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={createLanding} disabled={creatingLanding}>
+        <Btn variant="outline" size="sm" onClick={createLanding} disabled={creatingLanding}>
           <RiGlobeLine className="h-3.5 w-3.5" />
           {creatingLanding ? "Creando..." : "Crear link público"}
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={openEventSelector}>
+        </Btn>
+        <Btn variant="outline" size="sm" onClick={openEventSelector}>
           <RiCalendarEventLine className="h-3.5 w-3.5" />
           Vincular a evento / tarea
-        </Button>
+        </Btn>
       </div>
 
       {/* Event/Task selector dialog */}
@@ -1119,7 +1114,7 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">Seleccionar evento</p>
-            <Button variant="ghost" size="sm" onClick={() => setShowEventSelector(false)}>Cancelar</Button>
+            <Btn variant="ghost" size="sm" onClick={() => setShowEventSelector(false)}>Cancelar</Btn>
           </div>
           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
             {events.map((ev) => (
@@ -1156,10 +1151,10 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
                   ))}
                 </div>
               </div>
-              <Button size="sm" onClick={linkToContext} disabled={linking} className="gap-1.5">
+              <Btn size="sm" onClick={linkToContext} disabled={linking}>
                 <RiLinkM className="h-3.5 w-3.5" />
                 {linking ? "Vinculando..." : "Vincular"}
-              </Button>
+              </Btn>
             </>
           )}
         </div>
@@ -1171,13 +1166,13 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
           {instances.map((inst) => (
             <div key={inst.id} className="flex items-center justify-between rounded-lg border p-3 group">
               <div className="flex items-center gap-2 min-w-0">
-                <Badge variant="outline" className="text-xs shrink-0">
+                <Pill style={{ border: "1px solid var(--line-strong)", flexShrink: 0 }} bg="transparent">
                   {inst.type === "landing" ? (
                     <><RiGlobeLine className="h-3 w-3 mr-1" />Landing</>
                   ) : (
                     <><RiTaskLine className="h-3 w-3 mr-1" />Tarea</>
                   )}
-                </Badge>
+                </Pill>
                 {inst.slug && (
                   <button onClick={() => copyLink(inst.slug!)} className="text-sm text-primary hover:underline truncate" title="Copiar link">
                     /f/{inst.slug}
@@ -1191,25 +1186,27 @@ function InstancesSection({ formId, instances, onRefresh }: { formId: number; in
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={inst.status === "active" ? "default" : "secondary"} className="text-xs">
+                <Pill
+                  bg={inst.status === "active" ? "var(--color-primary)" : "var(--bg-subtle)"}
+                  color={inst.status === "active" ? "#fff" : "var(--ink-2)"}
+                >
                   {inst.status === "active" ? "Activo" : inst.status}
-                </Badge>
+                </Pill>
                 {inst.slug && (
-                  <Button variant="ghost" size="sm" className="h-7 opacity-0 group-hover:opacity-100 gap-1 text-xs" onClick={() => setShareSlug(inst.slug!)} title="Compartir">
+                  <Btn variant="ghost" size="sm" style={{ height: 28, opacity: 0 }} className="group-hover:opacity-100" onClick={() => setShareSlug(inst.slug!)} title="Compartir">
                     <RiGlobeLine className="h-3.5 w-3.5" />
                     Compartir
-                  </Button>
+                  </Btn>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive"
+                <button
+                  style={{ background: "transparent", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, color: "#C0392B", opacity: 0 }}
+                  className="group-hover:opacity-100"
                   onClick={() => deleteInstance(inst.id)}
                   disabled={deleting === inst.id}
                   title="Eliminar"
                 >
                   <RiDeleteBinLine className="h-3.5 w-3.5" />
-                </Button>
+                </button>
               </div>
             </div>
           ))}
@@ -1361,10 +1358,8 @@ function DownloadPDFButton({ formId, submissionId, formName }: { formId: number;
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-7 w-7"
+    <button
+      style={{ background: "transparent", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6 }}
       onClick={handleDownload}
       disabled={downloading}
       title="Descargar PDF"
@@ -1374,7 +1369,7 @@ function DownloadPDFButton({ formId, submissionId, formName }: { formId: number;
       ) : (
         <RiFileCopyLine className="h-3.5 w-3.5" />
       )}
-    </Button>
+    </button>
   );
 }
 

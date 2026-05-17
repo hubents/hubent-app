@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { financialDocuments, paymentRecords, organizationFinanceSettings, contacts } from "@/db/schema";
 import { eq, and, sql, gte, lte, desc, isNotNull } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:read");
     const orgId = session.organizationId;
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    
+
     // Previous month for comparison
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -245,7 +245,7 @@ export async function GET() {
     // TOP 5 CLIENTS BY REVENUE (Last 12 months)
     // ============================================
     const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-    
+
     const topClients = await db
       .select({
         contactId: financialDocuments.contactId,
@@ -275,7 +275,7 @@ export async function GET() {
     for (let i = 5; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      
+
       const [monthResult] = await db
         .select({
           income: sql<string>`COALESCE(SUM(CASE WHEN ${paymentRecords.direction} = 'incoming' THEN ${paymentRecords.amount} ELSE 0 END), 0)`,
@@ -302,57 +302,48 @@ export async function GET() {
     const prevIncome = parseFloat(prevIncomeResult?.total || "0");
     const prevExpenses = parseFloat(prevExpensesResult?.total || "0");
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        // Basic stats
-        totalIncome,
-        totalExpenses,
-        balance: totalIncome - totalExpenses,
-        pendingInvoices: parseFloat(pendingResult?.total || "0"),
-        pendingInvoicesCount: parseInt(pendingResult?.count || "0"),
-        pendingPayments: parseFloat(pendingPaymentsResult?.total || "0"),
-        overdueInvoices: parseFloat(overdueResult?.total || "0"),
-        overdueInvoicesCount: parseInt(overdueResult?.count || "0"),
-        currency,
-        
-        // Month-over-month comparison
-        incomeChange: prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0,
-        expensesChange: prevExpenses > 0 ? ((totalExpenses - prevExpenses) / prevExpenses) * 100 : 0,
-        
-        // Aging analysis
-        aging: {
-          current: parseFloat(pendingResult?.total || "0") - parseFloat(overdueResult?.total || "0"),
-          days0to30: parseFloat(aging0to30?.total || "0"),
-          days31to60: parseFloat(aging31to60?.total || "0"),
-          days61to90: parseFloat(aging61to90?.total || "0"),
-          over90: parseFloat(agingOver90?.total || "0"),
-        },
-        
-        // Cash flow projection
-        cashFlow: {
-          next30Days: parseFloat(cashFlow30?.total || "0"),
-          next60Days: parseFloat(cashFlow60?.total || "0"),
-          next90Days: parseFloat(cashFlow90?.total || "0"),
-        },
-        
-        // Top clients
-        topClients: topClients.map(c => ({
-          id: c.contactId,
-          name: c.contactName || "Sin nombre",
-          total: parseFloat(c.total || "0"),
-          invoiceCount: parseInt(c.count || "0"),
-        })),
-        
-        // Monthly trend
-        monthlyRevenue,
+    return ok({
+      // Basic stats
+      totalIncome,
+      totalExpenses,
+      balance: totalIncome - totalExpenses,
+      pendingInvoices: parseFloat(pendingResult?.total || "0"),
+      pendingInvoicesCount: parseInt(pendingResult?.count || "0"),
+      pendingPayments: parseFloat(pendingPaymentsResult?.total || "0"),
+      overdueInvoices: parseFloat(overdueResult?.total || "0"),
+      overdueInvoicesCount: parseInt(overdueResult?.count || "0"),
+      currency,
+
+      // Month-over-month comparison
+      incomeChange: prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0,
+      expensesChange: prevExpenses > 0 ? ((totalExpenses - prevExpenses) / prevExpenses) * 100 : 0,
+
+      // Aging analysis
+      aging: {
+        current: parseFloat(pendingResult?.total || "0") - parseFloat(overdueResult?.total || "0"),
+        days0to30: parseFloat(aging0to30?.total || "0"),
+        days31to60: parseFloat(aging31to60?.total || "0"),
+        days61to90: parseFloat(aging61to90?.total || "0"),
+        over90: parseFloat(agingOver90?.total || "0"),
       },
+
+      // Cash flow projection
+      cashFlow: {
+        next30Days: parseFloat(cashFlow30?.total || "0"),
+        next60Days: parseFloat(cashFlow60?.total || "0"),
+        next90Days: parseFloat(cashFlow90?.total || "0"),
+      },
+
+      // Top clients
+      topClients: topClients.map(c => ({
+        id: c.contactId,
+        name: c.contactName || "Sin nombre",
+        total: parseFloat(c.total || "0"),
+        invoiceCount: parseInt(c.count || "0"),
+      })),
+
+      // Monthly trend
+      monthlyRevenue,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch dashboard data";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/finance/dashboard");
 }

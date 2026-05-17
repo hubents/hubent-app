@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { getEventParticipants, addEventParticipant } from "@/lib/events";
 import { inviteCollaboratorContact } from "@/lib/invitations";
@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { events, organizationMembers, contacts, vendors, invitations, users, organizations, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { apiHandler, ok, created, notFound, badRequest } from "@/lib/api-handler";
 
 const addCollaboratorSchema = z.object({
   userId: z.string().optional(),
@@ -25,8 +26,8 @@ type RouteParams = { params: Promise<{ eventId: string }> };
  * GET /api/events/[eventId]/collaborators
  * List all collaborators (participants) of an event
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(id, "general", "view");
@@ -39,10 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Evento no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Evento no encontrado");
     }
 
     const participants = await getEventParticipants(id);
@@ -152,15 +150,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       } as unknown as (typeof enriched)[number]);
     }
 
-    return NextResponse.json({ success: true, data: enriched });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error al obtener colaboradores";
-    const status = message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(enriched);
+  }, "GET /api/events/[eventId]/collaborators");
 }
 
 /**
@@ -170,7 +161,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * At least one of userId, contactId, or vendorId is required.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const id = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(id, "settings", "edit");
@@ -178,10 +169,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const parsed = addCollaboratorSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message || "Datos inválidos" } },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0]?.message || "Datos inválidos");
     }
 
     const { userId, contactId, vendorId, type, role, permissions } = parsed.data;
@@ -194,10 +182,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Evento no encontrado" } },
-        { status: 404 }
-      );
+      return notFound("Evento no encontrado");
     }
 
     // If userId provided, verify user is a member of the organization
@@ -214,10 +199,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .limit(1);
 
       if (!member) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_MEMBER", message: "El usuario no es miembro de la organización" } },
-          { status: 400 }
-        );
+        return badRequest("El usuario no es miembro de la organización", "NOT_MEMBER");
       }
     }
 
@@ -230,10 +212,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .limit(1);
 
       if (!contact) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_FOUND", message: "Contacto no encontrado en esta organización" } },
-          { status: 400 }
-        );
+        return badRequest("Contacto no encontrado en esta organización", "NOT_FOUND");
       }
     }
 
@@ -246,10 +225,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .limit(1);
 
       if (!vendor) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_FOUND", message: "Proveedor no encontrado en esta organización" } },
-          { status: 400 }
-        );
+        return badRequest("Proveedor no encontrado en esta organización", "NOT_FOUND");
       }
     }
 
@@ -294,15 +270,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })();
     }
 
-    return NextResponse.json({ success: true, data: participant }, { status: 201 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error al agregar colaborador";
-    const status = message.includes("Forbidden") ? 403
-      : message.includes("ya es colaborador") ? 409
-      : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(participant);
+  }, "POST /api/events/[eventId]/collaborators");
 }

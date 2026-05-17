@@ -1,40 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getEventTemplates, createEventTemplate } from "@/lib/events";
+import { apiHandler, ok, created, badRequest } from "@/lib/api-handler";
 
 // GET /api/events/templates - List event templates
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("events:read");
-
     const templates = await getEventTemplates(session);
-
-    return NextResponse.json({
-      success: true,
-      data: templates,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch templates";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(templates);
+  }, "GET /api/events/templates");
 }
 
 // POST /api/events/templates - Create event template
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("events:create");
     const body = await request.json();
 
     const { name } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Name is required");
     }
 
     const template = await createEventTemplate(session, {
@@ -46,15 +33,6 @@ export async function POST(request: NextRequest) {
       tasks: body.tasks,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: template,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create template";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return created(template);
+  }, "POST /api/events/templates");
 }

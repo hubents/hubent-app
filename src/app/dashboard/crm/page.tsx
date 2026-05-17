@@ -2,13 +2,19 @@
 
 import "./funnel.css";
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useUserSession } from "@/hooks/use-user-session";
 import { useLeadsKanban, type Lead, type Stage } from "@/hooks/use-leads";
 import { CreateLeadDrawer } from "@/components/crm/create-lead-drawer";
-import { LeadDrawer } from "@/components/crm/lead-drawer";
+import { ContactDrawer } from "@/components/contacts/contact-drawer";
 import { StageConfigDrawer } from "@/components/crm/stage-config-drawer";
+import { TodoTemplateDrawer } from "@/components/crm/todo-template-drawer";
+import { CreateEventDrawer } from "@/components/events/create-event-drawer";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { hgIcon } from "@/components/ui/hg-icon";
+import { Btn } from "@/components/ui/ds";
+import { fmtMoney, fmtMoneyShort } from "@/lib/format";
 import {
   Search01Icon,
   FilterIcon,
@@ -17,6 +23,7 @@ import {
   PlusSignIcon,
   Tick01Icon,
   Calendar03Icon,
+  Clock01Icon,
 } from "@hugeicons/core-free-icons";
 
 const IcoSearch = hgIcon(Search01Icon);
@@ -26,12 +33,23 @@ const IcoSettings = hgIcon(Settings01Icon);
 const IcoPlus = hgIcon(PlusSignIcon);
 const IcoCheck = hgIcon(Tick01Icon);
 const IcoCalendar = hgIcon(Calendar03Icon);
+const IcoClock = hgIcon(Clock01Icon);
 
-const fmtMoney = (n: number) =>
-  "€" +
-  Number(n).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtMoneyShort = (n: number) =>
-  n >= 1000 ? "€" + (n / 1000).toFixed(0) + "K" : fmtMoney(n);
+// Días desde la última vez que el lead cambió de etapa.
+function daysInStage(stageChangedAt: Date | null | undefined, createdAt: Date | null | undefined): { label: string; days: number } | null {
+  const ref = stageChangedAt || createdAt;
+  if (!ref) return null;
+  const t = new Date(ref as unknown as string).getTime();
+  if (isNaN(t)) return null;
+  const days = Math.max(0, Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24)));
+  return { label: `${days}D`, days };
+}
+
+function daysColor(days: number, yellow: number, red: number): { color: string; bg: string } {
+  if (days < yellow)  return { color: "#6B7280", bg: "transparent" };
+  if (days < red)     return { color: "#D97706", bg: "#FEF3C7" };
+  return               { color: "#E85D4E", bg: "#FEE2E2" };
+}
 
 // ============================================================
 // KPI cell (idéntico al del dashboard, copiado para encapsular)
@@ -166,6 +184,7 @@ export default function CRMPage() {
 }
 
 function CRMContent() {
+  const router = useRouter();
   const { stages, loading, moveLead, refetch } = useLeadsKanban();
   const { can } = useUserSession();
   const canManage = can("crm:manage");
@@ -176,9 +195,37 @@ function CRMContent() {
   const [createStageId, setCreateStageId] = useState<number | undefined>(undefined);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [stageDialogOpen, setStageDialogOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
+  const [todoTemplateOpen, setTodoTemplateOpen] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
+  const [alertYellow, setAlertYellow] = useState(4);
+  const [alertRed, setAlertRed] = useState(8);
+
+  useEffect(() => {
+    fetch("/api/organizations/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        const alerts = data?.settings?.crmAlerts;
+        if (alerts) {
+          if (typeof alerts.yellow === "number") setAlertYellow(alerts.yellow);
+          if (typeof alerts.red === "number") setAlertRed(alerts.red);
+        }
+      })
+      .catch(() => {});
+  }, []);
+  // Lead que estamos convirtiendo a evento. Cuando hay valor, abrimos el
+  // CreateEventDrawer prerrellenado. El usuario decide tipo/template/venue
+  // y confirma desde el drawer (no auto-creamos).
+  const [convertingLead, setConvertingLead] = useState<Lead | null>(null);
+
+  const dateInput = (d: Date | string | null | undefined) => {
+    if (!d) return "";
+    const x = new Date(d);
+    if (isNaN(x.getTime())) return "";
+    return x.toISOString().split("T")[0];
+  };
 
   // Aggregate KPIs
   const allLeads = useMemo(() => stages.flatMap((s) => s.leads), [stages]);
@@ -294,39 +341,30 @@ function CRMContent() {
               className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
             />
           </div>
-          <button
-            className="inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
-          >
+          <Btn variant="outline">
             <IcoFilter className="h-[14px] w-[14px]" />
             Filtrar
-          </button>
+          </Btn>
           <SortDropdown value={sortBy} onChange={setSortBy} />
 
-          <div className="ml-auto flex gap-2">
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             {canManage && (
-              <button
-                onClick={() => { setSelectedStage(null); setStageDialogOpen(true); }}
-                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
-              >
-                <IcoSettings className="h-[14px] w-[14px]" />
-                Configurar embudo
-              </button>
+              <Btn variant="outline" onClick={() => setTodoTemplateOpen(true)}>
+                <IcoCheck className="h-[14px] w-[14px]" />
+                Plantilla tareas
+              </Btn>
             )}
             {canManage && (
-              <button
-                onClick={() => { setCreateStageId(undefined); setCreateOpen(true); }}
-                className="inline-flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors"
-                style={{
-                  background: "var(--color-primary)",
-                  color: "#FFFFFF",
-                  border: "1px solid var(--color-primary)",
-                }}
-              >
+              <Btn variant="outline" onClick={() => { setSelectedStage(null); setStageDialogOpen(true); }}>
+                <IcoSettings className="h-[14px] w-[14px]" />
+                Configurar embudo
+              </Btn>
+            )}
+            {canManage && (
+              <Btn onClick={() => { setCreateStageId(undefined); setCreateOpen(true); }}>
                 <IcoPlus className="h-[14px] w-[14px]" />
                 Nuevo Lead
-              </button>
+              </Btn>
             )}
           </div>
         </div>
@@ -386,7 +424,7 @@ function CRMContent() {
                           className="funnel-card"
                           draggable
                           onDragStart={() => setDragId(l.id)}
-                          onClick={() => { setSelectedLeadId(l.id); setDrawerOpen(true); }}
+                          onClick={() => { setSelectedLeadId(l.id); setSelectedContactId(l.contactId ?? null); setDrawerOpen(true); }}
                         >
                           <div className="funnel-card__row">
                             <div className="funnel-card__title">{l.title}</div>
@@ -430,26 +468,51 @@ function CRMContent() {
                             style={{ justifyContent: "space-between", marginTop: 4 }}
                           >
                             <span style={{ fontSize: 10.5, color: "var(--ink-3)" }}>{dateStr}</span>
-                            {l.contactName && (
-                              <span
-                                style={{
-                                  fontSize: 10.5,
-                                  color: "var(--ink-3)",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  maxWidth: "60%",
-                                }}
-                              >
-                                {l.contactName}
-                              </span>
-                            )}
+                            {(() => {
+                              const d = daysInStage(l.stageChangedAt, l.createdAt);
+                              if (!d) return null;
+                              const clr = daysColor(d.days, alertYellow, alertRed);
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    color: clr.color,
+                                    background: clr.bg,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    borderRadius: 4,
+                                    padding: d.days >= alertYellow ? "1px 5px" : undefined,
+                                    fontWeight: d.days >= alertRed ? 600 : 500,
+                                  }}
+                                  title={`${d.days} día${d.days !== 1 ? "s" : ""} en esta etapa`}
+                                >
+                                  <IcoClock className="h-[10px] w-[10px]" />
+                                  {d.label}
+                                </span>
+                              );
+                            })()}
                           </div>
+                          {l.contactName && (
+                            <div
+                              style={{
+                                fontSize: 10.5,
+                                color: "var(--ink-3)",
+                                marginTop: 2,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={l.contactName}
+                            >
+                              {l.contactName}
+                            </div>
+                          )}
                           {s.isWon && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.alert(`Convertir "${l.title}" en evento — TODO: integrar con flujo de eventos`);
+                                setConvertingLead(l);
                               }}
                               style={{
                                 marginTop: 8,
@@ -494,11 +557,12 @@ function CRMContent() {
         stageId={createStageId}
       />
 
-      <LeadDrawer
+      <ContactDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        contactId={selectedContactId}
         leadId={selectedLeadId}
-        stages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
+        leadStages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
         onLeadUpdated={refetch}
         onLeadDeleted={refetch}
       />
@@ -508,6 +572,38 @@ function CRMContent() {
         onOpenChange={setStageDialogOpen}
         stages={stages}
         onStagesChanged={refetch}
+      />
+
+      <TodoTemplateDrawer
+        open={todoTemplateOpen}
+        onOpenChange={setTodoTemplateOpen}
+      />
+
+      {/* Convertir lead → evento. Abre el CreateEventDrawer prerrellenado
+          con datos del lead. El usuario elige tipo/template/venue, confirma
+          desde el drawer y navegamos al evento creado. El lead permanece
+          en su etapa (no se borra). */}
+      <CreateEventDrawer
+        open={!!convertingLead}
+        onOpenChange={(open) => { if (!open) setConvertingLead(null); }}
+        prefill={
+          convertingLead
+            ? {
+                name: convertingLead.title,
+                date: dateInput(convertingLead.expectedCloseDate),
+                budget: convertingLead.value || "",
+                description: convertingLead.description || "",
+              }
+            : undefined
+        }
+        onEventCreated={(created) => {
+          const leadTitle = convertingLead?.title;
+          setConvertingLead(null);
+          if (leadTitle) toast.success(`Evento "${leadTitle}" creado`);
+          if (created?.id) {
+            router.push(`/dashboard/events/${created.id}`);
+          }
+        }}
       />
     </div>
   );

@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { downloadFile } from "@/lib/file-download";
 import { ContactSelector, type ContactSelectorValue } from "@/components/finance/contact-selector";
+import { fmtMoney } from "@/lib/format";
 
 export interface ConciliableDocument {
   id: number;
@@ -136,12 +137,8 @@ function getDocumentLabel(doc: ConciliableDocument) {
   return `${typeLabels[doc.type] || doc.type} ${doc.number}${statusLabels[doc.status] || ""}${clientName ? ` - ${clientName}` : ""}`;
 }
 
-const formatCurrency = (amount: string | number, currency = "EUR") => {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency,
-  }).format(typeof amount === "string" ? parseFloat(amount || "0") : amount);
-};
+const formatCurrency = (amount: string | number, currency = "EUR") =>
+  fmtMoney(typeof amount === "string" ? parseFloat(amount || "0") : amount, currency);
 
 export function PaymentDrawer({
   open,

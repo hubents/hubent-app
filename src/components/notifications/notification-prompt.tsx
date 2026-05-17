@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RiBellLine, RiCloseLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { Notification01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
+
+const RiBellLine = hgIcon(Notification01Icon);
+const RiCloseLine = hgIcon(Cancel01Icon);
 import { useNotificationPrompt } from "@/hooks/use-beams";
 
 export function NotificationPrompt() {

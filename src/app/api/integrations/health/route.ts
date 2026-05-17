@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { isComposioConfigured, composioEntityId, createComposioSession } from "@/lib/composio";
 import { db } from "@/db";
 import { organizationIntegrations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const orgId = session.organizationId;
 
@@ -63,19 +63,10 @@ export async function GET() {
 
     const allOk = Object.values(checks).every(c => c.ok);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        healthy: allOk,
-        checks,
-        timestamp: new Date().toISOString(),
-      },
+    return ok({
+      healthy: allOk,
+      checks,
+      timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error("[Integrations Health] Error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Health check failed" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/integrations/health");
 }

@@ -9,9 +9,10 @@ import {
 } from "@/db/schema";
 import { eq, sql, desc, ilike, or, and, inArray, isNotNull, isNull } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler } from "@/lib/api-handler";
 
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { searchParams } = new URL(request.url);
@@ -174,13 +175,7 @@ export async function GET(request: NextRequest) {
       pendingInvitations,
       meta: await buildMeta(page, limit, Number(count), adminMap),
     });
-  } catch (error) {
-    console.error("Get admin users error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/users");
 }
 
 async function buildMeta(

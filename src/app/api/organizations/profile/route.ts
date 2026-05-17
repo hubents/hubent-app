@@ -1,17 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import { INSTAGRAM_POST_URL_REGEX } from "@/lib/instagram-post-url";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 /**
  * GET /api/organizations/profile
  * Returns current org profile (all public-profile-relevant fields)
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
 
     const org = await db.query.organizations.findFirst({
@@ -19,58 +20,47 @@ export async function GET() {
     });
 
     if (!org) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Organization not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-        logo: org.logo,
-        /** Same asset as fiscal "logo for documents"; exposed for UI preview (coalesce in client if needed) */
-        invoiceLogo: org.invoiceLogo,
-        phone: org.phone,
-        website: org.website,
-        address: org.address,
-        orgType: org.orgType,
-        instagramHandle: org.instagramHandle,
-        providerCategory: org.providerCategory,
-        serviceRadius: org.serviceRadius,
-        serviceAreas: org.serviceAreas,
-        verificationStatus: org.verificationStatus,
-        settings: org.settings,
-        description: org.description,
-        tagline: org.tagline,
-        coverImage: org.coverImage,
-        city: org.city,
-        region: org.region,
-        country: org.country,
-        publicEmail: org.publicEmail,
-        priceRange: org.priceRange,
-        profileCompleteness: org.profileCompleteness,
-        services: org.services,
-        instagramPosts: org.instagramPosts,
-        brochureUrl: org.brochureUrl,
-      },
+    return ok({
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      logo: org.logo,
+      /** Same asset as fiscal "logo for documents"; exposed for UI preview (coalesce in client if needed) */
+      invoiceLogo: org.invoiceLogo,
+      phone: org.phone,
+      website: org.website,
+      address: org.address,
+      orgType: org.orgType,
+      instagramHandle: org.instagramHandle,
+      providerCategory: org.providerCategory,
+      serviceRadius: org.serviceRadius,
+      serviceAreas: org.serviceAreas,
+      verificationStatus: org.verificationStatus,
+      settings: org.settings,
+      description: org.description,
+      tagline: org.tagline,
+      coverImage: org.coverImage,
+      city: org.city,
+      region: org.region,
+      country: org.country,
+      publicEmail: org.publicEmail,
+      priceRange: org.priceRange,
+      profileCompleteness: org.profileCompleteness,
+      services: org.services,
+      instagramPosts: org.instagramPosts,
+      brochureUrl: org.brochureUrl,
     });
-  } catch (error) {
-    console.error("GET /api/organizations/profile error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch profile";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/organizations/profile");
 }
+
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
+  slug: z.string().min(2).max(60).regex(SLUG_RE, "Solo letras minúsculas, números y guiones").optional(),
   phone: z.string().optional().or(z.literal("")),
   website: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
@@ -84,7 +74,6 @@ const updateSchema = z.object({
   region: z.string().optional().or(z.literal("")),
   country: z.string().optional().or(z.literal("")),
   publicEmail: z.string().email().optional().or(z.literal("")),
-  priceRange: z.string().optional().or(z.literal("")),
   brochureUrl: z.string().optional().or(z.literal("")),
   instagramPosts: z.array(
     z.string().regex(INSTAGRAM_POST_URL_REGEX, "URL de Instagram inválida")
@@ -112,8 +101,8 @@ function calculateProfileCompleteness(org: Record<string, unknown>): number {
     ["publicEmail", 5],
     ["website", 5],
     ["instagramHandle", 5],
-    ["priceRange", 5],
     ["brochureUrl", 5],
+    ["country", 5],
   ];
   for (const [key, points] of checks) {
     const val = org[key];
@@ -127,7 +116,7 @@ function calculateProfileCompleteness(org: Record<string, unknown>): number {
  * Update org profile
  */
 export async function PATCH(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
 
     const org = await db.query.organizations.findFirst({
@@ -135,10 +124,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     if (!org) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Organization not found");
     }
 
     const body = await request.json();
@@ -149,16 +135,23 @@ export async function PATCH(request: NextRequest) {
         field: i.path.join("."),
         message: i.message,
       }));
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: fieldErrors[0].message, details: fieldErrors } },
-        { status: 400 }
-      );
+      return badRequest(fieldErrors[0].message);
     }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     const data = parsed.data;
 
     if (data.name !== undefined) updates.name = data.name;
+
+    // Slug: validar unicidad antes de aceptar
+    if (data.slug !== undefined) {
+      const conflict = await db.query.organizations.findFirst({
+        where: and(eq(organizations.slug, data.slug), ne(organizations.id, session.organizationId)),
+      });
+      if (conflict) return badRequest("Esa URL ya está en uso por otra organización");
+      updates.slug = data.slug;
+    }
+
     if (data.phone !== undefined) updates.phone = data.phone || null;
     if (data.website !== undefined) updates.website = data.website || null;
     if (data.address !== undefined) updates.address = data.address || null;
@@ -176,7 +169,6 @@ export async function PATCH(request: NextRequest) {
     if (data.region !== undefined) updates.region = data.region || null;
     if (data.country !== undefined) updates.country = data.country || null;
     if (data.publicEmail !== undefined) updates.publicEmail = data.publicEmail || null;
-    if (data.priceRange !== undefined) updates.priceRange = data.priceRange || null;
     if (data.brochureUrl !== undefined) updates.brochureUrl = data.brochureUrl || null;
     if (data.instagramPosts !== undefined) updates.instagramPosts = data.instagramPosts;
     if (data.settings !== undefined) {
@@ -191,14 +183,6 @@ export async function PATCH(request: NextRequest) {
       .set(updates)
       .where(eq(organizations.id, session.organizationId));
 
-    return NextResponse.json({ success: true, data: { updated: true, profileCompleteness: updates.profileCompleteness } });
-  } catch (error) {
-    console.error("PATCH /api/organizations/profile error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update profile";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ updated: true, profileCompleteness: updates.profileCompleteness });
+  }, "PATCH /api/organizations/profile");
 }

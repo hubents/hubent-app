@@ -1,16 +1,16 @@
 // ============================================
-// OpenAPI 3.1 Specification for HubEnts Public API
+// OpenAPI 3.1 Specification for Hubents Public API
 // ============================================
 
 export function generateOpenApiSpec() {
   return {
     openapi: "3.1.0",
     info: {
-      title: "HubEnts Public API",
+      title: "Hubents Public API",
       version: "2026-03-14",
-      description: "API pública de HubEnts para gestión de eventos, contactos, finanzas, CRM, formularios y más. Compatible con CLI, MCP y AI integrations.",
+      description: "API pública de Hubents para gestión de eventos, contactos, finanzas, CRM, formularios y más. Compatible con CLI, MCP y AI integrations.",
       contact: {
-        name: "HubEnts Developer Support",
+        name: "Hubents Developer Support",
         email: "api@hubents.com",
         url: "https://developers.hubents.com",
       },
@@ -217,7 +217,7 @@ export function generateOpenApiSpec() {
         Limit: { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 25 }, description: "Number of items to return (1-100)" },
         StartingAfter: { name: "starting_after", in: "query", schema: { type: "integer" }, description: "Cursor for pagination: return items after this ID" },
         IdempotencyKey: { name: "Idempotency-Key", in: "header", schema: { type: "string" }, description: "Unique key for idempotent requests (24h TTL)" },
-        ApiVersion: { name: "X-HubEnts-Version", in: "header", schema: { type: "string", default: "2025-01-01" }, description: "API version to use" },
+        ApiVersion: { name: "X-Hubents-Version", in: "header", schema: { type: "string", default: "2025-01-01" }, description: "API version to use" },
       },
     },
     paths: {

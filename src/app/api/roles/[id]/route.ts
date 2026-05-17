@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireFeature } from "@/lib/session";
 import { db } from "@/db";
 import { roles, rolePermissions, permissions, organizationMembers } from "@/db/schema";
 import { eq, and, count } from "drizzle-orm";
+import { apiHandler, ok, notFound, badRequest, forbidden, conflict } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -11,16 +12,13 @@ type RouteParams = { params: Promise<{ id: string }> };
  * Get role details with permissions
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:read");
     const { id } = await params;
     const roleId = parseInt(id, 10);
 
     if (isNaN(roleId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid role ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid role ID");
     }
 
     const role = await db.query.roles.findFirst({
@@ -28,10 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!role) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Role not found" } },
-        { status: 404 }
-      );
+      return notFound("Role not found");
     }
 
     // Get permissions for this role
@@ -59,23 +54,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...role,
-        permissions: rolePerms,
-        memberCount: memberCount?.count ?? 0,
-      },
+    return ok({
+      ...role,
+      permissions: rolePerms,
+      memberCount: memberCount?.count ?? 0,
     });
-  } catch (error) {
-    console.error("GET /api/roles/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch role";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/roles/[id]");
 }
 
 /**
@@ -83,7 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Update a custom role (name, description, permissions)
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:manage");
     await requireFeature("custom_roles");
 
@@ -91,10 +75,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const roleId = parseInt(id, 10);
 
     if (isNaN(roleId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid role ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid role ID");
     }
 
     const role = await db.query.roles.findFirst({
@@ -102,26 +83,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!role) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Role not found" } },
-        { status: 404 }
-      );
+      return notFound("Role not found");
     }
 
     // Cannot edit system roles
     if (role.isSystem) {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Cannot edit system roles" } },
-        { status: 403 }
-      );
+      return forbidden("Cannot edit system roles");
     }
 
     // Cannot edit roles from other organizations
     if (role.organizationId !== session.organizationId) {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Cannot edit roles from other organizations" } },
-        { status: 403 }
-      );
+      return forbidden("Cannot edit roles from other organizations");
     }
 
     const body = await request.json();
@@ -163,22 +135,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       where: eq(roles.id, roleId),
     });
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    console.error("PATCH /api/roles/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update role";
-    const status = message.includes("Unauthorized") ? 401
-      : message.includes("Forbidden") ? 403
-      : message.includes("UpgradeRequired") ? 402
-      : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/roles/[id]");
 }
 
 /**
@@ -186,17 +144,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Delete a custom role (only if no members are using it)
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:manage");
 
     const { id } = await params;
     const roleId = parseInt(id, 10);
 
     if (isNaN(roleId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid role ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid role ID");
     }
 
     const role = await db.query.roles.findFirst({
@@ -204,24 +159,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!role) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Role not found" } },
-        { status: 404 }
-      );
+      return notFound("Role not found");
     }
 
     if (role.isSystem) {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Cannot delete system roles" } },
-        { status: 403 }
-      );
+      return forbidden("Cannot delete system roles");
     }
 
     if (role.organizationId !== session.organizationId) {
-      return NextResponse.json(
-        { success: false, error: { code: "FORBIDDEN", message: "Cannot delete roles from other organizations" } },
-        { status: 403 }
-      );
+      return forbidden("Cannot delete roles from other organizations");
     }
 
     // Check if any members use this role
@@ -236,9 +182,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
 
     if ((memberCount?.count ?? 0) > 0) {
-      return NextResponse.json(
-        { success: false, error: { code: "IN_USE", message: `Cannot delete role: ${memberCount?.count} members are using it. Reassign them first.` } },
-        { status: 409 }
+      return conflict(
+        `Cannot delete role: ${memberCount?.count} members are using it. Reassign them first.`,
+        "IN_USE"
       );
     }
 
@@ -246,17 +192,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
     await db.delete(roles).where(eq(roles.id, roleId));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Role deleted" },
-    });
-  } catch (error) {
-    console.error("DELETE /api/roles/[id] error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete role";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ message: "Role deleted" });
+  }, "DELETE /api/roles/[id]");
 }

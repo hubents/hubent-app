@@ -11,7 +11,7 @@ function getResend() {
 }
 
 function getEmailFrom() {
-  return process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
+  return process.env.EMAIL_FROM || "Hubents <noreply@hubents.com>";
 }
 
 // GET /api/cron/payment-reminders - Vercel Cron job

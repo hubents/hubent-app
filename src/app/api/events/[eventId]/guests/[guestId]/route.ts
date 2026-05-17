@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { updateGuest, updateGuestRsvpStatus, deleteGuest } from "@/lib/guests";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string; guestId: string }> };
 
 // PATCH /api/events/[eventId]/guests/[guestId] - Update guest
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId, guestId } = await params;
     await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
     const body = await request.json();
@@ -17,17 +18,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (body.status) {
       const validStatuses = ["confirmed", "pending", "declined", "maybe"];
       if (!validStatuses.includes(body.status)) {
-        return NextResponse.json(
-          { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid status" } },
-          { status: 400 }
-        );
+        return badRequest("Invalid status");
       }
       await updateGuestRsvpStatus(guestIdNum, body.status);
     }
 
     // Handle other guest fields
     const guestFields: Record<string, unknown> = {};
-    
+
     if (body.firstName !== undefined) guestFields.firstName = body.firstName;
     if (body.lastName !== undefined) guestFields.lastName = body.lastName;
     if (body.email !== undefined) guestFields.email = body.email;
@@ -46,35 +44,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updated = await updateGuest(guestIdNum, guestFields);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update guest";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/events/[eventId]/guests/[guestId]");
 }
 
 // DELETE /api/events/[eventId]/guests/[guestId] - Delete guest
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const { eventId, guestId } = await params;
     await requireEventSectionAccess(parseInt(eventId, 10), "guests", "edit");
 
     await deleteGuest(parseInt(guestId, 10));
 
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete guest";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/events/[eventId]/guests/[guestId]");
 }

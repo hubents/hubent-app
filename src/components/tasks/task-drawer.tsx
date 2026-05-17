@@ -7,22 +7,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import {
   RiDeleteBinLine,
   RiFileListLine,
   RiInformationLine,
   RiCalendarScheduleLine,
-  RiPencilLine,
-  RiCheckLine,
-  RiCloseLine,
-  RiFileCopyLine,
   RiSurveyLine,
+  RiFileCopyLine,
+  RiCloseLine,
 } from "@remixicon/react";
+import { Sparkles } from "lucide-react";
 import { useTaskDetail } from "@/hooks/use-task-detail";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
 import { useUserSessionContext } from "@/contexts/user-session-context";
@@ -32,7 +27,7 @@ import { TaskScheduleTab } from "./task-schedule-tab";
 import { TaskFormsTab } from "./task-forms-tab";
 import { TaskChat } from "./task-chat";
 import { TaskAIDrawer } from "./task-ai-drawer";
-import { Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TaskDrawerProps {
   taskId: number | null;
@@ -52,13 +47,63 @@ interface TaskDrawerProps {
   };
 }
 
-const categoryColors: Record<string, string> = {
-  general: "bg-gray-500",
-  evento: "bg-red-500",
-  proveedor: "bg-blue-500",
-  cliente: "bg-green-500",
-  pago: "bg-yellow-500",
+// Tag-pill palette (matches the prototype TK_TAG bg/fg pairs)
+const categoryTagStyle: Record<string, { bg: string; fg: string }> = {
+  general:   { bg: "#EDE1F7", fg: "#6A3A9E" },
+  evento:    { bg: "#F9D7CE", fg: "#9B3A24" },
+  proveedor: { bg: "#FBE3C6", fg: "#8A4E1A" },
+  cliente:   { bg: "#D9EAFB", fg: "#2B5CA6" },
+  pago:      { bg: "#D9EDE3", fg: "#2C6B4A" },
 };
+
+// Header action button — prototype's pill-shaped colored buttons
+function HeaderActionBtn({
+  bg,
+  fg,
+  onClick,
+  disabled,
+  title,
+  icon,
+  children,
+}: {
+  bg: string;
+  fg: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="inline-flex items-center cursor-pointer transition-opacity"
+      style={{
+        gap: 5,
+        background: bg,
+        color: fg,
+        border: "none",
+        padding: "6px 11px",
+        borderRadius: 8,
+        fontSize: 12,
+        fontWeight: 500,
+        opacity: disabled ? 0.55 : 1,
+      }}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+const TABS: Array<{ id: string; label: string; Icon: React.ComponentType<{ className?: string }> }> = [
+  { id: "general",  label: "General",       Icon: RiFileListLine },
+  { id: "info",     label: "Información",   Icon: RiInformationLine },
+  { id: "schedule", label: "Orden del día", Icon: RiCalendarScheduleLine },
+  { id: "forms",    label: "Formularios",   Icon: RiSurveyLine },
+];
 
 export function TaskDrawer({
   taskId,
@@ -74,34 +119,30 @@ export function TaskDrawer({
 }: TaskDrawerProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [deleting, setDeleting] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editedTitle, setEditedTitle] = useState("");
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Create mode state
   const [isCreateMode, setIsCreateMode] = useState(mode === "create");
   const [creating, setCreating] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState(initialData?.title || "");
+  const [titleVal, setTitleVal] = useState(initialData?.title || "");
   const [internalTaskId, setInternalTaskId] = useState<number | null>(taskId);
-  const newTaskInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state when mode changes or drawer opens
+  // Reset state when drawer opens / mode changes
   useEffect(() => {
-    if (open) {
-      if (mode === "create") {
-        setIsCreateMode(true);
-        setNewTaskTitle(initialData?.title || "");
-        setInternalTaskId(null);
-        setTimeout(() => newTaskInputRef.current?.focus(), 100);
-      } else {
-        setIsCreateMode(false);
-        setInternalTaskId(taskId);
-      }
+    if (!open) return;
+    if (mode === "create") {
+      setIsCreateMode(true);
+      setTitleVal(initialData?.title || "");
+      setInternalTaskId(null);
+      setActiveTab("general");
+      setTimeout(() => titleInputRef.current?.focus(), 100);
+    } else {
+      setIsCreateMode(false);
+      setInternalTaskId(taskId);
     }
   }, [open, mode, taskId, initialData?.title]);
 
-  // Use internal taskId for the hook
   const effectiveTaskId = isCreateMode ? internalTaskId : taskId;
 
   const {
@@ -133,6 +174,7 @@ export function TaskDrawer({
     deletePayment,
     deleteLegacyPayment,
     addMeeting,
+    updateMeeting,
     deleteMeeting,
     addChecklistItem,
     updateChecklistItem,
@@ -142,8 +184,12 @@ export function TaskDrawer({
     removeChecklistAssignee,
   } = useTaskDetail(effectiveTaskId);
 
-  // Compute effective readOnly: parent-provided readOnly OR per-event permission
-  // for eventScoped users (staff with tasks:update can still be view-only on a specific event).
+  // Mirror server title into input when in view mode
+  useEffect(() => {
+    if (!isCreateMode && task?.title) setTitleVal(task.title);
+  }, [task?.title, isCreateMode]);
+
+  // Compute readOnly (parent prop OR per-event scoped permission)
   const { eventScoped } = useUserSessionContext();
   const taskEventId = task?.eventId ?? initialData?.eventId;
   const { canEdit: canEditEventSection, isParticipant } = useEventPermissions(
@@ -157,22 +203,18 @@ export function TaskDrawer({
   );
 
   useEffect(() => {
-    if (open && effectiveTaskId && !isCreateMode) {
-      refetch();
-    }
+    if (open && effectiveTaskId && !isCreateMode) refetch();
   }, [open, effectiveTaskId, refetch, isCreateMode]);
 
-  // Create task function
   const handleCreateTask = async () => {
-    if (!newTaskTitle.trim()) return;
-    
+    if (!titleVal.trim()) return;
     setCreating(true);
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: newTaskTitle.trim(),
+          title: titleVal.trim(),
           eventId: initialData?.eventId || null,
           status: initialData?.status || "pending",
           priority: "medium",
@@ -184,7 +226,6 @@ export function TaskDrawer({
         setInternalTaskId(newTaskId);
         setIsCreateMode(false);
         onTaskCreated?.(newTaskId);
-        // Refetch will happen automatically due to effectiveTaskId change
       }
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -193,10 +234,8 @@ export function TaskDrawer({
     }
   };
 
-  // Duplicate task function
   const handleDuplicateTask = async () => {
     if (!task) return;
-    
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -225,7 +264,6 @@ export function TaskDrawer({
   const handleDelete = async () => {
     const idToDelete = effectiveTaskId;
     if (!idToDelete || !confirm("¿Estás seguro de eliminar esta tarea?")) return;
-
     setDeleting(true);
     try {
       const res = await fetch(`/api/tasks/${idToDelete}`, { method: "DELETE" });
@@ -243,242 +281,266 @@ export function TaskDrawer({
 
   const handleTaskUpdate = async (updates: Record<string, unknown>) => {
     const result = await updateTask(updates);
-    if (result) {
-      onTaskUpdated?.();
-    }
+    if (result) onTaskUpdated?.();
     return result;
   };
 
-  const startEditingTitle = () => {
-    setEditedTitle(task?.title || "");
-    setIsEditingTitle(true);
-    setTimeout(() => titleInputRef.current?.focus(), 0);
+  // Live-edit title in view mode: commit on blur or Enter
+  const commitTitle = async () => {
+    if (isCreateMode) return;
+    const trimmed = titleVal.trim();
+    if (!trimmed || trimmed === task?.title) return;
+    await handleTaskUpdate({ title: trimmed });
   };
 
-  const cancelEditingTitle = () => {
-    setIsEditingTitle(false);
-    setEditedTitle("");
-  };
-
-  const saveTitle = async () => {
-    if (!editedTitle.trim() || editedTitle.trim() === task?.title) {
-      cancelEditingTitle();
-      return;
-    }
-    await handleTaskUpdate({ title: editedTitle.trim() });
-    setIsEditingTitle(false);
-  };
-
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      saveTitle();
-    } else if (e.key === "Escape") {
-      cancelEditingTitle();
-    }
-  };
+  const resolvedTag = task?.category || (initialData?.eventId ? "evento" : "general");
+  const tagStyle = categoryTagStyle[resolvedTag] || categoryTagStyle.general;
+  const tagLabel = (resolvedTag.charAt(0).toUpperCase() + resolvedTag.slice(1));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-6xl md:max-w-7xl p-0 flex flex-col"
+        className="p-0 flex flex-col w-full sm:max-w-[1100px] [&>button:last-child]:hidden"
+        style={{ borderRadius: 0, background: "#FFFFFF" }}
       >
-        {/* Header */}
-        <SheetHeader className="px-6 py-4 border-b border-[var(--border)] flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        {/* Header — prototype style: inline title input + tag pill + colored action buttons */}
+        <SheetHeader
+          className="flex-shrink-0 gap-0"
+          style={{
+            padding: "16px 22px",
+            borderBottom: "1px solid var(--line-2)",
+          }}
+        >
+          <SheetTitle className="sr-only">{task?.title || initialTitle || "Tarea"}</SheetTitle>
+          <div className="flex items-center" style={{ gap: 12 }}>
+            {/* Inline title input */}
+            {loading && !isCreateMode ? (
+              <Skeleton className="h-8 flex-1 max-w-md" />
+            ) : (
+              <input
+                ref={titleInputRef}
+                value={titleVal}
+                onChange={(e) => setTitleVal(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (isCreateMode && titleVal.trim()) handleCreateTask();
+                    else (e.target as HTMLInputElement).blur();
+                  }
+                  if (e.key === "Escape") {
+                    if (isCreateMode) onOpenChange(false);
+                    else (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder={isCreateMode ? "Nombre de la tarea" : "Título de la tarea"}
+                readOnly={readOnly && !isCreateMode}
+                className="bg-transparent border-none outline-none flex-1 min-w-0"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: "var(--ink-1)",
+                  cursor: readOnly && !isCreateMode ? "default" : "text",
+                }}
+                aria-label="Nombre de la tarea"
+              />
+            )}
+
+            {/* Tag pill */}
+            {!loading && (
+              <span
+                style={{
+                  background: tagStyle.bg,
+                  color: tagStyle.fg,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {tagLabel}
+              </span>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center" style={{ gap: 8 }}>
               {isCreateMode ? (
-                /* Create Mode Header */
-                <div className="flex items-center gap-3 flex-1">
-                  <Input
-                    ref={newTaskInputRef}
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newTaskTitle.trim()) {
-                        handleCreateTask();
-                      } else if (e.key === "Escape") {
-                        onOpenChange(false);
-                      }
-                    }}
-                    className="text-xl font-semibold h-10 w-80"
-                    placeholder="Título de la nueva tarea..."
-                    disabled={creating}
-                  />
-                  {initialData?.eventName && (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      {initialData.eventName}
-                    </Badge>
-                  )}
-                  {!initialData?.eventId && (
-                    <Badge variant="secondary" className="text-muted-foreground">
-                      Tarea General
-                    </Badge>
-                  )}
-                </div>
-              ) : loading ? (
-                <Skeleton className="h-7 w-64" />
-              ) : isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    ref={titleInputRef}
-                    value={editedTitle}
-                    onChange={(e) => setEditedTitle(e.target.value)}
-                    onKeyDown={handleTitleKeyDown}
-                    className="text-xl font-semibold h-9 w-64"
-                    placeholder="Título de la tarea"
-                  />
-                  <Button size="icon" variant="ghost" onClick={saveTitle} className="h-8 w-8">
-                    <RiCheckLine className="h-4 w-4 text-green-600" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={cancelEditingTitle} className="h-8 w-8">
-                    <RiCloseLine className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
+                <HeaderActionBtn
+                  bg="#D9ECD1"
+                  fg="#1F6A3A"
+                  onClick={handleCreateTask}
+                  disabled={creating || !titleVal.trim()}
+                  title="Guardar tarea"
+                  icon={<RiFileCopyLine className="h-3 w-3" style={{ display: "none" }} />}
+                >
+                  {creating ? "Guardando..." : "Guardar tarea"}
+                </HeaderActionBtn>
               ) : (
                 <>
-                  <div className={`flex items-center gap-2 ${readOnly ? '' : 'group cursor-pointer'}`} onClick={readOnly ? undefined : startEditingTitle}>
-                    <SheetTitle className="text-xl font-semibold">
-                      {task?.title || initialTitle || "Cargando..."}
-                    </SheetTitle>
-                    {!readOnly && <RiPencilLine className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
-                  </div>
-                  {task?.category && (
-                    <Badge
-                      className={`${categoryColors[task.category] || categoryColors.general} text-white`}
+                  {!readOnly && (
+                    <HeaderActionBtn
+                      bg="#EDE6FB"
+                      fg="#6A3A9E"
+                      onClick={() => setAiDrawerOpen(true)}
+                      disabled={loading}
+                      title="HubIA"
+                      icon={<Sparkles className="h-3 w-3" />}
                     >
-                      {task.category.charAt(0).toUpperCase() + task.category.slice(1)}
-                    </Badge>
+                      HubIA
+                    </HeaderActionBtn>
+                  )}
+                  {!readOnly && (
+                    <HeaderActionBtn
+                      bg="#F4EFE7"
+                      fg="#6E5A3A"
+                      onClick={handleDuplicateTask}
+                      disabled={loading || !task}
+                      title="Duplicar"
+                      icon={<RiFileCopyLine className="h-3 w-3" />}
+                    >
+                      Duplicar
+                    </HeaderActionBtn>
+                  )}
+                  {!readOnly && (
+                    <HeaderActionBtn
+                      bg="#FDE5E1"
+                      fg="#B83E3E"
+                      onClick={handleDelete}
+                      disabled={deleting || loading}
+                      title="Eliminar"
+                      icon={<RiDeleteBinLine className="h-3 w-3" />}
+                    >
+                      {deleting ? "Eliminando..." : "Eliminar"}
+                    </HeaderActionBtn>
                   )}
                 </>
               )}
-            </div>
-            <div className="flex items-center gap-2 mr-8">
-              {isCreateMode ? (
-                /* Create Mode Actions */
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onOpenChange(false)}
-                    disabled={creating}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleCreateTask}
-                    disabled={creating || !newTaskTitle.trim()}
-                    className="gap-2"
-                  >
-                    {creating ? "Creando..." : "Crear Tarea"}
-                  </Button>
-                </>
-              ) : (
-                /* View Mode Actions */
-                <>
-                  {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAiDrawerOpen(true)}
-                    disabled={loading}
-                    className="gap-2 border-violet-300 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    HubIA
-                  </Button>
-                  )}
-                  {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDuplicateTask}
-                    disabled={loading || !task}
-                    className="gap-2"
-                    title="Duplicar tarea"
-                  >
-                    <RiFileCopyLine className="h-4 w-4" />
-                    Duplicar
-                  </Button>
-                  )}
-                  {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDelete}
-                    disabled={deleting || loading}
-                    className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground gap-2"
-                  >
-                    <RiDeleteBinLine className="h-4 w-4" />
-                    {deleting ? "Eliminando..." : "Eliminar"}
-                  </Button>
-                  )}
-                </>
-              )}
+
+              {/* Close button — prototype-style icon-btn */}
+              <button
+                onClick={() => onOpenChange(false)}
+                className="icon-btn cursor-pointer inline-flex items-center justify-center"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--ink-2)",
+                  marginLeft: 4,
+                }}
+                title="Cerrar"
+                aria-label="Cerrar"
+              >
+                <RiCloseLine className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </SheetHeader>
 
-        {/* Content - 2 columns layout */}
+        {/* Content — 2 columns */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Column - Tabs Content (60%) */}
-          <div className="flex-1 flex flex-col overflow-hidden border-r border-[var(--border)]">
+          {/* Left column — main */}
+          <div
+            className="flex-1 flex flex-col overflow-hidden"
+            style={{ borderRight: "1px solid var(--line-2)" }}
+          >
             {isCreateMode && !effectiveTaskId ? (
-              /* Create Mode - Show placeholder */
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center max-w-md">
-                  <RiFileListLine className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Nueva Tarea</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Escribe un título arriba y presiona <kbd className="px-2 py-1 bg-muted rounded text-xs">Enter</kbd> o haz clic en "Crear Tarea" para comenzar.
+                  <RiFileListLine
+                    className="mx-auto mb-3"
+                    style={{ width: 36, height: 36, color: "var(--ink-3)" }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: "var(--ink-1)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Nueva tarea
+                  </div>
+                  <p style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
+                    Escribe un nombre arriba y presiona{" "}
+                    <kbd
+                      style={{
+                        padding: "1px 6px",
+                        background: "var(--bg-subtle)",
+                        borderRadius: 4,
+                        fontSize: 11,
+                      }}
+                    >
+                      Enter
+                    </kbd>{" "}
+                    o pulsa &ldquo;Guardar tarea&rdquo;.
                   </p>
-                  {initialData?.eventName ? (
-                    <p className="text-sm text-muted-foreground">
-                      Se creará en el evento: <strong>{initialData.eventName}</strong>
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Se creará como <strong>Tarea General</strong> (sin evento asociado)
+                  {initialData?.eventName && (
+                    <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
+                      Se creará en el evento:{" "}
+                      <strong style={{ color: "var(--ink-1)" }}>{initialData.eventName}</strong>
                     </p>
                   )}
-                  {initialData?.status && initialData.status !== "pending" && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Estado inicial: <strong>{initialData.status === "in_progress" ? "En progreso" : initialData.status === "completed" ? "Completado" : initialData.status}</strong>
+                  {!initialData?.eventId && (
+                    <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
+                      Se creará como <strong style={{ color: "var(--ink-1)" }}>tarea general</strong>.
                     </p>
                   )}
                 </div>
               </div>
             ) : (
-              /* View/Edit Mode - Show tabs */
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="flex-1 flex flex-col overflow-hidden"
-              >
-                <div className="px-6 pt-4 shrink-0">
-                  <TabsList className="w-full justify-start">
-                    <TabsTrigger value="general" className="gap-2">
-                      <RiFileListLine className="h-4 w-4" />
-                      General
-                    </TabsTrigger>
-                    <TabsTrigger value="info" className="gap-2">
-                      <RiInformationLine className="h-4 w-4" />
-                      Información
-                    </TabsTrigger>
-                    <TabsTrigger value="schedule" className="gap-2">
-                      <RiCalendarScheduleLine className="h-4 w-4" />
-                      Orden del día
-                    </TabsTrigger>
-                    <TabsTrigger value="forms" className="gap-2">
-                      <RiSurveyLine className="h-4 w-4" />
-                      Formularios
-                    </TabsTrigger>
-                  </TabsList>
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Tabs — prototype underline style */}
+                <div
+                  className="flex-shrink-0 flex"
+                  style={{
+                    padding: "12px 22px 0",
+                    gap: 0,
+                    borderBottom: "1px solid var(--line-2)",
+                  }}
+                  role="tablist"
+                >
+                  {TABS.map((t) => {
+                    const active = activeTab === t.id;
+                    const Icon = t.Icon;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setActiveTab(t.id)}
+                        className={cn(
+                          "inline-flex items-center cursor-pointer transition-colors",
+                          active ? "" : "hover:text-[var(--ink-1)]",
+                        )}
+                        style={{
+                          gap: 6,
+                          padding: "10px 18px",
+                          background: "transparent",
+                          border: "1px solid transparent",
+                          borderBottom: active
+                            ? "2px solid var(--ink-1)"
+                            : "2px solid transparent",
+                          borderTopLeftRadius: 8,
+                          borderTopRightRadius: 8,
+                          fontSize: 13,
+                          fontWeight: active ? 600 : 500,
+                          color: active ? "var(--ink-1)" : "var(--ink-3)",
+                          marginBottom: -1,
+                        }}
+                        role="tab"
+                        aria-selected={active}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {t.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
+                {/* Tab content */}
                 <div className="flex-1 overflow-y-auto">
-                  <TabsContent value="general" className="h-full m-0">
+                  {activeTab === "general" && (
                     <TaskGeneralTab
                       task={task}
                       participants={participants}
@@ -500,9 +562,8 @@ export function TaskDrawer({
                       onAddChecklistAssignee={addChecklistAssignee}
                       onRemoveChecklistAssignee={removeChecklistAssignee}
                     />
-                  </TabsContent>
-
-                  <TabsContent value="info" className="h-full m-0">
+                  )}
+                  {activeTab === "info" && (
                     <TaskInfoTab
                       task={task}
                       attachments={attachments}
@@ -519,13 +580,14 @@ export function TaskDrawer({
                       onDeletePayment={deletePayment}
                       onDeleteLegacyPayment={deleteLegacyPayment}
                       onAddMeeting={addMeeting}
+                      onUpdateMeeting={updateMeeting}
                       onDeleteMeeting={deleteMeeting}
+                      onTaskRefetch={refetch}
                     />
-                  </TabsContent>
-
-                  <TabsContent value="schedule" className="h-full m-0">
+                  )}
+                  {activeTab === "schedule" && effectiveTaskId !== null && (
                     <TaskScheduleTab
-                      taskId={effectiveTaskId!}
+                      taskId={effectiveTaskId}
                       scheduleItems={scheduleItems}
                       loading={loading}
                       readOnly={readOnly}
@@ -533,29 +595,94 @@ export function TaskDrawer({
                       onUpdateScheduleItem={updateScheduleItem}
                       onDeleteScheduleItem={deleteScheduleItem}
                     />
-                  </TabsContent>
-
-                  <TabsContent value="forms" className="h-full m-0">
-                    <TaskFormsTab taskId={effectiveTaskId!} />
-                  </TabsContent>
+                  )}
+                  {activeTab === "forms" && effectiveTaskId !== null && (
+                    <TaskFormsTab taskId={effectiveTaskId} />
+                  )}
                 </div>
-              </Tabs>
-            )}
-          </div>
-
-          {/* Right Column - Chat (40%) */}
-          <div className="w-[400px] shrink-0 flex flex-col overflow-hidden">
-            {effectiveTaskId ? (
-              <TaskChat taskId={effectiveTaskId} />
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-                El chat estará disponible después de crear la tarea
               </div>
             )}
           </div>
+
+          {/* Right column — Comentarios */}
+          <div
+            className="w-[320px] shrink-0 flex flex-col overflow-hidden"
+            style={{ background: "#FFFFFF" }}
+          >
+            {/* Comments header — aligned with the left-column tab bar */}
+            <div
+              className="flex flex-shrink-0"
+              style={{
+                padding: "12px 22px 0",
+                borderBottom: "1px solid var(--line-2)",
+                boxSizing: "border-box",
+              }}
+            >
+              <span
+                className="inline-flex items-center"
+                style={{
+                  gap: 8,
+                  padding: "10px 4px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--ink-1)",
+                  border: "1px solid transparent",
+                  borderBottom: "2px solid transparent",
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  marginBottom: -1,
+                  boxSizing: "border-box",
+                }}
+              >
+                Comentarios
+                <span
+                  className="inline-flex items-center"
+                  style={{
+                    gap: 4,
+                    background: "#DCEEDD",
+                    color: "#2C6B4A",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#4DA363",
+                      display: "inline-block",
+                    }}
+                  />
+                  En vivo
+                </span>
+              </span>
+            </div>
+
+            {/* Chat (existing real-time component) */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {effectiveTaskId ? (
+                <TaskChat taskId={effectiveTaskId} />
+              ) : (
+                <div
+                  className="flex-1 flex flex-col items-center justify-center"
+                  style={{ gap: 4, color: "var(--ink-3)", padding: 18 }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-2)" }}>
+                    No hay comentarios aún
+                  </div>
+                  <div style={{ fontSize: 12 }}>
+                    El chat estará disponible al guardar la tarea
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* AI Drawer - Opens as secondary sheet */}
+        {/* AI drawer — secondary sheet */}
         <TaskAIDrawer
           open={aiDrawerOpen}
           onOpenChange={setAiDrawerOpen}

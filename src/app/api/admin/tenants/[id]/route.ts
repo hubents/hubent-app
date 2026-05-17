@@ -4,13 +4,14 @@ import { organizations, organizationMembers, users, subscriptions, subscriptionP
 import { eq, count } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
 import { getConfigByDbOrgType } from "@/lib/tenant-type";
+import { apiHandler, badRequest, notFound, forbidden } from "@/lib/api-handler";
 
 // GET single tenant with details
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     // Verify platform admin access
     await requirePlatformAdmin();
 
@@ -18,7 +19,7 @@ export async function GET(
     const tenantId = parseInt(id);
 
     if (isNaN(tenantId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const [tenant] = await db
@@ -28,7 +29,7 @@ export async function GET(
       .limit(1);
 
     if (!tenant) {
-      return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
+      return notFound("Tenant no encontrado");
     }
 
     // Get owner info
@@ -99,10 +100,7 @@ export async function GET(
           }
         : null,
     });
-  } catch (error) {
-    console.error("Error fetching tenant:", error);
-    return NextResponse.json({ error: "Error al obtener tenant" }, { status: 500 });
-  }
+  }, "GET /api/admin/tenants/[id]");
 }
 
 // PATCH update tenant (status, plan, etc)
@@ -110,14 +108,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     // Verify platform admin access (only super_admin can modify tenants)
     const session = await requirePlatformAdmin();
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden modificar tenants" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden modificar tenants");
     }
 
     const { id } = await params;
@@ -125,7 +120,7 @@ export async function PATCH(
     const body = await request.json();
 
     if (isNaN(tenantId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     const { action, ...updateData } = body;
@@ -169,32 +164,26 @@ export async function PATCH(
       .returning();
 
     return NextResponse.json({ tenant: updated });
-  } catch (error) {
-    console.error("Error updating tenant:", error);
-    return NextResponse.json({ error: "Error al actualizar tenant" }, { status: 500 });
-  }
+  }, "PATCH /api/admin/tenants/[id]");
 }
 
 // DELETE tenant (hard delete - use with caution)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     // Verify platform admin access (only super_admin can delete tenants)
     const session = await requirePlatformAdmin();
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden eliminar tenants" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden eliminar tenants");
     }
 
     const { id } = await params;
     const tenantId = parseInt(id);
 
     if (isNaN(tenantId)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+      return badRequest("ID inválido");
     }
 
     // Soft delete by setting status to deleted
@@ -205,8 +194,5 @@ export async function DELETE(
       .returning();
 
     return NextResponse.json({ tenant: deleted, message: "Tenant eliminado" });
-  } catch (error) {
-    console.error("Error deleting tenant:", error);
-    return NextResponse.json({ error: "Error al eliminar tenant" }, { status: 500 });
-  }
+  }, "DELETE /api/admin/tenants/[id]");
 }

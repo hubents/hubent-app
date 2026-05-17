@@ -15,12 +15,12 @@ describe("Partners routing and config (post–Marketplace migration)", () => {
     expect(cfg).toContain("permanent: true");
   });
 
-  it("partners dashboard page defines Partners HubEnts heading", () => {
+  it("partners dashboard page defines Partners Hubents heading", () => {
     const page = fs.readFileSync(
       path.join(ROOT, "src/app/dashboard/partners/page.tsx"),
       "utf-8"
     );
-    expect(page).toContain("Partners HubEnts");
+    expect(page).toContain("Partners Hubents");
     expect(page).toContain("export default function PartnersPage");
   });
 

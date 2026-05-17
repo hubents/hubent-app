@@ -10,6 +10,7 @@ interface UserSessionData {
   isImpersonating: boolean;
   eventScoped: boolean;
   orgType: string;
+  providerModule: string | null;
 }
 
 interface UserSessionContextValue {
@@ -19,6 +20,7 @@ interface UserSessionContextValue {
   permissions: string[];
   eventScoped: boolean;
   orgType: string;
+  providerModule: string | null;
   can: (permission: string) => boolean;
   canAny: (perms: string[]) => boolean;
   isOwner: boolean;
@@ -81,6 +83,7 @@ export function UserSessionProvider({ children }: { children: ReactNode }) {
     permissions: data?.permissions ?? [],
     eventScoped: data?.eventScoped ?? false,
     orgType: data?.orgType ?? "tenant",
+    providerModule: data?.providerModule ?? null,
     can,
     canAny,
     isOwner: data?.role === "owner",

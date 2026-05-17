@@ -1,41 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import type { Lead, Stage } from "@/types";
 
-export interface Lead {
-  id: number;
-  title: string;
-  description?: string | null;
-  value: string | null;
-  currency: string | null;
-  stageId: number | null;
-  status: string | null;
-  probability: number | null;
-  expectedCloseDate: Date | null;
-  assignedTo: string | null;
-  createdAt: Date | null;
-  stageChangedAt: Date | null;
-  assignedUserName: string | null;
-  assignedUserImage: string | null;
-  contactId?: number | null;
-  contactName?: string | null;
-  contactEmail?: string | null;
-  contactPhone?: string | null;
-  contactType?: string | null;
-  contactAvatar?: string | null;
-}
-
-export interface Stage {
-  id: number;
-  name: string;
-  color: string | null;
-  sortOrder: number | null;
-  isDefault?: boolean | null;
-  isWon: boolean | null;
-  isLost: boolean | null;
-  leads: Lead[];
-  totalValue: number;
-}
+export type { Lead, Stage };
 
 export function useLeadsKanban() {
   const [stages, setStages] = useState<Stage[]>([]);
@@ -88,38 +56,38 @@ export function useLeadsKanban() {
   }, [fetchLeads]);
 
   const moveLead = useCallback(async (leadId: number, newStageId: number) => {
+    // Optimistic update: move the lead and reset stageChangedAt to now
+    const now = new Date();
+    setStages(prev => {
+      const leadToMove = prev.flatMap(s => s.leads).find(l => l.id === leadId);
+      if (!leadToMove) return prev;
+      return prev.map(stage => {
+        if (stage.leads.some(l => l.id === leadId)) {
+          // Remove from current stage
+          return { ...stage, leads: stage.leads.filter(l => l.id !== leadId) };
+        }
+        if (stage.id === newStageId) {
+          // Add to target stage with reset stageChangedAt
+          return {
+            ...stage,
+            leads: [...stage.leads, { ...leadToMove, stageId: newStageId, stageChangedAt: now }],
+          };
+        }
+        return stage;
+      });
+    });
+
     try {
-      const response = await fetch(`/api/crm/leads/${leadId}`, {
+      await fetch(`/api/crm/leads/${leadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stageId: newStageId }),
       });
-
-      if (response.ok) {
-        // Optimistic update
-        setStages(prev => {
-          const newStages = prev.map(stage => ({
-            ...stage,
-            leads: stage.leads.filter(l => l.id !== leadId),
-          }));
-
-          const leadToMove = prev
-            .flatMap(s => s.leads)
-            .find(l => l.id === leadId);
-
-          if (leadToMove) {
-            const targetStage = newStages.find(s => s.id === newStageId);
-            if (targetStage) {
-              targetStage.leads.push({ ...leadToMove, stageId: newStageId });
-            }
-          }
-
-          return newStages;
-        });
-      }
+      // Refetch to sync server state (stageChangedAt, totals, etc.)
+      fetchLeads();
     } catch (err) {
       console.error("Failed to move lead:", err);
-      fetchLeads(); // Refetch on error
+      fetchLeads(); // Rollback via refetch
     }
   }, [fetchLeads]);
 

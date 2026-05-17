@@ -171,10 +171,10 @@ export async function dispatchWebhookEvent(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-HubEnts-Signature": signature,
-          "X-HubEnts-Timestamp": String(timestamp),
-          "X-HubEnts-Event": eventType,
-          "User-Agent": "HubEnts-Webhooks/1.0",
+          "X-Hubents-Signature": signature,
+          "X-Hubents-Timestamp": String(timestamp),
+          "X-Hubents-Event": eventType,
+          "User-Agent": "Hubents-Webhooks/1.0",
         },
         body: payloadStr,
         signal: AbortSignal.timeout(10000), // 10s timeout

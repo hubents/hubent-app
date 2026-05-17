@@ -79,7 +79,7 @@ export default function ComponentsPage() {
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <Image src="/images/icon.png" alt="HubEnts" width={32} height={32} className="rounded-lg" />
+            <Image src="/images/icon.png" alt="Hubents" width={32} height={32} className="rounded-lg" />
             <span className="text-xl font-bold">Component Library</span>
             <Badge variant="secondary">shadcn/ui + tweakcn</Badge>
           </div>

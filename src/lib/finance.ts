@@ -16,6 +16,7 @@ import {
   organizationFinanceSettings,
 } from "@/db/schema";
 import { eq, and, desc, sql, ilike, or, isNull, isNotNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { TenantSession, PaginationParams, FilterParams } from "@/types";
 import {
   syncDocumentStatus,
@@ -40,7 +41,7 @@ async function generateDocumentNumber(
     proforma: "PROF",
     invoice: "FAC",
     delivery_note: "ALB",
-    credit_note: "ABONO",
+    credit_note: "FR",
   };
 
   const year = new Date().getFullYear();
@@ -311,6 +312,8 @@ export async function getDocuments(
     )!;
   }
 
+  const parentDoc = alias(financialDocuments, "parent_doc");
+
   const results = await db
     .select({
       id: financialDocuments.id,
@@ -340,6 +343,8 @@ export async function getDocuments(
       contactName: contacts.name,
       vendorName: vendors.name,
       eventName: events.name,
+      parentDocumentId: financialDocuments.parentDocumentId,
+      parentDocumentNumber: parentDoc.number,
     })
     .from(financialDocuments)
     .leftJoin(companies, eq(financialDocuments.companyId, companies.id))
@@ -347,6 +352,7 @@ export async function getDocuments(
     .leftJoin(contacts, eq(financialDocuments.contactId, contacts.id))
     .leftJoin(vendors, eq(financialDocuments.vendorId, vendors.id))
     .leftJoin(events, eq(financialDocuments.eventId, events.id))
+    .leftJoin(parentDoc, eq(financialDocuments.parentDocumentId, parentDoc.id))
     .where(whereClause)
     .orderBy(desc(financialDocuments.createdAt))
     .limit(limit)
@@ -597,34 +603,41 @@ export async function createDocument(
   return getDocument(session, doc.id);
 }
 
-// Allowed status transitions per document type
+// Allowed status transitions per document type.
+// `cancelled` is a valid target from ANY non-cancelled state, and `cancelled`
+// itself can transition back to `sent` (Reactivar).
 const QUOTE_TRANSITIONS: Record<string, string[]> = {
-  draft: ["sent"],
-  sent: ["accepted", "rejected"],
-  accepted: ["payment_promise", "sent"],
-  rejected: ["sent", "accepted"],
-  payment_promise: ["accepted", "sent"],
+  draft: ["sent", "accepted", "rejected", "cancelled"],
+  sent: ["accepted", "rejected", "cancelled"],
+  accepted: ["payment_promise", "sent", "cancelled"],
+  rejected: ["sent", "accepted", "cancelled"],
+  payment_promise: ["accepted", "sent", "cancelled"],
+  cancelled: ["sent"],
 };
 
 const INVOICE_TRANSITIONS: Record<string, string[]> = {
-  draft: ["sent"],
-  sent: ["partial", "paid"],
-  partial: ["paid", "sent"],
-  paid: ["sent"],
+  draft: ["sent", "paid", "cancelled"],
+  sent: ["partial", "paid", "cancelled"],
+  partial: ["paid", "sent", "cancelled"],
+  paid: ["sent", "cancelled"],
+  cancelled: ["sent"],
 };
 
 const PROFORMA_TRANSITIONS: Record<string, string[]> = {
-  draft: ["approved"],
-  approved: ["sent"],
-  sent: ["partial", "paid"],
-  partial: ["paid", "sent"],
-  paid: ["sent"],
+  draft: ["approved", "cancelled"],
+  approved: ["sent", "cancelled"],
+  sent: ["partial", "paid", "cancelled"],
+  partial: ["paid", "sent", "cancelled"],
+  paid: ["sent", "cancelled"],
+  cancelled: ["sent"],
 };
 
 const DELIVERY_NOTE_TRANSITIONS: Record<string, string[]> = {
-  draft: ["approved"],
-  approved: ["sent"],
-  sent: ["delivered"],
+  draft: ["approved", "sent", "cancelled"],
+  approved: ["sent", "delivered", "cancelled"],
+  sent: ["approved", "delivered", "cancelled"],
+  delivered: ["cancelled"],
+  cancelled: ["sent"],
 };
 
 export async function updateDocumentStatus(
@@ -1414,15 +1427,46 @@ export async function createPaymentRecord(
     attachmentName?: string;
   },
 ) {
+  // When the payment is linked to a document, inherit contactId/vendorId/eventId
+  // from that document if the caller didn't provide them. This keeps the payment
+  // queryable by contact/event without forcing the UI to look them up first.
+  let inheritedContactId = data.contactId;
+  let inheritedVendorId = data.vendorId;
+  let inheritedEventId = data.eventId;
+  if (
+    data.documentId &&
+    (!inheritedContactId || !inheritedVendorId || !inheritedEventId)
+  ) {
+    const [doc] = await db
+      .select({
+        contactId: financialDocuments.contactId,
+        vendorId: financialDocuments.vendorId,
+        eventId: financialDocuments.eventId,
+      })
+      .from(financialDocuments)
+      .where(
+        and(
+          eq(financialDocuments.id, data.documentId),
+          eq(financialDocuments.organizationId, session.organizationId),
+        ),
+      )
+      .limit(1);
+    if (doc) {
+      if (!inheritedContactId && doc.contactId) inheritedContactId = doc.contactId;
+      if (!inheritedVendorId && doc.vendorId) inheritedVendorId = doc.vendorId;
+      if (!inheritedEventId && doc.eventId) inheritedEventId = doc.eventId;
+    }
+  }
+
   const [record] = await db
     .insert(paymentRecords)
     .values({
       organizationId: session.organizationId,
       documentId: data.documentId,
       taskId: data.taskId,
-      vendorId: data.vendorId,
-      contactId: data.contactId,
-      eventId: data.eventId,
+      vendorId: inheritedVendorId,
+      contactId: inheritedContactId,
+      eventId: inheritedEventId,
       bankAccountId: data.bankAccountId,
       amount: data.amount.toString(),
       currency: data.currency || "EUR",

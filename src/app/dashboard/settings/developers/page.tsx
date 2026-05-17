@@ -1,9 +1,7 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Btn, Inp, Pill, PCard } from "@/components/ui/ds";
+import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -189,98 +187,81 @@ export default function DevelopersPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-5xl">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard/settings" className="text-muted-foreground hover:text-foreground">
-          <RiArrowLeftSLine className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-semibold">Developer Settings</h1>
-          <p className="text-sm text-muted-foreground">Gestiona API keys para acceder a la API publica de HubEnts</p>
-        </div>
-      </div>
+      <PageHeader back={{ href: "/dashboard/settings" }} />
 
       {/* Stats */}
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <RiKeyLine className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.active_keys}</p>
-                  <p className="text-xs text-muted-foreground">Keys activas</p>
-                </div>
+          <PCard>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <RiKeyLine className="h-5 w-5 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <RiRefreshLine className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.total_requests.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Requests ({stats.period_days}d)</p>
-                </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.active_keys}</p>
+                <p className="text-xs text-muted-foreground">Keys activas</p>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500/10">
-                  <RiShieldLine className="h-5 w-5 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.error_requests.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Errores ({stats.period_days}d)</p>
-                </div>
+            </div>
+          </PCard>
+          <PCard>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <RiRefreshLine className="h-5 w-5 text-blue-500" />
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="text-2xl font-bold">{stats.total_requests.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Requests ({stats.period_days}d)</p>
+              </div>
+            </div>
+          </PCard>
+          <PCard>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-red-500/10">
+                <RiShieldLine className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.error_requests.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Errores ({stats.period_days}d)</p>
+              </div>
+            </div>
+          </PCard>
         </div>
       )}
 
       {/* Revealed key banner */}
       {revealedKey && (
-        <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <RiEyeLine className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-amber-800 dark:text-amber-200">API Key creada — copia ahora</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">No podras ver esta key de nuevo.</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs bg-amber-100 dark:bg-amber-900/50 px-3 py-2 rounded font-mono break-all flex-1">{revealedKey}</code>
-                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(revealedKey)}>
-                    <RiFileCopyLine className="h-4 w-4" />
-                  </Button>
-                </div>
+        <PCard className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <RiEyeLine className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-amber-800 dark:text-amber-200">API Key creada — copia ahora</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">No podras ver esta key de nuevo.</p>
+              <div className="flex items-center gap-2">
+                <code className="text-xs bg-amber-100 dark:bg-amber-900/50 px-3 py-2 rounded font-mono break-all flex-1">{revealedKey}</code>
+                <Btn size="sm" variant="outline" onClick={() => copyToClipboard(revealedKey)}>
+                  <RiFileCopyLine className="h-4 w-4" />
+                </Btn>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setRevealedKey(null)} className="shrink-0">
-                <RiEyeOffLine className="h-4 w-4" />
-              </Button>
             </div>
-          </CardContent>
-        </Card>
+            <Btn size="sm" variant="ghost" onClick={() => setRevealedKey(null)} className="shrink-0">
+              <RiEyeOffLine className="h-4 w-4" />
+            </Btn>
+          </div>
+        </PCard>
       )}
 
       {/* Create key form */}
       {showCreateForm ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Nueva API Key</CardTitle>
-            <CardDescription>Crea una nueva key para acceder a la API</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <PCard>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>Nueva API Key</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>Crea una nueva key para acceder a la API</div>
+          </div>
+          <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Nombre</Label>
-                <Input
+                <Inp
                   placeholder="Mi aplicacion, CI/CD, MCP..."
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
@@ -289,20 +270,20 @@ export default function DevelopersPage() {
               <div className="space-y-2">
                 <Label>Entorno</Label>
                 <div className="flex gap-2">
-                  <Button
+                  <Btn
                     size="sm"
-                    variant={newKeyEnvironment === "live" ? "default" : "outline"}
+                    variant={newKeyEnvironment === "live" ? "primary" : "outline"}
                     onClick={() => setNewKeyEnvironment("live")}
                   >
                     Live
-                  </Button>
-                  <Button
+                  </Btn>
+                  <Btn
                     size="sm"
-                    variant={newKeyEnvironment === "test" ? "default" : "outline"}
+                    variant={newKeyEnvironment === "test" ? "primary" : "outline"}
                     onClick={() => setNewKeyEnvironment("test")}
                   >
                     Test
-                  </Button>
+                  </Btn>
                 </div>
               </div>
             </div>
@@ -310,9 +291,9 @@ export default function DevelopersPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Scopes (permisos)</Label>
-                <Button size="sm" variant="ghost" onClick={selectAllScopes} className="text-xs">
+                <Btn size="sm" variant="ghost" onClick={selectAllScopes} className="text-xs">
                   Seleccionar todos
-                </Button>
+                </Btn>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredScopeGroups.map((group) => (
@@ -333,29 +314,28 @@ export default function DevelopersPage() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleCreate} disabled={creating}>
+              <Btn onClick={handleCreate} disabled={creating}>
                 {creating ? "Creando..." : "Crear API Key"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowCreateForm(false)}>
+              </Btn>
+              <Btn variant="outline" onClick={() => setShowCreateForm(false)}>
                 Cancelar
-              </Button>
+              </Btn>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </PCard>
       ) : (
-        <Button onClick={() => setShowCreateForm(true)}>
+        <Btn onClick={() => setShowCreateForm(true)}>
           <RiAddLine className="h-4 w-4 mr-2" />
           Nueva API Key
-        </Button>
+        </Btn>
       )}
 
       {/* Keys list */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">API Keys</CardTitle>
-          <CardDescription>Keys activas y revocadas de tu organizacion</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <PCard>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>API Keys</div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>Keys activas y revocadas de tu organizacion</div>
+        </div>
           {keys.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <RiKeyLine className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -373,16 +353,22 @@ export default function DevelopersPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium text-sm">{key.name}</h3>
-                        <Badge variant={key.isActive ? "default" : "secondary"} className="text-[10px]">
+                        <Pill
+                          style={{ fontSize: 10 }}
+                          {...(!key.isActive ? { bg: "var(--bg-subtle)", color: "var(--ink-2)" } : {})}
+                        >
                           {key.isActive ? "Activa" : "Revocada"}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px]">
+                        </Pill>
+                        <Pill
+                          style={{ fontSize: 10, border: "1px solid var(--line-strong)" }}
+                          bg="transparent"
+                        >
                           {key.environment}
-                        </Badge>
+                        </Pill>
                       </div>
                       <div className="flex items-center gap-2 mb-2">
                         <code className="text-xs text-muted-foreground font-mono">{key.keyPrefix}...****</code>
-                        <Button
+                        <Btn
                           size="sm"
                           variant="ghost"
                           className="h-6 w-6 p-0"
@@ -393,18 +379,18 @@ export default function DevelopersPage() {
                           ) : (
                             <RiFileCopyLine className="h-3 w-3" />
                           )}
-                        </Button>
+                        </Btn>
                       </div>
                       <div className="flex flex-wrap gap-1 mb-2">
                         {key.scopes.slice(0, 5).map((scope) => (
-                          <Badge key={scope} variant="outline" className="text-[10px] font-mono">
+                          <Pill key={scope} style={{ fontSize: 10, border: "1px solid var(--line-strong)", fontFamily: "monospace" }} bg="transparent">
                             {scope}
-                          </Badge>
+                          </Pill>
                         ))}
                         {key.scopes.length > 5 && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Pill style={{ fontSize: 10, border: "1px solid var(--line-strong)" }} bg="transparent">
                             +{key.scopes.length - 5} mas
-                          </Badge>
+                          </Pill>
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -419,29 +405,27 @@ export default function DevelopersPage() {
                       </div>
                     </div>
                     {key.isActive && (
-                      <Button
+                      <Btn
                         size="sm"
                         variant="ghost"
                         className="text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
                         onClick={() => handleRevoke(key.id)}
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
-                      </Button>
+                      </Btn>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </PCard>
 
       {/* Quick links */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Recursos</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <PCard>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>Recursos</div>
+        </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <a
               href="/api/v1/openapi"
@@ -473,8 +457,7 @@ export default function DevelopersPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </PCard>
     </div>
   );
 }

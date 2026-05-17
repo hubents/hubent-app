@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { organizationIntegrations, composioTriggers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createComposioTrigger, TRIGGER_SLUGS, MVP_TOOLKITS, type ComposioToolkit } from "@/lib/composio";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 /**
  * POST /api/admin/composio/sync-triggers
- * 
+ *
  * Creates inbound triggers for all connected integrations
  * that don't already have an active trigger.
  * Runs in production with Vercel env vars.
@@ -21,7 +21,7 @@ export async function POST() {
 }
 
 async function syncTriggers() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const results: Array<{ orgId: number; toolkit: string; status: string; triggerId?: string; error?: string }> = [];
@@ -100,21 +100,12 @@ async function syncTriggers() {
     const existing = results.filter((r) => r.status === "already_exists").length;
     const errors = results.filter((r) => r.status === "error").length;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        total: mvpConnected.length,
-        created,
-        alreadyExist: existing,
-        errors,
-        details: results,
-      },
+    return ok({
+      total: mvpConnected.length,
+      created,
+      alreadyExist: existing,
+      errors,
+      details: results,
     });
-  } catch (error) {
-    console.error("[Admin] Sync triggers error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error" },
-      { status: error instanceof Error && error.message.includes("Unauthorized") ? 401 : 500 }
-    );
-  }
+  }, "POST /api/admin/composio/sync-triggers");
 }

@@ -1,38 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-interface Event {
-  id: number;
-  name: string;
-  type: string | null;
-  status: string | null;
-  date: Date | null;
-  endDate: Date | null;
-  location: string | null;
-  guestCount: number | null;
-  budget: string | null;
-  description: string | null;
-  clientId: number | null;
-  createdAt: Date | null;
-  clientName: string | null;
-}
+import type { Event } from "@/types";
 
 export function useEvents() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEvents = useCallback(async (params?: { status?: string; type?: string }) => {
+  const fetchEvents = useCallback(async (filters?: { status?: string; type?: string }) => {
     setLoading(true);
     try {
-      let url = "/api/events";
-      if (params) {
-        const searchParams = new URLSearchParams();
-        if (params.status) searchParams.set("status", params.status);
-        if (params.type) searchParams.set("type", params.type);
-        if (searchParams.toString()) url += `?${searchParams.toString()}`;
-      }
+      const params = new URLSearchParams(Object.entries(filters ?? {}).filter(([, v]) => v != null) as [string, string][]);
+      const url = params.size ? `/api/events?${params}` : "/api/events";
 
       const response = await fetch(url);
       const result = await response.json();
@@ -79,8 +59,7 @@ export function useEvents() {
       }
       return null;
     } catch (err) {
-      console.error("Failed to create event:", err);
-      return null;
+      throw err;
     }
   }, [fetchEvents]);
 

@@ -108,7 +108,7 @@ describe("Admin Users — B1: Verification email fix", () => {
 
   it("verification email has correct subject line", () => {
     const content = readFile("lib/email.ts");
-    expect(content).toContain("Verifica tu email - HubEnts");
+    expect(content).toContain("Verifica tu email - Hubents");
   });
 });
 

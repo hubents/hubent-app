@@ -1,13 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getVendors, createVendor } from "@/lib/vendors";
 import { withMonitoring } from "@/lib/monitoring";
+import { apiHandler, ok, badRequest, paginated } from "@/lib/api-handler";
 
 // GET /api/vendors - List vendors
 export const GET = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("vendors:read");
+  return apiHandler(async () => {
+    const session = await requirePermission("vendors:read");
     const { searchParams } = new URL(request.url);
-    
+
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const category = searchParams.get("category") || undefined;
@@ -15,31 +17,24 @@ export const GET = withMonitoring(async (request: NextRequest) => {
 
     const result = await getVendors(session, { page, limit, category, search });
 
-  return NextResponse.json({
-    success: true,
-    data: result.data,
-    meta: result.meta,
-  });
+    return paginated(result.data, result.meta);
+  }, "GET /api/vendors");
 }, { name: "GET /api/vendors" });
 
 // POST /api/vendors - Create vendor
 export const POST = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("vendors:update");
+  return apiHandler(async () => {
+    const session = await requirePermission("vendors:update");
     const body = await request.json();
 
     const { name } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Name is required");
     }
 
     const vendor = await createVendor(session, body);
 
-  return NextResponse.json({
-    success: true,
-    data: vendor,
-  });
+    return ok(vendor);
+  }, "POST /api/vendors");
 }, { name: "POST /api/vendors" });

@@ -506,7 +506,7 @@ async function generateDocumentNumberForOrg(
     proforma: "PROF",
     invoice: "FAC",
     delivery_note: "ALB",
-    credit_note: "ABONO",
+    credit_note: "FR",
   };
 
   const year = new Date().getFullYear();

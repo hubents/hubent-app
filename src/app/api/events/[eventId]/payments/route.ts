@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { tasks, taskPayments, eventPayments, paymentRecords, financialDocuments, taskParticipants } from "@/db/schema";
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
 import { createPaymentRecord } from "@/lib/finance";
 import { getEventParticipant } from "@/lib/event-permissions";
+import { apiHandler, ok, created } from "@/lib/api-handler";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "finances", "view");
@@ -190,23 +191,15 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ success: true, data: payments });
-  } catch (error) {
-    console.error("Error fetching payments:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch payments";
-    const status = message.includes("Unauthorized") || message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(payments);
+  }, "GET /api/events/[eventId]/payments");
 }
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "finances", "edit");
@@ -230,13 +223,6 @@ export async function POST(
       attachmentName: body.attachmentName,
     });
 
-    return NextResponse.json({ success: true, data: record });
-  } catch (error) {
-    console.error("Error creating payment:", error);
-    const message = error instanceof Error ? error.message : "Failed to create payment";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return created(record);
+  }, "POST /api/events/[eventId]/payments");
 }

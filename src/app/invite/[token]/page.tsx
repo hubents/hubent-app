@@ -202,7 +202,7 @@ function InviteContent() {
           <div className="flex justify-center">
             <Image
               src="/images/logo.png"
-              alt="HubEnts"
+              alt="Hubents"
               width={48}
               height={48}
               className="rounded-lg"

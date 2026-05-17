@@ -1,34 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getContactDocuments, addContactDocument, deleteContactDocument } from "@/lib/contacts";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 // GET /api/contacts/[id]/documents - List contact documents
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     await requirePermission("crm:read");
     const { id } = await params;
 
     const documents = await getContactDocuments(parseInt(id, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: documents,
-    });
-  } catch (error) {
-    console.error("GET /api/contacts/[id]/documents error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch documents";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(documents);
+  }, "GET /api/contacts/[id]/documents");
 }
 
 // POST /api/contacts/[id]/documents - Add document to contact
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { id } = await params;
     const body = await request.json();
@@ -36,10 +27,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { name, url } = body;
 
     if (!name || !url) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name and URL are required" } },
-        { status: 400 }
-      );
+      return badRequest("Name and URL are required");
     }
 
     const document = await addContactDocument(parseInt(id, 10), {
@@ -51,46 +39,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       uploadedBy: session.user.userId,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: document,
-    });
-  } catch (error) {
-    console.error("POST /api/contacts/[id]/documents error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add document";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(document);
+  }, "POST /api/contacts/[id]/documents");
 }
 
 // DELETE /api/contacts/[id]/documents - Delete document
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(request: NextRequest, _params: RouteParams) {
+  return apiHandler(async () => {
     await requirePermission("crm:manage");
     const { searchParams } = new URL(request.url);
     const documentId = searchParams.get("documentId");
 
     if (!documentId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Document ID is required" } },
-        { status: 400 }
-      );
+      return badRequest("Document ID is required");
     }
 
     await deleteContactDocument(parseInt(documentId, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Document deleted" },
-    });
-  } catch (error) {
-    console.error("DELETE /api/contacts/[id]/documents error:", error);
-    const message = error instanceof Error ? error.message : "Failed to delete document";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Document deleted" });
+  }, "DELETE /api/contacts/[id]/documents");
 }

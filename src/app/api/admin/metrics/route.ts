@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { db } from "@/db";
 import {
   organizations,
@@ -9,9 +8,10 @@ import {
 } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/session";
 import { eq, count, sum, and, gte, desc, sql } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const now = new Date();
@@ -124,46 +124,37 @@ export async function GET() {
       .from(organizations)
       .where(eq(organizations.orgType, "provider"));
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        overview: {
-          totalOrganizations: totalOrgs?.count || 0,
-          activeOrganizations: activeOrgs?.count || 0,
-          totalUsers: totalUsers?.count || 0,
-          mrr,
-          arr: mrr * 12,
-        },
-        subscriptions: {
-          active: activeSubs?.count || 0,
-          trialing: trialingSubs?.count || 0,
-          canceled: canceledSubs?.count || 0,
-        },
-        revenue: {
-          total: Number(totalRevenue?.total || 0),
-          last30Days: Number(recentRevenue?.total || 0),
-        },
-        growth: {
-          newOrgsLast30Days: newOrgs30d?.count || 0,
-        },
-        planDistribution,
-        orgTypeDistribution: {
-          planners: plannerCount?.count || 0,
-          providers: providerCount?.count || 0,
-        },
-        recentSignups: recentSignups.map((o) => ({
-          id: o.id,
-          name: o.name,
-          orgType: o.orgType,
-          createdAt: o.createdAt?.toISOString(),
-        })),
+    return ok({
+      overview: {
+        totalOrganizations: totalOrgs?.count || 0,
+        activeOrganizations: activeOrgs?.count || 0,
+        totalUsers: totalUsers?.count || 0,
+        mrr,
+        arr: mrr * 12,
       },
+      subscriptions: {
+        active: activeSubs?.count || 0,
+        trialing: trialingSubs?.count || 0,
+        canceled: canceledSubs?.count || 0,
+      },
+      revenue: {
+        total: Number(totalRevenue?.total || 0),
+        last30Days: Number(recentRevenue?.total || 0),
+      },
+      growth: {
+        newOrgsLast30Days: newOrgs30d?.count || 0,
+      },
+      planDistribution,
+      orgTypeDistribution: {
+        planners: plannerCount?.count || 0,
+        providers: providerCount?.count || 0,
+      },
+      recentSignups: recentSignups.map((o) => ({
+        id: o.id,
+        name: o.name,
+        orgType: o.orgType,
+        createdAt: o.createdAt?.toISOString(),
+      })),
     });
-  } catch (error) {
-    console.error("GET /api/admin/metrics error:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al obtener métricas" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/metrics");
 }

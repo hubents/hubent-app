@@ -16,7 +16,7 @@ function getResendClient() {
 }
 
 function getEmailFrom() {
-  return process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>";
+  return process.env.EMAIL_FROM || "Hubents <noreply@hubents.com>";
 }
 
 function getAppUrl() {

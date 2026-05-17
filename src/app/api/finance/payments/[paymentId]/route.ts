@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { paymentRecords, financialDocuments, contacts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updatePaymentRecord, deletePaymentRecord } from "@/lib/finance";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ paymentId: string }> };
 
 // GET /api/finance/payments/[paymentId] - Get a single payment record
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:read");
     const { paymentId } = await params;
     const id = parseInt(paymentId, 10);
@@ -53,26 +54,15 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       )
       .limit(1);
 
-    if (!record) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Payment not found" } },
-        { status: 404 }
-      );
-    }
+    if (!record) return notFound("Payment not found");
 
-    return NextResponse.json({ success: true, data: record });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch payment";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(record);
+  }, "GET /api/finance/payments/[paymentId]");
 }
 
 // PATCH /api/finance/payments/[paymentId] - Update a payment record
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { paymentId } = await params;
     const id = parseInt(paymentId, 10);
@@ -89,33 +79,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       attachmentName: body.attachmentName,
     });
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update payment";
-    const status = message.includes("not found") ? 404 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/finance/payments/[paymentId]");
 }
 
 // DELETE /api/finance/payments/[paymentId] - Delete a payment record
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { paymentId } = await params;
     const id = parseInt(paymentId, 10);
 
     await deletePaymentRecord(session, id);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete payment";
-    const status = message.includes("not found") ? 404 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok({ deleted: true });
+  }, "DELETE /api/finance/payments/[paymentId]");
 }

@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { organizationIntegrations, organizations, users } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const allIntegrations = await db
@@ -76,18 +76,6 @@ export async function GET() {
           : 0,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: { integrations: enriched, stats },
-    });
-  } catch (error) {
-    console.error("[Admin Integrations] Error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Error",
-      },
-      { status: 500 }
-    );
-  }
+    return ok({ integrations: enriched, stats });
+  }, "GET /api/admin/integrations");
 }

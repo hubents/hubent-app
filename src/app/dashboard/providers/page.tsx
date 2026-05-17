@@ -2,10 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -14,16 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiStoreLine,
-  RiSearchLine,
-  RiInstagramLine,
-  RiMapPinLine,
-  RiShieldCheckLine,
-  RiExternalLinkLine,
-} from "@remixicon/react";
+  Store01Icon,
+  Search01Icon,
+  InstagramIcon,
+  Location01Icon,
+  CheckmarkCircle01Icon,
+  LinkSquare01Icon,
+} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { PROVIDER_CATEGORIES, PLANNER_CATEGORIES, getOrgTypeLabel } from "@/config/provider-constants";
+
+const IcoStore    = hgIcon(Store01Icon);
+const IcoSearch   = hgIcon(Search01Icon);
+const IcoInsta    = hgIcon(InstagramIcon);
+const IcoLocation = hgIcon(Location01Icon);
+const IcoVerified = hgIcon(CheckmarkCircle01Icon);
+const IcoLink     = hgIcon(LinkSquare01Icon);
 
 interface PartnersDirectoryOrg {
   id: number;
@@ -43,6 +47,12 @@ interface PartnersDirectoryOrg {
 }
 
 const ALL_CATEGORIES = [...new Set([...PROVIDER_CATEGORIES, ...PLANNER_CATEGORIES])].sort();
+
+function getOrgColors(orgType: string | null): { bg: string; fg: string } {
+  return orgType === "provider"
+    ? { bg: "#EDE7F6", fg: "#6B3FA0" }
+    : { bg: "#E3F2FF", fg: "#1565C0" };
+}
 
 export default function ProvidersDirectoryPage() {
   return <EventScopedGuard><ProvidersDirectoryContent /></EventScopedGuard>;
@@ -68,11 +78,11 @@ function ProvidersDirectoryContent() {
       const res = await fetch(`/api/providers?${params}`);
       const data = await res.json();
       if (data.success) {
-        setOrgs(data.data);
-        setTotal(data.meta?.total ?? data.data.length);
+        setOrgs(data.data?.data || []);
+        setTotal(data.data?.meta?.total ?? data.data?.data?.length ?? 0);
       }
     } catch {
-      console.error("Error fetching Partners directory");
+      // ignore
     } finally {
       setLoading(false);
     }
@@ -84,27 +94,40 @@ function ProvidersDirectoryContent() {
   }, [fetchOrgs]);
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Partners</h1>
-        <p className="text-muted-foreground">
+        <h1 style={{ fontSize: 22, fontWeight: 600, margin: "0 0 4px", color: "var(--ink-1)", letterSpacing: "-0.01em" }}>
+          Partners
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--ink-3)", margin: 0 }}>
           Proveedores y planificadores verificados en la plataforma
         </p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div
+          style={{
+            flex: 1, minWidth: 220,
+            display: "flex", alignItems: "center", gap: 8,
+            background: "#FFFFFF", border: "1px solid var(--line-1)",
+            borderRadius: 8, padding: "8px 12px",
+          }}
+        >
+          <IcoSearch style={{ width: 14, height: 14, color: "var(--ink-3)", flexShrink: 0 }} />
+          <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o Instagram..."
-            className="pl-10"
+            style={{
+              flex: 1, border: "none", outline: "none", background: "transparent",
+              fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit",
+            }}
           />
         </div>
         <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger style={{ width: 180, borderRadius: 8, fontSize: 13, border: "1px solid var(--line-1)" }}>
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
@@ -114,7 +137,7 @@ function ProvidersDirectoryContent() {
           </SelectContent>
         </Select>
         <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectTrigger style={{ width: 200, borderRadius: 8, fontSize: 13, border: "1px solid var(--line-1)" }}>
             <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>
@@ -128,82 +151,126 @@ function ProvidersDirectoryContent() {
 
       {/* Results */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full rounded-lg" />
+            <Skeleton key={i} style={{ height: 180, borderRadius: 12 }} />
           ))}
         </div>
       ) : orgs.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RiStoreLine className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-lg font-medium">No se encontraron resultados</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {search || category || typeFilter
-                ? "Intenta con otros filtros de búsqueda"
-                : "Aún no hay organizaciones verificadas en la plataforma"}
-            </p>
-          </CardContent>
-        </Card>
+        <div
+          style={{
+            background: "#FFFFFF", border: "1px solid var(--line-1)",
+            borderRadius: 12, padding: "48px 24px", textAlign: "center",
+          }}
+        >
+          <IcoStore style={{ width: 40, height: 40, color: "var(--ink-4)", margin: "0 auto 12px" }} />
+          <p style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-1)", margin: "0 0 6px" }}>
+            No se encontraron resultados
+          </p>
+          <p style={{ fontSize: 13, color: "var(--ink-3)", margin: 0 }}>
+            {search || category || typeFilter
+              ? "Intenta con otros filtros de búsqueda"
+              : "Aún no hay organizaciones verificadas en la plataforma"}
+          </p>
+        </div>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">{total} resultados encontrados</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <p style={{ fontSize: 12.5, color: "var(--ink-3)", margin: 0 }}>
+            {total} resultados encontrados
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
             {orgs.map((org) => {
               const location = [org.city, org.region].filter(Boolean).join(", ");
+              const colors = getOrgColors(org.orgType);
+              const initials = org.name.trim().split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
               return (
-                <Card key={org.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start gap-3">
-                      <div className={`h-12 w-12 rounded-lg flex items-center justify-center shrink-0 ${org.orgType === "provider" ? "bg-purple-100" : "bg-blue-100"}`}>
-                        <RiStoreLine className={`h-6 w-6 ${org.orgType === "provider" ? "text-purple-600" : "text-blue-600"}`} />
+                <div
+                  key={org.id}
+                  style={{
+                    background: "#FFFFFF", border: "1px solid var(--line-1)",
+                    borderRadius: 12, padding: 18,
+                    display: "flex", flexDirection: "column", gap: 12,
+                    transition: "box-shadow .15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}
+                >
+                  {/* Top row */}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div
+                      style={{
+                        width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                        background: colors.bg, display: "flex", alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {org.logo
+                        ? <img src={org.logo} alt={org.name} style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover" }} />
+                        : <span style={{ fontSize: 14, fontWeight: 700, color: colors.fg }}>{initials}</span>
+                      }
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {org.name}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base truncate">{org.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1 mt-0.5">
-                          <RiShieldCheckLine className="h-3 w-3 text-green-600" />
-                          Verificado
-                        </CardDescription>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#17A95C" }}>
+                        <IcoVerified style={{ width: 12, height: 12 }} />
+                        Verificado
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant={org.orgType === "provider" ? "default" : "secondary"} className="text-xs">
-                        {getOrgTypeLabel(org.orgType)}
-                      </Badge>
-                      {org.providerCategory && (
-                        <Badge variant="outline">{org.providerCategory}</Badge>
-                      )}
-                      {location && (
-                        <Badge variant="outline" className="gap-1">
-                          <RiMapPinLine className="h-3 w-3" />
-                          {location}
-                        </Badge>
-                      )}
-                    </div>
+                  </div>
 
-                    {org.tagline && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{org.tagline}</p>
+                  {/* Tags */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: colors.bg, color: colors.fg }}>
+                      {getOrgTypeLabel(org.orgType)}
+                    </span>
+                    {org.providerCategory && (
+                      <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)" }}>
+                        {org.providerCategory}
+                      </span>
                     )}
-
-                    {org.instagramHandle && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <RiInstagramLine className="h-3.5 w-3.5" />
-                        @{org.instagramHandle}
-                      </p>
+                    {location && (
+                      <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        <IcoLocation style={{ width: 10, height: 10 }} />
+                        {location}
+                      </span>
                     )}
+                  </div>
 
-                    <div className="flex gap-2 pt-1">
-                      <Button variant="outline" size="sm" className="flex-1" asChild>
-                        <Link href={`/providers/${org.slug}`} target="_blank">
-                          <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
-                          Ver Perfil
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                  {/* Tagline */}
+                  {org.tagline && (
+                    <p style={{ fontSize: 12.5, color: "var(--ink-3)", margin: 0, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {org.tagline}
+                    </p>
+                  )}
+
+                  {/* Instagram */}
+                  {org.instagramHandle && (
+                    <p style={{ fontSize: 12.5, color: "var(--ink-3)", margin: 0, display: "flex", alignItems: "center", gap: 5 }}>
+                      <IcoInsta style={{ width: 13, height: 13 }} />
+                      @{org.instagramHandle}
+                    </p>
+                  )}
+
+                  {/* CTA */}
+                  <Link
+                    href={`/providers/${org.slug}`}
+                    target="_blank"
+                    style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      marginTop: "auto", padding: "7px 14px", borderRadius: 8,
+                      border: "1px solid var(--line-strong)", background: "#FFFFFF",
+                      fontSize: 12.5, fontWeight: 600, color: "var(--ink-1)",
+                      textDecoration: "none", transition: "background .12s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-subtle)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#FFFFFF")}
+                  >
+                    <IcoLink style={{ width: 13, height: 13 }} />
+                    Ver perfil
+                  </Link>
+                </div>
               );
             })}
           </div>

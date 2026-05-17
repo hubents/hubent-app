@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { inviteCollaboratorContact } from "@/lib/invitations";
 import { db } from "@/db";
 import { eventParticipants, events } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // GET - List events linked to a contact (reads from unified event_participants)
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("crm:read");
 
     const { id } = await params;
@@ -29,11 +30,8 @@ export async function GET(
       .innerJoin(events, eq(eventParticipants.eventId, events.id))
       .where(eq(eventParticipants.contactId, contactId));
 
-    return NextResponse.json({ success: true, data: linkedEvents });
-  } catch (error) {
-    console.error("Error fetching contact events:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch events" }, { status: 500 });
-  }
+    return ok(linkedEvents);
+  }, "GET /api/contacts/[id]/events");
 }
 
 // POST - Link contact to event via unified event_participants
@@ -41,7 +39,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
 
     const { id } = await params;
@@ -50,7 +48,7 @@ export async function POST(
     const { eventId, role } = body;
 
     if (!eventId) {
-      return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
+      return badRequest("eventId is required");
     }
 
     const eId = parseInt(eventId, 10);
@@ -63,7 +61,7 @@ export async function POST(
       .limit(1);
 
     if (existing) {
-      return NextResponse.json({ success: true, data: existing });
+      return ok(existing);
     }
 
     const [participant] = await db.insert(eventParticipants).values({
@@ -82,11 +80,8 @@ export async function POST(
       console.error("Auto-invite failed (non-blocking):", inviteErr);
     }
 
-    return NextResponse.json({ success: true, data: { ...participant, invitationStatus } });
-  } catch (error) {
-    console.error("Error linking contact to event:", error);
-    return NextResponse.json({ success: false, error: "Failed to link contact" }, { status: 500 });
-  }
+    return ok({ ...participant, invitationStatus });
+  }, "POST /api/contacts/[id]/events");
 }
 
 // DELETE - Unlink contact from event via unified event_participants
@@ -94,7 +89,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("crm:manage");
 
     const { id } = await params;
@@ -103,7 +98,7 @@ export async function DELETE(
     const eventId = searchParams.get("eventId");
 
     if (!eventId) {
-      return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
+      return badRequest("eventId is required");
     }
 
     await db.delete(eventParticipants).where(
@@ -113,9 +108,6 @@ export async function DELETE(
       )
     );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error unlinking contact from event:", error);
-    return NextResponse.json({ success: false, error: "Failed to unlink contact" }, { status: 500 });
-  }
+    return ok(null);
+  }, "DELETE /api/contacts/[id]/events");
 }

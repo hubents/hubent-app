@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler, ok } from "@/lib/api-handler";
 import { db } from "@/db";
 import { organizations, organizationMembers, users, subscriptions, subscriptionPlans } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
  * List all provider organizations for super admin
  */
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { searchParams } = new URL(request.url);
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     const providerIds = providerOrgs.map((p) => p.id);
 
-    let membersMap = new Map<number, { count: number; ownerName: string | null; ownerEmail: string | null }>();
+    const membersMap = new Map<number, { count: number; ownerName: string | null; ownerEmail: string | null }>();
 
     if (providerIds.length > 0) {
       const members = await db
@@ -123,18 +124,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
-      data,
-      meta: { page, limit, total: Number(count), totalPages: Math.ceil(Number(count) / limit) },
-    });
-  } catch (error) {
-    console.error("GET /api/admin/providers error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch providers";
-    const status = message.includes("Unauthorized") || message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(data);
+  }, "GET /api/admin/providers");
 }

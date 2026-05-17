@@ -1,26 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { duplicateDocument } from "@/lib/finance";
+import { apiHandler, created } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ documentId: string }> };
 
 // POST /api/finance/documents/[documentId]/duplicate - Duplicate document
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function POST(_: Request, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { documentId } = await params;
 
     const newDoc = await duplicateDocument(session, parseInt(documentId, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: newDoc,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to duplicate document";
-    return NextResponse.json(
-      { success: false, error: { code: "DUPLICATE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return created(newDoc);
+  }, "POST /api/finance/documents/[documentId]/duplicate");
 }

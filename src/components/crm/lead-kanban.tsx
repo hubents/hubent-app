@@ -26,6 +26,7 @@ import {
   Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fmtEur } from "@/lib/format";
 
 // Types
 interface Lead {
@@ -140,13 +141,7 @@ export function LeadKanban({
 
   const formatCurrency = (value: string | null, currency: string | null) => {
     if (!value) return null;
-    const num = parseFloat(value);
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num);
+    return fmtEur(value, currency || "EUR");
   };
 
   return (

@@ -1,5 +1,5 @@
 /**
- * Minimal ClickUp API v2 shapes used by HubEnts.
+ * Minimal ClickUp API v2 shapes used by Hubents.
  * @see https://developer.clickup.com/reference
  */
 

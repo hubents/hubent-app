@@ -1,43 +1,34 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { taskMessages, organizationIntegrations, users } from "@/db/schema";
+import { taskMessages, organizationIntegrations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { executeComposioTool } from "@/lib/composio";
 import { canAccessTaskChat } from "@/lib/task-chat";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { apiHandler, ok, badRequest, forbidden, serverError } from "@/lib/api-handler";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { taskId: taskIdStr } = await params;
     const taskId = parseInt(taskIdStr, 10);
 
     if (isNaN(taskId)) {
-      return NextResponse.json(
-        { success: false, error: "Task ID inválido" },
-        { status: 400 }
-      );
+      return badRequest("Task ID inválido");
     }
 
     const canAccess = await canAccessTaskChat(session, taskId);
     if (!canAccess) {
-      return NextResponse.json(
-        { success: false, error: "Sin acceso a esta tarea" },
-        { status: 403 }
-      );
+      return forbidden("Sin acceso a esta tarea");
     }
 
     const { to, message: msgContent, templateName } = await req.json();
 
     if (!to || !msgContent) {
-      return NextResponse.json(
-        { success: false, error: "Faltan campos requeridos: to, message" },
-        { status: 400 }
-      );
+      return badRequest("Faltan campos requeridos: to, message");
     }
 
     const orgId = session.organizationId;
@@ -55,10 +46,7 @@ export async function POST(
       .limit(1);
 
     if (!waIntegration) {
-      return NextResponse.json(
-        { success: false, error: "WhatsApp no está conectado. Configuralo en Integraciones." },
-        { status: 400 }
-      );
+      return badRequest("WhatsApp no está conectado. Configuralo en Integraciones.");
     }
 
     try {
@@ -68,10 +56,7 @@ export async function POST(
       });
     } catch (waError) {
       console.error("[Task WhatsApp] Composio send error:", waError);
-      return NextResponse.json(
-        { success: false, error: "Error al enviar el mensaje vía WhatsApp" },
-        { status: 500 }
-      );
+      return serverError("Error al enviar el mensaje vía WhatsApp");
     }
 
     const [message] = await db
@@ -109,12 +94,6 @@ export async function POST(
       console.warn("[Task WhatsApp] Pusher broadcast failed:", pusherError);
     }
 
-    return NextResponse.json({ success: true, data: messagePayload });
-  } catch (error) {
-    console.error("[Task WhatsApp] Error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error" },
-      { status: error instanceof Error && error.message.includes("Unauthorized") ? 401 : 500 }
-    );
-  }
+    return ok(messagePayload);
+  }, "POST /api/tasks/[taskId]/whatsapp");
 }

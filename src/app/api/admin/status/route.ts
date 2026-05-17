@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { runHealthChecks } from "@/lib/monitoring/health-checks";
 import { logger } from "@/lib/monitoring/logger";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ const REQUIRED_ENV_VARS: {
 ];
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const [health, recentErrors] = await Promise.all([
@@ -48,29 +48,22 @@ export async function GET() {
 
     const configuredCount = envStatus.filter((e) => e.configured).length;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        health,
-        envStatus,
-        envSummary: {
-          total: envStatus.length,
-          configured: configuredCount,
-          missing: envStatus.length - configuredCount,
-        },
-        recentErrors: recentErrors.map((e) => ({
-          timestamp: e.timestamp,
-          level: e.level,
-          message: e.message,
-          path: e.context.path,
-          method: e.context.method,
-          statusCode: e.context.statusCode,
-        })),
+    return ok({
+      health,
+      envStatus,
+      envSummary: {
+        total: envStatus.length,
+        configured: configuredCount,
+        missing: envStatus.length - configuredCount,
       },
+      recentErrors: recentErrors.map((e) => ({
+        timestamp: e.timestamp,
+        level: e.level,
+        message: e.message,
+        path: e.context.path,
+        method: e.context.method,
+        statusCode: e.context.statusCode,
+      })),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to get status";
-    const status = message.includes("Unauthorized") || message.includes("Platform admin") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+  }, "GET /api/admin/status");
 }

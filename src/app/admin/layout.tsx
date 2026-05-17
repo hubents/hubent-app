@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Building2, 
-  Users, 
-  CreditCard, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  CreditCard,
+  Settings,
   ScrollText,
   Megaphone,
   LogOut,
@@ -16,7 +16,8 @@ import {
   Activity,
   Globe,
   Wallet,
-  Link2
+  Link2,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminHeader } from "@/components/layout/admin-header";
@@ -40,6 +41,7 @@ const sidebarGroups: SidebarGroup[] = [
       { href: "/admin/tenants", label: "Organizaciones", icon: Building2 },
       { href: "/admin/users", label: "Usuarios", icon: Users },
       { href: "/admin/plans", label: "Planes", icon: CreditCard },
+      { href: "/admin/claims", label: "Reclamaciones", icon: UserCheck },
     ],
   },
   {

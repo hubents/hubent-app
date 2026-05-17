@@ -1,21 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler, ok, notFound, badRequest, forbidden } from "@/lib/api-handler";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden promover usuarios" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden promover usuarios");
     }
 
     const { id } = await params;
@@ -23,10 +21,7 @@ export async function POST(
     const { level = "support" } = body;
 
     if (!["super_admin", "support"].includes(level)) {
-      return NextResponse.json(
-        { error: "Nivel inválido" },
-        { status: 400 }
-      );
+      return badRequest("Nivel inválido");
     }
 
     const user = await db.query.users.findFirst({
@@ -34,7 +29,7 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     const existingAdmin = await db.query.platformAdmins.findFirst({
@@ -53,15 +48,8 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: existingAdmin ? "Nivel de admin actualizado" : "Usuario promovido a admin" 
+    return ok({
+      message: existingAdmin ? "Nivel de admin actualizado" : "Usuario promovido a admin",
     });
-  } catch (error) {
-    console.error("Promote user error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+  }, "POST /api/admin/users/[id]/promote");
 }

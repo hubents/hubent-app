@@ -149,6 +149,6 @@ describe("buildMcpToolCall", () => {
 
   it("includes version header", () => {
     const call = buildMcpToolCall("hubents_get_me", {}, baseUrl, apiKey);
-    expect(call!.headers["X-HubEnts-Version"]).toBe("2026-03-14");
+    expect(call!.headers["X-Hubents-Version"]).toBe("2026-03-14");
   });
 });

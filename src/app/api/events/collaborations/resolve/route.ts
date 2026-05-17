@@ -1,20 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { eventCollaborations, events, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requireAuth();
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
 
     if (!token) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Token is required" } },
-        { status: 400 },
-      );
+      return badRequest("Token is required");
     }
 
     const collab = await db.query.eventCollaborations.findFirst({
@@ -22,10 +20,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!collab) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Invitación no encontrada o expirada" } },
-        { status: 404 },
-      );
+      return notFound("Invitación no encontrada o expirada");
     }
 
     const event = await db.query.events.findFirst({
@@ -38,26 +33,16 @@ export async function GET(request: NextRequest) {
       columns: { name: true, logo: true },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: collab.id,
-        eventName: event?.name || "Evento",
-        eventDate: event?.date?.toISOString() ?? null,
-        eventLocation: event?.location ?? null,
-        hostOrgName: hostOrg?.name || "Organizador",
-        hostOrgLogo: hostOrg?.logo ?? null,
-        status: collab.status,
-        permissions: collab.permissions,
-        invitedAt: collab.invitedAt?.toISOString() ?? null,
-      },
+    return ok({
+      id: collab.id,
+      eventName: event?.name || "Evento",
+      eventDate: event?.date?.toISOString() ?? null,
+      eventLocation: event?.location ?? null,
+      hostOrgName: hostOrg?.name || "Organizador",
+      hostOrgLogo: hostOrg?.logo ?? null,
+      status: collab.status,
+      permissions: collab.permissions,
+      invitedAt: collab.invitedAt?.toISOString() ?? null,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Error resolving invitation";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "RESOLVE_ERROR", message } },
-      { status },
-    );
-  }
+  }, "GET /api/events/collaborations/resolve");
 }

@@ -18,7 +18,7 @@ export default function ApiPlatformLayout({ children }: { children: React.ReactN
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">API Platform</h1>
-        <p className="text-sm text-muted-foreground">Monitoreo y gestion de la API publica de HubEnts</p>
+        <p className="text-sm text-muted-foreground">Monitoreo y gestion de la API publica de Hubents</p>
       </div>
 
       <div className="border-b">

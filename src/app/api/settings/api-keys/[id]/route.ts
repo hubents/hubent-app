@@ -1,32 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getApiKey, updateApiKey, revokeApiKey, getApiKeyRecentLogs } from "@/lib/api/api-keys";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:update");
     const { id } = await params;
     const keyId = parseInt(id, 10);
 
     const key = await getApiKey(keyId, session.organizationId);
     if (!key) {
-      return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "API key not found" } }, { status: 404 });
+      return notFound("API key not found");
     }
 
     const logs = await getApiKeyRecentLogs(keyId, 20);
 
-    return NextResponse.json({ success: true, data: { ...key, recent_logs: logs } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch API key";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+    return ok({ ...key, recent_logs: logs });
+  }, "GET /api/settings/api-keys/[id]");
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:update");
     const { id } = await params;
     const keyId = parseInt(id, 10);
@@ -40,32 +37,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!updated) {
-      return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "API key not found" } }, { status: 404 });
+      return notFound("API key not found");
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update API key";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "UPDATE_ERROR", message } }, { status });
-  }
+    return ok(updated);
+  }, "PATCH /api/settings/api-keys/[id]");
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:update");
     const { id } = await params;
     const keyId = parseInt(id, 10);
 
     const revoked = await revokeApiKey(keyId, session.organizationId, session.user.userId);
     if (!revoked) {
-      return NextResponse.json({ success: false, error: { code: "NOT_FOUND", message: "API key not found" } }, { status: 404 });
+      return notFound("API key not found");
     }
 
-    return NextResponse.json({ success: true, data: { id: keyId, revoked: true } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to revoke API key";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "REVOKE_ERROR", message } }, { status });
-  }
+    return ok({ id: keyId, revoked: true });
+  }, "DELETE /api/settings/api-keys/[id]");
 }

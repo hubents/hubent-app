@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Btn, Inp, Ta, Pill, PCard } from "@/components/ui/ds";
+import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSession } from "@/hooks/use-user-session";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
@@ -285,37 +282,31 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Templates de Eventos</h1>
-          <p className="text-muted-foreground">
-            Crea y gestiona templates para agilizar la creación de eventos
-          </p>
-        </div>
-        {canManageTemplates && (
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+      <PageHeader
+        action={canManageTemplates && (
+          <Btn variant="primary" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4" />
             Nuevo Template
-          </Button>
+          </Btn>
         )}
-      </div>
+      />
 
       {templates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+        <PCard>
+          <div className="flex flex-col items-center justify-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No hay templates</h3>
             <p className="text-muted-foreground text-center mb-4">
               Crea tu primer template para agilizar la creación de eventos
             </p>
             {canManageTemplates && (
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+              <Btn variant="primary" onClick={() => setIsCreateOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Plus className="h-4 w-4" />
                 Crear Template
-              </Button>
+              </Btn>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </PCard>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => {
@@ -323,61 +314,63 @@ export default function TemplatesPage() {
             const typeLabel = template.eventType ? eventTypeLabels[template.eventType] : null;
 
             return (
-              <Card
+              <PCard
                 key={template.id}
-                className="cursor-pointer hover:border-primary/50 transition-colors"
+                style={{ cursor: "pointer" }}
                 onClick={() => fetchTemplateDetails(template.id)}
               >
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{icon}</span>
-                    <div>
-                      <CardTitle className="text-base">{template.name}</CardTitle>
-                      {typeLabel && (
-                        <p className="text-xs text-muted-foreground">{typeLabel}</p>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 24 }}>{icon}</span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>{template.name}</div>
+                        {typeLabel && (
+                          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>{typeLabel}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {template.isGlobal && (
+                        <Pill bg="var(--bg-subtle)" color="var(--ink-2)" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                          <Sparkles className="h-3 w-3" />
+                          Global
+                        </Pill>
+                      )}
+                      {canManageTemplates && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <button style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-2)" }}>
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(template);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteDialog(template);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {template.isGlobal && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Global
-                      </Badge>
-                    )}
-                    {canManageTemplates && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditDialog(template);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDeleteDialog(template);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
+                </div>
+                <div>
                   {template.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                       {template.description}
@@ -394,8 +387,8 @@ export default function TemplatesPage() {
                       <span>${parseFloat(template.defaultBudget).toLocaleString()}</span>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </PCard>
             );
           })}
         </div>
@@ -403,34 +396,34 @@ export default function TemplatesPage() {
 
       {/* Template Detail Panel */}
       {selectedTemplate && !isEditOpen && !isDeleteOpen && (
-        <Card className="mt-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">
+        <PCard style={{ marginTop: 24 }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 30 }}>
                   {selectedTemplate.eventType ? eventTypeIcons[selectedTemplate.eventType] : "📋"}
                 </span>
                 <div>
-                  <CardTitle>{selectedTemplate.name}</CardTitle>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>{selectedTemplate.name}</div>
                   {selectedTemplate.eventType && (
-                    <p className="text-sm text-muted-foreground">
+                    <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>
                       {eventTypeLabels[selectedTemplate.eventType]}
-                    </p>
+                    </div>
                   )}
                 </div>
               </div>
-              <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
+              <Btn variant="outline" onClick={() => setSelectedTemplate(null)}>
                 Cerrar
-              </Button>
+              </Btn>
             </div>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div>
             {selectedTemplate.description && (
               <p className="text-muted-foreground mb-4">{selectedTemplate.description}</p>
             )}
 
             <h4 className="font-medium mb-3">Tareas del Template ({selectedTemplate.tasks?.length || 0})</h4>
-            
+
             {selectedTemplate.tasks && selectedTemplate.tasks.length > 0 ? (
               <div className="space-y-3">
                 {selectedTemplate.tasks.map((task, index) => (
@@ -470,8 +463,8 @@ export default function TemplatesPage() {
                 Este template no tiene tareas definidas
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </PCard>
       )}
 
       {/* Create Template Drawer */}
@@ -486,7 +479,7 @@ export default function TemplatesPage() {
           <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre *</Label>
-              <Input
+              <Inp
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -513,7 +506,7 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Descripción</Label>
-              <Textarea
+              <Ta
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -523,7 +516,7 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="budget">Presupuesto por defecto</Label>
-              <Input
+              <Inp
                 id="budget"
                 type="number"
                 value={formData.defaultBudget}
@@ -533,13 +526,13 @@ export default function TemplatesPage() {
             </div>
           </div>
           <SheetFooter>
-            <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
+            <Btn variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
               Cancelar
-            </Button>
-            <Button onClick={handleCreate} disabled={saving || !formData.name.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            </Btn>
+            <Btn variant="primary" onClick={handleCreate} disabled={saving || !formData.name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Crear Template
-            </Button>
+            </Btn>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -556,7 +549,7 @@ export default function TemplatesPage() {
           <div className="space-y-4 px-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Nombre *</Label>
-              <Input
+              <Inp
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -583,7 +576,7 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-description">Descripción</Label>
-              <Textarea
+              <Ta
                 id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -593,7 +586,7 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-budget">Presupuesto por defecto</Label>
-              <Input
+              <Inp
                 id="edit-budget"
                 type="number"
                 value={formData.defaultBudget}
@@ -603,13 +596,13 @@ export default function TemplatesPage() {
             </div>
           </div>
           <SheetFooter>
-            <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); setSelectedTemplate(null); }}>
+            <Btn variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); setSelectedTemplate(null); }}>
               Cancelar
-            </Button>
-            <Button onClick={handleEdit} disabled={saving || !formData.name.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            </Btn>
+            <Btn variant="primary" onClick={handleEdit} disabled={saving || !formData.name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Guardar Cambios
-            </Button>
+            </Btn>
           </SheetFooter>
         </SheetContent>
       </Sheet>

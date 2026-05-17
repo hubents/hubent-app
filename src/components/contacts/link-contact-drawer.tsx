@@ -1,32 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { avColor } from "@/lib/ui-utils";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  RiCalendarEventLine,
-  RiFileListLine,
-  RiCheckLine,
-  RiUserLine,
-  RiBuilding2Line,
-} from "@remixicon/react";
+  Cancel01Icon,
+  Calendar03Icon,
+  Task01Icon,
+  Tick01Icon,
+  UserCircleIcon,
+  Building01Icon,
+} from "@hugeicons/core-free-icons";
+
+const IcoX = hgIcon(Cancel01Icon);
+const IcoCalendar = hgIcon(Calendar03Icon);
+const IcoTask = hgIcon(Task01Icon);
+const IcoCheck = hgIcon(Tick01Icon);
+const IcoUser = hgIcon(UserCircleIcon);
+const IcoBuilding = hgIcon(Building01Icon);
+
 
 interface Contact {
   id: number;
@@ -54,6 +47,15 @@ interface LinkContactDrawerProps {
   onOpenChange: (open: boolean) => void;
   contact: Contact | null;
   onLinkComplete?: () => void;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5 drawer-form-field">
+      <label className="text-[12px] font-medium text-[var(--ink-2)]">{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export function LinkContactDrawer({
@@ -85,16 +87,11 @@ export function LinkContactDrawer({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [eventsRes, tasksRes] = await Promise.all([
-        fetch("/api/events"),
-        fetch("/api/tasks"),
-      ]);
-
+      const [eventsRes, tasksRes] = await Promise.all([fetch("/api/events"), fetch("/api/tasks")]);
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData.data || []);
       }
-
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
         setTasks(tasksData.data || []);
@@ -108,7 +105,6 @@ export function LinkContactDrawer({
 
   const handleLinkToEvent = async () => {
     if (!contact || !selectedEventId) return;
-
     setLinking(true);
     try {
       const res = await fetch(`/api/contacts/${contact.id}/events`, {
@@ -119,13 +115,10 @@ export function LinkContactDrawer({
           role: role || undefined,
         }),
       });
-
       if (res.ok) {
         setSuccess(true);
         onLinkComplete?.();
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 1500);
+        setTimeout(() => onOpenChange(false), 1500);
       }
     } catch (error) {
       console.error("Failed to link contact to event:", error);
@@ -136,7 +129,6 @@ export function LinkContactDrawer({
 
   const handleLinkToTask = async () => {
     if (!contact || !selectedTaskId) return;
-
     setLinking(true);
     try {
       const res = await fetch(`/api/contacts/${contact.id}/tasks`, {
@@ -147,13 +139,10 @@ export function LinkContactDrawer({
           role: role || undefined,
         }),
       });
-
       if (res.ok) {
         setSuccess(true);
         onLinkComplete?.();
-        setTimeout(() => {
-          onOpenChange(false);
-        }, 1500);
+        setTimeout(() => onOpenChange(false), 1500);
       }
     } catch (error) {
       console.error("Failed to link contact to task:", error);
@@ -166,145 +155,197 @@ export function LinkContactDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Vincular Contacto</SheetTitle>
-          <SheetDescription>
-            Vincula este contacto a un evento o tarea
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="px-4 pb-4 space-y-4">
-
-        {success ? (
-          <div className="py-8 text-center">
-            <RiCheckLine className="h-12 w-12 mx-auto text-green-500 mb-4" />
-            <h3 className="font-medium">¡Vinculación exitosa!</h3>
-          </div>
-        ) : (
-          <>
-            {/* Contact Info */}
-            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-              <div className={`p-2 rounded-full ${contact.type === "company" ? "bg-purple-100" : "bg-blue-100"}`}>
-                {contact.type === "company" ? (
-                  <RiBuilding2Line className="h-5 w-5 text-purple-600" />
-                ) : (
-                  <RiUserLine className="h-5 w-5 text-blue-600" />
-                )}
-              </div>
-              <div>
-                <p className="font-medium">{contact.name}</p>
-                {contact.email && (
-                  <p className="text-sm text-muted-foreground">{contact.email}</p>
-                )}
-              </div>
-              <Badge variant="outline" className="ml-auto">
-                {contact.type === "company" ? "Empresa" : "Persona"}
-              </Badge>
+      <SheetContent
+        side="right"
+        className="overflow-hidden bg-white border-0 [&>button]:hidden flex flex-col"
+        style={{ width: "min(480px, 100vw)", maxWidth: "100vw", padding: 0, gap: 0 }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-start gap-3 px-6 pt-5 pb-4 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--line-1)" }}
+        >
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-[18px] font-semibold text-[var(--ink-1)]"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              Vincular contacto
             </div>
-
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "event" | "task")}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="event" className="gap-2">
-                  <RiCalendarEventLine className="h-4 w-4" />
-                  Evento
-                </TabsTrigger>
-                <TabsTrigger value="task" className="gap-2">
-                  <RiFileListLine className="h-4 w-4" />
-                  Tarea
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="event" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Seleccionar Evento</label>
-                  <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Cargando..." : "Elegir evento"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {events.length === 0 ? (
-                        <SelectItem value="__none__" disabled>No hay eventos</SelectItem>
-                      ) : (
-                        events.map((event) => (
-                          <SelectItem key={event.id} value={event.id.toString()}>
-                            {event.name}
-                            {event.date && (
-                              <span className="text-muted-foreground ml-2">
-                                ({new Date(event.date).toLocaleDateString()})
-                              </span>
-                            )}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rol (opcional)</label>
-                  <Input
-                    placeholder="Ej: Cliente, Proveedor, Invitado..."
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="task" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Seleccionar Tarea</label>
-                  <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={loading ? "Cargando..." : "Elegir tarea"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tasks.length === 0 ? (
-                        <SelectItem value="__none__" disabled>No hay tareas</SelectItem>
-                      ) : (
-                        tasks.map((task) => (
-                          <SelectItem key={task.id} value={task.id.toString()}>
-                            {task.title}
-                            <Badge variant="outline" className="ml-2 text-xs">
-                              {task.status}
-                            </Badge>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Rol (opcional)</label>
-                  <Input
-                    placeholder="Ej: Responsable, Colaborador..."
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </>
-        )}
-
+            <div className="text-[12.5px] text-[var(--ink-3)] mt-0.5">
+              Vincula este contacto a un evento o tarea
+            </div>
+          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="bg-transparent border-none cursor-pointer text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+            aria-label="Cerrar"
+          >
+            <IcoX className="h-[18px] w-[18px]" />
+          </button>
         </div>
 
-        <SheetFooter className="px-4">
-          {!success && (
-            <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={activeTab === "event" ? handleLinkToEvent : handleLinkToTask}
-                disabled={linking || (activeTab === "event" ? !selectedEventId : !selectedTaskId)}
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+          {success ? (
+            <div className="flex flex-col items-center text-center py-8 gap-3">
+              <div
+                className="h-12 w-12 rounded-full flex items-center justify-center"
+                style={{ background: "var(--success-bg)", color: "var(--success-ink)" }}
               >
-                {linking ? "Vinculando..." : "Vincular"}
-              </Button>
+                <IcoCheck className="h-5 w-5" />
+              </div>
+              <h3 className="text-[14px] font-semibold text-[var(--ink-1)]">¡Vinculación exitosa!</h3>
+            </div>
+          ) : (
+            <>
+              {/* Contact summary */}
+              <div
+                className="flex items-center gap-3 rounded-[8px] p-3"
+                style={{ background: "var(--bg-subtle)", border: "1px solid var(--line-1)" }}
+              >
+                <div
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                  style={{ background: avColor(contact.name) }}
+                >
+                  {contact.type === "company" ? <IcoBuilding className="h-4 w-4" /> : <IcoUser className="h-4 w-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[var(--ink-1)] truncate">{contact.name}</p>
+                  {contact.email && (
+                    <p className="text-[11.5px] text-[var(--ink-3)] truncate">{contact.email}</p>
+                  )}
+                </div>
+                <span
+                  className="inline-flex items-center rounded-[999px] text-[11px] px-2 py-0.5"
+                  style={{
+                    background: "transparent",
+                    color: "var(--ink-2)",
+                    border: "1px solid var(--line-1)",
+                  }}
+                >
+                  {contact.type === "company" ? "Empresa" : "Persona"}
+                </span>
+              </div>
+
+              {/* Tab toggle */}
+              <div
+                className="grid grid-cols-2 rounded-[8px]"
+                style={{ background: "var(--bg-subtle)", padding: 3 }}
+              >
+                <button
+                  onClick={() => setActiveTab("event")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "8px 10px",
+                    background: activeTab === "event" ? "#FFFFFF" : "transparent",
+                    color: activeTab === "event" ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: activeTab === "event" ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: activeTab === "event" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  <IcoCalendar className="h-3.5 w-3.5" />
+                  Evento
+                </button>
+                <button
+                  onClick={() => setActiveTab("task")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-[6px] cursor-pointer border-none transition-colors"
+                  style={{
+                    padding: "8px 10px",
+                    background: activeTab === "task" ? "#FFFFFF" : "transparent",
+                    color: activeTab === "task" ? "var(--ink-1)" : "var(--ink-3)",
+                    fontWeight: activeTab === "task" ? 600 : 500,
+                    fontSize: 12.5,
+                    boxShadow: activeTab === "task" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  }}
+                >
+                  <IcoTask className="h-3.5 w-3.5" />
+                  Tarea
+                </button>
+              </div>
+
+              {activeTab === "event" ? (
+                <div className="flex flex-col gap-3">
+                  <Field label="Seleccionar evento">
+                    <select
+                      value={selectedEventId}
+                      onChange={(e) => setSelectedEventId(e.target.value)}
+                    >
+                      <option value="">{loading ? "Cargando..." : "Elegir evento"}</option>
+                      {events.map((event) => (
+                        <option key={event.id} value={event.id.toString()}>
+                          {event.name}
+                          {event.date ? ` (${new Date(event.date).toLocaleDateString("es-ES")})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Rol (opcional)">
+                    <input
+                      placeholder="Ej: Cliente, Proveedor, Invitado..."
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <Field label="Seleccionar tarea">
+                    <select
+                      value={selectedTaskId}
+                      onChange={(e) => setSelectedTaskId(e.target.value)}
+                    >
+                      <option value="">{loading ? "Cargando..." : "Elegir tarea"}</option>
+                      {tasks.map((task) => (
+                        <option key={task.id} value={task.id.toString()}>
+                          {task.title} ({task.status})
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Rol (opcional)">
+                    <input
+                      placeholder="Ej: Responsable, Colaborador..."
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                    />
+                  </Field>
+                </div>
+              )}
             </>
           )}
-        </SheetFooter>
+        </div>
+
+        {/* Footer */}
+        {!success && (
+          <div
+            className="px-6 py-4 flex items-center justify-end gap-2 flex-shrink-0"
+            style={{ borderTop: "1px solid var(--line-1)" }}
+          >
+            <button
+              onClick={() => onOpenChange(false)}
+              className="inline-flex items-center rounded-[8px] px-3.5 py-2 text-[13px] font-medium text-[var(--ink-1)] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={activeTab === "event" ? handleLinkToEvent : handleLinkToTask}
+              disabled={linking || (activeTab === "event" ? !selectedEventId : !selectedTaskId)}
+              aria-disabled={linking || (activeTab === "event" ? !selectedEventId : !selectedTaskId)}
+              className="inline-flex items-center rounded-[8px] px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-colors border-none"
+              style={{
+                background: "var(--ink-1)",
+                color: "#FFFFFF",
+                opacity:
+                  linking || (activeTab === "event" ? !selectedEventId : !selectedTaskId) ? 0.5 : 1,
+              }}
+            >
+              {linking ? "Vinculando..." : "Vincular"}
+            </button>
+          </div>
+        )}
+
       </SheetContent>
     </Sheet>
   );

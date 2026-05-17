@@ -1,32 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { taskScheduleItems, tasks, vendors } from "@/db/schema";
+import { taskScheduleItems, vendors } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { apiHandler, ok, created, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
+async function findTask(taskId: number, organizationId: number) {
+  return db.query.tasks.findFirst({
+    where: (t, { eq, and }) =>
+      and(eq(t.id, taskId), eq(t.organizationId, organizationId)),
+  });
+}
+
 // GET /api/tasks/[taskId]/schedule - List task schedule items
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:read");
     const { taskId } = await params;
+    const id = parseInt(taskId, 10);
 
-    // Verify task belongs to organization
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
-    });
-
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
-    }
+    const task = await findTask(id, session.organizationId);
+    if (!task) return notFound("Task not found");
 
     const scheduleItems = await db
       .select({
@@ -47,61 +43,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })
       .from(taskScheduleItems)
       .leftJoin(vendors, eq(taskScheduleItems.vendorId, vendors.id))
-      .where(eq(taskScheduleItems.taskId, parseInt(taskId, 10)))
+      .where(eq(taskScheduleItems.taskId, id))
       .orderBy(asc(taskScheduleItems.sortOrder), asc(taskScheduleItems.date));
 
-    return NextResponse.json({
-      success: true,
-      data: scheduleItems,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/schedule error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch schedule";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(scheduleItems);
+  }, "GET /api/tasks/[taskId]/schedule");
 }
 
 // POST /api/tasks/[taskId]/schedule - Add schedule item to task
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    const id = parseInt(taskId, 10);
     const body = await request.json();
 
     const { title, description, date, startTime, endTime, location, notes, sortOrder, vendorId } = body;
 
-    if (!title || !date) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "title and date are required" } },
-        { status: 400 }
-      );
-    }
+    if (!title || !date) return badRequest("title and date are required");
 
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
-    });
-
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
-    }
+    const task = await findTask(id, session.organizationId);
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
     }
 
     const [scheduleItem] = await db.insert(taskScheduleItems).values({
-      taskId: parseInt(taskId, 10),
+      taskId: id,
       vendorId: vendorId || null,
       title,
       description,
@@ -113,51 +82,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sortOrder: sortOrder || 0,
     }).returning();
 
-    return NextResponse.json({
-      success: true,
-      data: scheduleItem,
-    });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/schedule error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add schedule item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(scheduleItem);
+  }, "POST /api/tasks/[taskId]/schedule");
 }
 
 // PATCH /api/tasks/[taskId]/schedule - Update schedule item
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    const id = parseInt(taskId, 10);
     const body = await request.json();
 
     const { scheduleItemId, ...updateData } = body;
 
-    if (!scheduleItemId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "scheduleItemId is required" } },
-        { status: 400 }
-      );
-    }
+    if (!scheduleItemId) return badRequest("scheduleItemId is required");
 
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
-    });
-
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
-    }
+    const task = await findTask(id, session.organizationId);
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
@@ -172,53 +114,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(taskScheduleItems.id, scheduleItemId),
-          eq(taskScheduleItems.taskId, parseInt(taskId, 10))
+          eq(taskScheduleItems.taskId, id)
         )
       )
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update schedule item";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/tasks/[taskId]/schedule");
 }
 
 // DELETE /api/tasks/[taskId]/schedule - Delete schedule item
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
+    const id = parseInt(taskId, 10);
     const { searchParams } = new URL(request.url);
     const scheduleItemId = searchParams.get("scheduleItemId");
 
-    if (!scheduleItemId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "scheduleItemId is required" } },
-        { status: 400 }
-      );
-    }
+    if (!scheduleItemId) return badRequest("scheduleItemId is required");
 
-    const task = await db.query.tasks.findFirst({
-      where: (t, { eq, and }) =>
-        and(
-          eq(t.id, parseInt(taskId, 10)),
-          eq(t.organizationId, session.organizationId)
-        ),
-    });
-
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
-    }
+    const task = await findTask(id, session.organizationId);
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
@@ -228,19 +145,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .where(
         and(
           eq(taskScheduleItems.id, parseInt(scheduleItemId, 10)),
-          eq(taskScheduleItems.taskId, parseInt(taskId, 10))
+          eq(taskScheduleItems.taskId, id)
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Schedule item deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete schedule item";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Schedule item deleted" });
+  }, "DELETE /api/tasks/[taskId]/schedule");
 }

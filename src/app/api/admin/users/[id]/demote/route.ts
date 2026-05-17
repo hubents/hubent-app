@@ -1,30 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler, ok, notFound, badRequest, forbidden } from "@/lib/api-handler";
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden revocar permisos de admin" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden revocar permisos de admin");
     }
 
     const { id } = await params;
 
     if (id === session.user.userId) {
-      return NextResponse.json(
-        { error: "No puedes revocarte tus propios permisos de admin" },
-        { status: 400 }
-      );
+      return badRequest("No puedes revocarte tus propios permisos de admin");
     }
 
     const user = await db.query.users.findFirst({
@@ -32,7 +27,7 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     const existingAdmin = await db.query.platformAdmins.findFirst({
@@ -40,23 +35,11 @@ export async function POST(
     });
 
     if (!existingAdmin) {
-      return NextResponse.json(
-        { error: "El usuario no es administrador" },
-        { status: 400 }
-      );
+      return badRequest("El usuario no es administrador");
     }
 
     await db.delete(platformAdmins).where(eq(platformAdmins.userId, id));
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Permisos de admin revocados" 
-    });
-  } catch (error) {
-    console.error("Demote user error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Permisos de admin revocados" });
+  }, "POST /api/admin/users/[id]/demote");
 }

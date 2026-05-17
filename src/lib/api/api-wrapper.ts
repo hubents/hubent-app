@@ -138,7 +138,7 @@ export function withApiAuth(
 
       // Add standard headers to any response
       response.headers.set("X-Request-Id", requestId);
-      response.headers.set("X-HubEnts-Version", CURRENT_API_VERSION);
+      response.headers.set("X-Hubents-Version", CURRENT_API_VERSION);
       for (const [key, value] of Object.entries(rateLimitHeaders(rlResult))) {
         response.headers.set(key, value);
       }

@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { providerFavorites } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ providerOrgId: string }> };
 
@@ -11,16 +12,13 @@ type RouteParams = { params: Promise<{ providerOrgId: string }> };
  * Remove a provider from favorites
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { providerOrgId } = await params;
     const providerOrgIdNum = parseInt(providerOrgId, 10);
 
     if (isNaN(providerOrgIdNum)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid provider ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid provider ID");
     }
 
     const deleted = await db
@@ -35,20 +33,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       .returning();
 
     if (deleted.length === 0) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Favorite not found" } },
-        { status: 404 }
-      );
+      return notFound("Favorite not found");
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/providers/favorites error:", error);
-    const message = error instanceof Error ? error.message : "Failed to remove favorite";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/providers/favorites");
 }

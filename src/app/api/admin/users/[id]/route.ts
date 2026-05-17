@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users, platformAdmins, organizationMembers, organizations, roles } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler, ok, badRequest, notFound, forbidden } from "@/lib/api-handler";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const { id } = await params;
@@ -18,7 +19,7 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     const adminInfo = await db.query.platformAdmins.findFirst({
@@ -42,7 +43,7 @@ export async function GET(
       .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
       .where(eq(organizationMembers.userId, id));
 
-    return NextResponse.json({
+    return ok({
       user: {
         id: user.id,
         name: user.name,
@@ -70,27 +71,18 @@ export async function GET(
         })),
       },
     });
-  } catch (error) {
-    console.error("Get user detail error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+  }, "GET /api/admin/users/[id]");
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden editar usuarios" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden editar usuarios");
     }
 
     const { id } = await params;
@@ -102,7 +94,7 @@ export async function PATCH(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     if (email && email !== user.email) {
@@ -110,10 +102,7 @@ export async function PATCH(
         where: eq(users.email, email.toLowerCase()),
       });
       if (existingUser) {
-        return NextResponse.json(
-          { error: "El email ya está en uso" },
-          { status: 400 }
-        );
+        return badRequest("El email ya está en uso");
       }
     }
 
@@ -126,37 +115,25 @@ export async function PATCH(
       })
       .where(eq(users.id, id));
 
-    return NextResponse.json({ success: true, message: "Usuario actualizado" });
-  } catch (error) {
-    console.error("Update user error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Usuario actualizado" });
+  }, "PATCH /api/admin/users/[id]");
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
 
     if (session.user.platformLevel !== "super_admin") {
-      return NextResponse.json(
-        { error: "Solo super admins pueden eliminar usuarios" },
-        { status: 403 }
-      );
+      return forbidden("Solo super admins pueden eliminar usuarios");
     }
 
     const { id } = await params;
 
     if (id === session.user.userId) {
-      return NextResponse.json(
-        { error: "No puedes eliminarte a ti mismo" },
-        { status: 400 }
-      );
+      return badRequest("No puedes eliminarte a ti mismo");
     }
 
     const user = await db.query.users.findFirst({
@@ -164,17 +141,11 @@ export async function DELETE(
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+      return notFound("Usuario no encontrado");
     }
 
     await db.delete(users).where(eq(users.id, id));
 
-    return NextResponse.json({ success: true, message: "Usuario eliminado" });
-  } catch (error) {
-    console.error("Delete user error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Usuario eliminado" });
+  }, "DELETE /api/admin/users/[id]");
 }

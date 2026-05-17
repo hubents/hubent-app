@@ -1,24 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { tasks, taskChecklistItems, taskChecklistAssignees, taskParticipants, users, vendors, contacts } from "@/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { taskChecklistItems, taskChecklistAssignees, taskParticipants, users, vendors, contacts } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
+import { apiHandler, badRequest, notFound, ok } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
 // GET /api/tasks/[taskId]/checklist - List all checklist items with assignees
 export async function GET(
-  request: NextRequest,
+  _req: NextRequest,
   { params }: RouteParams
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:read");
 
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
-    if (isNaN(taskIdNum)) {
-      return NextResponse.json({ success: false, error: "Invalid task ID" }, { status: 400 });
-    }
+    if (isNaN(taskIdNum)) return badRequest("Invalid task ID");
 
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) =>
@@ -29,9 +28,7 @@ export async function GET(
       columns: { id: true, eventId: true },
     });
 
-    if (!task) {
-      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
-    }
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "view");
@@ -132,13 +129,8 @@ export async function GET(
         })),
     }));
 
-    return NextResponse.json({ success: true, data: itemsWithAssignees });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/checklist error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch checklist";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+    return ok(itemsWithAssignees);
+  }, "GET /api/tasks/[taskId]/checklist");
 }
 
 // POST /api/tasks/[taskId]/checklist - Create a new checklist item
@@ -146,14 +138,12 @@ export async function POST(
   request: NextRequest,
   { params }: RouteParams
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
 
     const { taskId } = await params;
     const taskIdNum = parseInt(taskId, 10);
-    if (isNaN(taskIdNum)) {
-      return NextResponse.json({ success: false, error: "Invalid task ID" }, { status: 400 });
-    }
+    if (isNaN(taskIdNum)) return badRequest("Invalid task ID");
 
     const task = await db.query.tasks.findFirst({
       where: (t, { eq, and }) =>
@@ -164,9 +154,7 @@ export async function POST(
       columns: { id: true, eventId: true },
     });
 
-    if (!task) {
-      return NextResponse.json({ success: false, error: "Task not found" }, { status: 404 });
-    }
+    if (!task) return notFound("Task not found");
 
     if (session.eventScoped && task.eventId) {
       await requireEventSectionAccess(task.eventId, "tasks", "edit");
@@ -175,9 +163,7 @@ export async function POST(
     const body = await request.json();
     const { title, dueDate, assigneeIds } = body;
 
-    if (!title?.trim()) {
-      return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 });
-    }
+    if (!title?.trim()) return badRequest("Title is required");
 
     const [maxOrder] = await db
       .select({ maxSort: taskChecklistItems.sortOrder })
@@ -209,11 +195,6 @@ export async function POST(
       await db.insert(taskChecklistAssignees).values(assigneeValues);
     }
 
-    return NextResponse.json({ success: true, data: newItem });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/checklist error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create checklist item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+    return ok(newItem, 201);
+  }, "POST /api/tasks/[taskId]/checklist");
 }

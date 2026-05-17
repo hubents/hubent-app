@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
-import { taskMeetings, tasks } from "@/db/schema";
+import { taskMeetings } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { apiHandler, ok, badRequest, notFound, created } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ taskId: string }> };
 
 // GET /api/tasks/[taskId]/meetings - List task meetings
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:read");
     const { taskId } = await params;
 
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     const meetings = await db
@@ -34,24 +32,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .where(eq(taskMeetings.taskId, parseInt(taskId, 10)))
       .orderBy(asc(taskMeetings.sortOrder), asc(taskMeetings.date));
 
-    return NextResponse.json({
-      success: true,
-      data: meetings,
-    });
-  } catch (error) {
-    console.error("GET /api/tasks/[taskId]/meetings error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch meetings";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+    return ok(meetings);
+  }, "GET /api/tasks/[taskId]/meetings");
 }
 
 // POST /api/tasks/[taskId]/meetings - Add meeting to task
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
@@ -59,10 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { title, description, date, startTime, endTime, location, notes, sortOrder } = body;
 
     if (!title || !date) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "title and date are required" } },
-        { status: 400 }
-      );
+      return badRequest("title and date are required");
     }
 
     const task = await db.query.tasks.findFirst({
@@ -74,10 +58,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     if (session.eventScoped && task.eventId) {
@@ -96,24 +77,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sortOrder: sortOrder || 0,
     }).returning();
 
-    return NextResponse.json({
-      success: true,
-      data: meeting,
-    });
-  } catch (error) {
-    console.error("POST /api/tasks/[taskId]/meetings error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add meeting";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(meeting);
+  }, "POST /api/tasks/[taskId]/meetings");
 }
 
 // PATCH /api/tasks/[taskId]/meetings - Update meeting
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const body = await request.json();
@@ -121,10 +91,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { meetingId, ...updateData } = body;
 
     if (!meetingId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "meetingId is required" } },
-        { status: 400 }
-      );
+      return badRequest("meetingId is required");
     }
 
     const task = await db.query.tasks.findFirst({
@@ -136,10 +103,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     if (session.eventScoped && task.eventId) {
@@ -160,32 +124,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update meeting";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/tasks/[taskId]/meetings");
 }
 
 // DELETE /api/tasks/[taskId]/meetings - Delete meeting
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("tasks:update");
     const { taskId } = await params;
     const { searchParams } = new URL(request.url);
     const meetingId = searchParams.get("meetingId");
 
     if (!meetingId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "meetingId is required" } },
-        { status: 400 }
-      );
+      return badRequest("meetingId is required");
     }
 
     const task = await db.query.tasks.findFirst({
@@ -197,10 +149,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!task) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task not found" } },
-        { status: 404 }
-      );
+      return notFound("Task not found");
     }
 
     if (session.eventScoped && task.eventId) {
@@ -215,15 +164,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Meeting deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete meeting";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Meeting deleted" });
+  }, "DELETE /api/tasks/[taskId]/meetings");
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
+import { apiHandler } from "@/lib/api-handler";
 
 /**
  * POST /api/admin/tenants/[id]/change-type
@@ -16,10 +17,10 @@ import { requirePlatformAdmin } from "@/lib/session";
  * Currently returns 501 Not Implemented. Will be built when modular billing ships.
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
     const { id } = await params;
 
@@ -41,13 +42,5 @@ export async function POST(
       },
       { status: 501 }
     );
-  } catch (error) {
-    console.error("POST /api/admin/tenants/[id]/change-type error:", error);
-    const message = error instanceof Error ? error.message : "Error interno";
-    const status = message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "CHANGE_TYPE_ERROR", message } },
-      { status }
-    );
-  }
+  }, "POST /api/admin/tenants/[id]/change-type");
 }

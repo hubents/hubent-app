@@ -1,120 +1,420 @@
 "use client";
 
-import { Sparkles, MessageSquare, Zap, FileText, Calendar, Users } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AIChatBase } from "@/components/ai/ai-chat-base";
+import { useRef, useEffect, useCallback, useState, Fragment } from "react";
+import {
+  Sparkles, Plus, Menu, Mail, CheckSquare, DollarSign,
+  Users, MapPin, Paperclip, Send, Info, Copy, X, ThumbsUp, ThumbsDown,
+} from "lucide-react";
+import { useAIChat } from "@/hooks/use-ai-chat";
 
-const features = [
-  {
-    icon: Calendar,
-    title: "Gestión de Eventos",
-    description: "Pregunta sobre tus eventos, fechas, proveedores y más",
-  },
-  {
-    icon: FileText,
-    title: "Tareas Inteligentes",
-    description: "Obtén resúmenes, genera subtareas y gestiona pendientes",
-  },
-  {
-    icon: Users,
-    title: "CRM y Contactos",
-    description: "Consulta leads, contactos y oportunidades de venta",
-  },
-  {
-    icon: Zap,
-    title: "Acciones Rápidas",
-    description: "Crea eventos, tareas y más con comandos naturales",
-  },
+// ── Suggestions ────────────────────────────────────────────────────────────
+const SUGGESTIONS = [
+  { Icon: Sparkles,     title: "Resume mi evento",            prompt: "Hazme un resumen del estado actual de mi evento principal: presupuesto, invitados confirmados y tareas pendientes." },
+  { Icon: Mail,         title: "Redacta una invitación",      prompt: "Redacta el texto de la invitación formal para mi próximo evento, en tono elegante y cálido." },
+  { Icon: CheckSquare,  title: "Checklist de 30 días",        prompt: "Dame el checklist de tareas críticas que debo cerrar 30 días antes del evento." },
+  { Icon: DollarSign,   title: "Sugerencias de ahorro",       prompt: "Revisa el presupuesto y sugiéreme 3 áreas donde podría ahorrar sin sacrificar calidad." },
+  { Icon: Users,        title: "Distribuir mesas",            prompt: "Propón una distribución de mesas para 120 invitados con 10 por mesa, agrupando por familia y amigos." },
+  { Icon: MapPin,       title: "Proveedores cerca del lugar", prompt: "Sugiéreme proveedores de floristería y catering cerca del lugar del evento." },
 ];
 
-export default function AIPage() {
+// ── Initial mock threads ────────────────────────────────────────────────────
+const INITIAL_THREADS = [
+  { id: "t1", title: "Resumen del evento principal",   time: "Hoy, 10:14", preview: "Te he generado el resumen ejecutivo con los KPIs…" },
+  { id: "t2", title: "Texto invitación formal",        time: "Ayer",        preview: "Aquí tienes 3 versiones del copy para imprenta…" },
+  { id: "t3", title: "Comparativa floristerías",       time: "Lun",         preview: "Comparé Jazmín, Verde Limón y Petalo Blanco…" },
+  { id: "t4", title: "Email recordatorio RSVP",        time: "23 Abr",      preview: "Borrador de email para los 14 invitados que…" },
+];
+
+// ── Bold markdown renderer ──────────────────────────────────────────────────
+function renderWithBold(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) {
+      return <strong key={i} style={{ fontWeight: 600 }}>{p.slice(2, -2)}</strong>;
+    }
+    return <Fragment key={i}>{p}</Fragment>;
+  });
+}
+
+// ── Typing indicator ────────────────────────────────────────────────────────
+function TypingIndicator() {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-          <Sparkles className="w-7 h-7 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">HubIA - Asistente IA</h1>
-          <p className="text-muted-foreground">
-            Tu asistente inteligente para gestionar HubEnts {/* HIDDEN TEMPORARILY: • by NapsixAI */}
-          </p>
-        </div>
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <style>{`@keyframes hubiaBlink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }`}</style>
+      <div style={{
+        width: 30, height: 30, borderRadius: "50%",
+        background: "var(--ai-accent)", color: "#fff",
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      }}>
+        <Sparkles size={14} />
       </div>
+      <div style={{
+        padding: "14px 16px", borderRadius: "var(--r-md)",
+        background: "var(--bg-panel)", border: "1px solid var(--line-1)",
+        display: "flex", gap: 5, alignItems: "center",
+      }}>
+        {[0, 0.15, 0.3].map((delay, i) => (
+          <span key={i} style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: "var(--ink-3)",
+            animation: `hubiaBlink 1.2s infinite ${delay}s`,
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chat Panel - Takes 2 columns */}
-        <div className="lg:col-span-2">
-          <Card className="h-[calc(100vh-12rem)] min-h-[500px] flex flex-col">
-            <CardHeader className="pb-3 border-b">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-violet-500" />
-                <CardTitle className="text-lg">Chat con HubIA</CardTitle>
-              </div>
-              <CardDescription>
-                Pregunta lo que necesites sobre tu organización
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-hidden">
-              <AIChatBase
-                context="dashboard"
-                showHeader={false}
-                className="h-full"
-              />
-            </CardContent>
-          </Card>
+// ── Message bubble ──────────────────────────────────────────────────────────
+const actionBtn: React.CSSProperties = {
+  background: "transparent", border: "1px solid var(--line-1)", color: "var(--ink-3)",
+  width: 26, height: 26, borderRadius: 6, cursor: "pointer",
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+};
+
+function MessageBubble({ role, content, onCopy, onFeedback }: {
+  role: "user" | "assistant";
+  content: string;
+  onCopy?: () => void;
+  onFeedback?: (v: number) => void;
+}) {
+  const isUser = role === "user";
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexDirection: isUser ? "row-reverse" : "row" }}>
+      <div style={{
+        width: 30, height: 30, borderRadius: "50%",
+        background: isUser ? "var(--bg-subtle)" : "var(--ai-accent)",
+        color: isUser ? "var(--ink-1)" : "#fff",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 12, fontWeight: 600, flexShrink: 0,
+      }}>
+        {isUser ? "U" : <Sparkles size={14} />}
+      </div>
+      <div style={{ maxWidth: "78%", display: "flex", flexDirection: "column", gap: 4, alignItems: isUser ? "flex-end" : "flex-start" }}>
+        <div style={{
+          padding: "12px 14px", borderRadius: "var(--r-md)",
+          background: isUser ? "var(--bg-subtle)" : "var(--bg-panel)",
+          border: isUser ? "none" : "1px solid var(--line-1)",
+          color: "var(--ink-1)", fontSize: 13.5, lineHeight: 1.6,
+          whiteSpace: "pre-wrap", wordBreak: "break-word",
+        }}>
+          {renderWithBold(content)}
         </div>
+        {!isUser && content && (
+          <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
+            <button onClick={onCopy} style={actionBtn} title="Copiar"><Copy size={12} /></button>
+            <button onClick={() => onFeedback?.(1)} style={actionBtn} title="Buena respuesta"><ThumbsUp size={12} /></button>
+            <button onClick={() => onFeedback?.(-1)} style={actionBtn} title="Mala respuesta"><ThumbsDown size={12} /></button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Features Panel */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">¿Qué puedo hacer?</CardTitle>
-              <CardDescription>
-                HubIA puede ayudarte con muchas tareas
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {features.map((feature, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                    <feature.icon className="w-5 h-5 text-violet-600" />
+// ── Main page ───────────────────────────────────────────────────────────────
+export default function AIPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [threads, setThreads] = useState(INITIAL_THREADS);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { messages, input, setInput, isLoading, sendMessage, handleSubmit, clear, sendFeedback } = useAIChat({ context: "dashboard" });
+
+  // Auto-scroll
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
+  // Auto-grow textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 180) + "px";
+  }, [input]);
+
+  const newThread = useCallback(() => {
+    setActiveThreadId(null);
+    clear();
+    setInput("");
+  }, [clear, setInput]);
+
+  const send = useCallback((text?: string) => {
+    const msg = (text ?? input).trim();
+    if (!msg || isLoading) return;
+
+    if (!activeThreadId) {
+      const id = "t" + Date.now();
+      const title = msg.length > 38 ? msg.slice(0, 38) + "…" : msg;
+      setThreads(ts => [{ id, title, time: "Ahora", preview: msg }, ...ts]);
+      setActiveThreadId(id);
+    }
+
+    if (text) {
+      sendMessage(text);
+    } else {
+      handleSubmit();
+    }
+  }, [input, isLoading, activeThreadId, sendMessage, handleSubmit]);
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
+  const isEmpty = messages.length === 0;
+
+  return (
+    <div
+      className="-m-6 md:-m-8 -mb-20 md:-mb-8"
+      style={{ height: "calc(100vh - 62px)" }}
+    >
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: sidebarOpen ? "260px 1fr" : "0 1fr",
+        height: "100%",
+        background: "var(--bg-app)",
+        transition: "grid-template-columns .18s ease",
+        overflow: "hidden",
+      }}>
+
+        {/* ── Sidebar ── */}
+        <aside style={{
+          borderRight: "1px solid var(--line-1)",
+          background: "var(--bg-panel)",
+          overflow: "hidden",
+          display: sidebarOpen ? "flex" : "none",
+          flexDirection: "column",
+        }}>
+          <div style={{ padding: "14px 14px 10px", borderBottom: "1px solid var(--line-1)" }}>
+            <button
+              onClick={newThread}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 6, padding: "9px 12px", borderRadius: "var(--r-sm)",
+                background: "var(--color-brand)", color: "var(--color-brand-ink)",
+                border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500,
+              }}
+            >
+              <Plus size={14} /> Nueva conversación
+            </button>
+          </div>
+
+          <div style={{ padding: "10px 8px", overflowY: "auto", flex: 1 }}>
+            <div style={{
+              fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".06em",
+              color: "var(--ink-3)", padding: "6px 8px 8px", fontWeight: 500,
+            }}>
+              Recientes
+            </div>
+            {threads.map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setActiveThreadId(t.id); clear(); }}
+                style={{
+                  width: "100%", textAlign: "left", padding: "10px 10px",
+                  borderRadius: "var(--r-sm)", border: "none",
+                  background: activeThreadId === t.id ? "var(--bg-subtle)" : "transparent",
+                  cursor: "pointer", display: "flex", flexDirection: "column", gap: 2, marginBottom: 2,
+                  transition: "background .1s",
+                }}
+                onMouseEnter={e => { if (activeThreadId !== t.id) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)"; }}
+                onMouseLeave={e => { if (activeThreadId !== t.id) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              >
+                <div style={{ fontSize: 13, color: "var(--ink-1)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.title}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {t.time} · {t.preview}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{
+            padding: "10px 14px", borderTop: "1px solid var(--line-1)",
+            fontSize: 11.5, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <Info size={12} /> Tus datos no se usan para entrenar.
+          </div>
+        </aside>
+
+        {/* ── Main panel ── */}
+        <section style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          {/* Header */}
+          <header style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "12px 20px", borderBottom: "1px solid var(--line-1)",
+            background: "var(--bg-panel)", flexShrink: 0,
+          }}>
+            <button
+              onClick={() => setSidebarOpen(s => !s)}
+              style={{ background: "transparent", border: "none", color: "var(--ink-2)", cursor: "pointer", padding: 4, borderRadius: 6 }}
+              title={sidebarOpen ? "Ocultar conversaciones" : "Mostrar conversaciones"}
+            >
+              <Menu size={18} />
+            </button>
+            <div style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: "var(--ai-accent)", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <Sparkles size={14} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>HubIA</div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>Asistente conectado a tus eventos</div>
+            </div>
+            <select
+              defaultValue="hubia-pro"
+              style={{
+                fontSize: 12, padding: "6px 10px",
+                border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)",
+                background: "var(--bg-panel)", color: "var(--ink-2)", cursor: "pointer",
+              }}
+            >
+              <option value="hubia-pro">HubIA Pro</option>
+              <option value="hubia-fast">HubIA Fast</option>
+            </select>
+          </header>
+
+          {/* Messages / Welcome */}
+          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "24px 20px" }}>
+            <div style={{ maxWidth: 760, margin: "0 auto" }}>
+              {isEmpty ? (
+                <div style={{ paddingTop: 32 }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: "50%",
+                    background: "var(--ai-accent)", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 16px",
+                  }}>
+                    <Sparkles size={26} />
                   </div>
-                  <div>
-                    <h3 className="font-medium text-sm">{feature.title}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {feature.description}
-                    </p>
+                  <h2 style={{
+                    textAlign: "center", fontSize: 24, fontWeight: 600,
+                    color: "var(--ink-1)", margin: "0 0 6px", letterSpacing: "-0.01em",
+                  }}>
+                    ¿En qué te ayudo hoy?
+                  </h2>
+                  <p style={{ textAlign: "center", fontSize: 13, color: "var(--ink-3)", margin: "0 0 28px" }}>
+                    Pregúntame sobre tus eventos, presupuestos, invitados o redacción de comunicaciones.
+                  </p>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+                    {SUGGESTIONS.map(s => (
+                      <button
+                        key={s.title}
+                        onClick={() => send(s.prompt)}
+                        style={{
+                          textAlign: "left", padding: "14px 16px",
+                          border: "1px solid var(--line-1)", borderRadius: "var(--r-md)",
+                          background: "var(--bg-panel)", cursor: "pointer",
+                          display: "flex", flexDirection: "column", gap: 6,
+                          transition: "border-color .15s, box-shadow .15s",
+                        }}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--ink-3)";
+                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "var(--shadow-1)";
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--line-1)";
+                          (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink-2)" }}>
+                          <s.Icon size={14} />
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>{s.title}</span>
+                        </div>
+                        <div style={{
+                          fontSize: 12, color: "var(--ink-3)", lineHeight: 1.45,
+                          overflow: "hidden", display: "-webkit-box",
+                          WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                        } as React.CSSProperties}>
+                          {s.prompt}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  {messages.map(m => (
+                    <MessageBubble
+                      key={m.id}
+                      role={m.role}
+                      content={m.content}
+                      onCopy={() => navigator.clipboard?.writeText(m.content)}
+                      onFeedback={v => sendFeedback(m.id, v)}
+                    />
+                  ))}
+                  {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+                    <TypingIndicator />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Acceso Rápido</CardTitle>
-              <CardDescription>
-                También puedes acceder a HubIA desde:
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                <span>El botón <Sparkles className="w-4 h-4 inline text-violet-500" /> en el header</span>
+          {/* Input */}
+          <div style={{ padding: "14px 20px 20px", borderTop: "1px solid var(--line-1)", background: "var(--bg-panel)", flexShrink: 0 }}>
+            <div style={{ maxWidth: 760, margin: "0 auto" }}>
+              <div style={{
+                display: "flex", alignItems: "flex-end", gap: 8,
+                padding: "10px 10px 10px 14px",
+                border: "1px solid var(--line-1)", borderRadius: "var(--r-md)",
+                background: "var(--bg-panel)", boxShadow: "var(--shadow-1)",
+              }}>
+                <button
+                  title="Adjuntar (próximamente)"
+                  style={{ background: "transparent", border: "none", color: "var(--ink-3)", cursor: "pointer", padding: 6, borderRadius: 6, flexShrink: 0 }}
+                >
+                  <Paperclip size={16} />
+                </button>
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  placeholder="Escribe tu mensaje a HubIA…  (Enter para enviar, Shift+Enter para nueva línea)"
+                  disabled={isLoading}
+                  style={{
+                    flex: 1, resize: "none", border: "none", outline: "none",
+                    fontFamily: "inherit", fontSize: 13.5, color: "var(--ink-1)",
+                    background: "transparent", padding: "6px 0", maxHeight: 180, lineHeight: 1.5,
+                  }}
+                />
+                <button
+                  onClick={() => send()}
+                  disabled={!input.trim() || isLoading}
+                  style={{
+                    width: 34, height: 34, padding: 0, borderRadius: "var(--r-sm)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: "none", cursor: input.trim() && !isLoading ? "pointer" : "not-allowed",
+                    background: input.trim() && !isLoading ? "var(--color-brand)" : "var(--bg-subtle)",
+                    color: input.trim() && !isLoading ? "var(--color-brand-ink)" : "var(--ink-3)",
+                    flexShrink: 0, transition: "background .15s",
+                  }}
+                  title="Enviar"
+                >
+                  <Send size={14} />
+                </button>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                <span>El botón "HubIA" dentro de cada tarea</span>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", textAlign: "center", marginTop: 8 }}>
+                HubIA puede cometer errores. Verifica la información importante antes de actuar.
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                <span>Próximamente: atajos de teclado</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

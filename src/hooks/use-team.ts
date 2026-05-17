@@ -68,18 +68,13 @@ export function useTeam() {
       }
       return { success: false, error: result.error || "Error al enviar invitación" };
     } catch (err) {
-      console.error("Failed to invite member:", err);
       return { success: false, error: "Error de conexión" };
     }
   }, [fetchTeam]);
 
   const removeMember = useCallback(async (memberId: string) => {
-    try {
-      await fetch(`/api/team/${memberId}`, { method: "DELETE" });
-      fetchTeam();
-    } catch (err) {
-      console.error("Failed to remove member:", err);
-    }
+    await fetch(`/api/team/${memberId}`, { method: "DELETE" });
+    fetchTeam();
   }, [fetchTeam]);
 
   const cancelInvitation = useCallback(async (invitationId: number) => {
@@ -92,7 +87,6 @@ export function useTeam() {
       }
       return { success: false, error: result.error?.message || "Failed to cancel" };
     } catch (err) {
-      console.error("Failed to cancel invitation:", err);
       return { success: false, error: "Failed to cancel invitation" };
     }
   }, [fetchTeam]);
@@ -107,7 +101,6 @@ export function useTeam() {
       }
       return { success: false, error: result.error?.message || "Failed to resend" };
     } catch (err) {
-      console.error("Failed to resend invitation:", err);
       return { success: false, error: "Failed to resend invitation" };
     }
   }, [fetchTeam]);

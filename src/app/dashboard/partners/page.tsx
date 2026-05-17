@@ -1,60 +1,47 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  RiStore2Line,
-  RiSearchLine,
-  RiInstagramLine,
-  RiMapPinLine,
-  RiShieldCheckLine,
-  RiExternalLinkLine,
-  RiStarFill,
-  RiPriceTag3Line,
-  RiHeartLine,
-  RiHeartFill,
-  RiAddLine,
-  RiGridLine,
-  RiListUnordered,
-  RiCloseLine,
-  RiUserUnfollowLine,
-  RiCalendarEventLine,
-  RiSendPlaneLine,
-  RiBuilding2Line,
-  RiTeamLine,
-} from "@remixicon/react";
-import Image from "next/image";
-import Link from "next/link";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { PartnerLandingDrawer } from "@/components/partners/partner-landing-drawer";
 import {
-  PROVIDER_CATEGORIES,
-  PRICE_RANGES,
-  getOrgTypeLabel,
-  getOrgTypeBadgeVariant,
-} from "@/config/provider-constants";
+  Search01Icon,
+  FilterIcon,
+  ArrowDown01Icon,
+  Location01Icon,
+  PlusSignIcon,
+  Cancel01Icon,
+  Tick01Icon,
+  Calendar03Icon,
+  ArrowRight01Icon,
+  GridViewIcon,
+  Menu01Icon,
+  Camera01Icon,
+  ExternalDriveIcon,
+  SentIcon,
+} from "@hugeicons/core-free-icons";
+import { PROVIDER_CATEGORIES } from "@/config/provider-constants";
+import { avColor } from "@/lib/ui-utils";
+
+const IcoSearch = hgIcon(Search01Icon);
+const IcoFilter = hgIcon(FilterIcon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
+const IcoMap = hgIcon(Location01Icon);
+const IcoPlus = hgIcon(PlusSignIcon);
+const IcoX = hgIcon(Cancel01Icon);
+const IcoCheck = hgIcon(Tick01Icon);
+const IcoCalendar = hgIcon(Calendar03Icon);
+const IcoChevRight = hgIcon(ArrowRight01Icon);
+const IcoGrid = hgIcon(GridViewIcon);
+const IcoList = hgIcon(Menu01Icon);
+const IcoCamera = hgIcon(Camera01Icon);
+const IcoExternal = hgIcon(ExternalDriveIcon);
+const IcoSend = hgIcon(SentIcon);
 
 const PARTNERS_VIEW_STORAGE = "partners-view";
-const LEGACY_MARKETPLACE_VIEW_STORAGE = "marketplace-view";
 
 interface PartnersListing {
   id: number;
@@ -89,13 +76,55 @@ function readStoredViewMode(): "cards" | "list" {
   if (typeof window === "undefined") return "cards";
   const next = localStorage.getItem(PARTNERS_VIEW_STORAGE) as "cards" | "list" | null;
   if (next === "cards" || next === "list") return next;
-  const legacy = localStorage.getItem(LEGACY_MARKETPLACE_VIEW_STORAGE) as "cards" | "list" | null;
-  if (legacy === "cards" || legacy === "list") return legacy;
   return "cards";
 }
 
+// Stars component — replicates the prototype's `Stars` (suppliers.jsx:3-25):
+// 5 stars with half-star gradient at the boundary.
+function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  return (
+    <span style={{ display: "inline-flex", gap: 1, alignItems: "center" }}>
+      {[0, 1, 2, 3, 4].map((i) => {
+        const filled = i < full;
+        const isHalf = i === full && half;
+        const gid = `pstars-${size}-${rating}-${i}`;
+        return (
+          <svg key={i} width={size} height={size} viewBox="0 0 24 24">
+            <defs>
+              <linearGradient id={gid} x1="0" x2="1" y1="0" y2="0">
+                <stop offset="50%" stopColor="#F4B942" />
+                <stop offset="50%" stopColor="#E8E4DB" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M12 2l3 7 7 .5-5.5 4.5 2 7L12 17l-6.5 4 2-7L2 9.5 9 9z"
+              fill={isHalf ? `url(#${gid})` : filled ? "#F4B942" : "#E8E4DB"}
+            />
+          </svg>
+        );
+      })}
+    </span>
+  );
+}
+
 export default function PartnersPage() {
-  return <EventScopedGuard><PartnersContent /></EventScopedGuard>;
+  return (
+    <EventScopedGuard>
+      <PartnersContent />
+    </EventScopedGuard>
+  );
+}
+
+interface PendingClaim {
+  id: number;
+  contactId: number;
+  providerName: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
 }
 
 function PartnersContent() {
@@ -104,26 +133,77 @@ function PartnersContent() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [city, setCity] = useState("");
-  const [priceRange, setPriceRange] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [myProvidersOnly, setMyProvidersOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"cards" | "list">(readStoredViewMode);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [inviteTarget, setInviteTarget] = useState<PartnersListing | null>(null);
+  const [profileTarget, setProfileTarget] = useState<PartnersListing | null>(null);
   const [events, setEvents] = useState<{ id: number; name: string }[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [inviting, setInviting] = useState(false);
+  const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
+  const [resendingId, setResendingId] = useState<number | null>(null);
+
+  const [country, setCountry] = useState("");
+
+  const [catOpen, setCatOpen] = useState(false);
+  const [cityOpen, setCityOpen] = useState(false);
+  const [countryOpen, setCountryOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
+  const cityRef = useRef<HTMLDivElement>(null);
+  const countryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!catOpen) return;
+    const h = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [catOpen]);
+
+  useEffect(() => {
+    if (!cityOpen) return;
+    const h = (e: MouseEvent) => {
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) setCityOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [cityOpen]);
+
+  // Close country dropdown on outside click
+  useEffect(() => {
+    if (!countryOpen) return;
+    const h = (e: MouseEvent) => {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) setCountryOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [countryOpen]);
+
+  // Pre-fill country and city from the current org on first load
+  useEffect(() => {
+    fetch("/api/user/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) return;
+        if (d.data?.orgCountry) setCountry(d.data.orgCountry);
+        if (d.data?.orgCity) setCity(d.data.orgCity);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (inviteTarget) {
       fetch("/api/events?limit=50")
         .then((r) => r.json())
         .then((d) => {
-          if (d.success) setEvents(d.data?.map((e: { id: number; name: string }) => ({ id: e.id, name: e.name })) || []);
+          if (d.success)
+            setEvents(d.data?.map((e: { id: number; name: string }) => ({ id: e.id, name: e.name })) || []);
         })
         .catch(() => {});
     }
@@ -155,6 +235,38 @@ function PartnersContent() {
     }
   };
 
+  const fetchPendingClaims = useCallback(async () => {
+    try {
+      const res = await fetch("/api/claim/mine");
+      const data = await res.json();
+      if (data.success) setPendingClaims(data.data ?? []);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchPendingClaims(); }, [fetchPendingClaims]);
+
+  const handleResendClaim = async (claim: PendingClaim) => {
+    setResendingId(claim.id);
+    try {
+      const res = await fetch("/api/claim/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: claim.contactId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Invitación reenviada a ${claim.email}`);
+        fetchPendingClaims();
+      } else {
+        toast.error(data.error?.message || "No se pudo reenviar");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setResendingId(null);
+    }
+  };
+
   const fetchProviders = useCallback(async () => {
     setLoading(true);
     try {
@@ -162,10 +274,8 @@ function PartnersContent() {
       if (search) params.set("search", search);
       if (category) params.set("category", category);
       if (city) params.set("city", city);
-      if (priceRange) params.set("priceRange", priceRange);
-      if (typeFilter) params.set("type", typeFilter);
+      if (country) params.set("country", country);
       if (favoritesOnly) params.set("favorites", "true");
-      if (myProvidersOnly) params.set("myProviders", "true");
       if (verifiedOnly) params.set("verified", "true");
       params.set("page", page.toString());
       params.set("limit", "50");
@@ -173,19 +283,19 @@ function PartnersContent() {
       const res = await fetch(`/api/providers?${params}`);
       const data = await res.json();
       if (data.success) {
-        setProviders(data.data);
-        setTotal(data.meta?.total ?? data.data.length);
+        setProviders(data.data?.data ?? []);
+        setTotal(data.data?.meta?.total ?? data.data?.data?.length ?? 0);
       }
     } catch {
       console.error("Error fetching providers");
     } finally {
       setLoading(false);
     }
-  }, [search, category, city, priceRange, typeFilter, favoritesOnly, myProvidersOnly, verifiedOnly, page]);
+  }, [search, category, city, country, favoritesOnly, verifiedOnly, page]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, category, city, priceRange, typeFilter, favoritesOnly, myProvidersOnly, verifiedOnly]);
+  }, [search, category, city, country, favoritesOnly, verifiedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchProviders, 300);
@@ -199,29 +309,24 @@ function PartnersContent() {
 
   const toggleFavorite = async (provider: PartnersListing) => {
     try {
-      let res: Response;
-      if (provider.isFavorite) {
-        res = await fetch(`/api/providers/favorites/${provider.id}`, { method: "DELETE" });
-      } else {
-        res = await fetch("/api/providers/favorites", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ providerOrgId: provider.id }),
-        });
-      }
+      const wasFav = provider.isFavorite;
+      const res = wasFav
+        ? await fetch(`/api/providers/favorites/${provider.id}`, { method: "DELETE" })
+        : await fetch("/api/providers/favorites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ providerOrgId: provider.id }),
+          });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         toast.error(data?.error?.message || "No se pudo actualizar favorito");
         return;
       }
       setProviders((prev) =>
-        prev.map((p) =>
-          p.id === provider.id ? { ...p, isFavorite: !p.isFavorite } : p
-        )
+        prev.map((p) => (p.id === provider.id ? { ...p, isFavorite: !p.isFavorite } : p)),
       );
-      if (!provider.isFavorite) {
-        toast.success(`${provider.name} agregado a favoritos`);
-      }
+      if (!wasFav) toast.success(`${provider.name} añadido a Contactos · Proveedor`);
+      else toast.success(`${provider.name} eliminado de Contactos`);
     } catch {
       toast.error("No se pudo actualizar favorito");
     }
@@ -231,292 +336,642 @@ function PartnersContent() {
     setSearch("");
     setCategory("");
     setCity("");
-    setPriceRange("");
-    setTypeFilter("");
+    setCountry("");
     setFavoritesOnly(false);
-    setMyProvidersOnly(false);
     setVerifiedOnly(false);
   };
 
-  const hasFilters = search || category || city || priceRange || typeFilter || favoritesOnly || myProvidersOnly || verifiedOnly;
+  const hasFilters = !!(search || category || city || country || favoritesOnly || verifiedOnly);
+  const activeCount =
+    (category ? 1 : 0) + (city ? 1 : 0) + (country ? 1 : 0) +
+    (favoritesOnly ? 1 : 0) + (verifiedOnly ? 1 : 0) + (search ? 1 : 0);
+
+  // Build lookup: normalized provider name → pending claim (for card badges)
+  const claimByName = new Map<string, PendingClaim>(
+    pendingClaims.map((c) => [c.providerName.toLowerCase().trim(), c])
+  );
+
+  // Build dropdown options from loaded providers
+  const cities = ["Todas", ...Array.from(new Set(providers.map((p) => p.city).filter((c): c is string => !!c))).sort()];
+  const categories = ["Todas", ...PROVIDER_CATEGORIES];
+
+  // Countries: derive from loaded providers + keep current filter value visible
+  const countryNames = new Intl.DisplayNames(["es"], { type: "region" });
+  const countryLabel = (code: string) => { try { return countryNames.of(code) ?? code; } catch { return code; } };
+  const providerCountryCodes = Array.from(new Set(providers.map((p) => p.country).filter((c): c is string => !!c))).sort();
+  // Always include the active filter even if no provider currently matches (avoids chip disappearing)
+  if (country && !providerCountryCodes.includes(country)) providerCountryCodes.push(country);
+  const countries = ["Todos", ...providerCountryCodes];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Partners HubEnts</h1>
-          <p className="text-muted-foreground">
-            Encuentra y gestiona proveedores para tus eventos
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center border rounded-md">
-            <Button
-              variant={viewMode === "cards" ? "default" : "ghost"}
-              size="icon"
-              className="h-8 w-8 rounded-r-none"
-              onClick={() => toggleViewMode("cards")}
-            >
-              <RiGridLine className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="icon"
-              className="h-8 w-8 rounded-l-none"
-              onClick={() => toggleViewMode("list")}
-            >
-              <RiListUnordered className="h-4 w-4" />
-            </Button>
-          </div>
-          <Button onClick={() => setShowCreateDrawer(true)} className="gap-1.5">
-            <RiAddLine className="h-4 w-4" />
-            Crear Proveedor
-          </Button>
-        </div>
+    <div className="flex flex-col gap-3.5">
+      {/* Brand label kept for screen readers / regression guards.
+          Prototype intentionally omits a visible h1 — only the subtitle. */}
+      <h1 className="sr-only">Partners Hubents</h1>
+      <div style={{ marginTop: -6 }}>
+        <p className="text-[13px] text-[var(--ink-3)] leading-[1.4]">
+          Encuentra y gestiona proveedores para tus eventos
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+      {/* ── Pending claims panel ─────────────────────────────────────── */}
+      {pendingClaims.length > 0 && (
+        <div style={{
+          background: "#fffbeb",
+          border: "1px solid #fcd34d",
+          borderRadius: 10,
+          padding: "14px 16px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <IcoSend className="h-3.5 w-3.5" style={{ color: "#b45309" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#92400e" }}>
+              {pendingClaims.length} proveedor{pendingClaims.length > 1 ? "es" : ""} con invitación pendiente
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pendingClaims.map((claim) => {
+              const isManual = claim.status === "needs_manual_verification";
+              const isExpired = new Date() > new Date(claim.expiresAt);
+              return (
+                <div key={claim.id} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 8, background: "white", borderRadius: 7, padding: "8px 12px",
+                  border: "1px solid #fde68a",
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 1 }}>
+                      {claim.providerName}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
+                      {claim.email}
+                      {isManual && (
+                        <span style={{
+                          background: "#fef3c7", color: "#92400e", borderRadius: 4,
+                          padding: "1px 6px", fontSize: 10.5, fontWeight: 500,
+                        }}>
+                          Verificación manual
+                        </span>
+                      )}
+                      {isExpired && (
+                        <span style={{
+                          background: "#fee2e2", color: "#991b1b", borderRadius: 4,
+                          padding: "1px 6px", fontSize: 10.5, fontWeight: 500,
+                        }}>
+                          Expirado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleResendClaim(claim)}
+                    disabled={resendingId === claim.id}
+                    style={{
+                      flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
+                      background: "#f59e0b", color: "white", border: "none", borderRadius: 6,
+                      padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      opacity: resendingId === claim.id ? 0.6 : 1,
+                    }}
+                  >
+                    <IcoSend className="h-3 w-3" />
+                    {resendingId === claim.id ? "Enviando..." : "Reenviar"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div
+        className="rounded-[12px] p-[18px]"
+        style={{ background: "#FFFFFF", border: "1px solid var(--line-1)" }}
+      >
+        {/* Toolbar */}
+        <div className="flex items-center gap-2.5 mb-3.5 flex-wrap">
+          <div
+            className="flex items-center gap-2 rounded-[8px]"
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid var(--line-1)",
+              padding: "8px 12px",
+              width: 260,
+            }}
+          >
+            <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)]" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, categoría, ciudad..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, servicio o ciudad..."
-              className="pl-10"
+              className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
             />
           </div>
-          <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-full sm:w-[170px]">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los tipos</SelectItem>
-              <SelectItem value="provider">Proveedores</SelectItem>
-              <SelectItem value="planner">Planificadores</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-full sm:w-[190px]">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorias</SelectItem>
-              {PROVIDER_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={priceRange || "all"} onValueChange={(v) => setPriceRange(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-full sm:w-[130px]">
-              <SelectValue placeholder="Precio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo precio</SelectItem>
-              {PRICE_RANGES.map((pr) => (
-                <SelectItem key={pr} value={pr}>{pr}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Ciudad..."
-            className="w-full sm:w-[150px]"
-          />
-        </div>
 
-        {/* Filter chips */}
-        <div className="flex flex-wrap gap-2">
+          {/* Category dropdown — dark when active */}
+          <div ref={catRef} className="relative">
+            <button
+              onClick={() => setCatOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{
+                padding: "7px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                background: category ? "var(--ink-1)" : "#FFFFFF",
+                color: category ? "white" : "var(--ink-1)",
+                border: category ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+              }}
+            >
+              <IcoFilter className="h-3 w-3" />
+              {category || "Categoría"}
+              <IcoChevDown className="h-3 w-3" />
+            </button>
+            {catOpen && (
+              <div
+                className="absolute left-0 top-[calc(100%+4px)] min-w-[200px] rounded-[8px] p-1 z-50"
+                style={{
+                  background: "white",
+                  border: "1px solid var(--line-1)",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+                {categories.map((c) => {
+                  const isAll = c === "Todas";
+                  const active = isAll ? !category : category === c;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => {
+                        setCategory(isAll ? "" : c);
+                        setCatOpen(false);
+                      }}
+                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
+                      style={{
+                        padding: "8px 10px",
+                        background: active ? "var(--bg-subtle)" : "transparent",
+                        border: "none",
+                        borderRadius: 4,
+                        fontSize: 12.5,
+                        fontWeight: active ? 600 : 400,
+                        color: "var(--ink-1)",
+                      }}
+                    >
+                      {active && <IcoCheck className="h-3 w-3" />}
+                      <span style={{ marginLeft: active ? 0 : 20 }}>{c}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* City dropdown — dark when active */}
+          <div ref={cityRef} className="relative">
+            <button
+              onClick={() => setCityOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{
+                padding: "7px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                background: city ? "var(--ink-1)" : "#FFFFFF",
+                color: city ? "white" : "var(--ink-1)",
+                border: city ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+              }}
+            >
+              <IcoMap className="h-3 w-3" />
+              {city || "Ciudad"}
+              <IcoChevDown className="h-3 w-3" />
+            </button>
+            {cityOpen && (
+              <div
+                className="absolute left-0 top-[calc(100%+4px)] min-w-[200px] rounded-[8px] p-1 z-50"
+                style={{
+                  background: "white",
+                  border: "1px solid var(--line-1)",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+                {cities.map((c) => {
+                  const isAll = c === "Todas";
+                  const active = isAll ? !city : city === c;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => {
+                        setCity(isAll ? "" : c);
+                        setCityOpen(false);
+                      }}
+                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
+                      style={{
+                        padding: "8px 10px",
+                        background: active ? "var(--bg-subtle)" : "transparent",
+                        border: "none",
+                        borderRadius: 4,
+                        fontSize: 12.5,
+                        fontWeight: active ? 600 : 400,
+                        color: "var(--ink-1)",
+                      }}
+                    >
+                      {active && <IcoCheck className="h-3 w-3" />}
+                      <span style={{ marginLeft: active ? 0 : 20 }}>{c}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Country dropdown */}
+          <div ref={countryRef} className="relative">
+            <button
+              onClick={() => setCountryOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{
+                padding: "7px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                background: country ? "var(--ink-1)" : "#FFFFFF",
+                color: country ? "white" : "var(--ink-1)",
+                border: country ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              {country ? countryLabel(country) : "País"}
+              <IcoChevDown className="h-3 w-3" />
+            </button>
+            {countryOpen && (
+              <div
+                className="absolute left-0 top-[calc(100%+4px)] min-w-[180px] rounded-[8px] p-1 z-50"
+                style={{ background: "white", border: "1px solid var(--line-1)", boxShadow: "0 6px 20px rgba(0,0,0,0.08)" }}
+              >
+                {countries.map((c) => {
+                  const isAll = c === "Todos";
+                  const active = isAll ? !country : country === c;
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => { setCountry(isAll ? "" : c); setCountryOpen(false); }}
+                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
+                      style={{
+                        padding: "8px 10px", background: active ? "var(--bg-subtle)" : "transparent",
+                        border: "none", borderRadius: 4, fontSize: 12.5,
+                        fontWeight: active ? 600 : 400, color: "var(--ink-1)",
+                      }}
+                    >
+                      {active && <IcoCheck className="h-3 w-3" />}
+                      <span style={{ marginLeft: active ? 0 : 20 }}>
+                        {isAll ? "Todos los países" : countryLabel(c)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Mis proveedores toggle (favorites) — red bg when active */}
           <button
-            onClick={() => setFavoritesOnly(!favoritesOnly)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              favoritesOnly
-                ? "bg-red-100 text-red-700 border border-red-300"
-                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
-            }`}
+            onClick={() => setFavoritesOnly((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            style={{
+              padding: "7px 12px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: favoritesOnly ? "#FEF0F0" : "#FFFFFF",
+              color: favoritesOnly ? "#C44" : "var(--ink-2)",
+              border: `1px solid ${favoritesOnly ? "#E8B8B8" : "var(--line-strong)"}`,
+            }}
           >
-            {favoritesOnly ? <RiHeartFill className="h-3.5 w-3.5" /> : <RiHeartLine className="h-3.5 w-3.5" />}
-            Mis Favoritos
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill={favoritesOnly ? "#C44" : "none"}
+              stroke={favoritesOnly ? "#C44" : "currentColor"}
+              strokeWidth="1.8"
+            >
+              <path d="M12 21s-8-5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-8 11-8 11z" />
+            </svg>
+            Mis proveedores
           </button>
+
+          {/* Verified toggle — blue bg when active */}
           <button
-            onClick={() => setMyProvidersOnly(!myProvidersOnly)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              myProvidersOnly
-                ? "bg-purple-100 text-purple-700 border border-purple-300"
-                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
-            }`}
+            onClick={() => setVerifiedOnly((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            style={{
+              padding: "7px 12px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: verifiedOnly ? "#E8F0FB" : "#FFFFFF",
+              color: verifiedOnly ? "#4B7BE8" : "var(--ink-2)",
+              border: `1px solid ${verifiedOnly ? "#B8D0F0" : "var(--line-strong)"}`,
+            }}
           >
-            <RiStore2Line className="h-3.5 w-3.5" />
-            Mis Proveedores
-          </button>
-          <button
-            onClick={() => setVerifiedOnly(!verifiedOnly)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              verifiedOnly
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
-            }`}
-          >
-            <RiShieldCheckLine className="h-3.5 w-3.5" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill={verifiedOnly ? "#4B7BE8" : "none"}
+              stroke={verifiedOnly ? "#4B7BE8" : "currentColor"}
+              strokeWidth="1.8"
+            >
+              <path d="M12 2l2.5 2.2 3.3-.3.7 3.3 3 1.5-1.2 3.1 1.2 3.1-3 1.5-.7 3.3-3.3-.3L12 22l-2.5-2.2-3.3.3-.7-3.3-3-1.5 1.2-3.1L2.5 9l3-1.5.7-3.3 3.3.3L12 2z" />
+              <path d="M8.5 12l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.8" fill="none" />
+            </svg>
             Verificados
           </button>
-          {hasFilters && (
+
+          {activeCount > 0 && (
             <button
               onClick={clearFilters}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="cursor-pointer text-[var(--ink-3)]"
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: 12,
+                textDecoration: "underline",
+                padding: "7px 4px",
+              }}
             >
-              <RiCloseLine className="h-3.5 w-3.5" />
               Limpiar filtros
             </button>
           )}
-        </div>
-      </div>
 
-      {/* Results */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-lg" />
-          ))}
+          <div className="ml-auto flex items-center gap-2.5">
+            <span className="text-[12px] text-[var(--ink-3)]">
+              {providers.length} de {total}
+            </span>
+            {/* Grid / List toggle */}
+            <div
+              className="inline-flex"
+              style={{
+                background: "white",
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                padding: 2,
+              }}
+            >
+              <button
+                onClick={() => toggleViewMode("cards")}
+                aria-label="Vista tarjetas"
+                className="cursor-pointer inline-flex items-center justify-center"
+                style={{
+                  background: viewMode === "cards" ? "var(--bg-subtle)" : "transparent",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "5px 9px",
+                  color: viewMode === "cards" ? "var(--ink-1)" : "var(--ink-3)",
+                }}
+              >
+                <IcoGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => toggleViewMode("list")}
+                aria-label="Vista lista"
+                className="cursor-pointer inline-flex items-center justify-center"
+                style={{
+                  background: viewMode === "list" ? "var(--bg-subtle)" : "transparent",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "5px 9px",
+                  color: viewMode === "list" ? "var(--ink-1)" : "var(--ink-3)",
+                }}
+              >
+                <IcoList className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={() => setShowCreateDrawer(true)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              style={{
+                background: "var(--color-primary)",
+                color: "#FFFFFF",
+                border: "1px solid var(--color-primary)",
+                padding: "7px 12px",
+                fontSize: 12.5,
+                fontWeight: 600,
+              }}
+            >
+              <IcoPlus className="h-3.5 w-3.5" />
+              Crear Proveedor
+            </button>
+          </div>
         </div>
-      ) : providers.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RiStore2Line className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-lg font-medium">
+
+        {/* Body */}
+        {loading ? (
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-72 rounded-[18px]" />
+            ))}
+          </div>
+        ) : providers.length === 0 ? (
+          <div className="text-center" style={{ padding: "60px 20px", color: "var(--ink-3)" }}>
+            <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>🔍</div>
+            <div className="text-[14px] font-medium" style={{ color: "var(--ink-2)", marginBottom: 4 }}>
               {favoritesOnly
-                ? "No tienes favoritos aún"
-                : myProvidersOnly
-                ? "No has creado proveedores aún"
-                : "No se encontraron proveedores"}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {favoritesOnly
-                ? "Marca proveedores con el corazón para encontrarlos rápido"
-                : myProvidersOnly
-                ? "Crea un proveedor para empezar a gestionarlo"
+                ? "Sin proveedores favoritos"
                 : hasFilters
-                ? "Intenta con otros filtros de búsqueda"
-                : "Aún no hay proveedores en la plataforma"}
-            </p>
-            {!hasFilters && (
-              <Button className="mt-4 gap-1.5" onClick={() => setShowCreateDrawer(true)}>
-                <RiAddLine className="h-4 w-4" />
-                Crear primer proveedor
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {total} {total === 1 ? "resultado encontrado" : "resultados encontrados"}
-          </p>
-
-          {viewMode === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {providers.map((provider) => (
-                <ProviderCard key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} onInviteToEvent={setInviteTarget} />
-              ))}
+                  ? "Sin resultados"
+                  : "Sin proveedores"}
             </div>
-          ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left text-sm font-medium p-3">Proveedor</th>
-                    <th className="text-left text-sm font-medium p-3 hidden sm:table-cell">Tipo</th>
-                    <th className="text-left text-sm font-medium p-3 hidden md:table-cell">Categoría</th>
-                    <th className="text-left text-sm font-medium p-3 hidden md:table-cell">Ciudad</th>
-                    <th className="text-left text-sm font-medium p-3 hidden lg:table-cell">Rating</th>
-                    <th className="text-center text-sm font-medium p-3 w-16">Fav</th>
-                    <th className="text-right text-sm font-medium p-3 w-28">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {providers.map((provider) => (
-                    <ProviderRow key={provider.id} provider={provider} onToggleFavorite={toggleFavorite} onInviteToEvent={setInviteTarget} />
-                  ))}
-                </tbody>
-              </table>
+            <div className="text-[12.5px]">
+              {hasFilters
+                ? "Prueba ajustando los filtros"
+                : "Crea el primer proveedor para empezar"}
             </div>
-          )}
-        </>
-      )}
+          </div>
+        ) : viewMode === "list" ? (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th style={{ width: 30 }}></th>
+                <th>Proveedor</th>
+                <th>Categoría</th>
+                <th>Teléfono</th>
+                <th>Ubicación</th>
+                <th>Valoración</th>
+                <th style={{ width: 40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((p) => {
+                const claim = claimByName.get(p.name.toLowerCase().trim());
+                return (
+                  <ProviderRow
+                    key={p.id}
+                    provider={p}
+                    onToggleFavorite={() => toggleFavorite(p)}
+                    onInvite={() => setInviteTarget(p)}
+                    onView={() => setProfileTarget(p)}
+                    pendingClaim={claim}
+                    onResendClaim={claim ? () => handleResendClaim(claim) : undefined}
+                    resendingClaim={claim ? resendingId === claim.id : false}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <div
+            className="grid gap-3.5"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
+          >
+            {providers.map((p) => {
+              const claim = claimByName.get(p.name.toLowerCase().trim());
+              return (
+                <ProviderCard
+                  key={p.id}
+                  provider={p}
+                  onToggleFavorite={() => toggleFavorite(p)}
+                  onInvite={() => setInviteTarget(p)}
+                  onView={() => setProfileTarget(p)}
+                  pendingClaim={claim}
+                  onResendClaim={claim ? () => handleResendClaim(claim) : undefined}
+                  resendingClaim={claim ? resendingId === claim.id : false}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Pagination */}
       {total > 50 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-muted-foreground">
-            {Math.min((page - 1) * 50 + 1, total)}–{Math.min(page * 50, total)} de {total} organizaciones
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-[12px] text-[var(--ink-3)]">
+            {Math.min((page - 1) * 50 + 1, total)}–{Math.min(page * 50, total)} de {total}
           </p>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center rounded-[8px] cursor-pointer disabled:opacity-50"
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid var(--line-strong)",
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+              }}
             >
               Anterior
-            </Button>
-            <span className="text-sm text-muted-foreground">
+            </button>
+            <span className="text-[12px] text-[var(--ink-3)]">
               Página {page} de {Math.ceil(total / 50)}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               disabled={page >= Math.ceil(total / 50)}
               onClick={() => setPage((p) => p + 1)}
+              className="inline-flex items-center rounded-[8px] cursor-pointer disabled:opacity-50"
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid var(--line-strong)",
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+              }}
             >
               Siguiente
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Invite to Event Sheet */}
-      <Sheet open={!!inviteTarget} onOpenChange={(o) => { if (!o) { setInviteTarget(null); setSelectedEventId(""); } }}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <RiCalendarEventLine className="h-5 w-5" />
-              Invitar a Evento
-            </SheetTitle>
-            <SheetDescription>
-              Invitar a <strong>{inviteTarget?.name}</strong> a participar en un evento
-            </SheetDescription>
-          </SheetHeader>
-          <div className="space-y-4 mt-6">
-            <div className="space-y-2">
-              <Label>Seleccionar evento</Label>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Elegir evento..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map((ev) => (
-                    <SelectItem key={ev.id} value={ev.id.toString()}>
-                      {ev.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* Invite to Event drawer */}
+      <Sheet
+        open={!!inviteTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setInviteTarget(null);
+            setSelectedEventId("");
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="overflow-hidden bg-white border-0 [&>button]:hidden flex flex-col"
+          style={{ width: "min(440px, 100vw)", maxWidth: "100vw", padding: 0, gap: 0 }}
+        >
+          <div className="flex items-start gap-3 px-6 pt-5 pb-3">
+            <div className="flex-1 min-w-0">
+              <div
+                className="text-[18px] font-semibold text-[var(--ink-1)]"
+                style={{ letterSpacing: "-0.01em" }}
+              >
+                Invitar a evento
+              </div>
+              <div className="text-[12.5px] text-[var(--ink-3)] mt-0.5">
+                Invitar a <strong className="text-[var(--ink-1)]">{inviteTarget?.name}</strong> a un evento
+              </div>
+            </div>
+            <button
+              onClick={() => setInviteTarget(null)}
+              className="bg-transparent border-none cursor-pointer text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+              aria-label="Cerrar"
+            >
+              <IcoX className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+
+          <div className="px-6 py-4 flex flex-col gap-3">
+            <div className="drawer-form-field flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-[var(--ink-2)]">Seleccionar evento</label>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+              >
+                <option value="">Elegir evento...</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id.toString()}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
               {events.length === 0 && (
-                <p className="text-xs text-muted-foreground">No hay eventos disponibles</p>
+                <p className="text-[11px] text-[var(--ink-3)]">No hay eventos disponibles</p>
               )}
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => { setInviteTarget(null); setSelectedEventId(""); }}>
-                Cancelar
-              </Button>
-              <Button className="flex-1 gap-1.5" onClick={handleInviteToEvent} disabled={inviting || !selectedEventId}>
-                <RiSendPlaneLine className="h-4 w-4" />
-                {inviting ? "Invitando..." : "Invitar"}
-              </Button>
-            </div>
+          </div>
+
+          <div
+            className="px-6 py-3.5 flex gap-2 mt-auto"
+            style={{ borderTop: "1px solid var(--line-1)" }}
+          >
+            <button
+              onClick={() => setInviteTarget(null)}
+              className="flex-1 inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+              style={{
+                background: "#FFFFFF",
+                color: "var(--ink-1)",
+                border: "1px solid var(--line-strong)",
+                padding: "11px",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleInviteToEvent}
+              disabled={inviting || !selectedEventId}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[8px] cursor-pointer transition-colors border-none"
+              style={{
+                background: "var(--color-primary)",
+                color: "#FFFFFF",
+                padding: "11px",
+                fontSize: 13,
+                fontWeight: 600,
+                opacity: inviting || !selectedEventId ? 0.5 : 1,
+              }}
+            >
+              <IcoSend className="h-3.5 w-3.5" />
+              {inviting ? "Invitando..." : "Invitar"}
+            </button>
           </div>
         </SheetContent>
       </Sheet>
@@ -528,254 +983,558 @@ function PartnersContent() {
         onCreated={() => {
           setShowCreateDrawer(false);
           fetchProviders();
+          fetchPendingClaims();
         }}
       />
+
+      {/* Partner Landing — full-screen profile preview (suppliers.jsx:585).
+          Lazy-rendered only when needed so a render bug in the drawer
+          can't break the partners page itself. */}
+      {profileTarget && (
+        <PartnerLandingDrawer
+          open={true}
+          slug={profileTarget.slug}
+          preview={{
+            name: profileTarget.name,
+            logo: profileTarget.logo,
+            coverImage: profileTarget.coverImage,
+            providerCategory: profileTarget.providerCategory,
+            city: profileTarget.city,
+            region: profileTarget.region,
+            averageRating: profileTarget.averageRating,
+            totalReviews: profileTarget.totalReviews,
+            verificationStatus: profileTarget.verificationStatus,
+            description: profileTarget.description,
+            tagline: profileTarget.tagline,
+            phone: profileTarget.phone,
+            website: profileTarget.website,
+            instagramHandle: profileTarget.instagramHandle,
+          }}
+          onClose={() => setProfileTarget(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ─── Avatar with verified badge overlay ─────────────────────────────────────
+// ─── Claim status badge ──────────────────────────────────────────────────────
+function ClaimBadge({
+  claim,
+  onResend,
+  resending,
+}: {
+  claim: PendingClaim;
+  onResend: () => void;
+  resending: boolean;
+}) {
+  const isExpired = claim.status === "expired" || new Date() > new Date(claim.expiresAt);
+  const isManual = claim.status === "needs_manual_verification";
 
-function ProviderAvatar({ provider, size = "md" }: { provider: PartnersListing; size?: "sm" | "md" }) {
-  const isProvider = provider.orgType === "provider";
-  const dim = size === "sm" ? "h-10 w-10" : "h-14 w-14";
-  const iconDim = size === "sm" ? "h-5 w-5" : "h-7 w-7";
-  const bgColor = isProvider ? "bg-purple-100" : "bg-blue-100";
-  const iconColor = isProvider ? "text-purple-600" : "text-blue-600";
-  const Icon = isProvider ? RiBuilding2Line : RiTeamLine;
+  if (isExpired) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          background: "#fef2f2", color: "#991b1b", borderRadius: 6,
+          padding: "3px 8px", fontSize: 10.5, fontWeight: 500,
+        }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Expirado
+        </span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onResend(); }}
+          disabled={resending}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 3,
+            background: "transparent", border: "1px solid #fca5a5",
+            borderRadius: 6, padding: "3px 7px", fontSize: 10.5,
+            fontWeight: 500, color: "#dc2626", cursor: "pointer",
+            opacity: resending ? 0.6 : 1,
+          }}
+        >
+          {resending ? "..." : "Reenviar"}
+        </button>
+      </div>
+    );
+  }
+
+  if (isManual) {
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        background: "#fffbeb", color: "#92400e", borderRadius: 6,
+        padding: "3px 8px", fontSize: 10.5, fontWeight: 500,
+        border: "1px solid #fde68a",
+      }}>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.11 19.79 19.79 0 01.13 2.38 2 2 0 012.11.22h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.4a16 16 0 006.69 6.69l1.27-.56a2 2 0 012.11.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+        Verificación manual
+      </span>
+    );
+  }
 
   return (
-    <div className="relative shrink-0">
-      {provider.logo ? (
-        <Image
-          src={provider.logo}
-          alt={provider.name}
-          width={size === "sm" ? 40 : 56}
-          height={size === "sm" ? 40 : 56}
-          className={`${dim} rounded-xl object-cover`}
-        />
-      ) : (
-        <div className={`${dim} rounded-xl ${bgColor} flex items-center justify-center`}>
-          <Icon className={`${iconDim} ${iconColor}`} />
-        </div>
-      )}
-      {provider.verificationStatus === "verified" && (
-        <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-1 ring-white">
-          <RiShieldCheckLine className="h-3.5 w-3.5 text-green-500" />
-        </span>
-      )}
-    </div>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      background: "#fffbeb", color: "#b45309", borderRadius: 6,
+      padding: "3px 8px", fontSize: 10.5, fontWeight: 500,
+      border: "1px solid #fde68a",
+    }}>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Invitación enviada
+    </span>
   );
 }
 
 // ─── Card View ──────────────────────────────────────────────────────────────
-
 function ProviderCard({
   provider,
   onToggleFavorite,
-  onInviteToEvent,
+  onInvite,
+  onView,
+  pendingClaim,
+  onResendClaim,
+  resendingClaim,
 }: {
   provider: PartnersListing;
-  onToggleFavorite: (p: PartnersListing) => void;
-  onInviteToEvent: (p: PartnersListing) => void;
+  onToggleFavorite: () => void;
+  onInvite: () => void;
+  onView: () => void;
+  pendingClaim?: PendingClaim;
+  onResendClaim?: () => void;
+  resendingClaim?: boolean;
 }) {
+  const verified = provider.verificationStatus === "verified";
+  const rating = parseFloat(provider.averageRating || "0");
+  const reviews = provider.totalReviews || 0;
+  const cat = provider.providerCategory || (provider.categories?.[0] ?? "—");
+  const cityLabel = [provider.city, provider.region].filter(Boolean).join(", ");
+  const desc = provider.description || provider.tagline || "";
+
   return (
-    <Card className="hover:shadow-md transition-shadow overflow-hidden relative group flex flex-col">
-      {/* Favorite button */}
+    <div
+      style={{
+        position: "relative",
+        background: "white",
+        border: "1px solid var(--line-1)",
+        borderRadius: 18,
+        padding: "16px 16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        minHeight: 280,
+      }}
+    >
+      {/* Favorite heart — top-right circle button */}
       <button
-        onClick={(e) => { e.preventDefault(); onToggleFavorite(provider); }}
-        className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-background/80 hover:bg-background shadow-sm transition-colors"
-        aria-label={provider.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+        onClick={onToggleFavorite}
+        aria-label="Favorito"
+        style={{
+          position: "absolute",
+          top: 14,
+          right: 14,
+          background: "white",
+          border: "1px solid var(--line-1)",
+          borderRadius: "50%",
+          width: 34,
+          height: 34,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 0,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        }}
       >
-        {provider.isFavorite ? (
-          <RiHeartFill className="h-4 w-4 text-red-500" />
-        ) : (
-          <RiHeartLine className="h-4 w-4 text-muted-foreground group-hover:text-red-400 transition-colors" />
-        )}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill={provider.isFavorite ? "#C44" : "none"}
+          stroke={provider.isFavorite ? "#C44" : "var(--ink-2)"}
+          strokeWidth="1.6"
+        >
+          <path d="M12 21s-8-5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-8 11-8 11z" />
+        </svg>
       </button>
 
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        {/* Header: avatar + name + badges */}
-        <div className="flex items-start gap-3 pr-8">
-          <ProviderAvatar provider={provider} />
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm leading-tight truncate">{provider.name}</p>
-            {provider.tagline ? (
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{provider.tagline}</p>
-            ) : null}
-            {/* Org type + featured */}
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <Badge
-                variant={getOrgTypeBadgeVariant(provider.orgType)}
-                className="text-[10px] px-1.5 py-0 h-4"
-              >
-                {getOrgTypeLabel(provider.orgType)}
-              </Badge>
-              {provider.isFeatured && (
-                <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">Destacado</Badge>
-              )}
-              {provider.isUnclaimed && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-orange-600">
-                  <RiUserUnfollowLine className="h-3 w-3" />
-                  Sin reclamar
-                </span>
-              )}
+      {/* Header: avatar + name + category pill */}
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", paddingRight: 40 }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          {provider.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={provider.logo}
+              alt={provider.name}
+              width={60}
+              height={60}
+              className="rounded-full object-cover"
+              style={{ width: 60, height: 60 }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: "50%",
+                background: avColor(provider.name),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: 600,
+                fontSize: 22,
+              }}
+            >
+              {provider.name[0]?.toUpperCase()}
             </div>
-          </div>
-        </div>
-
-        {/* Rating */}
-        {(provider.totalReviews || 0) > 0 && (
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <RiStarFill
-                key={i}
-                className={`h-3.5 w-3.5 ${i < Math.round(parseFloat(provider.averageRating || "0")) ? "text-yellow-400" : "text-muted"}`}
-              />
-            ))}
-            <span className="text-xs font-medium ml-0.5">{provider.averageRating}</span>
-            <span className="text-xs text-muted-foreground">({provider.totalReviews})</span>
-          </div>
-        )}
-
-        {/* Category + location + price badges */}
-        <div className="flex flex-wrap gap-1.5">
-          {provider.providerCategory && (
-            <Badge variant="secondary" className="text-xs">{provider.providerCategory}</Badge>
           )}
-          {provider.priceRange && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <RiPriceTag3Line className="h-3 w-3" />
-              {provider.priceRange}
-            </Badge>
-          )}
-          {(provider.city || provider.region) && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              <RiMapPinLine className="h-3 w-3" />
-              {[provider.city, provider.region].filter(Boolean).join(", ")}
-            </Badge>
+          {verified && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: -4,
+                right: -4,
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#4B7BE8">
+                <path d="M12 2l2.5 2.2 3.3-.3.7 3.3 3 1.5-1.2 3.1 1.2 3.1-3 1.5-.7 3.3-3.3-.3L12 22l-2.5-2.2-3.3.3-.7-3.3-3-1.5 1.2-3.1L2.5 9l3-1.5.7-3.3 3.3.3L12 2z" />
+                <path d="M8.5 12l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.8" fill="none" />
+              </svg>
+            </div>
           )}
         </div>
-
-        {/* Instagram */}
-        {provider.instagramHandle && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RiInstagramLine className="h-3.5 w-3.5 shrink-0" />
-            @{provider.instagramHandle}
-          </p>
-        )}
-
-        {/* Actions — pushed to bottom */}
-        <div className="flex gap-2 mt-auto pt-1">
-          <Button variant="outline" size="sm" className="flex-1 text-xs" asChild>
-            <Link href={`/providers/${provider.slug}`} target="_blank">
-              <RiExternalLinkLine className="h-3.5 w-3.5 mr-1" />
-              Ver Perfil
-            </Link>
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            className="flex-1 gap-1 text-xs"
-            onClick={(e) => { e.preventDefault(); onInviteToEvent(provider); }}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+          <div
+            style={{
+              fontSize: 15.5,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              marginBottom: 6,
+              lineHeight: 1.25,
+              color: "var(--ink-1)",
+            }}
+            className="truncate"
           >
-            <RiCalendarEventLine className="h-3.5 w-3.5" />
-            Invitar
-          </Button>
+            {provider.name}
+          </div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "#EDE7DC",
+              color: "#5C4A2E",
+              padding: "3px 10px",
+              borderRadius: 999,
+              fontSize: 10.5,
+              fontWeight: 600,
+              letterSpacing: ".03em",
+              textTransform: "uppercase",
+            }}
+          >
+            {cat}
+          </span>
         </div>
       </div>
-    </Card>
+
+      {/* Claim status badge */}
+      {pendingClaim && (
+        <div style={{ marginTop: -4 }}>
+          <ClaimBadge
+            claim={pendingClaim}
+            onResend={onResendClaim ?? (() => {})}
+            resending={resendingClaim ?? false}
+          />
+        </div>
+      )}
+
+      {/* Description (2-line clamp) */}
+      <div
+        style={{
+          fontSize: 12.5,
+          color: "var(--ink-3)",
+          lineHeight: 1.45,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          minHeight: 36,
+        }}
+      >
+        {desc || "Sin descripción"}
+      </div>
+
+      {/* Location chip */}
+      {cityLabel && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: "#ECE8DF",
+              color: "#5A5345",
+              padding: "5px 10px",
+              borderRadius: 999,
+              fontSize: 11.5,
+              fontWeight: 500,
+            }}
+          >
+            <IcoMap className="h-2.5 w-2.5" />
+            {cityLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Rating row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {reviews > 0 && rating > 0 ? (
+          <>
+            <Stars rating={rating} size={14} />
+            <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>
+              {rating.toFixed(1)}
+            </span>
+            <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· {reviews} reseñas</span>
+          </>
+        ) : (
+          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>Sin reseñas</span>
+        )}
+      </div>
+
+      {/* Dual CTA */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          marginTop: "auto",
+          marginBottom: 4,
+        }}
+      >
+        <button
+          onClick={onView}
+          className="inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          style={{
+            background: "white",
+            color: "var(--ink-1)",
+            border: "1px solid var(--line-strong)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            fontSize: 12.5,
+            fontWeight: 500,
+          }}
+        >
+          <IcoExternal className="h-3 w-3" />
+          Ver Perfil
+        </button>
+        <button
+          onClick={onInvite}
+          className="inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          style={{
+            background: "var(--color-brand)",
+            color: "var(--color-brand-ink)",
+            border: "1px solid var(--color-brand)",
+            borderRadius: 10,
+            padding: "8px 12px",
+            fontSize: 12.5,
+            fontWeight: 600,
+          }}
+        >
+          <IcoCalendar className="h-3 w-3" />
+          Invitar
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ─── List View Row ──────────────────────────────────────────────────────────
-
 function ProviderRow({
   provider,
   onToggleFavorite,
-  onInviteToEvent,
+  onInvite,
+  onView,
+  pendingClaim,
+  onResendClaim,
+  resendingClaim,
 }: {
   provider: PartnersListing;
-  onToggleFavorite: (p: PartnersListing) => void;
-  onInviteToEvent: (p: PartnersListing) => void;
+  onToggleFavorite: () => void;
+  onInvite: () => void;
+  onView: () => void;
+  pendingClaim?: PendingClaim;
+  onResendClaim?: () => void;
+  resendingClaim?: boolean;
 }) {
+  const verified = provider.verificationStatus === "verified";
+  const rating = parseFloat(provider.averageRating || "0");
+  const reviews = provider.totalReviews || 0;
+  const cat = provider.providerCategory || (provider.categories?.[0] ?? "—");
+  const cityLabel = [provider.city, provider.region].filter(Boolean).join(", ");
+
   return (
-    <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-      <td className="p-3">
-        <div className="flex items-center gap-3">
-          <ProviderAvatar provider={provider} size="sm" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate flex items-center gap-1.5">
-              {provider.name}
-              {provider.isUnclaimed && (
-                <Badge variant="outline" className="text-[10px] px-1 py-0 text-orange-600 border-orange-300">
-                  Sin reclamar
-                </Badge>
-              )}
-            </p>
-            {provider.tagline && (
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{provider.tagline}</p>
+    <tr
+      style={{ cursor: "pointer" }}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("[data-no-row]")) return;
+        onView();
+      }}
+    >
+      <td onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onToggleFavorite}
+          data-no-row
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0 }}
+          aria-label="Favorito"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill={provider.isFavorite ? "#C44" : "none"}
+            stroke={provider.isFavorite ? "#C44" : "var(--ink-3)"}
+            strokeWidth="1.6"
+          >
+            <path d="M12 21s-8-5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-8 11-8 11z" />
+          </svg>
+        </button>
+      </td>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {provider.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={provider.logo}
+                alt={provider.name}
+                width={32}
+                height={32}
+                className="rounded-full object-cover"
+                style={{ width: 32, height: 32 }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: avColor(provider.name),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: 600,
+                  fontSize: 12,
+                }}
+              >
+                {provider.name[0]?.toUpperCase()}
+              </div>
             )}
+            {verified && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -2,
+                  right: -2,
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: "#4B7BE8",
+                  border: "1.5px solid white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <IcoCheck className="h-1.5 w-1.5 text-white" />
+              </div>
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-1)" }}>{provider.name}</div>
+            {pendingClaim ? (
+              <div style={{ marginTop: 3 }}>
+                <ClaimBadge
+                  claim={pendingClaim}
+                  onResend={onResendClaim ?? (() => {})}
+                  resending={resendingClaim ?? false}
+                />
+              </div>
+            ) : provider.tagline ? (
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{provider.tagline}</div>
+            ) : null}
           </div>
         </div>
       </td>
-      <td className="p-3 hidden sm:table-cell">
-        <Badge variant={getOrgTypeBadgeVariant(provider.orgType)} className="text-xs whitespace-nowrap">
-          {getOrgTypeLabel(provider.orgType)}
-        </Badge>
-      </td>
-      <td className="p-3 hidden md:table-cell">
-        {provider.providerCategory && <Badge variant="secondary" className="text-xs">{provider.providerCategory}</Badge>}
-      </td>
-      <td className="p-3 hidden md:table-cell text-sm text-muted-foreground">
-        {[provider.city, provider.region].filter(Boolean).join(", ") || "—"}
-      </td>
-      <td className="p-3 hidden lg:table-cell text-sm">
-        {(provider.totalReviews || 0) > 0 ? (
-          <span className="flex items-center gap-0.5">
-            <RiStarFill className="h-3 w-3 text-yellow-400" />
-            <span className="font-medium">{provider.averageRating}</span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </td>
-      <td className="p-3 text-center">
-        <button
-          onClick={() => onToggleFavorite(provider)}
-          className="p-1 rounded hover:bg-muted transition-colors"
-          aria-label={provider.isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+      <td>
+        <span
+          style={{
+            display: "inline-block",
+            background: "var(--bg-subtle)",
+            color: "var(--ink-2)",
+            padding: "3px 10px",
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 500,
+          }}
         >
-          {provider.isFavorite ? (
-            <RiHeartFill className="h-4 w-4 text-red-500" />
-          ) : (
-            <RiHeartLine className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
+          {cat}
+        </span>
       </td>
-      <td className="p-3 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => onInviteToEvent(provider)}
-          >
-            <RiCalendarEventLine className="h-3.5 w-3.5 mr-1" />
-            Invitar
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-            <Link href={`/providers/${provider.slug}`} target="_blank">
-              Ver
-            </Link>
-          </Button>
+      <td style={{ color: "var(--ink-3)" }}>{provider.phone || "—"}</td>
+      <td style={{ color: "var(--ink-3)" }}>{cityLabel || "—"}</td>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {reviews > 0 && rating > 0 ? (
+            <>
+              <Stars rating={rating} />
+              <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>{rating.toFixed(1)}</span>
+            </>
+          ) : (
+            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>Sin reseñas</span>
+          )}
         </div>
+      </td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <button
+          data-no-row
+          onClick={onInvite}
+          className="icon-btn cursor-pointer"
+          style={{
+            background: "transparent",
+            border: "none",
+            padding: 6,
+            borderRadius: 6,
+            color: "var(--ink-2)",
+          }}
+          aria-label="Invitar"
+        >
+          <IcoChevRight className="h-3.5 w-3.5" />
+        </button>
       </td>
     </tr>
   );
 }
 
 // ─── Create Provider Drawer ─────────────────────────────────────────────────
+// Inline generic email detection (mirrors src/lib/email-utils.ts for client use)
+const GENERIC_DOMAINS = new Set([
+  "gmail.com","gmail.es","hotmail.com","hotmail.es","hotmail.co.uk",
+  "outlook.com","outlook.es","yahoo.com","yahoo.es","yahoo.co.uk","yahoo.fr",
+  "live.com","live.es","msn.com","icloud.com","me.com","mac.com",
+  "protonmail.com","proton.me","gmx.com","gmx.es","gmx.net",
+  "ymail.com","aol.com","mail.com","inbox.com","zohomail.com",
+]);
+function isGenericDomain(email: string) {
+  const d = email.trim().toLowerCase().split("@")[1] ?? "";
+  return GENERIC_DOMAINS.has(d);
+}
 
 function CreateProviderDrawer({
   open,
@@ -787,6 +1546,7 @@ function CreateProviderDrawer({
   onCreated: () => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -794,15 +1554,40 @@ function CreateProviderDrawer({
     category: "",
     instagram: "",
     city: "",
+    description: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const cats = PROVIDER_CATEGORIES;
+
+  const update = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+    setFormError("");
+    setForm((f) => ({ ...f, [k]: v }));
+  };
+
+  const emailValid = /^\S+@\S+\.\S+$/.test(form.email);
+  const hasEmail = form.email.trim().length > 0 && emailValid;
+  const isGeneric = hasEmail && isGenericDomain(form.email);
+  const hasInstagram = form.instagram.trim().length > 0;
+  const hasPhone = form.phone.trim().length > 0;
+
+  // Whether extra contact fields are visually required
+  const contactRequired = isGeneric || !hasEmail;
+
+  const handleSubmit = async () => {
     if (!form.name.trim() || !form.category) {
-      toast.error("Nombre y categoría son requeridos");
+      setFormError("Nombre y categoría son requeridos");
       return;
     }
-
+    // Client-side mirror of server validation
+    if (!hasEmail && (!hasInstagram || !hasPhone)) {
+      setFormError("Sin correo, debes añadir tanto el Instagram como el teléfono del proveedor.");
+      return;
+    }
+    if (isGeneric && !hasInstagram && !hasPhone) {
+      setFormError("Correo de uso personal detectado. Añade también el Instagram o el teléfono.");
+      return;
+    }
+    setFormError("");
     setLoading(true);
     try {
       const res = await fetch("/api/providers", {
@@ -811,14 +1596,28 @@ function CreateProviderDrawer({
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Error al crear");
-
+      if (res.status === 409 && data.error?.code === "DUPLICATE_PROVIDER") {
+        const ep = data.error.existingProvider;
+        toast.error(
+          ep?.name
+            ? `Este proveedor ya está en la plataforma: ${ep.name}${ep.city ? ` (${ep.city})` : ""}`
+            : "Este proveedor ya existe en la plataforma",
+          { duration: 5000 }
+        );
+        return;
+      }
+      if (!res.ok) {
+        const msg = data.error?.message || "Error al crear";
+        setFormError(msg);
+        return;
+      }
       toast.success(
-        data.data.invitationSent
-          ? `Se envió invitación por email a ${form.email}`
-          : `${form.name} fue agregado a Partners`
+        data.data?.invitationSent
+          ? `${form.name} añadido · proveedor notificado por email`
+          : `${form.name} añadido a Contactos · Proveedores`,
       );
-      setForm({ name: "", email: "", phone: "", category: "", instagram: "", city: "" });
+      setForm({ name: "", email: "", phone: "", category: "", instagram: "", city: "", description: "" });
+      setFormError("");
       onCreated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo crear el proveedor");
@@ -829,92 +1628,248 @@ function CreateProviderDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Crear Proveedor</SheetTitle>
-          <SheetDescription>
-            Agrega un proveedor a Partners. Si tiene email, recibirá una invitación para reclamar su perfil.
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent
+        side="right"
+        className="overflow-hidden bg-white border-0 [&>button]:hidden flex flex-col"
+        style={{
+          width: "min(440px, 100vw)",
+          maxWidth: "100vw",
+          padding: 0,
+          gap: 0,
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+        }}
+      >
+        <div className="flex items-start gap-3 px-6 pt-5 pb-3">
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-[17px] font-semibold text-[var(--ink-1)]"
+              style={{ letterSpacing: "-0.01em" }}
+            >
+              Nuevo proveedor
+            </div>
+            <div className="text-[12px] text-[var(--ink-3)] mt-0.5">
+              Añade un proveedor a tu red
+            </div>
+          </div>
+          <button
+            onClick={() => onOpenChange(false)}
+            className="bg-transparent border-none cursor-pointer text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+            aria-label="Cerrar"
+          >
+            <IcoX className="h-[18px] w-[18px]" />
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-          <div className="space-y-2">
-            <Label htmlFor="cp-name">Nombre *</Label>
-            <Input
-              id="cp-name"
+        <div className="flex-1 overflow-y-auto px-6 pb-4 flex flex-col gap-3">
+          {/* Avatar uploader placeholder */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: "var(--bg-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--ink-3)",
+              }}
+            >
+              <IcoCamera className="h-5 w-5" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-1)" }}>Foto o logo</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                PNG, JPG · máx. 2MB
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="text-[10.5px] uppercase font-semibold text-[var(--ink-3)] mt-1.5"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Información general
+          </div>
+
+          <div className="drawer-form-field flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium text-[var(--ink-2)]">Nombre del proveedor *</label>
+            <input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Nombre de la empresa"
-              required
+              onChange={(e) => update("name", e.target.value)}
+              placeholder="Ej. Floristería Jazmín"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Categoría *</Label>
-            <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDER_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="drawer-form-field flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium text-[var(--ink-2)]">Categoría *</label>
+            <select value={form.category} onChange={(e) => update("category", e.target.value)}>
+              <option value="">Elige una</option>
+              {cats.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cp-email">Email (opcional)</Label>
-            <Input
-              id="cp-email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="contacto@empresa.com"
+          <div className="drawer-form-field flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium text-[var(--ink-2)]">Descripción corta</label>
+            <textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => update("description", e.target.value)}
+              placeholder="Breve descripción del servicio..."
+              style={{ resize: "vertical" }}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="cp-phone">Teléfono</Label>
-              <Input
-                id="cp-phone"
+          <div
+            className="text-[10.5px] uppercase font-semibold text-[var(--ink-3)] mt-1.5"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Contacto
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="drawer-form-field flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-[var(--ink-2)]">
+                Teléfono
+                {contactRequired && <span style={{ color: "#f59e0b", marginLeft: 2 }}>*</span>}
+              </label>
+              <input
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+34 600..."
+                onChange={(e) => update("phone", e.target.value)}
+                placeholder="+34 ..."
+                style={contactRequired && !hasPhone ? { borderColor: "#fbbf24" } : {}}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cp-instagram">Instagram</Label>
-              <Input
-                id="cp-instagram"
+            <div className="drawer-form-field flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-[var(--ink-2)]">Email profesional</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                placeholder="hola@empresa.es"
+                style={isGeneric ? { borderColor: "#fbbf24" } : {}}
+              />
+            </div>
+          </div>
+
+          {/* Generic email warning */}
+          {isGeneric && (
+            <div style={{
+              background: "#fffbeb",
+              border: "1px solid #fcd34d",
+              borderRadius: 7,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: "#92400e",
+              lineHeight: 1.5,
+              display: "flex",
+              gap: 7,
+              alignItems: "flex-start",
+            }}>
+              <span style={{ flexShrink: 0, marginTop: 1 }}>⚠️</span>
+              <span>
+                <strong>Correo de uso personal detectado.</strong> Con Gmail, Hotmail u otros correos personales no podemos verificar automáticamente. Añade el Instagram o el teléfono del proveedor para continuar.
+              </span>
+            </div>
+          )}
+
+          {/* No email warning */}
+          {!hasEmail && form.email.length === 0 && (
+            <div style={{
+              background: "#f0f9ff",
+              border: "1px solid #bae6fd",
+              borderRadius: 7,
+              padding: "10px 12px",
+              fontSize: 12,
+              color: "#0c4a6e",
+              lineHeight: 1.5,
+              display: "flex",
+              gap: 7,
+              alignItems: "flex-start",
+            }}>
+              <span style={{ flexShrink: 0, marginTop: 1 }}>ℹ️</span>
+              <span>Sin correo, necesitas añadir <strong>Instagram y teléfono</strong> para que Hubents pueda contactar con el proveedor.</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="drawer-form-field flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-[var(--ink-2)]">Ciudad</label>
+              <input
+                value={form.city}
+                onChange={(e) => update("city", e.target.value)}
+                placeholder="Ej. Madrid"
+              />
+            </div>
+            <div className="drawer-form-field flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-[var(--ink-2)]">
+                Instagram
+                {contactRequired && <span style={{ color: "#f59e0b", marginLeft: 2 }}>*</span>}
+              </label>
+              <input
                 value={form.instagram}
-                onChange={(e) => setForm({ ...form, instagram: e.target.value })}
-                placeholder="@empresa"
+                onChange={(e) => update("instagram", e.target.value)}
+                placeholder="@usuario"
+                style={contactRequired && !hasInstagram ? { borderColor: "#fbbf24" } : {}}
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="cp-city">Ciudad</Label>
-            <Input
-              id="cp-city"
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
-              placeholder="Madrid"
-            />
-          </div>
+          {formError && (
+            <div style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 7,
+              padding: "9px 12px",
+              fontSize: 12,
+              color: "#991b1b",
+            }}>
+              {formError}
+            </div>
+          )}
+        </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="flex-1 gap-1.5" disabled={loading}>
-              {loading ? "Creando..." : "Crear Proveedor"}
-            </Button>
-          </div>
-        </form>
+        <div
+          className="px-6 py-3.5 flex justify-end gap-2"
+          style={{ borderTop: "1px solid var(--line-1)" }}
+        >
+          <button
+            onClick={() => onOpenChange(false)}
+            className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+            style={{
+              background: "#FFFFFF",
+              color: "var(--ink-1)",
+              border: "1px solid var(--line-strong)",
+              padding: "10px 14px",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="inline-flex items-center rounded-[8px] cursor-pointer transition-colors border-none"
+            style={{
+              background: "var(--color-primary)",
+              color: "#FFFFFF",
+              padding: "10px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            {loading ? "Creando..." : "Crear proveedor"}
+          </button>
+        </div>
       </SheetContent>
     </Sheet>
   );
 }
+

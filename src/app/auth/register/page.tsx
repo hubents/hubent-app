@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, CalendarRange, Eye, EyeOff, Loader2, Store } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, ArrowRight, CalendarRange, Eye, EyeOff, Loader2, Store, Sparkles } from "lucide-react";
 import { AuthShell, GoogleIcon } from "../_components/auth-shell";
+import { Suspense } from "react";
 
 type OrgType = "tenant" | "provider";
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const claimToken = searchParams.get("claim") || "";
+  const orgTypeParam = searchParams.get("orgType") as OrgType | null;
+
   const [step, setStep] = useState<1 | 2>(1);
-  const [orgType, setOrgType] = useState<OrgType>("tenant");
+  const [orgType, setOrgType] = useState<OrgType>(orgTypeParam === "provider" ? "provider" : "tenant");
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [claimInfo, setClaimInfo] = useState<{ providerName: string; plannerOrgName?: string | null } | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -24,6 +30,21 @@ export default function RegisterPage() {
     confirmPassword: "",
     companyName: "",
   });
+
+  // Load claim info if token present
+  useEffect(() => {
+    if (!claimToken) return;
+    fetch(`/api/claim/${claimToken}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data.status === "pending") {
+          setClaimInfo({ providerName: d.data.providerName, plannerOrgName: d.data.plannerOrgName });
+          setOrgType("provider");
+          setForm((f) => ({ ...f, companyName: d.data.providerName }));
+        }
+      })
+      .catch(() => {});
+  }, [claimToken]);
 
   const validEmail = /^\S+@\S+\.\S+$/.test(form.email);
   const validPwd = form.password.length >= 8;
@@ -46,32 +67,65 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
+    // 1) Crear cuenta. Si esto falla, paramos y mostramos el error.
+    let registered = false;
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, orgType }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al registrar");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          (typeof data.error === "string" && data.error) ||
+          (typeof data?.error?.message === "string" && data.error.message) ||
+          "No se pudo crear la cuenta";
+        setError(msg);
+        return;
+      }
+      registered = true;
+    } catch (err) {
+      console.error("register: API error", err);
+      setError("No se pudo crear la cuenta. Intenta de nuevo.");
+      return;
+    } finally {
+      if (!registered) setLoading(false);
+    }
 
+    // 2) La cuenta está creada — pase lo que pase ahora, NO debemos
+    //    quedarnos en /auth/register. Auto-login best-effort, y luego
+    //    redirigir SIEMPRE (a /onboarding si logueó, a /auth/login si no).
+    let signedIn = false;
+    try {
       const { signIn } = await import("next-auth/react");
       const loginResult = await signIn("credentials", {
         email: form.email.toLowerCase(),
         password: form.password,
         redirect: false,
       });
-
-      if (loginResult?.ok) {
-        router.push("/onboarding?welcome=true");
-      } else {
-        router.push("/auth/login");
-      }
+      signedIn = !!loginResult?.ok;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al registrar");
-    } finally {
-      setLoading(false);
+      console.error("register: auto-login error", err);
     }
+
+    // 3) If there's a claim token, complete the claim before redirecting
+    if (signedIn && claimToken) {
+      try {
+        await fetch(`/api/claim/${claimToken}`, { method: "POST" });
+      } catch {
+        // non-critical, ignore
+      }
+    }
+
+    // 4) Redirigir siempre. router.refresh() para que NextAuth
+    //    reconozca el cookie nuevo en el primer render del destino.
+    if (signedIn) {
+      router.push(claimToken ? "/onboarding?welcome=true&claimed=1" : "/onboarding?welcome=true");
+    } else {
+      router.push("/auth/login");
+    }
+    router.refresh();
   };
 
   const handleGoogleSignUp = async () => {
@@ -83,8 +137,23 @@ export default function RegisterPage() {
     return (
       <AuthShell>
         <form onSubmit={handleSubmit}>
-          <h2 className="auth-h2">Cuéntanos sobre tu empresa</h2>
-          <p className="auth-subtitle">Casi listo. Solo necesitamos un dato más.</p>
+          {claimInfo ? (
+            <>
+              <h2 className="auth-h2">Reclama tu perfil</h2>
+              <div className="auth-info" style={{ background: "#f0fdf4", borderColor: "#bbf7d0", marginBottom: 16 }}>
+                <Sparkles size={13} style={{ color: "#16a34a", flexShrink: 0, marginRight: 6 }} />
+                <span style={{ color: "#15803d" }}>
+                  Estás reclamando el perfil de <strong>{claimInfo.providerName}</strong>
+                  {claimInfo.plannerOrgName ? ` añadido por ${claimInfo.plannerOrgName}` : ""}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="auth-h2">Cuéntanos sobre tu empresa</h2>
+              <p className="auth-subtitle">Casi listo. Solo necesitamos un dato más.</p>
+            </>
+          )}
 
           <div className="auth-field">
             <div className="auth-field__label-row">
@@ -315,5 +384,13 @@ export default function RegisterPage() {
         </div>
       </form>
     </AuthShell>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterContent />
+    </Suspense>
   );
 }

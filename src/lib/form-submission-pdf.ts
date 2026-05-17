@@ -119,7 +119,7 @@ export function generateSubmissionHTML(data: SubmissionPDFData): string {
     </table>
 
     <div class="footer">
-      <p>Documento generado por HubEnts &bull; ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+      <p>Documento generado por Hubents &bull; ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
     </div>
   </div>
 </body>

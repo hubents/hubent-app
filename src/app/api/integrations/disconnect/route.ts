@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
 import { organizationIntegrations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { MVP_TOOLKITS, type ComposioToolkit } from "@/lib/composio";
+import { apiHandler, ok, badRequest, forbidden } from "@/lib/api-handler";
 
 export async function POST(req: Request) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const orgId = session.organizationId;
 
@@ -16,19 +16,13 @@ export async function POST(req: Request) {
       session.permissions?.includes("integrations:manage");
 
     if (!canManage) {
-      return NextResponse.json(
-        { success: false, error: "No tenés permisos para desconectar integraciones" },
-        { status: 403 }
-      );
+      return forbidden("No tenés permisos para desconectar integraciones");
     }
 
     const { toolkit } = await req.json();
 
     if (!toolkit || !MVP_TOOLKITS.includes(toolkit as ComposioToolkit)) {
-      return NextResponse.json(
-        { success: false, error: "Toolkit inválido" },
-        { status: 400 }
-      );
+      return badRequest("Toolkit inválido");
     }
 
     await db
@@ -46,12 +40,6 @@ export async function POST(req: Request) {
         )
       );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[Integrations] Disconnect error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error al desconectar" },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "POST /api/integrations/disconnect");
 }

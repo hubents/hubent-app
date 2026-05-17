@@ -5,9 +5,29 @@ import { eq } from "drizzle-orm";
 import { hashPassword, validatePassword } from "@/lib/password";
 import { sendWelcomeEmail, sendProviderWelcomeEmail } from "@/lib/email";
 import { withMonitoring } from "@/lib/monitoring";
+import { trackPlatformLead } from "@/lib/platform-leads";
+import { seedProviderDemoData } from "@/lib/demo-seed-provider";
 
 const VALID_ORG_TYPES = ["tenant", "provider"] as const;
 type OrgType = (typeof VALID_ORG_TYPES)[number];
+
+const FREE_EMAIL_DOMAINS = new Set([
+  "gmail.com","googlemail.com","yahoo.com","yahoo.es","yahoo.co.uk","yahoo.fr","yahoo.de",
+  "hotmail.com","hotmail.es","hotmail.co.uk","hotmail.fr","hotmail.de","hotmail.it",
+  "outlook.com","outlook.es","outlook.fr","outlook.de","outlook.it",
+  "live.com","live.es","live.fr","live.co.uk",
+  "icloud.com","me.com","mac.com",
+  "protonmail.com","proton.me",
+  "aol.com","msn.com","mail.com",
+  "gmx.com","gmx.net","gmx.de","web.de",
+  "yandex.com","yandex.ru","yandex.es",
+  "zohomail.com","163.com","126.com","qq.com",
+]);
+
+function isBusinessEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  return domain.length > 0 && !FREE_EMAIL_DOMAINS.has(domain);
+}
 
 export const POST = withMonitoring(async (request: NextRequest) => {
   const body = await request.json();
@@ -94,7 +114,8 @@ export const POST = withMonitoring(async (request: NextRequest) => {
 
   if (isProvider) {
     orgValues.orgType = "provider";
-    orgValues.verificationStatus = "unverified";
+    // Auto-verificar si el email es de dominio de empresa (no proveedor gratuito)
+    orgValues.verificationStatus = isBusinessEmail(email) ? "verified" : "unverified";
   }
 
   let newOrg;
@@ -148,6 +169,13 @@ export const POST = withMonitoring(async (request: NextRequest) => {
     joinedAt: new Date(),
   });
 
+  // Seed demo data for new provider accounts (fire-and-forget)
+  if (isProvider) {
+    seedProviderDemoData(newOrg.id, newUser.id).catch((err) =>
+      console.error("seedProviderDemoData failed:", err)
+    );
+  }
+
   if (isProvider) {
     sendProviderWelcomeEmail(
       newUser.email,
@@ -163,6 +191,15 @@ export const POST = withMonitoring(async (request: NextRequest) => {
       trialDays
     ).catch((err) => console.error("Failed to send welcome email:", err));
   }
+
+  trackPlatformLead({
+    kind: "new_user",
+    name: newUser.name || name,
+    email: newUser.email,
+    companyName: newOrg.name,
+    orgType,
+    createdByName: newUser.name || name,
+  }).catch((err) => console.error("trackPlatformLead failed:", err));
 
   return NextResponse.json({
     success: true,

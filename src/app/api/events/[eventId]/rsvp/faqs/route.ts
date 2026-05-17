@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { rsvpFaqs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // POST /api/events/[eventId]/rsvp/faqs - Add FAQ
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { question, answer, orderIndex } = body;
 
     if (!question || !answer) {
-      return NextResponse.json({ success: false, error: "Question and answer are required" }, { status: 400 });
+      return badRequest("Question and answer are required");
     }
 
     const newItem = await db
@@ -30,16 +31,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: newItem[0] });
-  } catch (error) {
-    console.error("Error creating FAQ:", error);
-    return NextResponse.json({ success: false, error: "Failed to create FAQ" }, { status: 500 });
-  }
+    return ok(newItem[0]);
+  }, "POST /api/events/[eventId]/rsvp/faqs");
 }
 
 // PUT /api/events/[eventId]/rsvp/faqs - Update FAQ
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -48,7 +46,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id, question, answer, orderIndex } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
@@ -60,16 +58,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       })
       .where(and(eq(rsvpFaqs.id, id), eq(rsvpFaqs.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating FAQ:", error);
-    return NextResponse.json({ success: false, error: "Failed to update FAQ" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "PUT /api/events/[eventId]/rsvp/faqs");
 }
 
 // DELETE /api/events/[eventId]/rsvp/faqs - Delete FAQ
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -77,16 +72,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
       .delete(rsvpFaqs)
       .where(and(eq(rsvpFaqs.id, parseInt(id)), eq(rsvpFaqs.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting FAQ:", error);
-    return NextResponse.json({ success: false, error: "Failed to delete FAQ" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "DELETE /api/events/[eventId]/rsvp/faqs");
 }

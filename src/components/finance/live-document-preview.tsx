@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { fmtMoney } from "@/lib/format";
 
 interface DocumentItem {
   description: string;
@@ -79,10 +80,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function formatCurrency(amount: number, currency = "EUR"): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: currency || "EUR",
-  }).format(amount);
+  return fmtMoney(amount, currency || "EUR");
 }
 
 function formatDate(date: string | undefined): string {

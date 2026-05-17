@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { leadStages } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // Default stages for a wedding planning CRM
 const DEFAULT_STAGES = [
@@ -16,8 +17,8 @@ const DEFAULT_STAGES = [
 ];
 
 // GET /api/crm/stages - List stages
-export async function GET(request: NextRequest) {
-  try {
+export async function GET(_request: NextRequest) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
 
     const stages = await db.query.leadStages.findMany({
@@ -25,41 +26,26 @@ export async function GET(request: NextRequest) {
       orderBy: (s, { asc }) => [asc(s.sortOrder)],
     });
 
-    return NextResponse.json({
-      success: true,
-      data: stages,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch stages";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(stages);
+  }, "GET /api/crm/stages");
 }
 
 // POST /api/crm/stages - Create stage or initialize defaults
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     // If body has "initializeDefaults" flag, create default stages
     if (body.initializeDefaults) {
-      // Check if stages already exist
       const existingStages = await db.query.leadStages.findMany({
         where: eq(leadStages.organizationId, session.organizationId),
       });
 
       if (existingStages.length > 0) {
-        return NextResponse.json({
-          success: true,
-          data: existingStages,
-          message: "Stages already exist",
-        });
+        return ok(existingStages);
       }
 
-      // Create default stages
       const createdStages = [];
       for (const stage of DEFAULT_STAGES) {
         const [created] = await db.insert(leadStages).values({
@@ -69,21 +55,14 @@ export async function POST(request: NextRequest) {
         createdStages.push(created);
       }
 
-      return NextResponse.json({
-        success: true,
-        data: createdStages,
-        message: "Default stages created",
-      });
+      return ok(createdStages);
     }
 
     // Create single stage
     const { name, color, sortOrder, isDefault, isWon, isLost } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Name is required");
     }
 
     const [stage] = await db.insert(leadStages).values({
@@ -96,15 +75,6 @@ export async function POST(request: NextRequest) {
       isLost: isLost || false,
     }).returning();
 
-    return NextResponse.json({
-      success: true,
-      data: stage,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create stage";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(stage);
+  }, "POST /api/crm/stages");
 }

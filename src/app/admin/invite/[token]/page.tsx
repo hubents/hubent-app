@@ -184,7 +184,7 @@ function AdminInviteContent() {
             </div>
             <CardTitle className="text-2xl text-white">¡Bienvenido al equipo!</CardTitle>
             <CardDescription className="text-slate-400">
-              Ahora eres <strong className="text-white">{getLevelLabel(invitation?.level || "")}</strong> de HubEnts.
+              Ahora eres <strong className="text-white">{getLevelLabel(invitation?.level || "")}</strong> de Hubents.
               <br />
               Redirigiendo al panel de administración...
             </CardDescription>
@@ -210,7 +210,7 @@ function AdminInviteContent() {
             </div>
             <Image
               src="/images/logo.png"
-              alt="HubEnts"
+              alt="Hubents"
               width={40}
               height={40}
               className="rounded-lg"
@@ -220,7 +220,7 @@ function AdminInviteContent() {
           <div>
             <CardTitle className="text-2xl text-white">Invitación de Administrador</CardTitle>
             <CardDescription className="text-slate-400 mt-2">
-              Has sido invitado como administrador de la plataforma HubEnts
+              Has sido invitado como administrador de la plataforma Hubents
             </CardDescription>
           </div>
 

@@ -63,6 +63,7 @@ export async function getEvents(
       id: events.id,
       name: events.name,
       type: events.type,
+      customType: events.customType,
       status: events.status,
       date: events.date,
       endDate: events.endDate,
@@ -282,6 +283,7 @@ export async function createEvent(
       | "corporate"
       | "social"
       | "other";
+    customType?: string;
     date?: Date;
     endDate?: Date;
     location?: string;
@@ -298,6 +300,10 @@ export async function createEvent(
       organizationId: session.organizationId,
       name: data.name,
       type: data.type || "wedding",
+      customType:
+        data.type === "other" && data.customType?.trim()
+          ? data.customType.trim()
+          : null,
       status: "draft",
       date: data.date,
       endDate: data.endDate,

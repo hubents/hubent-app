@@ -13,7 +13,7 @@ const RiArrowLeftLine = hgIcon(ArrowLeft01Icon);
 const RiMenuLine = hgIcon(Menu01Icon);
 const RiNotification3Line = hgIcon(Notification01Icon);
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Av } from "@/components/ui/ds";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,18 +44,8 @@ export function MobileHeader() {
     router.push("/dashboard/events");
   };
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   const userName = session?.user?.name || "Usuario";
   const userImage = session?.user?.image;
-  const userInitials = getInitials(session?.user?.name);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4 md:hidden">
@@ -92,12 +82,7 @@ export function MobileHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center rounded-full">
-              <Avatar className="h-8 w-8">
-                {userImage && <AvatarImage src={userImage} alt={userName} />}
-                <AvatarFallback className="bg-[var(--primary)] text-white text-xs">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+              <Av src={userImage} name={userName} size={32} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

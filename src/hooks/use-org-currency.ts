@@ -3,14 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 
 /**
- * Hook that fetches the org's default currency from finance settings.
- * Returns the currency code, a formatter function, and enabled currencies.
+ * Hook that fetches the org's default currency and region-aware Intl locale
+ * from finance settings (which enriches the response with the org's timezone).
  *
- * Falls back to "EUR" if settings cannot be loaded (e.g. no permission).
- * Caches the fetch per mount — safe to call from multiple components.
+ * The Intl locale (e.g. "es-ES", "en-GB", "pt-BR") is derived from the org's
+ * configured timezone/region — NOT from the UI language — so that number
+ * formatting matches regional conventions regardless of display language.
+ *
+ * Falls back to "EUR" / "es-ES" if settings cannot be loaded.
  */
 export function useOrgCurrency() {
   const [currency, setCurrency] = useState("EUR");
+  const [intlLocale, setIntlLocale] = useState("es-ES");
   const [enabledCurrencies, setEnabledCurrencies] = useState<string[]>([
     "EUR",
     "USD",
@@ -33,6 +37,10 @@ export function useOrgCurrency() {
         ) {
           setEnabledCurrencies(data.data.enabledCurrencies);
         }
+        // orgIntlLocale is derived server-side from the org's timezone
+        if (data?.data?.orgIntlLocale) {
+          setIntlLocale(data.data.orgIntlLocale);
+        }
         setLoaded(true);
       })
       .catch(() => {
@@ -48,12 +56,12 @@ export function useOrgCurrency() {
       const cur = overrideCurrency || currency;
       const num =
         typeof amount === "string" ? parseFloat(amount || "0") : amount;
-      return new Intl.NumberFormat("es-ES", {
+      return new Intl.NumberFormat(intlLocale, {
         style: "currency",
         currency: cur,
       }).format(num);
     },
-    [currency],
+    [currency, intlLocale],
   );
 
   return { currency, enabledCurrencies, formatCurrency, loaded };

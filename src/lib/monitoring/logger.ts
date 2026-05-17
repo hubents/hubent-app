@@ -1,4 +1,4 @@
-// Structured logger for HubEnts monitoring system
+// Structured logger for Hubents monitoring system
 // Captures errors with rich context (userId, orgId, path, duration, stack)
 
 export type LogLevel = "info" | "warn" | "error" | "critical";

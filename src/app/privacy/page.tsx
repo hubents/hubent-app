@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 export const metadata = {
-  title: "Política de Privacidad - HubEnts",
+  title: "Política de Privacidad - Hubents",
 };
 
 export default function PrivacyPage() {
@@ -13,7 +13,7 @@ export default function PrivacyPage() {
           <Link href="/" className="inline-block">
             <Image
               src="/images/isotipo-dark.png"
-              alt="HubEnts"
+              alt="Hubents"
               width={40}
               height={40}
             />
@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold mb-3">1. Responsable del Tratamiento</h2>
             <p className="text-muted-foreground leading-relaxed">
               NapsixAI (&quot;nosotros&quot;) es el responsable del tratamiento de los datos personales
-              recopilados a través de la plataforma HubEnts (&quot;el Servicio&quot;). Para cualquier consulta
+              recopilados a través de la plataforma Hubents (&quot;el Servicio&quot;). Para cualquier consulta
               sobre privacidad, puedes contactarnos en:{" "}
               <a href="mailto:privacy@hubents.com" className="text-primary hover:underline">
                 privacy@hubents.com

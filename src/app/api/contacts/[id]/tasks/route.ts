@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { linkContactToTask, unlinkContactFromTask } from "@/lib/contacts";
 import { db } from "@/db";
 import { contactTasks, tasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // GET - List tasks linked to a contact
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("crm:read");
 
     const { id } = await params;
@@ -29,11 +30,8 @@ export async function GET(
       .innerJoin(tasks, eq(contactTasks.taskId, tasks.id))
       .where(eq(contactTasks.contactId, contactId));
 
-    return NextResponse.json({ success: true, data: linkedTasks });
-  } catch (error) {
-    console.error("Error fetching contact tasks:", error);
-    return NextResponse.json({ success: false, error: "Failed to fetch tasks" }, { status: 500 });
-  }
+    return ok(linkedTasks);
+  }, "GET /api/contacts/[id]/tasks");
 }
 
 // POST - Link contact to task
@@ -41,7 +39,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("crm:manage");
 
     const { id } = await params;
@@ -50,16 +48,13 @@ export async function POST(
     const { taskId, role } = body;
 
     if (!taskId) {
-      return NextResponse.json({ success: false, error: "taskId is required" }, { status: 400 });
+      return badRequest("taskId is required");
     }
 
     const link = await linkContactToTask(contactId, taskId, role);
 
-    return NextResponse.json({ success: true, data: link });
-  } catch (error) {
-    console.error("Error linking contact to task:", error);
-    return NextResponse.json({ success: false, error: "Failed to link contact" }, { status: 500 });
-  }
+    return ok(link);
+  }, "POST /api/contacts/[id]/tasks");
 }
 
 // DELETE - Unlink contact from task
@@ -67,7 +62,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("crm:manage");
 
     const { id } = await params;
@@ -76,14 +71,11 @@ export async function DELETE(
     const taskId = searchParams.get("taskId");
 
     if (!taskId) {
-      return NextResponse.json({ success: false, error: "taskId is required" }, { status: 400 });
+      return badRequest("taskId is required");
     }
 
     await unlinkContactFromTask(contactId, parseInt(taskId, 10));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error unlinking contact from task:", error);
-    return NextResponse.json({ success: false, error: "Failed to unlink contact" }, { status: 500 });
-  }
+    return ok(null);
+  }, "DELETE /api/contacts/[id]/tasks");
 }

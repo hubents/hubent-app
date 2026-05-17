@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Av } from "@/components/ui/ds";
 import {
   RiUserLine,
   RiBuilding2Line,
@@ -34,6 +34,7 @@ import {
   RiSaveLine,
   RiCloseLine,
 } from "@remixicon/react";
+import { fmtEur } from "@/lib/format";
 
 interface Lead {
   id: number;
@@ -194,16 +195,7 @@ export function LeadDetailDrawer({
 
   const formatCurrency = (value: string | null, currency: string | null) => {
     if (!value) return "—";
-    const num = parseFloat(value);
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 0,
-    }).format(num);
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+    return fmtEur(value, currency || "EUR");
   };
 
   const getSourceLabel = (source: string | null) => {
@@ -409,10 +401,7 @@ export function LeadDetailDrawer({
               {/* Assigned User */}
               {displayLead.assignedUserName && (
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={displayLead.assignedUserImage || undefined} />
-                    <AvatarFallback>{displayLead.assignedUserName.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <Av src={displayLead.assignedUserImage} name={displayLead.assignedUserName} size={40} />
                   <div>
                     <p className="text-sm text-muted-foreground">Asignado a</p>
                     <p className="font-medium">{displayLead.assignedUserName}</p>
@@ -436,14 +425,7 @@ export function LeadDetailDrawer({
               {fullLead?.contact ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
-                    <Avatar className="h-14 w-14">
-                      <AvatarImage src={fullLead.contact.avatar || undefined} />
-                      <AvatarFallback className={fullLead.contact.type === "company" ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600"}>
-                        {fullLead.contact.type === "company" 
-                          ? <RiBuilding2Line className="h-6 w-6" />
-                          : getInitials(fullLead.contact.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <Av src={fullLead.contact.avatar} name={fullLead.contact.name} size={56} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-lg">{fullLead.contact.name}</h4>

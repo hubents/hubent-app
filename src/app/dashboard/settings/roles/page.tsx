@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Btn, Inp, Pill, PCard } from "@/components/ui/ds";
+import { PageHeader } from "@/components/layout/page-header";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSession } from "@/hooks/use-user-session";
@@ -312,7 +310,7 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-medium">{role.name}</p>
-          {isSystem && <Badge variant="secondary" className="text-xs">Sistema</Badge>}
+          {isSystem && <Pill bg="var(--bg-subtle)" color="var(--ink-2)" style={{ fontSize: 11 }}>Sistema</Pill>}
         </div>
         <p className="text-sm text-[var(--muted-foreground)] truncate">
           {role.description || "Sin descripción"}
@@ -324,17 +322,14 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
       </div>
       {!isSystem && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-2)" }}
             onClick={(e) => { e.stopPropagation(); handleEditRole(role); }}
           >
             <RiEditLine className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-red-500 hover:text-red-600"
+          </button>
+          <button
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", color: "#EF4444" }}
             onClick={(e) => {
               e.stopPropagation();
               setRoleToDelete(role);
@@ -342,7 +337,7 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
             }}
           >
             <RiDeleteBinLine className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       )}
     </div>
@@ -370,9 +365,9 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
               <span className="font-medium text-sm">
                 {RESOURCE_LABELS[resource] || resource}
               </span>
-              <Badge variant="outline" className="ml-auto text-xs">
+              <Pill bg="transparent" style={{ border: "1px solid var(--line-strong)", marginLeft: "auto", fontSize: 11 }}>
                 {perms.filter((p) => currentPermIds.has(p.id)).length}/{perms.length}
-              </Badge>
+              </Pill>
             </div>
             <div className="divide-y divide-[var(--border)]">
               {perms.map((perm) => (
@@ -420,89 +415,76 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
           <Skeleton className="h-8 w-8" />
           <Skeleton className="h-8 w-48" />
         </div>
-        <Card>
-          <CardContent className="p-6 space-y-4">
+        <PCard>
+          <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full" />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PCard>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(backPath)}>
-            <RiArrowLeftLine className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Roles y Permisos</h1>
-            <p className="text-[var(--muted-foreground)]">
-              Gestiona los roles de tu equipo y sus permisos
-            </p>
-          </div>
-        </div>
-        {canManageTeam && (
-          <Button className="gap-2" onClick={handleCreateRole}>
+      <PageHeader
+        back={{ onClick: () => router.push(backPath) }}
+        action={canManageTeam && (
+          <Btn variant="primary" onClick={handleCreateRole}>
             <RiAddLine className="h-4 w-4" />
             Nuevo Rol
-          </Button>
+          </Btn>
         )}
-      </div>
+      />
 
       {/* System Roles */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <PCard>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)", display: "flex", alignItems: "center", gap: 6 }}>
             <RiLockLine className="h-5 w-5" />
             Roles del Sistema
-          </CardTitle>
-          <CardDescription>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>
             Roles predefinidos con permisos estándar. No se pueden editar ni eliminar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+          </div>
+        </div>
+        <div className="space-y-2">
           {systemRoles.map((role) => renderRoleCard(role, true))}
-        </CardContent>
-      </Card>
+        </div>
+      </PCard>
 
       {/* Custom Roles */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <PCard>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)", display: "flex", alignItems: "center", gap: 6 }}>
             <RiShieldLine className="h-5 w-5" />
             Roles Personalizados
-          </CardTitle>
-          <CardDescription>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>
             Crea roles a medida con los permisos que necesites.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {customRoles.length > 0 ? (
-            <div className="space-y-2">
-              {customRoles.map((role) => renderRoleCard(role, false))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <RiShieldLine className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-2" />
-              <p className="text-[var(--muted-foreground)]">No hay roles personalizados</p>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">
-                Crea un rol personalizado para asignar permisos específicos
-              </p>
-              {canManageTeam && (
-                <Button variant="outline" onClick={handleCreateRole}>
-                  <RiAddLine className="h-4 w-4 mr-2" />
-                  Crear Rol
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+        {customRoles.length > 0 ? (
+          <div className="space-y-2">
+            {customRoles.map((role) => renderRoleCard(role, false))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <RiShieldLine className="h-12 w-12 mx-auto text-[var(--muted-foreground)] mb-2" />
+            <p className="text-[var(--muted-foreground)]">No hay roles personalizados</p>
+            <p className="text-sm text-[var(--muted-foreground)] mb-4">
+              Crea un rol personalizado para asignar permisos específicos
+            </p>
+            {canManageTeam && (
+              <Btn variant="outline" onClick={handleCreateRole} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <RiAddLine className="h-4 w-4" />
+                Crear Rol
+              </Btn>
+            )}
+          </div>
+        )}
+      </PCard>
 
       {/* Role Detail / Edit Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -538,14 +520,14 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Nombre *</label>
-                      <Input
+                      <Inp
                         value={formName}
                         onChange={(e) => setFormName(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Descripción</label>
-                      <Input
+                      <Inp
                         value={formDescription}
                         onChange={(e) => setFormDescription(e.target.value)}
                       />
@@ -613,18 +595,18 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
 
           {(drawerMode === "create" || drawerMode === "edit") && (
             <SheetFooter className="px-4">
-              <Button variant="outline" onClick={() => setDrawerOpen(false)} disabled={saving}>
+              <Btn variant="outline" onClick={() => setDrawerOpen(false)} disabled={saving}>
                 Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={saving || !formName.trim()}>
+              </Btn>
+              <Btn variant="primary" onClick={handleSave} disabled={saving || !formName.trim()}>
                 {saving ? "Guardando..." : drawerMode === "create" ? "Crear Rol" : "Guardar Cambios"}
-              </Button>
+              </Btn>
             </SheetFooter>
           )}
 
           {drawerMode === "view" && selectedRole && !selectedRole.isSystem && (
             <SheetFooter className="px-4">
-              <Button
+              <Btn
                 variant="outline"
                 onClick={() => {
                   setDrawerMode("edit");
@@ -632,10 +614,11 @@ export function RolesPageContent({ backPath = "/dashboard/settings" }: { backPat
                   setFormDescription(selectedRole.description || "");
                   setFormEventScoped((selectedRole as unknown as Role).eventScoped ?? false);
                 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
               >
-                <RiEditLine className="h-4 w-4 mr-2" />
+                <RiEditLine className="h-4 w-4" />
                 Editar
-              </Button>
+              </Btn>
             </SheetFooter>
           )}
         </SheetContent>

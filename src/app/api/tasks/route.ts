@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireAuth, requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import {
@@ -9,14 +9,60 @@ import {
   taskParticipants,
   eventCollaborations,
   vendors,
+  contacts,
 } from "@/db/schema";
 import { eq, and, desc, asc, sql, isNull, isNotNull, inArray } from "drizzle-orm";
 import { withMonitoring } from "@/lib/monitoring";
+import { apiHandler, ok, badRequest, notFound, forbidden, paginated } from "@/lib/api-handler";
+import { avColor, getInitials } from "@/lib/ui-utils";
+
+
+interface TaskParticipantAvatar {
+  initials: string;
+  color: string;
+  name: string;
+}
+
+// Fetch all participants for a set of taskIds and return them grouped by task,
+// shaped for avatar-stack rendering on the kanban cards.
+async function loadParticipantAvatars(taskIds: number[]): Promise<Record<number, TaskParticipantAvatar[]>> {
+  if (taskIds.length === 0) return {};
+  const rows = await db
+    .select({
+      taskId: taskParticipants.taskId,
+      userName: users.name,
+      userId: taskParticipants.userId,
+      vendorName: vendors.name,
+      vendorId: taskParticipants.vendorId,
+      contactName: contacts.name,
+      contactId: taskParticipants.contactId,
+    })
+    .from(taskParticipants)
+    .leftJoin(users, eq(users.id, taskParticipants.userId))
+    .leftJoin(vendors, eq(vendors.id, taskParticipants.vendorId))
+    .leftJoin(contacts, eq(contacts.id, taskParticipants.contactId))
+    .where(inArray(taskParticipants.taskId, taskIds));
+
+  const map: Record<number, TaskParticipantAvatar[]> = {};
+  for (const row of rows) {
+    const name = row.userName || row.vendorName || row.contactName || "?";
+    const key = row.userId || `v:${row.vendorId}` || `c:${row.contactId}` || `n:${name}`;
+    const avatar: TaskParticipantAvatar = {
+      initials: getInitials(name),
+      color: avColor(String(key)),
+      name,
+    };
+    if (!map[row.taskId]) map[row.taskId] = [];
+    map[row.taskId].push(avatar);
+  }
+  return map;
+}
 
 // GET /api/tasks - List tasks
 // Supports ?scope=collaborated (tasks from events invited via event_collaborations)
 export const GET = withMonitoring(
   async (request: NextRequest) => {
+    return apiHandler(async () => {
     const { searchParams } = new URL(request.url);
 
     const scope = searchParams.get("scope") as
@@ -150,6 +196,8 @@ export const GET = withMonitoring(
           sortOrder: tasks.sortOrder,
           createdAt: tasks.createdAt,
           eventName: events.name,
+          eventType: events.type,
+          customEventType: events.customType,
           assignedUserName: users.name,
         })
         .from(tasks)
@@ -165,11 +213,16 @@ export const GET = withMonitoring(
         .where(whereClause),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: results,
-      meta: { total: countResult.count, page, limit },
-    });
+    // Attach participant avatars for the kanban card avatar-stack.
+    const participantsByTask = await loadParticipantAvatars(results.map((r) => r.id));
+    const enriched = results.map((r) => ({
+      ...r,
+      participants: participantsByTask[r.id] || [],
+      participantCount: (participantsByTask[r.id] || []).length,
+    }));
+
+    return paginated(enriched, { total: countResult.count, page, limit });
+    }, "GET /api/tasks");
   },
   { name: "GET /api/tasks" },
 );
@@ -203,7 +256,7 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
   const allEventIds = [...fullScopeEventIds, ...participantScopeEventIds];
 
   if (allEventIds.length === 0) {
-    return NextResponse.json({ success: true, data: [] });
+    return ok([]);
   }
 
   const linkedVendors = await db
@@ -252,6 +305,8 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
       dueDate: tasks.dueDate,
       eventId: tasks.eventId,
       eventName: events.name,
+      eventType: events.type,
+      customEventType: events.customType,
       eventDate: events.date,
       createdAt: tasks.createdAt,
       sharedWithHost: tasks.sharedWithHost,
@@ -261,26 +316,28 @@ async function getCollaboratedTasks(session: { organizationId: number; user: { u
     .where(whereClause)
     .orderBy(desc(tasks.dueDate));
 
-  return NextResponse.json({ success: true, data: taskList });
+  const participantsByTask = await loadParticipantAvatars(taskList.map((r) => r.id));
+  const enriched = taskList.map((r) => ({
+    ...r,
+    participants: participantsByTask[r.id] || [],
+    participantCount: (participantsByTask[r.id] || []).length,
+  }));
+
+  return ok(enriched);
 }
 
 // POST /api/tasks - Create task
 // Supports guest org creating private tasks in collaborated events
 export const POST = withMonitoring(
   async (request: NextRequest) => {
+    return apiHandler(async () => {
     const session = await requirePermission("tasks:create");
     const body = await request.json();
 
     const { title, description, priority, dueDate, eventId, assignedTo } = body;
 
     if (!title) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { code: "VALIDATION_ERROR", message: "Title is required" },
-        },
-        { status: 400 },
-      );
+      return badRequest("Title is required");
     }
 
     let isGuestTask = false;
@@ -293,10 +350,7 @@ export const POST = withMonitoring(
       });
 
       if (!event) {
-        return NextResponse.json(
-          { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-          { status: 404 },
-        );
+        return notFound("Event not found");
       }
 
       if (event.organizationId === session.organizationId) {
@@ -319,18 +373,12 @@ export const POST = withMonitoring(
           .limit(1);
 
         if (!collab) {
-          return NextResponse.json(
-            { success: false, error: { code: "FORBIDDEN", message: "No collaboration access to this event" } },
-            { status: 403 },
-          );
+          return forbidden("No collaboration access to this event");
         }
 
         const perms = (collab.permissions || {}) as Record<string, string>;
         if (perms.tasks === "none") {
-          return NextResponse.json(
-            { success: false, error: { code: "FORBIDDEN", message: "No task access in this collaboration" } },
-            { status: 403 },
-          );
+          return forbidden("No task access in this collaboration");
         }
 
         isGuestTask = true;
@@ -416,10 +464,8 @@ export const POST = withMonitoring(
       })();
     }
 
-    return NextResponse.json({
-      success: true,
-      data: task,
-    });
+    return ok(task);
+    }, "POST /api/tasks");
   },
   { name: "POST /api/tasks" },
 );

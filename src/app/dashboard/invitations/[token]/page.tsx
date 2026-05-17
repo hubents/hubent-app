@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Btn, Pill, PCard } from "@/components/ui/ds";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RiCalendarLine, RiMapPinLine, RiTeamLine, RiCheckLine, RiCloseLine } from "@remixicon/react";
 import { toast } from "sonner";
@@ -78,13 +76,13 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 space-y-4">
+        <PCard className="w-full max-w-md">
+          <div className="p-8 space-y-4">
             <Skeleton className="h-8 w-48 mx-auto" />
             <Skeleton className="h-4 w-64 mx-auto" />
             <Skeleton className="h-32 w-full" />
-          </CardContent>
-        </Card>
+          </div>
+        </PCard>
       </div>
     );
   }
@@ -92,14 +90,12 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="p-8">
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button variant="outline" onClick={() => router.push("/dashboard")}>
-              Ir al Dashboard
-            </Button>
-          </CardContent>
-        </Card>
+        <PCard className="w-full max-w-md" style={{ textAlign: "center" }}>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Btn variant="outline" onClick={() => router.push("/dashboard")}>
+            Ir al Dashboard
+          </Btn>
+        </PCard>
       </div>
     );
   }
@@ -115,17 +111,17 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+      <PCard className="w-full max-w-md">
+        <div style={{ textAlign: "center", marginBottom: 16 }}>
           <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-2">
             <RiTeamLine className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-xl">Invitación a colaborar</CardTitle>
-          <CardDescription>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "var(--ink-1)" }}>Invitación a colaborar</div>
+          <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 4 }}>
             <strong>{invitation.hostOrgName}</strong> te invita a colaborar en un evento
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </div>
+        </div>
+        <div className="space-y-4">
           <div className="rounded-lg border p-4 space-y-2">
             <h3 className="font-semibold text-lg">{invitation.eventName}</h3>
             {invitation.eventDate && (
@@ -149,9 +145,9 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
                 {Object.entries(invitation.permissions)
                   .filter(([, v]) => v !== "none")
                   .map(([k, v]) => (
-                    <Badge key={k} variant={v === "edit" ? "default" : "secondary"}>
+                    <Pill key={k} {...(v !== "edit" ? { bg: "var(--bg-subtle)", color: "var(--ink-2)" } : {})}>
                       {permissionLabels[k] || k}
-                    </Badge>
+                    </Pill>
                   ))}
               </div>
             </div>
@@ -159,15 +155,17 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
 
           {!isPending && (
             <div className="text-center py-2">
-              <Badge variant={invitation.status === "active" ? "success" : "secondary"}>
+              <Pill
+                {...(invitation.status !== "active" ? { bg: "var(--bg-subtle)", color: "var(--ink-2)" } : { bg: "#DCFCE7", color: "#166534" })}
+              >
                 {invitation.status === "active" ? "Aceptada" : invitation.status === "rejected" ? "Rechazada" : invitation.status}
-              </Badge>
+              </Pill>
             </div>
           )}
 
           {isPending && (
             <div className="flex gap-3 pt-2">
-              <Button
+              <Btn
                 variant="outline"
                 className="flex-1"
                 onClick={() => handleAction("reject")}
@@ -175,19 +173,19 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
               >
                 <RiCloseLine className="h-4 w-4 mr-1" />
                 Rechazar
-              </Button>
-              <Button
+              </Btn>
+              <Btn
                 className="flex-1"
                 onClick={() => handleAction("accept")}
                 disabled={acting}
               >
                 <RiCheckLine className="h-4 w-4 mr-1" />
                 Aceptar
-              </Button>
+              </Btn>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </PCard>
     </div>
   );
 }

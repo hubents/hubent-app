@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { db } from "@/db";
 import { leadStages, leads } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ stageId: string }> };
 
 // GET /api/crm/stages/[stageId] - Get single stage with lead count
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { stageId } = await params;
 
@@ -20,10 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!stage) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Stage not found" } },
-        { status: 404 }
-      );
+      return notFound("Stage not found");
     }
 
     // Get lead count for this stage
@@ -38,25 +36,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...stage,
-        leadCount: leadsInStage.length,
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch stage";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok({ ...stage, leadCount: leadsInStage.length });
+  }, "GET /api/crm/stages/[stageId]");
 }
 
 // PUT /api/crm/stages/[stageId] - Update stage
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { stageId } = await params;
     const body = await request.json();
@@ -72,10 +58,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existingStage) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Stage not found" } },
-        { status: 404 }
-      );
+      return notFound("Stage not found");
     }
 
     // If setting as default, unset other defaults
@@ -103,22 +86,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update stage";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PUT /api/crm/stages/[stageId]");
 }
 
 // DELETE /api/crm/stages/[stageId] - Delete stage
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { stageId } = await params;
     const stageIdNum = parseInt(stageId, 10);
@@ -132,10 +106,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existingStage) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Stage not found" } },
-        { status: 404 }
-      );
+      return notFound("Stage not found");
     }
 
     // Check if there are leads in this stage
@@ -151,15 +122,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
 
     if (leadsInStage.length > 0) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: { 
-            code: "HAS_LEADS", 
-            message: `No se puede eliminar la etapa porque tiene ${leadsInStage.length} lead(s). Mueve los leads a otra etapa primero.` 
-          } 
-        },
-        { status: 400 }
+      return badRequest(
+        `No se puede eliminar la etapa porque tiene ${leadsInStage.length} lead(s). Mueve los leads a otra etapa primero.`,
+        "HAS_LEADS"
       );
     }
 
@@ -172,15 +137,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Stage deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete stage";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Stage deleted" });
+  }, "DELETE /api/crm/stages/[stageId]");
 }

@@ -300,11 +300,21 @@ export const vendorClaimStatusEnum = pgEnum("vendor_claim_status", [
 
 export const orgTypeEnum = pgEnum("org_type", ["tenant", "provider", "client"]);
 
+// Categoría de proveedor — determina el módulo que se activa en el onboarding
+export const providerCategoryEnum = pgEnum("provider_category_type", [
+  "booking",     // fincas/espacios → módulo Venues
+  "logistica",   // almacenes/inventario → módulo Logística
+  "audiovisual", // producción AV → base + landing de material
+  "otro",        // otros servicios → solo módulos base
+]);
+
 
 
 export const verificationStatusEnum = pgEnum("verification_status", [
 
   "unverified",
+
+  "pending",
 
   "verified",
 
@@ -509,6 +519,9 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   description: text("description"),
 
   orgType: orgTypeEnum("org_type").default("tenant"),
+
+  // Para planes de proveedor: indica qué módulo activa este plan
+  providerModule: providerCategoryEnum("provider_module"),
 
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }).default(
 
@@ -718,7 +731,8 @@ export const organizations = pgTable("organizations", {
 
   rejectionReason: text("rejection_reason"),
 
-  providerCategory: text("provider_category"),
+  providerCategory: text("provider_category"), // tipo de servicio libre: "Catering", "DJ", "Venue / Salón"...
+  providerModule: providerCategoryEnum("provider_module"), // módulo Hubents: booking | logistica | audiovisual | otro
 
   description: text("description"),
 
@@ -1040,6 +1054,8 @@ export const events = pgTable("events", {
   name: text("name").notNull(),
 
   type: eventTypeEnum("type").default("wedding"),
+
+  customType: text("custom_type"),
 
   status: eventStatusEnum("status").default("draft"),
 
@@ -1453,6 +1469,40 @@ export const leadStageHistory = pgTable("lead_stage_history", {
 });
 
 
+
+// Todo-list items attached to a lead (persistidos en BD, un ítem por fila)
+export const leadTodos = pgTable("lead_todos", {
+  id: serial("id").primaryKey(),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  done: boolean("done").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  assignedTo: text("assigned_to").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type LeadTodo = typeof leadTodos.$inferSelect;
+export type NewLeadTodo = typeof leadTodos.$inferInsert;
+
+// Template todo items — define a default checklist that auto-applies to new leads
+export const leadTodoTemplates = pgTable("lead_todo_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type LeadTodoTemplate = typeof leadTodoTemplates.$inferSelect;
+export type NewLeadTodoTemplate = typeof leadTodoTemplates.$inferInsert;
 
 export const companies = pgTable("companies", {
 
@@ -2022,7 +2072,7 @@ export const organizationFinanceSettings = pgTable(
 
     deliveryNotePrefix: text("delivery_note_prefix").default("ALB"),
 
-    creditNotePrefix: text("credit_note_prefix").default("ABONO"),
+    creditNotePrefix: text("credit_note_prefix").default("FR"),
 
     nextQuoteNumber: integer("next_quote_number").default(1),
 
@@ -2136,36 +2186,63 @@ export const taxRates = pgTable("tax_rates", {
 
 
 
+// Enums de producto — compartidos por todo el catálogo (todos los tenants)
+export const productTypeEnum = pgEnum("product_type", [
+  "fisico",
+  "servicio",
+  "paquete",
+]);
+
+export const productSubtypeEnum = pgEnum("product_subtype", [
+  "alquiler",
+  "venta",
+  "servicio",
+]);
+
 export const productCatalog = pgTable("product_catalog", {
 
   id: serial("id").primaryKey(),
 
   organizationId: integer("organization_id")
-
     .notNull()
-
     .references(() => organizations.id, { onDelete: "cascade" }),
 
+  // Identificación
   sku: text("sku"),
-
   name: text("name").notNull(),
 
-  description: text("description"),
+  // Clasificación (igual que en el prototipo logistics.jsx)
+  type: productTypeEnum("type").default("fisico"),       // fisico | servicio | paquete
+  subtype: productSubtypeEnum("subtype").default("venta"), // alquiler | venta | servicio
 
   category: text("category"),
+  tags: json("tags").$type<string[]>(),
 
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  // Descripción y detalle operativo
+  description: text("description"),
+  detail: text("detail"), // instrucciones de carga, empaquetado, montaje...
 
+  // Precios
+  cost: decimal("cost", { precision: 10, scale: 2 }),            // precio de coste
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }), // precio de venta s/IVA
   taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default("21"),
-
   unit: text("unit").default("unit"),
 
+  // Inventario — solo relevante para type !== 'servicio', gestionado por logística
+  stock: integer("stock"),
+  stockMin: integer("stock_min"),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+
+  // Visual (avatar del producto)
+  color: text("color"),
+  initials: text("initials"),
+  imageUrl: text("image_url"),
+
   isActive: boolean("is_active").default(true),
-
   createdAt: timestamp("created_at").defaultNow(),
-
   updatedAt: timestamp("updated_at").defaultNow(),
-
 });
 
 
@@ -3322,6 +3399,10 @@ export const rsvpSettings = pgTable("rsvp_settings", {
 
   showTransport: boolean("show_transport").default(false),
 
+  menuOptions: jsonb("menu_options")
+    .$type<string[]>()
+    .default(["Carne", "Pescado", "Vegetariano"]),
+
   createdAt: timestamp("created_at").defaultNow(),
 
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -3715,6 +3796,48 @@ export const vendorClaims = pgTable("vendor_claims", {
 });
 
 
+
+// ============================================
+// MARKETPLACE — Portfolio & Reviews
+// ============================================
+
+export const orgPortfolio = pgTable("org_portfolio", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"),
+  title: text("title"),
+  description: text("description"),
+  eventType: text("event_type"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const orgReviews = pgTable("org_reviews", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  reviewerOrgId: integer("reviewer_org_id")
+    .references(() => organizations.id),
+  reviewerUserId: text("reviewer_user_id")
+    .references(() => users.id),
+  eventId: integer("event_id")
+    .references(() => events.id),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  content: text("content"),
+  isVerified: boolean("is_verified").default(false),
+  isPublic: boolean("is_public").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type OrgPortfolioItem = typeof orgPortfolio.$inferSelect;
+export type NewOrgPortfolioItem = typeof orgPortfolio.$inferInsert;
+export type OrgReview = typeof orgReviews.$inferSelect;
+export type NewOrgReview = typeof orgReviews.$inferInsert;
 
 // ============================================
 
@@ -4722,6 +4845,15 @@ export type Organization = typeof organizations.$inferSelect;
 
 export type NewOrganization = typeof organizations.$inferInsert;
 
+// Registro de nudges de onboarding enviados (evita duplicados)
+export const onboardingNudgeLog = pgTable("onboarding_nudge_log", {
+  id:             serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  nudgeType:      text("nudge_type").notNull(), // "day3", "day7", "day14"
+  sentAt:         timestamp("sent_at").defaultNow(),
+});
+export type OnboardingNudgeLog = typeof onboardingNudgeLog.$inferSelect;
+
 export type OrganizationMember = typeof organizationMembers.$inferSelect;
 
 export type Role = typeof roles.$inferSelect;
@@ -5008,6 +5140,360 @@ export type NewOrganizationIntegration =
 
 
 
+// ============================================================
+// VENUES MODULE — proveedor categoría "booking"
+// ============================================================
+
+export const venueBookingStatusEnum = pgEnum("venue_booking_status", [
+  "confirmado",
+  "opcion",
+  "bloqueado",
+  "libre",
+]);
+
+// Fincas o espacios propios del proveedor booking
+export const venues = pgTable("venues", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  city: text("city"),
+  address: text("address"),
+  contact: text("contact"),
+  email: text("email"),
+  phone: text("phone"),
+  web: text("web"),
+  rating: decimal("rating", { precision: 3, scale: 1 }),
+  verified: boolean("verified").default(false),
+  color: text("color"),
+  initials: text("initials"),
+  cover: text("cover"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Espacios dentro de cada finca (salón, jardín, terraza...)
+export const venueSpaces = pgTable("venue_spaces", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id")
+    .notNull()
+    .references(() => venues.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  capacity: integer("capacity"),
+  type: text("type"), // interior | exterior
+  color: text("color"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Tarifas por espacio (pueden variar por temporada, día de semana, zona...)
+export const venueRates = pgTable("venue_rates", {
+  id: serial("id").primaryKey(),
+  spaceId: integer("space_id")
+    .notNull()
+    .references(() => venueSpaces.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  months: json("months").$type<number[]>(),
+  days: integer("days"),
+  zone: text("zone"),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  vatRate: integer("vat_rate").default(21),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reservas de espacios — creadas por el proveedor o solicitadas por un planner
+export const venueBookings = pgTable("venue_bookings", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id")
+    .notNull()
+    .references(() => venues.id, { onDelete: "cascade" }),
+  spaceId: integer("space_id").references(() => venueSpaces.id, {
+    onDelete: "set null",
+  }),
+  date: text("date").notNull(), // YYYY-MM-DD
+  eventName: text("event_name"),
+  eventId: integer("event_id").references(() => events.id, {
+    onDelete: "set null",
+  }),
+  // Planner que solicitó la reserva (cross-tenant, nullable si es entrada manual)
+  plannerOrgId: integer("planner_org_id").references(() => organizations.id, {
+    onDelete: "set null",
+  }),
+  status: venueBookingStatusEnum("status").default("libre"),
+  rateId: integer("rate_id").references(() => venueRates.id, {
+    onDelete: "set null",
+  }),
+  rateLabel: text("rate_label"),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Venue Types
+export type Venue = typeof venues.$inferSelect;
+export type NewVenue = typeof venues.$inferInsert;
+export type VenueSpace = typeof venueSpaces.$inferSelect;
+export type NewVenueSpace = typeof venueSpaces.$inferInsert;
+export type VenueRate = typeof venueRates.$inferSelect;
+export type NewVenueRate = typeof venueRates.$inferInsert;
+export type VenueBooking = typeof venueBookings.$inferSelect;
+export type NewVenueBooking = typeof venueBookings.$inferInsert;
+
+// ============================================================
+// LOGISTICS MODULE — proveedor categoría "logistica"
+// ============================================================
+
+export const warehouseTypeEnum = pgEnum("warehouse_type", ["fijo", "movil"]);
+
+export const movementTypeEnum = pgEnum("movement_type", [
+  "entrada",
+  "salida",
+  "transferencia",
+  "reserva",
+  "carga",
+  "entrega",
+  "devolucion",
+  "ajuste",
+]);
+
+export const logisticsStatusEnum = pgEnum("logistics_status", [
+  "pendiente",
+  "confirmada",
+  "en_ruta",
+  "entregada",
+  "devuelta",
+  "cancelada",
+]);
+
+// Almacenes propios del proveedor (fijos o vehículos móviles)
+export const warehouses = pgTable("warehouses", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: warehouseTypeEnum("type").default("fijo"),
+  location: text("location"),
+  capacity: integer("capacity"),
+  manager: text("manager"),
+  plate: text("plate"),   // matrícula si es vehículo
+  driver: text("driver"), // conductor asignado
+  eventId: integer("event_id").references(() => events.id, {
+    onDelete: "set null",
+  }),
+  eventName: text("event_name"),
+  color: text("color"),
+  initials: text("initials"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Movimientos de stock — referencia product_catalog (tabla compartida de todos los tenants)
+export const stockMovements = pgTable("stock_movements", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  type: movementTypeEnum("type").notNull(),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => productCatalog.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull(),
+  date: text("date"),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+  fromWarehouseId: integer("from_warehouse_id").references(
+    () => warehouses.id,
+    { onDelete: "set null" }
+  ),
+  toWarehouseId: integer("to_warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+  eventId: integer("event_id").references(() => events.id, {
+    onDelete: "set null",
+  }),
+  eventName: text("event_name"),
+  timeFrom: text("time_from"),
+  timeTo: text("time_to"),
+  reference: text("reference"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reservas de material para un evento concreto (gestión interna del proveedor)
+export const logisticsReservations = pgTable("logistics_reservations", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  eventId: integer("event_id").references(() => events.id, {
+    onDelete: "set null",
+  }),
+  eventName: text("event_name"),
+  date: text("date"),
+  timeFrom: text("time_from"),
+  timeTo: text("time_to"),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id, {
+    onDelete: "set null",
+  }),
+  warehouseName: text("warehouse_name"),
+  itemsLocation: text("items_location"),
+  venue: text("venue"),
+  venueCity: text("venue_city"),
+  status: logisticsStatusEnum("status").default("pendiente"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Ítems de una reserva — referencia product_catalog (compartido)
+export const logisticsReservationItems = pgTable(
+  "logistics_reservation_items",
+  {
+    id: serial("id").primaryKey(),
+    reservationId: integer("reservation_id")
+      .notNull()
+      .references(() => logisticsReservations.id, { onDelete: "cascade" }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => productCatalog.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull().default(1),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+  }
+);
+
+// ─── Órdenes de logística ──────────────────────────────────────────────────────
+export const logisticsOrderStatusEnum = pgEnum("logistics_order_status", [
+  "borrador",
+  "pendiente",
+  "en_preparacion",
+  "listo",
+  "entregado",
+  "cancelado",
+]);
+
+export const logisticsOrders = pgTable("logistics_orders", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  eventId: integer("event_id").references(() => events.id, { onDelete: "set null" }),
+  eventName: text("event_name"),
+  clientName: text("client_name"),
+  clientEmail: text("client_email"),
+  clientPhone: text("client_phone"),
+  date: text("date"),
+  linkedDocId: text("linked_doc_id"),
+  linkedDocType: text("linked_doc_type"),
+  status: logisticsOrderStatusEnum("status").default("borrador"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const logisticsOrderItems = pgTable("logistics_order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => logisticsOrders.id, { onDelete: "cascade" }),
+  productId: integer("product_id").references(() => productCatalog.id, { onDelete: "set null" }),
+  productName: text("product_name"),
+  quantity: integer("quantity").notNull().default(1),
+  description: text("description"),
+  hasService: boolean("has_service").default(false),
+  serviceTitle: text("service_title"),
+  serviceTimeFrom: text("service_time_from"),
+  serviceTimeTo: text("service_time_to"),
+  serviceWorkerName: text("service_worker_name"),
+  serviceWorkerId: text("service_worker_id"),
+  serviceLocation: text("service_location"),
+  serviceNotes: text("service_notes"),
+  agendaItemId: text("agenda_item_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Stock por almacén (multi-warehouse) ─────────────────────────────────────
+// Cada fila representa cuántas unidades de un producto hay en un almacén concreto.
+// La restricción UNIQUE (product_id, warehouse_id) se define en la migración 0067.
+export const productWarehouseStock = pgTable("product_warehouse_stock", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => productCatalog.id, { onDelete: "cascade" }),
+  warehouseId: integer("warehouse_id")
+    .notNull()
+    .references(() => warehouses.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Logistics Types
+export type Warehouse = typeof warehouses.$inferSelect;
+export type NewWarehouse = typeof warehouses.$inferInsert;
+export type StockMovement = typeof stockMovements.$inferSelect;
+export type NewStockMovement = typeof stockMovements.$inferInsert;
+export type LogisticsReservation = typeof logisticsReservations.$inferSelect;
+export type NewLogisticsReservation = typeof logisticsReservations.$inferInsert;
+export type LogisticsReservationItem =
+  typeof logisticsReservationItems.$inferSelect;
+export type NewLogisticsReservationItem =
+  typeof logisticsReservationItems.$inferInsert;
+export type LogisticsOrder = typeof logisticsOrders.$inferSelect;
+export type NewLogisticsOrder = typeof logisticsOrders.$inferInsert;
+export type LogisticsOrderItem = typeof logisticsOrderItems.$inferSelect;
+export type NewLogisticsOrderItem = typeof logisticsOrderItems.$inferInsert;
+export type ProductWarehouseStock = typeof productWarehouseStock.$inferSelect;
+export type NewProductWarehouseStock = typeof productWarehouseStock.$inferInsert;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOCUMENTOS — carpetas y archivos internos de la organización
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const orgDocumentFolders = pgTable("org_document_folders", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").default("#7FA890"),
+  parentId: integer("parent_id"),  // self-reference added via migration
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const orgDocuments = pgTable("org_documents", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  folderId: integer("folder_id").references(() => orgDocumentFolders.id, { onDelete: "set null" }),
+  name: text("name").notNull(),
+  fileType: text("file_type"),           // pdf | doc | xls | zip | img | etc.
+  fileSize: integer("file_size"),        // bytes
+  storageKey: text("storage_key"),       // R2 object key
+  storageUrl: text("storage_url"),       // public or presigned URL
+  uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+  eventId: integer("event_id").references(() => events.id, { onDelete: "set null" }),
+  tags: json("tags").$type<string[]>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type OrgDocumentFolder = typeof orgDocumentFolders.$inferSelect;
+export type NewOrgDocumentFolder = typeof orgDocumentFolders.$inferInsert;
+export type OrgDocument = typeof orgDocuments.$inferSelect;
+export type NewOrgDocument = typeof orgDocuments.$inferInsert;
+
 // Public API Types
 
 export type ApiKey = typeof apiKeys.$inferSelect;
@@ -5027,4 +5513,32 @@ export type NewWebhook = typeof webhooks.$inferInsert;
 export type WebhookLog = typeof webhookLogs.$inferSelect;
 
 export type NewWebhookLog = typeof webhookLogs.$inferInsert;
+
+// ============================================
+// PARTNER CLAIM TOKENS
+// When a planner adds a provider, a claim token is generated so
+// the provider can register and take ownership of their profile.
+// ============================================
+
+export const partnerClaimTokens = pgTable("partner_claim_tokens", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id")
+    .notNull()
+    .references(() => contacts.id, { onDelete: "cascade" }),
+  plannerOrgId: integer("planner_org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  providerName: text("provider_name").notNull(),
+  email: text("email").notNull(),
+  emailDomain: text("email_domain").notNull(),
+  token: text("token").notNull().unique(),
+  status: text("status").default("pending"),
+  claimedByUserId: text("claimed_by_user_id").references(() => users.id),
+  claimedOrgId: integer("claimed_org_id").references(() => organizations.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  claimedAt: timestamp("claimed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PartnerClaimToken = typeof partnerClaimTokens.$inferSelect;
 

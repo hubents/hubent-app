@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
-import { checkEventSectionAccess, isGuestCollaborator } from "@/lib/event-permissions";
+import { isGuestCollaborator } from "@/lib/event-permissions";
 import type { TenantSession } from "@/types";
 import { db } from "@/db";
 import { eventScheduleItems, tasks, taskScheduleItems, vendors, eventCollaborations, taskParticipants } from "@/db/schema";
 import { eq, and, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { apiHandler, ok, created, notFound, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
@@ -52,10 +53,10 @@ async function requireScheduleAccess(
 
 // GET /api/events/[eventId]/schedule - List event schedule items + task schedule items
 export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
-    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
+    if (!eventId) return badRequest("Invalid eventId");
     const session = await requireScheduleAccess(eventId, "view");
 
     const { searchParams } = new URL(request.url);
@@ -170,33 +171,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const data = limit ? combined.slice(0, parseInt(limit, 10)) : combined;
 
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
-    console.error("GET /api/events/[eventId]/schedule error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch schedule";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: message },
-      { status }
-    );
-  }
+    return ok(data);
+  }, "GET /api/events/[eventId]/schedule");
 }
 
 // POST /api/events/[eventId]/schedule - Create event schedule item
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
-    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
+    if (!eventId) return badRequest("Invalid eventId");
     const session = await requireScheduleAccess(eventId, "edit");
 
     const body = await request.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: parsed.error.issues[0]?.message || "Invalid input" },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0]?.message || "Invalid input");
     }
     const { title, description, date, startTime, endTime, location, notes, color, sortOrder } = parsed.data;
 
@@ -214,33 +204,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       sortOrder: sortOrder ?? 0,
     }).returning();
 
-    return NextResponse.json({ success: true, data: item });
-  } catch (error) {
-    console.error("POST /api/events/[eventId]/schedule error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create schedule item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: message },
-      { status }
-    );
-  }
+    return created(item);
+  }, "POST /api/events/[eventId]/schedule");
 }
 
 // PATCH /api/events/[eventId]/schedule - Update event schedule item
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
-    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
+    if (!eventId) return badRequest("Invalid eventId");
     await requireScheduleAccess(eventId, "edit");
 
     const body = await request.json();
     const parsed = updateSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: parsed.error.issues[0]?.message || "Invalid input" },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0]?.message || "Invalid input");
     }
     const { scheduleItemId, ...fields } = parsed.data;
 
@@ -266,29 +245,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .returning();
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: "Schedule item not found" },
-        { status: 404 }
-      );
+      return notFound("Schedule item not found");
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update schedule item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: message },
-      { status }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/events/[eventId]/schedule");
 }
 
 // DELETE /api/events/[eventId]/schedule - Delete event schedule item
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId: eventIdStr } = await params;
     const eventId = parseEventId(eventIdStr);
-    if (!eventId) return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
+    if (!eventId) return badRequest("Invalid eventId");
     await requireScheduleAccess(eventId, "edit");
 
     const { searchParams } = new URL(request.url);
@@ -296,10 +265,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const scheduleItemId = scheduleItemIdStr ? parseInt(scheduleItemIdStr, 10) : NaN;
 
     if (!scheduleItemIdStr || isNaN(scheduleItemId)) {
-      return NextResponse.json(
-        { success: false, error: "scheduleItemId is required" },
-        { status: 400 }
-      );
+      return badRequest("scheduleItemId is required");
     }
 
     const deleted = await db.delete(eventScheduleItems)
@@ -312,19 +278,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .returning();
 
     if (deleted.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Schedule item not found" },
-        { status: 404 }
-      );
+      return notFound("Schedule item not found");
     }
 
-    return NextResponse.json({ success: true, data: { message: "Schedule item deleted" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete schedule item";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 400;
-    return NextResponse.json(
-      { success: false, error: message },
-      { status }
-    );
-  }
+    return ok({ message: "Schedule item deleted" });
+  }, "DELETE /api/events/[eventId]/schedule");
 }

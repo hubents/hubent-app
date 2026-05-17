@@ -143,7 +143,7 @@ function AdminLoginContent() {
       <div className="flex justify-center mb-6">
         <Image
           src="/images/logo-dark.png"
-          alt="HubEnts"
+          alt="Hubents"
           width={140}
           height={40}
           className="h-10 w-auto"

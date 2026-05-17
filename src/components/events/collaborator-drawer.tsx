@@ -20,7 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RiUserAddLine, RiTeamLine, RiContactsLine, RiStore2Line, RiSearchLine, RiVerifiedBadgeFill, RiLoader4Line } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import { UserAdd01Icon, UserGroupIcon, ContactBookIcon, Store01Icon, Search01Icon, CheckmarkCircle01Icon, Loading03Icon } from "@hugeicons/core-free-icons";
+
+const RiUserAddLine = hgIcon(UserAdd01Icon);
+const RiTeamLine = hgIcon(UserGroupIcon);
+const RiContactsLine = hgIcon(ContactBookIcon);
+const RiStore2Line = hgIcon(Store01Icon);
+const RiSearchLine = hgIcon(Search01Icon);
+const RiVerifiedBadgeFill = hgIcon(CheckmarkCircle01Icon);
+const RiLoader4Line = hgIcon(Loading03Icon);
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -179,7 +188,7 @@ export function CollaboratorDrawer({
         vendorsRes.json(),
       ]);
       if (teamData.success) setMembers(teamData.data?.members || []);
-      if (contactsData.success) setContactsList(contactsData.data || []);
+      if (contactsData.success) setContactsList(contactsData.data?.data || []);
       const freshVendors: VendorItem[] = vendorsData.success ? vendorsData.data || [] : [];
       setVendorsList(freshVendors);
       return freshVendors;
@@ -238,7 +247,7 @@ export function CollaboratorDrawer({
       fetch(`/api/providers?favorites=true&limit=20`)
         .then((r) => r.json())
         .then((data) => {
-          if (data.success) setDirectoryProviders(data.data || []);
+          if (data.success) setDirectoryProviders(data.data?.data || []);
         })
         .catch(() => {})
         .finally(() => setDirectoryLoading(false));
@@ -515,9 +524,9 @@ export function CollaboratorDrawer({
 
                   {activeTab === "vendors" && (
                     <>
-                      {/* Partners HubEnts search */}
+                      {/* Partners Hubents search */}
                       <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/40 flex items-center gap-1.5">
-                        Partners HubEnts
+                        Partners Hubents
                       </div>
                       <div className="px-3 py-2">
                         <div className="relative">

@@ -1,33 +1,25 @@
-import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getUserOrganizations } from "@/lib/tenant";
+import { apiHandler, ok } from "@/lib/api-handler";
+import { NextResponse } from "next/server";
 
 /**
  * GET /api/user/organizations
  * Returns all organizations the current user belongs to
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
       return NextResponse.json(
-        { success: false, error: "Not authenticated" },
+        { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
         { status: 401 }
       );
     }
 
     const organizations = await getUserOrganizations(session.user.id);
 
-    return NextResponse.json({
-      success: true,
-      data: organizations,
-    });
-  } catch (error) {
-    console.error("Get user organizations error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch organizations" },
-      { status: 500 }
-    );
-  }
+    return ok(organizations);
+  }, "GET /api/user/organizations");
 }

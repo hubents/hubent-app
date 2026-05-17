@@ -3,10 +3,13 @@ import { requirePermission } from "@/lib/session";
 import { getContacts, createContact, findDuplicateContacts } from "@/lib/contacts";
 import { notifyNewContact } from "@/lib/push-notifications";
 import { withMonitoring } from "@/lib/monitoring";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
+
 
 // GET /api/contacts - List contacts
 export const GET = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("crm:read");
+  return apiHandler(async () => {
+    const session = await requirePermission("crm:read");
     const { searchParams } = new URL(request.url);
 
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -20,47 +23,34 @@ export const GET = withMonitoring(async (request: NextRequest) => {
 
     const result = await getContacts(session, { page, limit, search, type, isLead, isVendor });
 
-  return NextResponse.json({
-    success: true,
-    data: result.data,
-    stats: result.stats,
-    meta: result.meta,
-  });
+    return ok({ data: result.data, stats: result.stats, meta: result.meta });
+  }, "GET /api/contacts");
 }, { name: "GET /api/contacts" });
 
 // POST /api/contacts - Create contact
 export const POST = withMonitoring(async (request: NextRequest) => {
-  const session = await requirePermission("crm:manage");
+  return apiHandler(async () => {
+    const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     const { type, name } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Name is required");
     }
 
     if (!type || !["person", "company"].includes(type)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Type must be 'person' or 'company'" } },
-        { status: 400 }
-      );
+      return badRequest("Type must be 'person' or 'company'");
     }
 
     // Check for duplicates (skip if forceDuplicate is true)
     if (!body.forceDuplicate) {
       const duplicates = await findDuplicateContacts(session, body.email, body.phone);
       if (duplicates.length > 0) {
-        return NextResponse.json({
-          success: false,
-          error: {
-            code: "DUPLICATE_WARNING",
-            message: "Possible duplicate contacts found",
-            duplicates,
-          },
-        }, { status: 409 });
+        return NextResponse.json(
+          { success: false, error: { code: "DUPLICATE_WARNING", message: "Possible duplicate contacts found", duplicates } },
+          { status: 409 }
+        );
       }
     }
 
@@ -111,8 +101,6 @@ export const POST = withMonitoring(async (request: NextRequest) => {
       session.user.userId
     ).catch(err => console.error("Push notification failed:", err));
 
-  return NextResponse.json({
-    success: true,
-    data: contact,
-  });
+    return ok(contact);
+  }, "POST /api/contacts");
 }, { name: "POST /api/contacts" });

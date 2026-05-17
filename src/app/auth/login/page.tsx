@@ -105,6 +105,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const errorParam = searchParams.get("error");
+  const claimToken = searchParams.get("claim") || "";
 
   const [mode, setMode] = useState<"password" | "magic">("password");
   const [email, setEmail] = useState("");
@@ -117,6 +118,45 @@ function LoginContent() {
 
   const validEmail = /^\S+@\S+\.\S+$/.test(email);
   const valid = mode === "password" ? validEmail && password.length >= 6 : validEmail;
+
+  // After successful login: complete an explicit claim token, or auto-detect
+  // pending claims by email/domain and redirect to the claim landing page.
+  const SEEN_CLAIMS_KEY = "hubents-seen-claims";
+
+  const getSeenClaims = (): string[] => {
+    try { return JSON.parse(localStorage.getItem(SEEN_CLAIMS_KEY) || "[]"); } catch { return []; }
+  };
+
+  const markClaimSeen = (token: string) => {
+    try {
+      const seen = getSeenClaims();
+      if (!seen.includes(token)) {
+        localStorage.setItem(SEEN_CLAIMS_KEY, JSON.stringify([...seen, token].slice(-50)));
+      }
+    } catch { /* non-critical */ }
+  };
+
+  const checkAndRedirectClaim = async (loggedEmail: string): Promise<string> => {
+    if (claimToken) {
+      try {
+        await fetch(`/api/claim/${claimToken}`, { method: "POST" });
+      } catch { /* non-critical */ }
+      return "/onboarding?welcome=true&claimed=1";
+    }
+    try {
+      const res = await fetch(`/api/claim/check?email=${encodeURIComponent(loggedEmail)}`);
+      const d = await res.json();
+      if (d.success && d.data?.length > 0) {
+        const seen = getSeenClaims();
+        const unseen = (d.data as { token: string }[]).find((c) => !seen.includes(c.token));
+        if (unseen) {
+          markClaimSeen(unseen.token);
+          return `/claim/${unseen.token}`;
+        }
+      }
+    } catch { /* non-critical */ }
+    return callbackUrl;
+  };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +174,8 @@ function LoginContent() {
       if (result?.error) {
         setError(ERROR_MESSAGES[result.error] || result.error);
       } else if (result?.ok) {
-        router.push(callbackUrl);
+        const dest = await checkAndRedirectClaim(email.toLowerCase());
+        router.push(dest);
         router.refresh();
       }
     } catch {

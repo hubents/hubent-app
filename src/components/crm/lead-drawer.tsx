@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Av } from "@/components/ui/ds";
 import {
   Select,
   SelectContent,
@@ -38,6 +38,7 @@ import {
   RiHistoryLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+import { fmtEur } from "@/lib/format";
 
 interface Lead {
   id: number;
@@ -202,12 +203,7 @@ export function LeadDrawer({
   // Helpers
   const formatCurrency = (value: string | null, currency: string | null) => {
     if (!value) return "—";
-    const num = parseFloat(value);
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 0,
-    }).format(num);
+    return fmtEur(value, currency || "EUR");
   };
 
   const formatDate = (date: Date | null) => {
@@ -215,10 +211,6 @@ export function LeadDrawer({
     const d = new Date(date);
     if (isNaN(d.getTime())) return "";
     return d.toISOString().split("T")[0];
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
   const getSourceLabel = (source: string | null) => {
@@ -423,10 +415,7 @@ export function LeadDrawer({
                 {/* Assigned User */}
                 {lead.assignedUserName && (
                   <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={lead.assignedUserImage || undefined} />
-                      <AvatarFallback>{lead.assignedUserName.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                    <Av src={lead.assignedUserImage} name={lead.assignedUserName} size={40} />
                     <div>
                       <p className="text-xs text-muted-foreground">Asignado a</p>
                       <p className="font-medium">{lead.assignedUserName}</p>
@@ -452,22 +441,7 @@ export function LeadDrawer({
                 {lead.contact ? (
                   <div className="space-y-4">
                     <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
-                      <Avatar className="h-14 w-14">
-                        <AvatarImage src={lead.contact.avatar || undefined} />
-                        <AvatarFallback
-                          className={cn(
-                            lead.contact.type === "company"
-                              ? "bg-purple-100 text-purple-600"
-                              : "bg-blue-100 text-blue-600"
-                          )}
-                        >
-                          {lead.contact.type === "company" ? (
-                            <RiBuilding2Line className="h-6 w-6" />
-                          ) : (
-                            getInitials(lead.contact.name)
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Av src={lead.contact.avatar} name={lead.contact.name} size={56} />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-lg">{lead.contact.name}</h4>

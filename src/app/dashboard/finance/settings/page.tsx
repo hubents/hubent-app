@@ -1,23 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { formatIban, cleanIban, validateIban, lookupIban } from "@/lib/iban-utils";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Btn, Inp, Pill } from "@/components/ui/ds";
 import { useUserSession } from "@/hooks/use-user-session";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -31,9 +21,6 @@ import {
   RiAddLine,
   RiDeleteBinLine,
   RiEditLine,
-  RiCheckLine,
-  RiBankLine,
-  RiAlertLine,
   RiExternalLinkLine,
   RiInformationLine,
   RiBankCardLine,
@@ -109,6 +96,239 @@ const CURRENCIES = [
   { code: "PEN", name: "Sol peruano" },
 ];
 
+type SettingsTab = "empresa" | "documentos" | "cobros";
+const SETTINGS_TABS: { id: SettingsTab; label: string; hint: string }[] = [
+  { id: "empresa", label: "Empresa", hint: "Datos fiscales y generales" },
+  { id: "documentos", label: "Documentos", hint: "Impuestos, numeración y términos" },
+  { id: "cobros", label: "Cobros", hint: "Cuentas y métodos de pago" },
+];
+
+// Field/row primitives matching the prototype's `FSField`/`FSRow`/`fsInputStyle` (finance.jsx:1597-1617).
+const fsInputStyle: React.CSSProperties = {
+  background: "var(--bg-panel)",
+  border: "1px solid var(--line-strong)",
+  borderRadius: "var(--r-sm)",
+  padding: "10px 12px",
+  fontSize: 13,
+  color: "var(--ink-1)",
+  fontFamily: "inherit",
+  width: "100%",
+  boxSizing: "border-box",
+  outline: "none",
+};
+
+function FSRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+      {children}
+    </div>
+  );
+}
+
+function FSField({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
+      <label style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-2)" }}>{label}</label>
+      {children}
+      {hint && <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{hint}</div>}
+    </div>
+  );
+}
+
+// Document-numbering table — replicates the prototype's `NumeracionTable` (finance.jsx:1717).
+// Inputs always-on (no row-toggle edit mode) so the user can tweak any prefix/sequence in place.
+function NumeracionTable({
+  settings,
+  setSettings,
+}: {
+  settings: FinanceSettings | null;
+  setSettings: React.Dispatch<React.SetStateAction<FinanceSettings | null>>;
+}) {
+  const year = new Date().getFullYear();
+  // 4 rows matching the prototype exactly (finance.jsx:1718-1723):
+  // Presupuestos · Facturas · Albaranes · Pagos. The schema doesn't have a
+  // payment-numbering column yet, so the Pagos row is read-only / display-only
+  // until we add `paymentPrefix` + `nextPaymentNumber` to the DB.
+  const rows: Array<{
+    label: string;
+    prefixKey?: keyof FinanceSettings;
+    nextKey?: keyof FinanceSettings;
+    fallbackPrefix?: string;
+    fallbackNext?: number;
+  }> = [
+    { label: "Presupuestos", prefixKey: "quotePrefix", nextKey: "nextQuoteNumber" },
+    { label: "Facturas", prefixKey: "invoicePrefix", nextKey: "nextInvoiceNumber" },
+    { label: "Albaranes", prefixKey: "deliveryNotePrefix", nextKey: "nextDeliveryNoteNumber" },
+    { label: "Pagos", fallbackPrefix: "PAG-", fallbackNext: 1 },
+  ];
+  const cellInput: React.CSSProperties = {
+    background: "white",
+    border: "1px solid var(--line-1)",
+    borderRadius: "var(--r-sm)",
+    padding: "6px 10px",
+    fontSize: 13,
+    color: "var(--ink-1)",
+    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, monospace)",
+    outline: "none",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+  return (
+    <div
+      style={{
+        width: "100%",
+        borderCollapse: "collapse" as const,
+        fontSize: 13,
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.4fr 100px 100px 1fr",
+          gap: 12,
+          padding: "10px 12px",
+          background: "var(--bg-subtle)",
+          borderRadius: "var(--r-sm)",
+          fontSize: 11,
+          fontWeight: 600,
+          color: "var(--ink-3)",
+          letterSpacing: ".06em",
+          textTransform: "uppercase",
+        }}
+      >
+        <div>Documento</div>
+        <div>Prefijo</div>
+        <div>Siguiente Nº</div>
+        <div>Formato</div>
+      </div>
+      {rows.map((r) => {
+        const prefix = r.prefixKey
+          ? ((settings?.[r.prefixKey] as string) || "")
+          : (r.fallbackPrefix || "");
+        const next = r.nextKey
+          ? Number(settings?.[r.nextKey] || 1)
+          : (r.fallbackNext || 1);
+        const format = `${prefix}${year}-${String(next).padStart(4, "0")}`;
+        const editable = Boolean(r.prefixKey && r.nextKey);
+        return (
+          <div
+            key={r.label}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.4fr 100px 100px 1fr",
+              gap: 12,
+              padding: "10px 12px",
+              borderBottom: "1px solid var(--line-1)",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ fontWeight: 500, color: "var(--ink-1)" }}>
+              {r.label}
+            </div>
+            <input
+              style={{ ...cellInput, opacity: editable ? 1 : 0.6 }}
+              value={prefix}
+              readOnly={!editable}
+              onChange={(e) => {
+                if (!r.prefixKey) return;
+                const key = r.prefixKey;
+                setSettings((s) =>
+                  s ? { ...s, [key]: e.target.value } : s,
+                );
+              }}
+            />
+            <input
+              type="number"
+              style={{ ...cellInput, opacity: editable ? 1 : 0.6 }}
+              value={next}
+              readOnly={!editable}
+              onChange={(e) => {
+                if (!r.nextKey) return;
+                const key = r.nextKey;
+                setSettings((s) =>
+                  s ? { ...s, [key]: parseInt(e.target.value, 10) || 1 } : s,
+                );
+              }}
+            />
+            <div
+              style={{
+                color: "var(--ink-3)",
+                fontSize: 12.5,
+                fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, monospace)",
+              }}
+            >
+              {format}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Card primitive matching the prototype's `FSCard` (finance.jsx:1605).
+// White panel, line-1 border, 20px padding, title 14/600 + ink-3 subtitle stacked,
+// optional `action` slot on the right (used by Impuestos / Cuentas Bancarias).
+function FSCard({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: "var(--bg-panel)",
+        border: "1px solid var(--line-1)",
+        borderRadius: "var(--r-md)",
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--ink-1)",
+              marginBottom: 2,
+            }}
+          >
+            {title}
+          </div>
+          {subtitle && (
+            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+              {subtitle}
+            </div>
+          )}
+        </div>
+        {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings" }: { basePath?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -120,6 +340,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
   const [originalSettings, setOriginalSettings] = useState<FinanceSettings | null>(null);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("empresa");
   
   // Tax rate dialog
   const [taxDialogOpen, setTaxDialogOpen] = useState(false);
@@ -136,6 +357,25 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
   const [newBankIban, setNewBankIban] = useState("");
   const [newBankSwift, setNewBankSwift] = useState("");
   const [newBankDefault, setNewBankDefault] = useState(false);
+  const [bankAutofillMsg, setBankAutofillMsg] = useState<string | null>(null);
+
+  const handleBankIbanChange = (raw: string) => {
+    setNewBankIban(formatIban(cleanIban(raw)));
+    setBankAutofillMsg(null);
+  };
+
+  const handleBankIbanBlur = () => {
+    const clean = cleanIban(newBankIban);
+    if (clean.length < 8) return;
+    const result = lookupIban(clean);
+    const fills: string[] = [];
+    if (result.bic && !newBankSwift.trim()) { setNewBankSwift(result.bic); fills.push("BIC"); }
+    if (result.bankName && !newBankBankName.trim()) { setNewBankBankName(result.bankName); fills.push("Banco"); }
+    if (fills.length > 0) {
+      setBankAutofillMsg(`Rellenado: ${fills.join(" · ")}`);
+      setTimeout(() => setBankAutofillMsg(null), 4000);
+    }
+  };
 
   // Check for Stripe callback messages
   useEffect(() => {
@@ -145,7 +385,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
     if (stripeSuccess === "true") {
       toast.success("¡Stripe conectado correctamente! Ya puedes recibir pagos con tarjeta.");
       // Clean URL
-      router.replace(`${basePath}?tab=payments`);
+      router.replace(`${basePath}?tab=cobros`);
     } else if (stripeError) {
       // Map error codes to user-friendly messages
       const errorMessages: Record<string, string> = {
@@ -160,7 +400,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
       const message = errorMessages[stripeError] || `Error de Stripe: ${stripeError}`;
       toast.error(message);
       // Clean URL
-      router.replace(`${basePath}?tab=payments`);
+      router.replace(`${basePath}?tab=cobros`);
     }
   }, [searchParams, router]);
 
@@ -292,7 +532,13 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
     }
   }
 
-  async function deleteTaxRate(id: number) {
+  async function deleteTaxRate(id: number, isDefault: boolean) {
+    const tax = taxRates.find((t) => t.id === id);
+    const name = tax?.name || "este impuesto";
+    const msg = isDefault
+      ? `"${name}" está marcado como impuesto por defecto. ¿Eliminarlo de todas formas?`
+      : `¿Eliminar "${name}"?`;
+    if (!confirm(msg)) return;
     try {
       const res = await fetch(`/api/finance/tax-rates?id=${id}`, {
         method: "DELETE",
@@ -304,7 +550,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
       } else {
         toast.error("Error al eliminar");
       }
-    } catch (error) {
+    } catch {
       toast.error("Error al eliminar");
     }
   }
@@ -339,7 +585,13 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
     }
   }
 
-  async function deleteBankAccount(id: number) {
+  async function deleteBankAccount(id: number, isDefault: boolean) {
+    const account = bankAccounts.find((b) => b.id === id);
+    const name = account?.bankName || account?.name || "esta cuenta";
+    const msg = isDefault
+      ? `"${name}" está marcada como principal. ¿Eliminarla de todas formas?`
+      : `¿Eliminar "${name}"?`;
+    if (!confirm(msg)) return;
     try {
       const res = await fetch(`/api/finance/bank-accounts?id=${id}`, {
         method: "DELETE",
@@ -351,7 +603,7 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
       } else {
         toast.error("Error al eliminar");
       }
-    } catch (error) {
+    } catch {
       toast.error("Error al eliminar");
     }
   }
@@ -437,602 +689,687 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Configuración Financiera</h1>
-          <p className="text-muted-foreground">
-            Configura monedas, impuestos, numeración y métodos de pago
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {unsavedChanges && (
-            <div className="flex items-center gap-2 text-amber-600">
-              <RiAlertLine className="h-4 w-4" />
-              <span className="text-sm">Cambios sin guardar</span>
-            </div>
-          )}
-          <Button 
-            onClick={saveSettings} 
-            disabled={saving || !unsavedChanges}
-            variant={unsavedChanges ? "default" : "outline"}
-          >
-            <RiSaveLine className="mr-2 h-4 w-4" />
-            {saving ? "Guardando..." : unsavedChanges ? "Guardar Cambios" : "Sin cambios"}
-          </Button>
-        </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 20,
+          marginBottom: 18,
+          flexWrap: "wrap",
+        }}
+      >
+        <div></div>
+        <button
+          onClick={saveSettings}
+          disabled={saving || !unsavedChanges}
+          style={{
+            background: unsavedChanges ? "#1A1A1A" : "white",
+            color: unsavedChanges ? "white" : "var(--ink-3)",
+            border: unsavedChanges
+              ? "1px solid #1A1A1A"
+              : "1px solid var(--line-strong)",
+            padding: "8px 14px",
+            borderRadius: "var(--r-sm)",
+            fontSize: 12.5,
+            fontWeight: 500,
+            cursor: saving || !unsavedChanges ? "default" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <RiSaveLine className="h-3 w-3" />
+          {saving ? "Guardando…" : unsavedChanges ? "Guardar cambios" : "Sin cambios"}
+        </button>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="fiscal">Datos Fiscales</TabsTrigger>
-          <TabsTrigger value="taxes">Impuestos</TabsTrigger>
-          <TabsTrigger value="numbering">Numeración</TabsTrigger>
-          <TabsTrigger value="banks">Cuentas Bancarias</TabsTrigger>
-          <TabsTrigger value="payments">Métodos de Pago</TabsTrigger>
-          <TabsTrigger value="terms">Términos</TabsTrigger>
-        </TabsList>
+      <Tabs
+        value={settingsTab}
+        onValueChange={(v) => setSettingsTab(v as SettingsTab)}
+        className="space-y-1.5"
+      >
+        {/* Pill tabs — matches prototype's `.tabs` / `.tab` CSS exactly */}
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            background: "var(--bg-subtle)",
+            padding: 3,
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {SETTINGS_TABS.map((t) => {
+            const active = settingsTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setSettingsTab(t.id)}
+                style={{
+                  flex: 1,
+                  background: active ? "var(--bg-panel)" : "transparent",
+                  border: "none",
+                  padding: "7px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: active ? "var(--ink-1)" : "var(--ink-2)",
+                  cursor: "pointer",
+                  boxShadow: active ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                  transition: "background .15s, color .15s",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Hint subtitle */}
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--ink-3)",
+            marginBottom: 16,
+            paddingTop: 4,
+          }}
+        >
+          {SETTINGS_TABS.find((t) => t.id === settingsTab)?.hint}
+        </div>
 
-        {/* General Tab */}
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuración General</CardTitle>
-              <CardDescription>
-                Moneda por defecto y otras opciones generales
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Moneda por Defecto</Label>
-                  <Select
-                    value={settings?.defaultCurrency || "EUR"}
-                    onValueChange={(value) =>
-                      setSettings((s) => s ? { ...s, defaultCurrency: value } : s)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.code} - {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Días de Validez de Presupuestos</Label>
-                  <Input
-                    type="number"
-                    value={settings?.quoteValidityDays || 30}
-                    onChange={(e) =>
-                      setSettings((s) =>
-                        s ? { ...s, quoteValidityDays: parseInt(e.target.value) || 30 } : s
-                      )
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Términos de Pago por Defecto</Label>
-                  <Input
-                    value={settings?.defaultPaymentTerms || ""}
-                    onChange={(e) =>
-                      setSettings((s) =>
-                        s ? { ...s, defaultPaymentTerms: e.target.value } : s
-                      )
-                    }
-                    placeholder="30 días"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Fiscal Data Tab */}
-        <TabsContent value="fiscal">
-          <Card>
-            <CardHeader>
-              <CardTitle>Datos Fiscales</CardTitle>
-              <CardDescription>
-                Información fiscal que aparecerá en facturas y presupuestos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Razón Social / Nombre Empresa</Label>
-                  <Input
-                    value={settings?.companyName || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, companyName: e.target.value } : s)
-                    }
-                    placeholder="Mi Empresa S.L."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>NIF / CIF</Label>
-                  <Input
-                    value={settings?.taxId || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, taxId: e.target.value } : s)
-                    }
-                    placeholder="B12345678"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Dirección Fiscal</Label>
-                <Input
+        {/* Datos Fiscales → Empresa (rendered first per prototype order) */}
+        <TabsContent value="empresa">
+          <FSCard
+            title="Datos Fiscales"
+            subtitle="Información fiscal de tu empresa que aparecerá en los documentos"
+          >
+            <FSRow>
+              <FSField label="Razón Social">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.companyName || ""}
+                  onChange={(e) =>
+                    setSettings((s) => (s ? { ...s, companyName: e.target.value } : s))
+                  }
+                  placeholder="Mi Empresa S.L."
+                />
+              </FSField>
+              <FSField label="CIF / NIF">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.taxId || ""}
+                  onChange={(e) =>
+                    setSettings((s) => (s ? { ...s, taxId: e.target.value } : s))
+                  }
+                  placeholder="B12345678"
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Dirección">
+                <input
+                  style={fsInputStyle}
                   value={settings?.fiscalAddress || ""}
                   onChange={(e) =>
-                    setSettings((s) => s ? { ...s, fiscalAddress: e.target.value } : s)
+                    setSettings((s) =>
+                      s ? { ...s, fiscalAddress: e.target.value } : s,
+                    )
                   }
-                  placeholder="Calle Example 123, 1ºA"
+                  placeholder="Calle Mayor 123"
                 />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Ciudad</Label>
-                  <Input
-                    value={settings?.fiscalCity || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalCity: e.target.value } : s)
-                    }
-                    placeholder="Madrid"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Código Postal</Label>
-                  <Input
-                    value={settings?.fiscalPostalCode || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalPostalCode: e.target.value } : s)
-                    }
-                    placeholder="28001"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>País</Label>
-                  <Input
-                    value={settings?.fiscalCountry || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalCountry: e.target.value } : s)
-                    }
-                    placeholder="España"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Email Fiscal</Label>
-                  <Input
-                    type="email"
-                    value={settings?.fiscalEmail || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalEmail: e.target.value } : s)
-                    }
-                    placeholder="facturacion@miempresa.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Teléfono Fiscal</Label>
-                  <Input
-                    value={settings?.fiscalPhone || ""}
-                    onChange={(e) =>
-                      setSettings((s) => s ? { ...s, fiscalPhone: e.target.value } : s)
-                    }
-                    placeholder="+34 600 000 000"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </FSField>
+              <FSField label="Código Postal">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.fiscalPostalCode || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, fiscalPostalCode: e.target.value } : s,
+                    )
+                  }
+                  placeholder="28013"
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Ciudad">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.fiscalCity || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, fiscalCity: e.target.value } : s,
+                    )
+                  }
+                  placeholder="Madrid"
+                />
+              </FSField>
+              <FSField label="País">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.fiscalCountry || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, fiscalCountry: e.target.value } : s,
+                    )
+                  }
+                  placeholder="España"
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Email Fiscal">
+                <input
+                  type="email"
+                  style={fsInputStyle}
+                  value={settings?.fiscalEmail || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, fiscalEmail: e.target.value } : s,
+                    )
+                  }
+                  placeholder="facturacion@miempresa.com"
+                />
+              </FSField>
+              <FSField label="Teléfono Fiscal">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.fiscalPhone || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, fiscalPhone: e.target.value } : s,
+                    )
+                  }
+                  placeholder="+34 600 000 000"
+                />
+              </FSField>
+            </FSRow>
+          </FSCard>
         </TabsContent>
 
-        {/* Taxes Tab */}
-        <TabsContent value="taxes">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Impuestos</CardTitle>
-                <CardDescription>
-                  Configura las tasas de impuestos disponibles
-                </CardDescription>
-              </div>
-              {canManageFinance && (
-                <Button size="sm" onClick={() => setTaxDialogOpen(true)}>
-                  <RiAddLine className="mr-2 h-4 w-4" />
-                  Nuevo Impuesto
-                </Button>
-              )}
-              <Sheet open={taxDialogOpen} onOpenChange={(open) => {
-                setTaxDialogOpen(open);
-                if (!open) resetTaxForm();
-              }}>
-                <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>
-                      {editingTax ? "Editar Impuesto" : "Nuevo Impuesto"}
-                    </SheetTitle>
-                    <SheetDescription>
-                      Define el nombre y la tasa del impuesto
-                    </SheetDescription>
-                  </SheetHeader>
-                  <div className="space-y-4 px-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Nombre</Label>
-                      <Input
-                        value={newTaxName}
-                        onChange={(e) => setNewTaxName(e.target.value)}
-                        placeholder="IVA 21%"
-                      />
+        {/* Configuración General → Empresa */}
+        <TabsContent value="empresa">
+          <FSCard
+            title="Configuración General"
+            subtitle="Moneda por defecto y otras opciones generales"
+          >
+            <FSRow>
+              <FSField label="Moneda por Defecto">
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={settings?.defaultCurrency || "EUR"}
+                    onChange={(e) =>
+                      setSettings((s) =>
+                        s ? { ...s, defaultCurrency: e.target.value } : s,
+                      )
+                    }
+                    style={{
+                      ...fsInputStyle,
+                      appearance: "none",
+                      paddingRight: 34,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} - {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--ink-3)"
+                    strokeWidth="2"
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </div>
+              </FSField>
+              <FSField label="Días de Validez de Presupuestos">
+                <input
+                  type="number"
+                  style={fsInputStyle}
+                  value={settings?.quoteValidityDays || 30}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, quoteValidityDays: parseInt(e.target.value) || 30 } : s,
+                    )
+                  }
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Términos de Pago por Defecto">
+                <input
+                  style={fsInputStyle}
+                  value={settings?.defaultPaymentTerms || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, defaultPaymentTerms: e.target.value } : s,
+                    )
+                  }
+                  placeholder="30 días"
+                />
+              </FSField>
+              <div style={{ flex: 1 }} />
+            </FSRow>
+          </FSCard>
+        </TabsContent>
+
+        {/* Impuestos → Documentos */}
+        <TabsContent value="documentos">
+          <FSCard
+            title="Impuestos"
+            subtitle="Tipos de IVA y otros impuestos aplicables"
+            action={
+              canManageFinance ? (
+                <button
+                  onClick={() => setTaxDialogOpen(true)}
+                  style={{
+                    background: "white",
+                    border: "1px dashed var(--line-strong)",
+                    padding: "7px 12px",
+                    borderRadius: "var(--r-sm)",
+                    fontSize: 12.5,
+                    color: "var(--ink-2)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <RiAddLine className="h-3 w-3" />
+                  Añadir impuesto
+                </button>
+              ) : null
+            }
+          >
+            {taxRates.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No hay impuestos configurados. Crea uno para empezar.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {taxRates.map((tax) => (
+                  <div
+                    key={tax.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 14px",
+                      background: "var(--bg-panel)",
+                      border: "1px solid var(--line-strong)",
+                      borderRadius: "var(--r-sm)",
+                    }}
+                  >
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>
+                        {tax.name}
+                      </span>
+                      {tax.isDefault && (
+                        <span
+                          style={{
+                            background: "#D4E4D8",
+                            color: "#2F5233",
+                            fontSize: 10,
+                            fontWeight: 500,
+                            padding: "2px 7px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          Por defecto
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label>Tasa (%)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={newTaxRate}
-                        onChange={(e) => setNewTaxRate(e.target.value)}
-                        placeholder="21"
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={newTaxDefault}
-                        onCheckedChange={setNewTaxDefault}
-                      />
-                      <Label>Impuesto por defecto</Label>
-                    </div>
-                  </div>
-                  <SheetFooter>
-                    <Button variant="outline" onClick={() => setTaxDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={saveTaxRate}>
-                      {editingTax ? "Guardar" : "Crear"}
-                    </Button>
-                  </SheetFooter>
-                </SheetContent>
-              </Sheet>
-            </CardHeader>
-            <CardContent>
-              {taxRates.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No hay impuestos configurados. Crea uno para empezar.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {taxRates.map((tax) => (
                     <div
-                      key={tax.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--ink-1)",
+                        minWidth: 45,
+                        textAlign: "right",
+                      }}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{tax.name}</span>
-                        <Badge variant="secondary">{tax.rate}%</Badge>
-                        {tax.isDefault && (
-                          <Badge variant="outline" className="text-green-600">
-                            <RiCheckLine className="mr-1 h-3 w-3" />
-                            Por defecto
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditTax(tax)}
-                        >
-                          <RiEditLine className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteTaxRate(tax.id)}
-                        >
-                          <RiDeleteBinLine className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
+                      {tax.rate}%
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Numbering Tab */}
-        <TabsContent value="numbering">
-          <Card>
-            <CardHeader>
-              <CardTitle>Numeración de Documentos</CardTitle>
-              <CardDescription>
-                Configura los prefijos y números de secuencia
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Prefijo Presupuestos</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings?.quotePrefix || ""}
-                      onChange={(e) =>
-                        setSettings((s) => s ? { ...s, quotePrefix: e.target.value } : s)
-                      }
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={settings?.nextQuoteNumber || 1}
-                      onChange={(e) =>
-                        setSettings((s) =>
-                          s ? { ...s, nextQuoteNumber: parseInt(e.target.value) || 1 } : s
-                        )
-                      }
-                      className="w-24"
-                    />
-                    <span className="flex items-center text-sm text-muted-foreground">
-                      → {settings?.quotePrefix}-{new Date().getFullYear()}-
-                      {String(settings?.nextQuoteNumber || 1).padStart(4, "0")}
-                    </span>
+                    <button
+                      onClick={() => openEditTax(tax)}
+                      title="Editar"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--ink-3)",
+                        padding: 4,
+                      }}
+                    >
+                      <RiEditLine className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteTaxRate(tax.id, tax.isDefault)}
+                      title="Eliminar"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#B55450",
+                        padding: 4,
+                      }}
+                    >
+                      <RiDeleteBinLine className="h-4 w-4" />
+                    </button>
                   </div>
-                </div>
-
+                ))}
+              </div>
+            )}
+          </FSCard>
+          <Sheet
+            open={taxDialogOpen}
+            onOpenChange={(open) => {
+              setTaxDialogOpen(open);
+              if (!open) resetTaxForm();
+            }}
+          >
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>
+                  {editingTax ? "Editar Impuesto" : "Nuevo Impuesto"}
+                </SheetTitle>
+                <SheetDescription>
+                  Define el nombre y la tasa del impuesto
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-4 px-4 py-4">
                 <div className="space-y-2">
-                  <Label>Prefijo Facturas</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings?.invoicePrefix || ""}
-                      onChange={(e) =>
-                        setSettings((s) => s ? { ...s, invoicePrefix: e.target.value } : s)
-                      }
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={settings?.nextInvoiceNumber || 1}
-                      onChange={(e) =>
-                        setSettings((s) =>
-                          s ? { ...s, nextInvoiceNumber: parseInt(e.target.value) || 1 } : s
-                        )
-                      }
-                      className="w-24"
-                    />
-                    <span className="flex items-center text-sm text-muted-foreground">
-                      → {settings?.invoicePrefix}-{new Date().getFullYear()}-
-                      {String(settings?.nextInvoiceNumber || 1).padStart(4, "0")}
-                    </span>
-                  </div>
+                  <Label>Nombre</Label>
+                  <Inp
+                    value={newTaxName}
+                    onChange={(e) => setNewTaxName(e.target.value)}
+                    placeholder="IVA 21%"
+                  />
                 </div>
-
                 <div className="space-y-2">
-                  <Label>Prefijo Proformas</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings?.proformaPrefix || ""}
-                      onChange={(e) =>
-                        setSettings((s) => s ? { ...s, proformaPrefix: e.target.value } : s)
-                      }
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={settings?.nextProformaNumber || 1}
-                      onChange={(e) =>
-                        setSettings((s) =>
-                          s ? { ...s, nextProformaNumber: parseInt(e.target.value) || 1 } : s
-                        )
-                      }
-                      className="w-24"
-                    />
-                  </div>
+                  <Label>Tasa (%)</Label>
+                  <Inp
+                    type="number"
+                    step="0.01"
+                    value={newTaxRate}
+                    onChange={(e) => setNewTaxRate(e.target.value)}
+                    placeholder="21"
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Prefijo Albaranes</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings?.deliveryNotePrefix || ""}
-                      onChange={(e) =>
-                        setSettings((s) => s ? { ...s, deliveryNotePrefix: e.target.value } : s)
-                      }
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={settings?.nextDeliveryNoteNumber || 1}
-                      onChange={(e) =>
-                        setSettings((s) =>
-                          s ? { ...s, nextDeliveryNoteNumber: parseInt(e.target.value) || 1 } : s
-                        )
-                      }
-                      className="w-24"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Prefijo Notas de Crédito</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={settings?.creditNotePrefix || ""}
-                      onChange={(e) =>
-                        setSettings((s) => s ? { ...s, creditNotePrefix: e.target.value } : s)
-                      }
-                      className="w-24"
-                    />
-                    <Input
-                      type="number"
-                      value={settings?.nextCreditNoteNumber || 1}
-                      onChange={(e) =>
-                        setSettings((s) =>
-                          s ? { ...s, nextCreditNoteNumber: parseInt(e.target.value) || 1 } : s
-                        )
-                      }
-                      className="w-24"
-                    />
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={newTaxDefault}
+                    onCheckedChange={setNewTaxDefault}
+                  />
+                  <Label>Impuesto por defecto</Label>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <SheetFooter>
+                <Btn variant="outline" onClick={() => setTaxDialogOpen(false)}>
+                  Cancelar
+                </Btn>
+                <Btn onClick={saveTaxRate}>
+                  {editingTax ? "Guardar" : "Crear"}
+                </Btn>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
-        {/* Bank Accounts Tab */}
-        <TabsContent value="banks">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Cuentas Bancarias</CardTitle>
-                <CardDescription>
-                  Configura las cuentas bancarias para recibir pagos
-                </CardDescription>
-              </div>
-              {canManageFinance && (
-                <Button size="sm" onClick={() => setBankDialogOpen(true)}>
-                  <RiAddLine className="mr-2 h-4 w-4" />
-                  Nueva Cuenta
-                </Button>
-              )}
-              <Sheet open={bankDialogOpen} onOpenChange={(open) => {
-                setBankDialogOpen(open);
-                if (!open) resetBankForm();
-              }}>
-                <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>
-                      {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}
-                    </SheetTitle>
-                  </SheetHeader>
-                  <div className="space-y-4 px-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Nombre de la Cuenta</Label>
-                      <Input
-                        value={newBankName}
-                        onChange={(e) => setNewBankName(e.target.value)}
-                        placeholder="Cuenta Principal"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Banco</Label>
-                      <Input
-                        value={newBankBankName}
-                        onChange={(e) => setNewBankBankName(e.target.value)}
-                        placeholder="Santander, BBVA, etc."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>IBAN</Label>
-                      <Input
-                        value={newBankIban}
-                        onChange={(e) => setNewBankIban(e.target.value)}
-                        placeholder="ES00 0000 0000 0000 0000 0000"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>SWIFT/BIC</Label>
-                      <Input
-                        value={newBankSwift}
-                        onChange={(e) => setNewBankSwift(e.target.value)}
-                        placeholder="BSCHESMMXXX"
-                      />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={newBankDefault}
-                        onCheckedChange={setNewBankDefault}
-                      />
-                      <Label>Cuenta por defecto</Label>
-                    </div>
-                  </div>
-                  <SheetFooter>
-                    <Button variant="outline" onClick={() => setBankDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={saveBankAccount}>
-                      {editingBank ? "Guardar" : "Crear"}
-                    </Button>
-                  </SheetFooter>
-                </SheetContent>
-              </Sheet>
-            </CardHeader>
-            <CardContent>
-              {bankAccounts.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No hay cuentas bancarias configuradas.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {bankAccounts.map((bank) => (
+        {/* Numeración → Documentos */}
+        <TabsContent value="documentos">
+          <FSCard
+            title="Numeración de Documentos"
+            subtitle="Configura los prefijos y siguiente número de cada tipo"
+          >
+            <NumeracionTable settings={settings} setSettings={setSettings} />
+          </FSCard>
+        </TabsContent>
+
+        {/* Cuentas Bancarias → Cobros */}
+        <TabsContent value="cobros">
+          <FSCard
+            title="Cuentas Bancarias"
+            subtitle="Cuentas donde recibirás los pagos"
+            action={
+              canManageFinance ? (
+                <button
+                  onClick={() => setBankDialogOpen(true)}
+                  style={{
+                    background: "white",
+                    border: "1px dashed var(--line-strong)",
+                    padding: "7px 12px",
+                    borderRadius: "var(--r-sm)",
+                    fontSize: 12.5,
+                    color: "var(--ink-2)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <RiAddLine className="h-3 w-3" />
+                  Añadir cuenta bancaria
+                </button>
+              ) : null
+            }
+          >
+            {bankAccounts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No hay cuentas bancarias configuradas.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {bankAccounts.map((bank) => {
+                  const initials = (bank.bankName || bank.name || "??")
+                    .slice(0, 2)
+                    .toUpperCase();
+                  return (
                     <div
                       key={bank.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      style={{
+                        padding: 14,
+                        background: "var(--bg-panel)",
+                        border: "1px solid var(--line-strong)",
+                        borderRadius: "var(--r-sm)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                      }}
                     >
-                      <div className="flex items-center gap-3">
-                        <RiBankLine className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <span className="font-medium">{bank.name}</span>
-                          {bank.bankName && (
-                            <span className="text-sm text-muted-foreground ml-2">
-                              ({bank.bankName})
+                      <div
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "var(--r-sm)",
+                          background: "#E4DDD0",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--ink-1)",
+                          fontWeight: 600,
+                          fontSize: 12,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "var(--ink-1)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          {bank.bankName || bank.name}
+                          {bank.isDefault && (
+                            <span
+                              style={{
+                                background: "#D4E4D8",
+                                color: "#2F5233",
+                                fontSize: 10,
+                                fontWeight: 500,
+                                padding: "2px 7px",
+                                borderRadius: 999,
+                              }}
+                            >
+                              Principal
                             </span>
                           )}
-                          {bank.iban && (
-                            <p className="text-xs text-muted-foreground">{bank.iban}</p>
-                          )}
                         </div>
-                        {bank.isDefault && (
-                          <Badge variant="outline" className="text-green-600">
-                            Por defecto
-                          </Badge>
+                        {bank.iban && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--ink-3)",
+                              fontFamily: "var(--font-mono, monospace)",
+                              marginTop: 2,
+                            }}
+                          >
+                            {bank.iban}
+                          </div>
                         )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditBank(bank)}
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            color: "var(--ink-3)",
+                            marginTop: 2,
+                          }}
                         >
-                          <RiEditLine className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteBankAccount(bank.id)}
-                        >
-                          <RiDeleteBinLine className="h-4 w-4 text-red-500" />
-                        </Button>
+                          {bank.name}
+                        </div>
                       </div>
+                      <button
+                        onClick={() => openEditBank(bank)}
+                        title="Editar"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--ink-3)",
+                          padding: 6,
+                        }}
+                      >
+                        <RiEditLine className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteBankAccount(bank.id, bank.isDefault)}
+                        title="Eliminar"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#B55450",
+                          padding: 6,
+                        }}
+                      >
+                        <RiDeleteBinLine className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))}
+                  );
+                })}
+              </div>
+            )}
+          </FSCard>
+          <Sheet
+            open={bankDialogOpen}
+            onOpenChange={(open) => {
+              setBankDialogOpen(open);
+              if (!open) resetBankForm();
+            }}
+          >
+            <SheetContent className="sm:max-w-2xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>
+                  {editingBank ? "Editar Cuenta" : "Nueva Cuenta Bancaria"}
+                </SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 px-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nombre de la Cuenta</Label>
+                  <Inp
+                    value={newBankName}
+                    onChange={(e) => setNewBankName(e.target.value)}
+                    placeholder="Cuenta Principal"
+                  />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div className="space-y-2">
+                  <Label>Banco</Label>
+                  <Inp
+                    value={newBankBankName}
+                    onChange={(e) => setNewBankBankName(e.target.value)}
+                    placeholder="Santander, BBVA, etc."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>IBAN</Label>
+                  <div style={{ position: "relative" }}>
+                    <Inp
+                      value={newBankIban}
+                      onChange={(e) => handleBankIbanChange(e.target.value)}
+                      onBlur={handleBankIbanBlur}
+                      placeholder="ES00 0000 0000 0000 0000 0000"
+                      style={cleanIban(newBankIban).length >= 15 ? { borderColor: validateIban(cleanIban(newBankIban)) ? "#22C55E" : "#EF4444" } : {}}
+                    />
+                  </div>
+                  {bankAutofillMsg && (
+                    <p style={{ fontSize: 11, color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 6, padding: "4px 8px" }}>
+                      ✓ {bankAutofillMsg}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>SWIFT/BIC</Label>
+                  <Inp
+                    value={newBankSwift}
+                    onChange={(e) => setNewBankSwift(e.target.value.toUpperCase())}
+                    placeholder="BSCHESMMXXX"
+                    style={{ fontFamily: "monospace", letterSpacing: "0.05em" }}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={newBankDefault}
+                    onCheckedChange={setNewBankDefault}
+                  />
+                  <Label>Cuenta por defecto</Label>
+                </div>
+              </div>
+              <SheetFooter>
+                <Btn variant="outline" onClick={() => setBankDialogOpen(false)}>
+                  Cancelar
+                </Btn>
+                <Btn onClick={saveBankAccount}>
+                  {editingBank ? "Guardar" : "Crear"}
+                </Btn>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
-        {/* Payment Methods Tab */}
-        <TabsContent value="payments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Métodos de Pago</CardTitle>
-              <CardDescription>
-                Habilita los métodos de pago disponibles para tus clientes
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Métodos de Pago → Cobros */}
+        <TabsContent value="cobros">
+          <FSCard
+            title="Métodos de Pago"
+            subtitle="Habilita los métodos de pago disponibles para tus clientes"
+          >
+            <div className="space-y-4">
               <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                   <p className="font-medium">Efectivo</p>
@@ -1089,13 +1426,13 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
                       </p>
                     </div>
                     {settings?.stripeAccountId ? (
-                      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                      <Pill bg="#D1FAE5" color="#065F46">
                         Conectado
-                      </Badge>
+                      </Pill>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Pill bg="transparent" style={{ border: "1px solid var(--line-strong)" }}>
                         No conectado
-                      </Badge>
+                      </Pill>
                     )}
                   </div>
                 </div>
@@ -1117,24 +1454,24 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-3">
-                        <Button
+                        <Btn
                           variant="outline"
                           size="sm"
                           onClick={() => window.open("https://dashboard.stripe.com/register", "_blank")}
                         >
                           <RiExternalLinkLine className="h-4 w-4 mr-2" />
                           Crear cuenta en Stripe
-                        </Button>
+                        </Btn>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button 
-                                variant="default" 
-                                size="sm" 
+                              <Btn
+                                variant="primary"
+                                size="sm"
                                 onClick={handleStripeConnect}
                               >
                                 Conectar mi cuenta de Stripe
-                              </Button>
+                              </Btn>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>Vincula tu cuenta de Stripe para recibir pagos con tarjeta</p>
@@ -1152,22 +1489,22 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
                           <p className="font-mono text-sm">{settings.stripeAccountId}</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <Button
+                          <Btn
                             variant="outline"
                             size="sm"
                             onClick={() => window.open("https://dashboard.stripe.com", "_blank")}
                           >
                             <RiExternalLinkLine className="h-4 w-4 mr-2" />
                             Abrir Stripe Dashboard
-                          </Button>
-                          <Button 
-                            variant="ghost" 
+                          </Btn>
+                          <Btn
+                            variant="ghost"
                             size="sm"
                             onClick={handleStripeDisconnect}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             Desconectar
-                          </Button>
+                          </Btn>
                         </div>
                       </div>
 
@@ -1201,32 +1538,57 @@ export function FinanceSettingsContent({ basePath = "/dashboard/finance/settings
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </FSCard>
         </TabsContent>
 
         {/* Terms Tab */}
-        <TabsContent value="terms">
-          <Card>
-            <CardHeader>
-              <CardTitle>Términos y Condiciones</CardTitle>
-              <CardDescription>
-                Texto por defecto para presupuestos y facturas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={settings?.defaultTermsAndConditions || ""}
-                onChange={(e) =>
-                  setSettings((s) =>
-                    s ? { ...s, defaultTermsAndConditions: e.target.value } : s
-                  )
-                }
-                placeholder="Escribe aquí los términos y condiciones por defecto..."
-                rows={10}
-              />
-            </CardContent>
-          </Card>
+        <TabsContent value="documentos">
+          <FSCard
+            title="Términos y Condiciones"
+            subtitle="Textos que aparecerán al pie de los documentos"
+          >
+            <FSRow>
+              <FSField label="Términos de Presupuestos">
+                <textarea
+                  style={{
+                    ...fsInputStyle,
+                    minHeight: 90,
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                  }}
+                  placeholder="Este presupuesto tiene una validez de 15 días desde la fecha de emisión. Los precios incluyen IVA."
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Términos de Facturas">
+                <textarea
+                  style={{
+                    ...fsInputStyle,
+                    minHeight: 90,
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                  }}
+                  value={settings?.defaultTermsAndConditions || ""}
+                  onChange={(e) =>
+                    setSettings((s) =>
+                      s ? { ...s, defaultTermsAndConditions: e.target.value } : s,
+                    )
+                  }
+                  placeholder="El pago deberá realizarse en un plazo de 15 días desde la fecha de factura. En caso de retraso, se aplicarán los intereses legales vigentes."
+                />
+              </FSField>
+            </FSRow>
+            <FSRow>
+              <FSField label="Nota de pie de página">
+                <input
+                  style={fsInputStyle}
+                  placeholder="Gracias por confiar en Hubents · hello@hubents.com · +34 910 00 00 00"
+                />
+              </FSField>
+            </FSRow>
+          </FSCard>
         </TabsContent>
       </Tabs>
     </div>

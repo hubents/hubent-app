@@ -52,7 +52,7 @@ export function Sidebar() {
         <div className="flex h-16 items-center gap-3 border-b border-[var(--border)] px-6">
           <Image
             src="/images/icon.png"
-            alt="HubEnts"
+            alt="Hubents"
             width={32}
             height={32}
             className="rounded-lg"

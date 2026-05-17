@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,16 +20,12 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiQuestionLine,
-  RiHotelLine,
-  RiUserLine,
-  RiCompassLine,
   RiPhoneLine,
   RiGlobalLine,
   RiArrowDownSLine,
   RiBusLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import { LocationMap } from "@/components/ui/location-map";
 
 interface ItineraryItem {
@@ -81,6 +76,7 @@ interface RsvpSettings {
   customMessage: string | null;
   deadline: string | null;
   enabled: boolean;
+  menuOptions: string[] | null;
 }
 
 interface Companion {
@@ -167,7 +163,7 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
         } else {
           setError("Evento no encontrado");
         }
-      } catch (err) {
+      } catch {
         setError("Error al cargar el evento");
       } finally {
         setLoading(false);
@@ -198,37 +194,70 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
       } else {
         setError(data.error || "Error al enviar la confirmación");
       }
-    } catch (err) {
+    } catch {
       setError("Error al enviar la confirmación");
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Theme accent — used for section headers and CTA buttons
+  const themeAccent = "#B88A3A"; // ivory accent (default theme)
+  const cream = "#FBFAF7";
+
+  // Menu options come from rsvp_settings.menu_options (set by the host in the
+  // RSVP editor). Falls back to a sensible default if the host hasn't picked.
+  const menuOptionsList: string[] =
+    Array.isArray(event?.settings?.menuOptions) &&
+    (event!.settings!.menuOptions as string[]).length > 0
+      ? (event!.settings!.menuOptions as string[])
+      : ["Carne", "Pescado", "Vegetariano"];
+
+  // Convert "1970-01-01T17:30:00.000Z" / "17:30:00" / etc → "17:30" without TZ shift
+  const fmtTime = (value: string | null | undefined): string => {
+    if (!value) return "";
+    if (/^\d{2}:\d{2}$/.test(value)) return value;
+    if (/^\d{2}:\d{2}:\d{2}/.test(value)) return value.slice(0, 5);
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-lg">
-          <CardContent className="p-8 space-y-4">
-            <Skeleton className="h-8 w-3/4 mx-auto" />
-            <Skeleton className="h-4 w-1/2 mx-auto" />
-            <Skeleton className="h-32" />
-          </CardContent>
-        </Card>
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: cream }}
+      >
+        <div className="w-full max-w-lg space-y-3">
+          <Skeleton className="h-8 w-3/4 mx-auto" />
+          <Skeleton className="h-4 w-1/2 mx-auto" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
       </div>
     );
   }
 
   if (error && !event) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-lg text-center">
-          <CardContent className="p-8">
-            <RiCloseLine className="h-16 w-16 mx-auto text-destructive mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Evento no disponible</h1>
-            <p className="text-muted-foreground">{error}</p>
-          </CardContent>
-        </Card>
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{ background: cream }}
+      >
+        <div className="w-full max-w-lg text-center">
+          <RiCloseLine className="h-16 w-16 mx-auto text-rose-500 mb-4" />
+          <h1
+            className="text-2xl font-semibold mb-2"
+            style={{
+              fontFamily:
+                '"Playfair Display", "Cormorant Garamond", Georgia, serif',
+              color: "#1a1a1a",
+            }}
+          >
+            Evento no disponible
+          </h1>
+          <p style={{ color: "#666" }}>{error}</p>
+        </div>
       </div>
     );
   }
@@ -242,173 +271,291 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
 
   if (isRsvpDisabled && !submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-lg text-center">
-          <CardContent className="p-8">
-            <RiTimeLine className="h-16 w-16 mx-auto text-amber-500 mb-4" />
-            <h1 className="text-2xl font-bold mb-2">
-              {isDeadlinePassed ? "Plazo de confirmación vencido" : "RSVP no disponible"}
-            </h1>
-            <p className="text-muted-foreground mb-4">
-              {isDeadlinePassed 
-                ? `El plazo para confirmar asistencia venció el ${new Date(event!.settings!.deadline!).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}.`
-                : "Las confirmaciones para este evento no están habilitadas en este momento."}
-            </p>
-            {event && (
-              <div className="p-4 bg-muted rounded-lg text-left mt-4">
-                <h3 className="font-semibold">{event.name}</h3>
-                {event.date && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2">
-                    <RiCalendarLine className="h-4 w-4" />
-                    {new Date(event.date).toLocaleDateString("es-ES", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                    })}
-                  </p>
-                )}
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground mt-4">
-              Si tenés alguna consulta, contactá a los organizadores del evento.
-            </p>
-          </CardContent>
-        </Card>
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: cream }}
+      >
+        <div className="w-full max-w-md text-center">
+          <RiTimeLine className="h-16 w-16 mx-auto mb-4" style={{ color: themeAccent }} />
+          <h1
+            className="text-2xl mb-2"
+            style={{
+              fontFamily:
+                '"Playfair Display", "Cormorant Garamond", Georgia, serif',
+              fontWeight: 600,
+              color: "#1a1a1a",
+            }}
+          >
+            {isDeadlinePassed ? "Plazo de confirmación vencido" : "RSVP no disponible"}
+          </h1>
+          <p className="mt-2" style={{ color: "#666", fontSize: 14, lineHeight: 1.6 }}>
+            {isDeadlinePassed
+              ? `El plazo para confirmar asistencia venció el ${new Date(event!.settings!.deadline!).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}.`
+              : "Las confirmaciones para este evento no están habilitadas en este momento."}
+          </p>
+          {event && (
+            <div
+              className="mt-6 p-5 rounded-2xl text-left"
+              style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.06)" }}
+            >
+              <h3 className="font-semibold" style={{ color: "#1a1a1a" }}>
+                {event.name}
+              </h3>
+              {event.date && (
+                <p
+                  className="text-sm flex items-center gap-2 mt-2"
+                  style={{ color: "#666" }}
+                >
+                  <RiCalendarLine className="h-4 w-4" />
+                  {new Date(event.date).toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="mt-6 text-sm" style={{ color: "#888" }}>
+            Si tienes alguna consulta, contacta a los organizadores del evento.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-lg text-center">
-          <CardContent className="p-8">
-            <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-              <RiCheckLine className="h-10 w-10 text-green-600" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">¡Gracias por confirmar!</h1>
-            <p className="text-muted-foreground mb-6">
-              {formData.attending === "yes"
-                ? "¡Nos vemos pronto! Te enviaremos más detalles por email."
-                : formData.attending === "no"
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: cream }}
+      >
+        <div className="w-full max-w-md text-center">
+          <div
+            className="h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-6"
+            style={{ background: `${themeAccent}15` }}
+          >
+            <RiCheckLine className="h-10 w-10" style={{ color: themeAccent }} />
+          </div>
+          <h1
+            className="text-3xl mb-3"
+            style={{
+              fontFamily:
+                '"Playfair Display", "Cormorant Garamond", Georgia, serif',
+              fontWeight: 600,
+              color: "#1a1a1a",
+            }}
+          >
+            ¡Gracias por confirmar!
+          </h1>
+          <p style={{ color: "#666", lineHeight: 1.6, fontSize: 15 }}>
+            {formData.attending === "yes"
+              ? "¡Nos vemos pronto! Te enviaremos más detalles por email."
+              : formData.attending === "no"
                 ? "Lamentamos que no puedas asistir. ¡Esperamos verte en otra ocasión!"
                 : "Gracias por tu respuesta. Te mantendremos informado."}
-            </p>
-            {event && (
-              <div className="p-4 bg-muted rounded-lg text-left">
-                <h3 className="font-semibold">{event.name}</h3>
-                {event.date && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-2">
-                    <RiCalendarLine className="h-4 w-4" />
-                    {new Date(event.date).toLocaleDateString("es-ES", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </p>
-                )}
-                {event.location && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                    <RiMapPinLine className="h-4 w-4" />
-                    {event.location}
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </p>
+          {event && (
+            <div
+              className="mt-6 p-5 rounded-2xl text-left"
+              style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.06)" }}
+            >
+              <h3 className="font-semibold" style={{ color: "#1a1a1a" }}>
+                {event.name}
+              </h3>
+              {event.date && (
+                <p
+                  className="text-sm flex items-center gap-2 mt-2"
+                  style={{ color: "#666" }}
+                >
+                  <RiCalendarLine className="h-4 w-4" />
+                  {new Date(event.date).toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
+              {event.location && (
+                <p
+                  className="text-sm flex items-center gap-2 mt-1"
+                  style={{ color: "#666" }}
+                >
+                  <RiMapPinLine className="h-4 w-4" />
+                  {event.location}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
+  const eventTimeStr = event?.date
+    ? new Date(event.date).toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+  const eventDateLabel = event?.date
+    ? new Date(event.date).toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+
+  const SectionHeader = ({ title }: { title: string }) => (
+    <div className="flex items-center gap-3 mb-4">
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.2em",
+          color: themeAccent,
+        }}
+      >
+        {title}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          height: 1,
+          background: themeAccent,
+          opacity: 0.25,
+        }}
+      />
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
-      {/* Hero Section */}
-      <div className="relative h-64 md:h-80 bg-primary/10 flex items-center justify-center overflow-hidden">
-        {event?.coverImage && (
-          <img 
-            src={event.coverImage} 
-            alt={event.name} 
+    <div className="min-h-screen" style={{ background: cream }}>
+      {/* Hero Section — invitation style */}
+      <div
+        className="relative flex items-end justify-center overflow-hidden"
+        style={{
+          height: "min(60vh, 480px)",
+          minHeight: 320,
+        }}
+      >
+        {event?.coverImage ? (
+          <img
+            src={event.coverImage}
+            alt={event.name}
             className="absolute inset-0 w-full h-full object-cover"
           />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(135deg, #FBF7EF 0%, #E8D9C5 60%, #C8AC83 100%)",
+            }}
+          />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-background/90" />
-        <div className="relative z-10 text-center px-4">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white drop-shadow-lg">{event?.name}</h1>
-          {event?.date && (
-            <p className="text-lg text-white/90 flex items-center justify-center gap-2 drop-shadow">
-              <RiCalendarLine className="h-5 w-5" />
-              {new Date(event.date).toLocaleDateString("es-ES", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.55) 90%)",
+          }}
+        />
+        <div
+          className="relative z-10 text-center px-6 pb-12"
+          style={{ color: "#FFFFFF" }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.32em",
+              textTransform: "uppercase",
+              opacity: 0.9,
+              marginBottom: 12,
+            }}
+          >
+            Te invitamos
+          </div>
+          <h1
+            style={{
+              fontFamily:
+                '"Playfair Display", "Cormorant Garamond", Georgia, serif',
+              fontSize: "clamp(36px, 6vw, 56px)",
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.1,
+              textShadow: "0 2px 12px rgba(0,0,0,0.35)",
+            }}
+          >
+            {event?.name}
+          </h1>
+          {(eventDateLabel || event?.location) && (
+            <p
+              style={{
+                fontSize: 14,
+                marginTop: 14,
+                opacity: 0.95,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {eventDateLabel}
+              {eventTimeStr ? ` · ${eventTimeStr}` : ""}
+              {event?.location ? ` · ${event.location}` : ""}
             </p>
           )}
+          {/* Ornamental flourish */}
+          <div
+            className="flex items-center justify-center gap-2 mt-6"
+            style={{ opacity: 0.65 }}
+          >
+            <span style={{ width: 36, height: 1, background: "#FFFFFF" }} />
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "#FFFFFF",
+              }}
+            />
+            <span style={{ width: 36, height: 1, background: "#FFFFFF" }} />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8 -mt-16 relative z-20">
-        {/* Event Info Card */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              {event?.date && (
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <RiCalendarLine className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Fecha</p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(event.date).toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {event?.location && (
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <RiMapPinLine className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Ubicación</p>
-                    <p className="text-sm text-muted-foreground">{event.location}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            {event?.description && (
-              <p className="mt-4 text-muted-foreground">{event.description}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Custom Message */}
+      <div className="max-w-2xl mx-auto px-5 sm:px-8 pt-12 pb-16">
+        {/* Welcome message */}
         {event?.settings?.customMessage && (
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <p className="text-muted-foreground whitespace-pre-line">
-                {event.settings.customMessage}
-              </p>
-            </CardContent>
-          </Card>
+          <div
+            className="text-center mb-10"
+            style={{
+              fontSize: 15,
+              color: "#555",
+              lineHeight: 1.7,
+              fontStyle: "italic",
+              maxWidth: 540,
+              margin: "0 auto",
+            }}
+          >
+            {event.settings.customMessage}
+          </div>
         )}
 
         {/* RSVP Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Confirma tu asistencia</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <div
+          className="rounded-2xl"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid rgba(0,0,0,0.06)",
+            boxShadow: "0 4px 20px -8px rgba(0,0,0,0.08)",
+            padding: 28,
+            marginBottom: 32,
+          }}
+        >
+          <SectionHeader title="Confirma tu asistencia" />
+          <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
                 <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
                   {error}
@@ -541,10 +688,11 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
                                 <SelectValue placeholder="Menú" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="regular">Regular</SelectItem>
-                                <SelectItem value="vegetariano">Vegetariano</SelectItem>
-                                <SelectItem value="vegano">Vegano</SelectItem>
-                                <SelectItem value="celiaco">Celíaco</SelectItem>
+                                {menuOptionsList.map((m) => (
+                                  <SelectItem key={m} value={m}>
+                                    {m}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                             <Input
@@ -563,24 +711,28 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
                   )}
 
                   {/* Menu Preference (for main guest) */}
-                  <div className="space-y-2">
-                    <Label>Tu preferencia de menú</Label>
-                    <Select
-                      value={formData.menuPreference}
-                      onValueChange={(value) => setFormData({ ...formData, menuPreference: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="regular">Regular</SelectItem>
-                        <SelectItem value="vegetariano">Vegetariano</SelectItem>
-                        <SelectItem value="vegano">Vegano</SelectItem>
-                        <SelectItem value="celiaco">Celíaco</SelectItem>
-                        <SelectItem value="kosher">Kosher</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {menuOptionsList.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Tu preferencia de menú</Label>
+                      <Select
+                        value={formData.menuPreference}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, menuPreference: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {menuOptionsList.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {/* Dietary Restrictions (for main guest) */}
                   <div className="space-y-2">
@@ -692,108 +844,140 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
               </div>
 
               {/* Submit */}
-              <Button
+              <button
                 type="submit"
-                className="w-full"
-                size="lg"
                 disabled={submitting || !formData.attending}
+                style={{
+                  width: "100%",
+                  padding: "12px 20px",
+                  background: themeAccent,
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 999,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: submitting || !formData.attending ? "not-allowed" : "pointer",
+                  opacity: submitting || !formData.attending ? 0.5 : 1,
+                  letterSpacing: "0.02em",
+                }}
               >
                 {submitting ? "Enviando..." : "Confirmar asistencia"}
-              </Button>
+              </button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Itinerary Section */}
-        {event?.itinerary && event.itinerary.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RiCalendarLine className="h-5 w-5 text-primary" />
-                Itinerario
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {event.itinerary.map((item, index) => (
-                  <div key={item.id} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <RiTimeLine className="h-5 w-5 text-primary" />
-                      </div>
-                      {index < event.itinerary.length - 1 && (
-                        <div className="w-0.5 flex-1 bg-border mt-2" />
-                      )}
+          {/* Itinerary / Horarios */}
+          {event?.itinerary && event.itinerary.length > 0 && (
+            <div className="mt-10">
+              <SectionHeader title="Horarios" />
+              <div className="space-y-1">
+                {event.itinerary.map((item) => (
+                  <div
+                    key={item.id}
+                    className="grid gap-4 py-3"
+                    style={{ gridTemplateColumns: "60px 1fr" }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: themeAccent,
+                      }}
+                    >
+                      {fmtTime(item.startTime) || "—"}
                     </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">{item.title}</p>
-                      {item.startTime && (
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(item.startTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                          {item.endTime && ` - ${new Date(item.endTime).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
+                    <div>
+                      <p style={{ fontWeight: 600, color: "#1a1a1a", fontSize: 15 }}>
+                        {item.title}
+                      </p>
+                      {item.location && (
+                        <p
+                          className="flex items-center gap-1 mt-1"
+                          style={{ fontSize: 13, color: "#666" }}
+                        >
+                          <RiMapPinLine className="h-3.5 w-3.5" />
+                          {item.location}
                         </p>
                       )}
-                      {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
-                      {item.location && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <RiMapPinLine className="h-3 w-3" /> {item.location}
+                      {item.description && (
+                        <p className="mt-1" style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>
+                          {item.description}
                         </p>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* Location Map */}
-        {event?.settings?.showLocation && event?.location && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RiMapPinLine className="h-5 w-5 text-primary" />
-                Ubicación
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LocationMap address={event.location} className="h-64" />
-            </CardContent>
-          </Card>
-        )}
+          {/* Location Map */}
+          {event?.settings?.showLocation && event?.location && (
+            <div className="mt-10">
+              <SectionHeader title="Ubicación" />
+              <p style={{ fontSize: 14, color: "#555", marginBottom: 12 }}>
+                {event.location}
+              </p>
+              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
+                <LocationMap address={event.location} className="h-64" />
+              </div>
+            </div>
+          )}
 
-        {/* Hotels Section */}
-        {event?.hotels && event.hotels.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RiHotelLine className="h-5 w-5 text-primary" />
-                Hoteles recomendados
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          {/* Hotels */}
+          {event?.hotels && event.hotels.length > 0 && (
+            <div className="mt-10">
+              <SectionHeader title="Dónde dormir" />
               <div className="space-y-4">
                 {event.hotels.map((hotel) => (
-                  <div key={hotel.id} className="p-4 rounded-lg border">
-                    <div className="flex justify-between items-start">
+                  <div key={hotel.id} className="py-3">
+                    <div className="flex justify-between items-start gap-4">
                       <div>
-                        <p className="font-medium">{hotel.name}</p>
-                        {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
-                        {hotel.distance && <p className="text-xs text-muted-foreground mt-1">{hotel.distance}</p>}
+                        <p style={{ fontWeight: 600, color: "#1a1a1a", fontSize: 15 }}>
+                          {hotel.name}
+                        </p>
+                        <p style={{ fontSize: 13, color: "#666", marginTop: 2 }}>
+                          {[hotel.distance, hotel.address]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
                       </div>
                       {hotel.priceRange && (
-                        <span className="text-sm font-medium text-primary">{hotel.priceRange}</span>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: themeAccent,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {hotel.priceRange}
+                        </span>
                       )}
                     </div>
-                    {hotel.description && <p className="text-sm text-muted-foreground mt-2">{hotel.description}</p>}
-                    <div className="flex gap-3 mt-3">
+                    {hotel.description && (
+                      <p style={{ fontSize: 13, color: "#888", marginTop: 6, lineHeight: 1.55 }}>
+                        {hotel.description}
+                      </p>
+                    )}
+                    <div className="flex gap-4 mt-3">
                       {hotel.phone && (
-                        <a href={`tel:${hotel.phone}`} className="text-sm text-primary flex items-center gap-1">
+                        <a
+                          href={`tel:${hotel.phone}`}
+                          className="flex items-center gap-1.5"
+                          style={{ fontSize: 13, color: themeAccent }}
+                        >
                           <RiPhoneLine className="h-4 w-4" /> Llamar
                         </a>
                       )}
                       {hotel.website && (
-                        <a href={hotel.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary flex items-center gap-1">
+                        <a
+                          href={hotel.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5"
+                          style={{ fontSize: 13, color: themeAccent, textDecoration: "underline" }}
+                        >
                           <RiGlobalLine className="h-4 w-4" /> Web
                         </a>
                       )}
@@ -801,77 +985,95 @@ export default function PublicRsvpPage({ params }: { params: Promise<{ eventId: 
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* Nearby Plans Section */}
-        {event?.nearbyPlans && event.nearbyPlans.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RiCompassLine className="h-5 w-5 text-primary" />
-                Planes cercanos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2">
+          {/* Nearby Plans */}
+          {event?.nearbyPlans && event.nearbyPlans.length > 0 && (
+            <div className="mt-10">
+              <SectionHeader title="Actividades" />
+              <div className="space-y-4">
                 {event.nearbyPlans.map((plan) => (
-                  <div key={plan.id} className="p-4 rounded-lg border">
-                    <div className="flex items-start justify-between">
-                      <p className="font-medium">{plan.name}</p>
+                  <div key={plan.id} className="py-3">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <p style={{ fontWeight: 600, color: "#1a1a1a", fontSize: 15 }}>
+                        {plan.name}
+                      </p>
                       {plan.category && (
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded">{plan.category}</span>
+                        <span style={{ fontSize: 12, color: "#888" }}>
+                          {plan.category}
+                        </span>
                       )}
                     </div>
-                    {plan.description && <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>}
+                    {plan.description && (
+                      <p style={{ fontSize: 13, color: "#666", marginTop: 4, lineHeight: 1.5 }}>
+                        {plan.description}
+                      </p>
+                    )}
                     {plan.address && (
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                        <RiMapPinLine className="h-3 w-3" /> {plan.address}
+                      <p
+                        className="flex items-center gap-1 mt-2"
+                        style={{ fontSize: 12.5, color: "#888" }}
+                      >
+                        <RiMapPinLine className="h-3 w-3" />
+                        {plan.address}
                       </p>
                     )}
                     {plan.website && (
-                      <a href={plan.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary flex items-center gap-1 mt-2">
+                      <a
+                        href={plan.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 mt-2"
+                        style={{ fontSize: 13, color: themeAccent, textDecoration: "underline" }}
+                      >
                         <RiGlobalLine className="h-4 w-4" /> Ver más
                       </a>
                     )}
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* FAQs Section */}
-        {event?.faqs && event.faqs.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <RiQuestionLine className="h-5 w-5 text-primary" />
-                Preguntas frecuentes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+          {/* FAQs */}
+          {event?.faqs && event.faqs.length > 0 && (
+            <div className="mt-10">
+              <SectionHeader title="Preguntas frecuentes" />
+              <div className="space-y-2">
                 {event.faqs.map((faq) => (
                   <details key={faq.id} className="group">
-                    <summary className="flex items-center justify-between cursor-pointer p-3 rounded-lg hover:bg-muted">
-                      <span className="font-medium">{faq.question}</span>
-                      <RiArrowDownSLine className="h-5 w-5 transition-transform group-open:rotate-180" />
+                    <summary
+                      className="flex items-center justify-between cursor-pointer py-3"
+                      style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}
+                    >
+                      <span style={{ fontWeight: 600, color: "#1a1a1a", fontSize: 14 }}>
+                        {faq.question}
+                      </span>
+                      <RiArrowDownSLine
+                        className="h-5 w-5 transition-transform group-open:rotate-180"
+                        style={{ color: themeAccent }}
+                      />
                     </summary>
-                    <p className="text-sm text-muted-foreground px-3 pb-3 pt-1">{faq.answer}</p>
+                    <p style={{ fontSize: 13.5, color: "#666", paddingBottom: 14, lineHeight: 1.6 }}>
+                      {faq.answer}
+                    </p>
                   </details>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* Footer */}
-        <p className="text-center text-sm text-muted-foreground mt-8">
-          Powered by <span className="font-semibold">hubents</span>
-        </p>
+          {/* Footer */}
+          <div
+            className="text-center mt-12 pt-6"
+            style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}
+          >
+            <p style={{ fontSize: 12, color: "#999" }}>
+              Powered by <span style={{ fontWeight: 600 }}>hubents</span>
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
 }

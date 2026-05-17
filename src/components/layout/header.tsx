@@ -1,75 +1,67 @@
 "use client";
 
 import { hgIcon } from "@/components/ui/hg-icon";
-import {
-  Moon02Icon,
-  Sun01Icon,
-  Logout01Icon,
-  Settings01Icon,
-  UserCircleIcon,
-} from "@hugeicons/core-free-icons";
-
-const Moon = hgIcon(Moon02Icon);
-const Sun = hgIcon(Sun01Icon);
-const LogOut = hgIcon(Logout01Icon);
-const Settings = hgIcon(Settings01Icon);
-const User = hgIcon(UserCircleIcon);
+import { Moon02Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 import { AIHeaderButton } from "@/components/ai/ai-header-button";
 import { CalendarHeaderButton } from "@/components/calendar/calendar-header-button";
 import { NotificationCenter } from "@/components/notifications/notification-center";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-import { useRouter, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
+
+const Moon = hgIcon(Moon02Icon);
+const Sun = hgIcon(Sun01Icon);
+
+// Título por ruta. Las rutas dinámicas usan el prefijo más largo que coincida.
+const PAGE_TITLES: [string, string][] = [
+  ["/dashboard/products",              "Catálogo de productos"],
+  ["/dashboard/events",                "Eventos"],
+  ["/dashboard/contacts",              "Contactos"],
+  ["/dashboard/tasks",                 "Tareas"],
+  ["/dashboard/calendar",              "Calendario"],
+  ["/dashboard/finance/quotes",        "Presupuestos"],
+  ["/dashboard/finance/invoices",      "Facturas"],
+  ["/dashboard/finance/credit-notes",  "Rectificativas"],
+  ["/dashboard/finance/delivery-notes","Albaranes"],
+  ["/dashboard/finance/payments",      "Pagos"],
+  ["/dashboard/finance/settings",      "Configuración de finanzas"],
+  ["/dashboard/finance",               "Finanzas"],
+  ["/dashboard/providers",             "Proveedores"],
+  ["/dashboard/partners",              "Partners"],
+  ["/dashboard/settings",              "Configuración"],
+  ["/dashboard/team",                  "Equipo"],
+  ["/dashboard/crm",                   "CRM"],
+  ["/dashboard/logistics/orders",      "Órdenes"],
+  ["/dashboard/logistics",             "Logística"],
+  ["/dashboard/venues",                "Venues"],
+  ["/dashboard/audiovisual",           "Audiovisual"],
+  ["/dashboard/public-profile",        "Perfil público"],
+  ["/dashboard/ai",                    "HubIA"],
+];
+
+function getPageTitle(pathname: string): string | null {
+  const match = PAGE_TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix + "/"));
+  return match ? match[1] : null;
+}
 
 export function Header() {
   const [isDark, setIsDark] = useState(false);
   const { data: session } = useSession();
-  const router = useRouter();
   const pathname = usePathname();
-  // All org types now use unified /dashboard portal
-  const isVendor = false;
 
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle("dark");
   };
 
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: "/auth/login", redirect: true });
-  };
-
-  // Get user initials
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
-  const userName = session?.user?.name || "Usuario";
-  const userEmail = session?.user?.email || "";
-  const userImage = session?.user?.image;
-  const userInitials = getInitials(session?.user?.name);
-
-  // Greeting based on time of day + first name from session
+  const isHome = pathname === "/dashboard";
   const hour = new Date().getHours();
-  const greetingPrefix =
-    hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
-  const firstName =
-    session?.user?.name?.split(" ").filter(Boolean)[0] || "";
+  const greetingPrefix = hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
+  const firstName = session?.user?.name?.split(" ").filter(Boolean)[0] || "";
   const greeting = firstName ? `${greetingPrefix}, ${firstName}` : greetingPrefix;
+
+  const title = isHome ? greeting : (getPageTitle(pathname) ?? "");
 
   return (
     <header
@@ -80,68 +72,21 @@ export function Header() {
         background: "var(--bg-app)",
       }}
     >
-      {/* Greeting (replaces search) */}
       <h1
         className="text-[22px] font-semibold text-[var(--ink-1)] truncate m-0"
         style={{ letterSpacing: "-0.015em" }}
       >
-        {greeting}
+        {title}
       </h1>
 
-      {/* Right side */}
       <div className="flex items-center gap-2">
-        {/* Calendar */}
         <CalendarHeaderButton />
-
-        {/* AI Assistant */}
         <AIHeaderButton />
-
-        {/* Theme toggle */}
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {isDark ? (
-            <Sun className="h-5 w-5" />
-          ) : (
-            <Moon className="h-5 w-5" />
-          )}
+        <span className="w-px h-5 bg-[var(--line-1)]" />
+        <Button variant="ghost" size="icon" onClick={toggleTheme} title="Cambiar tema">
+          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
-
-        {/* Notifications */}
         <NotificationCenter />
-
-        {/* User Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 rounded-lg p-1 hover:bg-[var(--accent)] transition-colors cursor-pointer">
-              <Avatar>
-                {userImage && <AvatarImage src={userImage} alt={userName} />}
-                <AvatarFallback className="bg-[var(--primary)] text-white">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium">{userName}</p>
-                <p className="text-xs text-[var(--muted-foreground)]">{userEmail}</p>
-              </div>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
-              <User className="mr-2 h-4 w-4" />
-              Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configuración
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-              <LogOut className="mr-2 h-4 w-4" />
-              Cerrar Sesión
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   );

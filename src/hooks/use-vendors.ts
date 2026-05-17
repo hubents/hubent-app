@@ -1,26 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-
-interface Vendor {
-  id: number;
-  name: string;
-  category: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
-  website: string | null;
-  notes: string | null;
-  rating: number | null;
-  status: string | null;
-  createdAt: Date | null;
-}
-
-interface VendorStats {
-  total: number;
-  active: number;
-  pending: number;
-}
+import type { Vendor, VendorStats } from "@/types";
 
 export function useVendors() {
   const [vendors, setVendors] = useState<Vendor[]>([]);

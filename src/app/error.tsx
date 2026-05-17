@@ -19,7 +19,7 @@ export default function Error({
       <div className="text-center space-y-6 max-w-md">
         <Image
           src="/images/isotipo-dark.png"
-          alt="HubEnts"
+          alt="Hubents"
           width={48}
           height={48}
           className="mx-auto"

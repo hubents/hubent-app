@@ -1,34 +1,28 @@
-import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { db } from "@/db";
-import { taskMessages, organizationIntegrations, users } from "@/db/schema";
+import { taskMessages, organizationIntegrations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { executeComposioTool } from "@/lib/composio";
 import { canAccessTaskChat } from "@/lib/task-chat";
 import { getPusherServer, CHANNELS, EVENTS } from "@/lib/pusher";
+import { apiHandler, ok, badRequest, forbidden, serverError } from "@/lib/api-handler";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
     const { taskId: taskIdStr } = await params;
     const taskId = parseInt(taskIdStr, 10);
 
     if (isNaN(taskId)) {
-      return NextResponse.json(
-        { success: false, error: "Task ID inválido" },
-        { status: 400 }
-      );
+      return badRequest("Task ID inválido");
     }
 
     const canAccess = await canAccessTaskChat(session, taskId);
     if (!canAccess) {
-      return NextResponse.json(
-        { success: false, error: "Sin acceso a esta tarea" },
-        { status: 403 }
-      );
+      return forbidden("Sin acceso a esta tarea");
     }
 
     const { to: rawTo, cc, bcc, subject, body } = await req.json();
@@ -41,10 +35,7 @@ export async function POST(
     const to = Array.isArray(rawTo) ? rawTo.map(extractEmail) : rawTo;
 
     if (!to || !Array.isArray(to) || to.length === 0 || !subject || !body) {
-      return NextResponse.json(
-        { success: false, error: "Faltan campos requeridos: to, subject, body" },
-        { status: 400 }
-      );
+      return badRequest("Faltan campos requeridos: to, subject, body");
     }
 
     const orgId = session.organizationId;
@@ -62,10 +53,7 @@ export async function POST(
       .limit(1);
 
     if (!gmailIntegration) {
-      return NextResponse.json(
-        { success: false, error: "Gmail no está conectado. Configuralo en Integraciones." },
-        { status: 400 }
-      );
+      return badRequest("Gmail no está conectado. Configuralo en Integraciones.");
     }
 
     const taggedSubject = subject.includes(`[HE-${taskId}]`) ? subject : `[HE-${taskId}] ${subject}`;
@@ -83,10 +71,7 @@ export async function POST(
     } catch (emailError) {
       console.error("[Task Email] Composio send error:", emailError instanceof Error ? emailError.message : emailError);
       console.error("[Task Email] Full error:", JSON.stringify(emailError, Object.getOwnPropertyNames(emailError as object))?.slice(0, 1000));
-      return NextResponse.json(
-        { success: false, error: `Error al enviar el email vía Gmail: ${emailError instanceof Error ? emailError.message : "Error desconocido"}` },
-        { status: 500 }
-      );
+      return serverError(`Error al enviar el email vía Gmail: ${emailError instanceof Error ? emailError.message : "Error desconocido"}`);
     }
 
     const emailFrom = gmailIntegration.connectedEmail || session.user.email || "sin-email";
@@ -131,12 +116,6 @@ export async function POST(
       console.warn("[Task Email] Pusher broadcast failed:", pusherError);
     }
 
-    return NextResponse.json({ success: true, data: messagePayload });
-  } catch (error) {
-    console.error("[Task Email] Error:", error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Error" },
-      { status: error instanceof Error && error.message.includes("Unauthorized") ? 401 : 500 }
-    );
-  }
+    return ok(messagePayload);
+  }, "POST /api/tasks/[taskId]/email");
 }

@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptions, organizations } from "@/db/schema";
 import { requireAuth } from "@/lib/session";
 import { getStripePlatform } from "@/lib/stripe-platform";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 export async function POST() {
-  try {
+  return apiHandler(async () => {
     const session = await requireAuth();
 
     // Get existing subscription with Stripe customer ID
@@ -17,10 +17,7 @@ export async function POST() {
       .limit(1);
 
     if (!sub?.stripeCustomerId) {
-      return NextResponse.json(
-        { success: false, error: "No active subscription found" },
-        { status: 404 }
-      );
+      return notFound("No active subscription found");
     }
 
     // Determine return URL based on org type
@@ -38,17 +35,6 @@ export async function POST() {
       return_url: `${appUrl}/${settingsPath}/settings`,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: { url: portalSession.url },
-    });
-  } catch (error) {
-    console.error("POST /api/subscriptions/portal error:", error);
-    const message =
-      error instanceof Error ? error.message : "Error creating portal session";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
+    return ok({ url: portalSession.url });
+  }, "POST /api/subscriptions/portal");
 }

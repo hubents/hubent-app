@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, organizations, organizationMembers } from "@/db/schema";
+import { organizations, organizationMembers, organizationFinanceSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // User preferences stored in a JSON field
 interface UserPreferences {
@@ -66,11 +67,14 @@ const DEFAULT_PREFERENCES: UserPreferences = {
  * Get user preferences
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "No autorizado" } },
+        { status: 401 }
+      );
     }
 
     // For now, we'll store preferences in localStorage on the client
@@ -102,17 +106,8 @@ export async function GET() {
       },
     };
 
-    return NextResponse.json({
-      success: true,
-      data: preferences,
-    });
-  } catch (error) {
-    console.error("Get preferences error:", error);
-    return NextResponse.json(
-      { error: "Error al obtener preferencias" },
-      { status: 500 }
-    );
-  }
+    return ok(preferences);
+  }, "GET /api/user/preferences");
 }
 
 /**
@@ -120,21 +115,21 @@ export async function GET() {
  * Update user preferences
  */
 export async function PATCH(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await auth();
-    
+
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "No autorizado" } },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
     const { section, data } = body;
 
     if (!section || !data) {
-      return NextResponse.json(
-        { error: "Sección y datos son requeridos" },
-        { status: 400 }
-      );
+      return badRequest("Sección y datos son requeridos");
     }
 
     // Handle locale settings - these are stored in organization
@@ -164,21 +159,28 @@ export async function PATCH(request: NextRequest) {
             updatedAt: new Date(),
           })
           .where(eq(organizations.id, membership.organizationId));
+
+        // Keep finance settings in sync with the locale currency
+        if (data.currency) {
+          const [existingFinance] = await db
+            .select({ id: organizationFinanceSettings.id })
+            .from(organizationFinanceSettings)
+            .where(eq(organizationFinanceSettings.organizationId, membership.organizationId))
+            .limit(1);
+
+          if (existingFinance) {
+            await db
+              .update(organizationFinanceSettings)
+              .set({ defaultCurrency: data.currency, updatedAt: new Date() })
+              .where(eq(organizationFinanceSettings.organizationId, membership.organizationId));
+          }
+        }
       }
     }
 
     // Other preferences (notifications, appearance, privacy) are stored client-side
     // We just acknowledge the update here
 
-    return NextResponse.json({
-      success: true,
-      message: "Preferencias actualizadas",
-    });
-  } catch (error) {
-    console.error("Update preferences error:", error);
-    return NextResponse.json(
-      { error: "Error al actualizar preferencias" },
-      { status: 500 }
-    );
-  }
+    return ok({ message: "Preferencias actualizadas" });
+  }, "PATCH /api/user/preferences");
 }

@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { rsvpHotels } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireEventSectionAccess } from "@/lib/session";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // POST /api/events/[eventId]/rsvp/hotels - Add hotel
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { name, description, address, phone, website, priceRange, distance, imageUrl, orderIndex } = body;
 
     if (!name) {
-      return NextResponse.json({ success: false, error: "Name is required" }, { status: 400 });
+      return badRequest("Name is required");
     }
 
     const newItem = await db
@@ -36,16 +37,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: newItem[0] });
-  } catch (error) {
-    console.error("Error creating hotel:", error);
-    return NextResponse.json({ success: false, error: "Failed to create hotel" }, { status: 500 });
-  }
+    return ok(newItem[0]);
+  }, "POST /api/events/[eventId]/rsvp/hotels");
 }
 
 // PUT /api/events/[eventId]/rsvp/hotels - Update hotel
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -54,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id, name, description, address, phone, website, priceRange, distance, imageUrl, orderIndex } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
@@ -72,16 +70,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       })
       .where(and(eq(rsvpHotels.id, id), eq(rsvpHotels.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating hotel:", error);
-    return NextResponse.json({ success: false, error: "Failed to update hotel" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "PUT /api/events/[eventId]/rsvp/hotels");
 }
 
 // DELETE /api/events/[eventId]/rsvp/hotels - Delete hotel
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     await requireEventSectionAccess(eventIdNum, "rsvp", "edit");
@@ -89,16 +84,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, error: "ID is required" }, { status: 400 });
+      return badRequest("ID is required");
     }
 
     await db
       .delete(rsvpHotels)
       .where(and(eq(rsvpHotels.id, parseInt(id)), eq(rsvpHotels.eventId, eventIdNum)));
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting hotel:", error);
-    return NextResponse.json({ success: false, error: "Failed to delete hotel" }, { status: 500 });
-  }
+    return ok({ success: true });
+  }, "DELETE /api/events/[eventId]/rsvp/hotels");
 }

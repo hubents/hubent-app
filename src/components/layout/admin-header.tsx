@@ -16,7 +16,7 @@ const RiSunLine = hgIcon(Sun01Icon);
 const RiLogoutBoxLine = hgIcon(Logout01Icon);
 const RiSettings4Line = hgIcon(Settings01Icon);
 const RiUserLine = hgIcon(UserCircleIcon);
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Av } from "@/components/ui/ds";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,20 +57,9 @@ export function AdminHeader() {
     await signOut({ callbackUrl: "/auth/login", redirect: true });
   };
 
-  // Get user initials
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
   const userName = session?.user?.name || "Admin";
   const userEmail = session?.user?.email || "";
   const userImage = session?.user?.image;
-  const userInitials = getInitials(session?.user?.name);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-end border-b border-[var(--border)] bg-[var(--card)] px-6">
@@ -117,12 +106,7 @@ export function AdminHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 rounded-lg p-1 hover:bg-[var(--accent)] transition-colors cursor-pointer">
-              <Avatar>
-                {userImage && <AvatarImage src={userImage} alt={userName} />}
-                <AvatarFallback className="bg-[var(--primary)] text-white">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+              <Av src={userImage} name={userName} seed={userEmail} size={36} />
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium">{userName}</p>
                 <p className="text-xs text-[var(--muted-foreground)]">{userEmail}</p>

@@ -66,7 +66,7 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Conectá tus apps externas para enviar emails, mensajes de WhatsApp y más
-          desde HubEnts.
+          desde Hubents.
         </p>
       </div>
 

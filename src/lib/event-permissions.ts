@@ -203,6 +203,7 @@ function defaultFullPermissions(): EventSectionPermissions {
     finances: "none",
     runsheet: "none",
     calendar: "none",
+    venue: "none",
     settings: "none",
   };
 }
@@ -220,6 +221,7 @@ export const EVENT_SECTION_LABELS: Record<keyof EventSectionPermissions, string>
   finances: "Finanzas",
   runsheet: "Orden del día",
   calendar: "Calendario",
+  venue: "Venue",
   settings: "Configuración",
 };
 
@@ -236,5 +238,6 @@ export const EVENT_SECTION_LEVELS: Record<keyof EventSectionPermissions, EventSe
   finances: ["none", "view"],
   runsheet: ["none", "view", "edit"],
   calendar: ["none", "view", "edit"],
+  venue: ["none", "view", "edit"],
   settings: ["none"],
 };

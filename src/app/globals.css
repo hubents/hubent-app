@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Prototype primitives + screen classes (.btn, .card, .pill, .kpi, ...).
+   See src/app/prototype.css. Auth-* lives in src/app/auth/auth.css. */
+@import "./prototype.css";
+
 /* ============================================================
    HUBENTS DESIGN TOKENS — ported from prototype "Hubents visual code 2"
    ------------------------------------------------------------
@@ -379,6 +383,51 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* ========================================
+   DRAWER FORM FIELDS — shared input styling for prototype-style drawers.
+   Used by: new-contact-drawer, link-contact-drawer, contact-general-tab,
+   contact-bank-tab, contact-activity-tab. Lives here (not styled-jsx)
+   because Sheet renders via Radix Portal which can break style-jsx scoping.
+   ======================================== */
+.drawer-form-field input,
+.drawer-form-field select,
+.drawer-form-field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink-1);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.drawer-form-field input:focus,
+.drawer-form-field select:focus,
+.drawer-form-field textarea:focus {
+  border-color: var(--ink-1);
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+}
+.drawer-form-field input::placeholder,
+.drawer-form-field textarea::placeholder {
+  color: var(--ink-3);
+}
+.drawer-form-field input:disabled,
+.drawer-form-field select:disabled,
+.drawer-form-field textarea:disabled {
+  background: var(--bg-subtle);
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+/* Composed input (e.g. website with https:// prefix) — focus the wrapper */
+.drawer-website-input:focus-within {
+  border-color: var(--ink-1) !important;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
 }
 
 /* ========================================
@@ -861,4 +910,31 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
+}
+
+/* Finance dashboard animations (ported from prototype styles.css:1541-1581) */
+@keyframes finBarGrow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes finFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes finLineDraw {
+  from { stroke-dashoffset: 1800; }
+  to   { stroke-dashoffset: 0; }
+}
+.fin-bar {
+  transform-origin: bottom;
+  animation: finBarGrow 1.2s cubic-bezier(.4,.1,.25,1) both;
+}
+.fin-line {
+  stroke-dasharray: 1800;
+  stroke-dashoffset: 1800;
+  animation: finLineDraw 1.8s cubic-bezier(.4,.1,.25,1) .2s forwards;
+}
+.fin-line-peak {
+  opacity: 0;
+  animation: finFadeUp .5s ease-out 1.8s forwards;
 }

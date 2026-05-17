@@ -1,40 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getPerson, updatePerson, deletePerson } from "@/lib/crm";
+import { apiHandler, ok, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ personId: string }> };
 
 // GET /api/crm/people/[personId] - Get single person
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { personId } = await params;
 
     const person = await getPerson(session, parseInt(personId, 10));
 
     if (!person) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Person not found" } },
-        { status: 404 }
-      );
+      return notFound("Person not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: person,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch person";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(person);
+  }, "GET /api/crm/people/[personId]");
 }
 
 // PATCH /api/crm/people/[personId] - Update person
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { personId } = await params;
     const body = await request.json();
@@ -42,42 +31,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updated = await updatePerson(session, parseInt(personId, 10), body);
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Person not found" } },
-        { status: 404 }
-      );
+      return notFound("Person not found");
     }
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update person";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/crm/people/[personId]");
 }
 
 // DELETE /api/crm/people/[personId] - Delete person
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const { personId } = await params;
 
     await deletePerson(session, parseInt(personId, 10));
 
-    return NextResponse.json({
-      success: true,
-      data: { message: "Person deleted" },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete person";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok({ message: "Person deleted" });
+  }, "DELETE /api/crm/people/[personId]");
 }

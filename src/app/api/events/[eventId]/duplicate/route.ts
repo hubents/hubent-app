@@ -1,25 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { duplicateEvent } from "@/lib/events";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 // POST /api/events/[eventId]/duplicate - Duplicate an event
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> },
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("events:create");
     const { eventId: id } = await params;
     const eventId = parseInt(id, 10);
 
     if (isNaN(eventId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { code: "INVALID_ID", message: "Invalid event ID" },
-        },
-        { status: 400 },
-      );
+      return badRequest("Invalid event ID", "INVALID_ID");
     }
 
     const body = await request.json();
@@ -41,13 +36,6 @@ export async function POST(
       includeLandingForms: includeLandingForms !== false,
     });
 
-    return NextResponse.json({ success: true, data: newEvent });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to duplicate event";
-    return NextResponse.json(
-      { success: false, error: { code: "DUPLICATE_ERROR", message } },
-      { status: 400 },
-    );
-  }
+    return ok(newEvent);
+  }, "POST /api/events/[eventId]/duplicate");
 }

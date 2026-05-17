@@ -3,9 +3,10 @@ import { db } from "@/db";
 import { announcements } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/session";
 import { desc } from "drizzle-orm";
+import { apiHandler, ok, created as createdResponse, badRequest } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const all = await db
@@ -13,28 +14,19 @@ export async function GET() {
       .from(announcements)
       .orderBy(desc(announcements.createdAt));
 
-    return NextResponse.json({ success: true, data: all });
-  } catch (error) {
-    console.error("GET /api/admin/announcements error:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al obtener anuncios" },
-      { status: 500 }
-    );
-  }
+    return ok(all);
+  }, "GET /api/admin/announcements");
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const body = await request.json();
     const { title, content, type, isActive, startsAt, endsAt, targetPlanIds } = body;
 
     if (!title || !content) {
-      return NextResponse.json(
-        { success: false, error: "Título y contenido son requeridos" },
-        { status: 400 }
-      );
+      return badRequest("Título y contenido son requeridos");
     }
 
     const [created] = await db
@@ -50,12 +42,6 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: created });
-  } catch (error) {
-    console.error("POST /api/admin/announcements error:", error);
-    return NextResponse.json(
-      { success: false, error: "Error al crear anuncio" },
-      { status: 500 }
-    );
-  }
+    return createdResponse(created);
+  }, "POST /api/admin/announcements");
 }

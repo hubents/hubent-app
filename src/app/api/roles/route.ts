@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission, requireFeature } from "@/lib/session";
 import { db } from "@/db";
-import { roles, rolePermissions, permissions, organizationMembers } from "@/db/schema";
+import { roles, rolePermissions, organizationMembers } from "@/db/schema";
 import { eq, and, isNull, count } from "drizzle-orm";
 import { getAvailableRoles } from "@/lib/tenant-type";
+import { apiHandler, ok, created, badRequest, conflict } from "@/lib/api-handler";
 
 /**
  * GET /api/roles
@@ -12,7 +13,7 @@ import { getAvailableRoles } from "@/lib/tenant-type";
  * and provider orgs only see provider roles.
  */
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:read");
 
     const allowedSlugs = getAvailableRoles(session.orgType);
@@ -76,22 +77,11 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        systemRoles: rolesWithCounts.filter((r) => r.isSystem),
-        customRoles: rolesWithCounts.filter((r) => !r.isSystem),
-      },
+    return ok({
+      systemRoles: rolesWithCounts.filter((r) => r.isSystem),
+      customRoles: rolesWithCounts.filter((r) => !r.isSystem),
     });
-  } catch (error) {
-    console.error("GET /api/roles error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch roles";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status }
-    );
-  }
+  }, "GET /api/roles");
 }
 
 /**
@@ -100,7 +90,7 @@ export async function GET() {
  * Requires "custom_roles" feature (plan-gated)
  */
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("team:manage");
     await requireFeature("custom_roles");
 
@@ -108,10 +98,7 @@ export async function POST(request: NextRequest) {
     const { name, description, permissionIds } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Name is required");
     }
 
     // Generate slug from name
@@ -129,10 +116,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: { code: "DUPLICATE", message: "A role with this name already exists" } },
-        { status: 409 }
-      );
+      return conflict("A role with this name already exists", "DUPLICATE");
     }
 
     const { eventScoped } = body;
@@ -160,20 +144,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: newRole,
-    }, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/roles error:", error);
-    const message = error instanceof Error ? error.message : "Failed to create role";
-    const status = message.includes("Unauthorized") ? 401
-      : message.includes("Forbidden") ? 403
-      : message.includes("UpgradeRequired") ? 402
-      : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status }
-    );
-  }
+    return created(newRole);
+  }, "POST /api/roles");
 }

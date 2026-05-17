@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import {
   getPaymentRecords,
@@ -7,10 +7,11 @@ import {
   createPaymentSchedule,
   markSchedulePaid,
 } from "@/lib/finance";
+import { apiHandler, ok, created, badRequest, paginated } from "@/lib/api-handler";
 
 // GET /api/finance/payments - List payment records or schedules
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:read");
     const { searchParams } = new URL(request.url);
 
@@ -32,16 +33,12 @@ export async function GET(request: NextRequest) {
         scope,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: schedules,
-      });
+      return ok(schedules);
     }
 
     // Default to records
     const page = searchParams.get("page");
     const limit = searchParams.get("limit");
-
     const contactId = searchParams.get("contactId");
     const statusFilter = searchParams.get("status");
 
@@ -57,24 +54,13 @@ export async function GET(request: NextRequest) {
       scope,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch payments";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 },
-    );
-  }
+    return paginated(result.data, result.meta);
+  }, "GET /api/finance/payments");
 }
 
 // POST /api/finance/payments - Create payment record or schedule
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const body = await request.json();
 
@@ -84,16 +70,7 @@ export async function POST(request: NextRequest) {
       const { name, amount, dueDate, taskId, eventId, vendorId, notes } = body;
 
       if (!name || !amount || !dueDate) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Name, amount, and dueDate are required",
-            },
-          },
-          { status: 400 },
-        );
+        return badRequest("Name, amount, and dueDate are required");
       }
 
       const schedule = await createPaymentSchedule(session, {
@@ -106,10 +83,7 @@ export async function POST(request: NextRequest) {
         notes,
       });
 
-      return NextResponse.json({
-        success: true,
-        data: schedule,
-      });
+      return created(schedule);
     }
 
     // Default to payment record
@@ -134,13 +108,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!amount) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: { code: "VALIDATION_ERROR", message: "Amount is required" },
-        },
-        { status: 400 },
-      );
+      return badRequest("Amount is required");
     }
 
     const record = await createPaymentRecord(session, {
@@ -163,57 +131,24 @@ export async function POST(request: NextRequest) {
       attachmentName,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: record,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to create payment";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 },
-    );
-  }
+    return created(record);
+  }, "POST /api/finance/payments");
 }
 
 // PATCH /api/finance/payments - Mark schedule as paid
 export async function PATCH(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const body = await request.json();
 
     const { scheduleId, paymentRecordId } = body;
 
     if (!scheduleId || !paymentRecordId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VALIDATION_ERROR",
-            message: "scheduleId and paymentRecordId are required",
-          },
-        },
-        { status: 400 },
-      );
+      return badRequest("scheduleId and paymentRecordId are required");
     }
 
-    const updated = await markSchedulePaid(
-      session,
-      scheduleId,
-      paymentRecordId,
-    );
+    const updated = await markSchedulePaid(session, scheduleId, paymentRecordId);
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to update payment";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 },
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/finance/payments");
 }

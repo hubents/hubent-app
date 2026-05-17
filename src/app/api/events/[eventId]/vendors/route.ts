@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireEventSectionAccess } from "@/lib/session";
 import { db } from "@/db";
 import { events, eventVendors, vendors } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { apiHandler, ok, created, badRequest, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ eventId: string }> };
 
 // GET /api/events/[eventId]/vendors - List vendors for an event
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
@@ -25,10 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     const eventVendorsList = await db
@@ -52,20 +50,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .leftJoin(vendors, eq(eventVendors.vendorId, vendors.id))
       .where(eq(eventVendors.eventId, eventIdNum));
 
-    return NextResponse.json({ success: true, data: eventVendorsList });
-  } catch (error) {
-    console.error("GET /api/events/[eventId]/vendors error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch vendors";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(eventVendorsList);
+  }, "GET /api/events/[eventId]/vendors");
 }
 
 // POST /api/events/[eventId]/vendors - Add a vendor to an event
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
@@ -74,10 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { vendorId, service, cost, notes } = body;
 
     if (!vendorId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Vendor ID is required" } },
-        { status: 400 }
-      );
+      return badRequest("Vendor ID is required");
     }
 
     // Verify event belongs to organization
@@ -92,10 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     const [eventVendor] = await db
@@ -109,20 +94,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       })
       .returning();
 
-    return NextResponse.json({ success: true, data: eventVendor });
-  } catch (error) {
-    console.error("POST /api/events/[eventId]/vendors error:", error);
-    const message = error instanceof Error ? error.message : "Failed to add vendor";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return created(eventVendor);
+  }, "POST /api/events/[eventId]/vendors");
 }
 
 // DELETE /api/events/[eventId]/vendors - Remove a vendor from an event
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const { eventId } = await params;
     const eventIdNum = parseInt(eventId, 10);
     const session = await requireEventSectionAccess(eventIdNum, "vendors", "view");
@@ -130,10 +108,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const eventVendorId = searchParams.get("id");
 
     if (!eventVendorId) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Event vendor ID is required" } },
-        { status: 400 }
-      );
+      return badRequest("Event vendor ID is required");
     }
 
     // Verify event belongs to organization
@@ -148,10 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
 
     if (!event) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Event not found" } },
-        { status: 404 }
-      );
+      return notFound("Event not found");
     }
 
     await db
@@ -163,13 +135,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         )
       );
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE /api/events/[eventId]/vendors error:", error);
-    const message = error instanceof Error ? error.message : "Failed to remove vendor";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/events/[eventId]/vendors");
 }

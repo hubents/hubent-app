@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getFormInstanceBySlug } from "@/lib/form-instances";
 import {
   createSubmission,
@@ -8,32 +8,34 @@ import {
   createContactFromSubmission,
   linkSubmissionToContact,
 } from "@/lib/form-submissions";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const { slug } = await params;
+
     if (!slug) {
-      return NextResponse.json({ success: false, error: "Slug requerido" }, { status: 400 });
+      return badRequest("Slug requerido");
     }
 
     const instance = await getFormInstanceBySlug(slug);
     if (!instance || !instance.form) {
-      return NextResponse.json({ success: false, error: "Formulario no encontrado" }, { status: 404 });
+      return notFound("Formulario no encontrado");
     }
 
     if (instance.form.status !== "active") {
-      return NextResponse.json({ success: false, error: "Formulario no disponible" }, { status: 404 });
+      return notFound("Formulario no disponible");
     }
 
     const body = await request.json();
     const data = body.data as Record<string, unknown>;
     if (!data || typeof data !== "object") {
-      return NextResponse.json({ success: false, error: "Datos requeridos" }, { status: 400 });
+      return badRequest("Datos requeridos");
     }
 
     // Validate required fields
@@ -42,10 +44,7 @@ export async function POST(
       if (field.required) {
         const value = data[field.label];
         if (value === undefined || value === null || value === "") {
-          return NextResponse.json(
-            { success: false, error: `El campo "${field.label}" es obligatorio` },
-            { status: 400 }
-          );
+          return badRequest(`El campo "${field.label}" es obligatorio`);
         }
       }
     }
@@ -100,17 +99,11 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        submissionId: submission.id,
-        thankYouTitle: instance.form.thankYouTitle,
-        thankYouMessage: instance.form.thankYouMessage,
-        redirectUrl: instance.form.redirectUrl,
-      },
+    return ok({
+      submissionId: submission.id,
+      thankYouTitle: instance.form.thankYouTitle,
+      thankYouMessage: instance.form.thankYouMessage,
+      redirectUrl: instance.form.redirectUrl,
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Error interno";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+  }, "POST /api/public/forms/[slug]/submit");
 }

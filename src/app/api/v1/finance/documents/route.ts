@@ -102,7 +102,7 @@ export const POST = withApiAuth(
     const d = parsed.data;
 
     // Generate document number
-    const prefixes: Record<string, string> = { quote: "PRES", proforma: "PROF", invoice: "FAC", delivery_note: "ALB", credit_note: "ABONO" };
+    const prefixes: Record<string, string> = { quote: "PRES", proforma: "PROF", invoice: "FAC", delivery_note: "ALB", credit_note: "FR" };
     const year = new Date().getFullYear();
     const prefix = prefixes[d.type];
     const [lastDoc] = await db

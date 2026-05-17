@@ -1,5 +1,5 @@
 /**
- * Server-side ClickUp API v2 client for HubEnts.
+ * Server-side ClickUp API v2 client for Hubents.
  *
  * Env: CLICKUP_API_TOKEN (required), CLICKUP_TEAM_ID, CLICKUP_MONITORING_LIST_ID
  *

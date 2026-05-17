@@ -1,8 +1,7 @@
 import { MainSidebar } from "@/components/layout/main-sidebar";
 import { EventSidebar } from "@/components/layout/event-sidebar";
 import { Header } from "@/components/layout/header";
-import { MobileHeader } from "@/components/layout/mobile-header";
-import { BottomNav } from "@/components/layout/bottom-nav";
+import { MobileHeaderClient, BottomNavClient } from "@/components/layout/mobile-nav-client";
 import { OrgCookieSetter } from "@/components/layout/org-cookie-setter";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { EventProvider } from "@/contexts/event-context";
@@ -34,7 +33,7 @@ export default function DashboardLayout({
         <EventSidebar />
         
         {/* Mobile Header */}
-        <MobileHeader />
+        <MobileHeaderClient />
         
         {/* Main Content Area */}
         <DashboardContent>
@@ -48,7 +47,7 @@ export default function DashboardLayout({
         </DashboardContent>
         
         {/* Mobile Bottom Navigation */}
-        <BottomNav />
+        <BottomNavClient />
       </div>
     </EventProvider>
     </UserSessionProvider>

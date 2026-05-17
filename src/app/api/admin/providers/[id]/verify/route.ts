@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { organizations, users } from "@/db/schema";
@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sendProviderVerifiedEmail, sendProviderRejectedEmail } from "@/lib/email";
 import { getConfigByDbOrgType } from "@/lib/tenant-type";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -24,26 +25,20 @@ const verifySchema = z.object({
  * in tenant-types config can be verified.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePlatformAdmin();
     const { id } = await params;
     const orgId = parseInt(id);
 
     if (isNaN(orgId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_ID", message: "Invalid organization ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid organization ID", "INVALID_ID");
     }
 
     const body = await request.json();
     const parsed = verifySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0].message } },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0].message);
     }
 
     const { action, rejectionReason } = parsed.data;
@@ -53,19 +48,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!provider) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Organization not found" } },
-        { status: 404 }
-      );
+      return notFound("Organization not found");
     }
 
     // Any orgType visible in Partners can be verified (not just providers)
     const typeConfig = getConfigByDbOrgType(provider.orgType || "");
     if (!typeConfig?.isMarketplaceVisible) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_VERIFIABLE", message: `Organization type '${provider.orgType}' is not visible in Partners` } },
-        { status: 400 }
-      );
+      return badRequest(`Organization type '${provider.orgType}' is not visible in Partners`, "NOT_VERIFIABLE");
     }
 
     if (action === "verify") {
@@ -91,10 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       }
 
-      return NextResponse.json({
-        success: true,
-        data: { status: "verified" },
-      });
+      return ok({ status: "verified" });
     } else {
       await db
         .update(organizations)
@@ -116,18 +102,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       }
 
-      return NextResponse.json({
-        success: true,
-        data: { status: "rejected" },
-      });
+      return ok({ status: "rejected" });
     }
-  } catch (error) {
-    console.error("POST /api/admin/providers/[id]/verify error:", error);
-    const message = error instanceof Error ? error.message : "Verification failed";
-    const status = message.includes("Unauthorized") || message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json(
-      { success: false, error: { code: "VERIFY_ERROR", message } },
-      { status }
-    );
-  }
+  }, "POST /api/admin/providers/[id]/verify");
 }

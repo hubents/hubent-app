@@ -66,7 +66,8 @@ const SECTION_MAP: Record<string, string> = {
 export function EventSidebar() {
   const pathname = usePathname();
   const { activeEvent, setActiveEvent } = useEvent();
-  const { eventScoped } = useUserSessionContext();
+  const { eventScoped, orgType } = useUserSessionContext();
+  const isPlannerAccount = orgType === "tenant" || !orgType;
   const [eventPermissions, setEventPermissions] = useState<Record<string, string> | null>(null);
   const [financeExpanded, setFinanceExpanded] = useState(false);
 
@@ -110,9 +111,11 @@ export function EventSidebar() {
     { name: "Tareas", href: `${basePath}/tasks`, icon: RiFileListLine },
     { name: "Partners", href: `${basePath}/partners`, icon: RiStore2Line },
     { name: "Finanzas", href: `${basePath}/finances`, icon: RiMoneyDollarCircleLine, hasSubmenu: true },
-    { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
-    { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
-    { name: "Orden del día", href: `${basePath}/run-sheet`, icon: RiListOrdered2 },
+    ...(isPlannerAccount ? [
+      { name: "RSVP", href: `${basePath}/rsvp`, icon: RiMailSendLine },
+      { name: "Lista de Invitados", href: `${basePath}/guests`, icon: RiGroupLine },
+      { name: "Orden del día", href: `${basePath}/run-sheet`, icon: RiListOrdered2 },
+    ] : []),
     { name: "Configuración", href: `${basePath}/settings`, icon: RiSettings4Line },
   ];
 
@@ -181,8 +184,8 @@ export function EventSidebar() {
                     className={cn(
                       "flex w-full items-center justify-between rounded-[var(--radius)] px-3 py-2 text-sm font-medium transition-colors",
                       isFinancePage
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        ? "bg-[var(--bg-subtle)] text-[var(--ink-1)] font-semibold"
+                        : "text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
                     )}
                   >
                     <div className="flex items-center gap-3">

@@ -1,35 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { createCreditNote } from "@/lib/finance";
+import { apiHandler, created, badRequest } from "@/lib/api-handler";
 
 // POST /api/finance/documents/[documentId]/credit-note - Create credit note from invoice
 export async function POST(
-  request: NextRequest,
+  _: Request,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("finance:create");
     const { documentId } = await params;
     const invoiceId = parseInt(documentId, 10);
 
-    if (isNaN(invoiceId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Invalid invoice ID" } },
-        { status: 400 }
-      );
-    }
+    if (isNaN(invoiceId)) return badRequest("Invalid invoice ID");
 
     const creditNote = await createCreditNote(session, invoiceId);
 
-    return NextResponse.json({
-      success: true,
-      data: creditNote,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create credit note";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return created(creditNote);
+  }, "POST /api/finance/documents/[documentId]/credit-note");
 }

@@ -1,43 +1,43 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { hgIcon } from "@/components/ui/hg-icon";
 import {
-  RiArrowLeftLine,
-  RiCalendarLine,
-  RiMapPinLine,
-  RiGroupLine,
-  RiMoneyDollarCircleLine,
-  RiFileListLine,
-  RiStore2Line,
-  RiFileTextLine,
-  RiEditLine,
-  RiAddLine,
-  RiUserAddLine,
-  RiUploadLine,
-  RiDeleteBinLine,
-  RiMoreLine,
-  RiFileCopyLine,
-  RiFileList3Line,
-  RiEyeLine,
-  RiDownloadLine,
-  RiTeamLine,
-} from "@remixicon/react";
+  Calendar01Icon,
+  Location01Icon,
+  UserGroupIcon,
+  Wallet01Icon,
+  ListViewIcon,
+  Store01Icon,
+  PencilEdit01Icon,
+  MoreHorizontalIcon,
+  Copy01Icon,
+} from "@hugeicons/core-free-icons";
+
+const RiCalendarLine = hgIcon(Calendar01Icon);
+const RiMapPinLine = hgIcon(Location01Icon);
+const RiGroupLine = hgIcon(UserGroupIcon);
+const RiMoneyDollarCircleLine = hgIcon(Wallet01Icon);
+const RiFileListLine = hgIcon(ListViewIcon);
+const RiStore2Line = hgIcon(Store01Icon);
+const RiEditLine = hgIcon(PencilEdit01Icon);
+const RiMoreLine = hgIcon(MoreHorizontalIcon);
+const RiFileCopyLine = hgIcon(Copy01Icon);
+const RiFileList3Line = hgIcon(ListViewIcon);
+const RiTeamLine = hgIcon(UserGroupIcon);
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { EditEventDrawer } from "@/components/events/edit-event-drawer";
+import { CreateEventDrawer } from "@/components/events/create-event-drawer";
 import { DuplicateEventDrawer } from "@/components/events/duplicate-event-drawer";
 import { SaveAsTemplateDrawer } from "@/components/events/save-as-template-drawer";
 import { CollaboratorDrawer } from "@/components/events/collaborator-drawer";
 import { useEvent } from "@/contexts/event-context";
 import { useUserSessionContext } from "@/contexts/user-session-context";
 import { useEventPermissions } from "@/hooks/use-event-permissions";
-import { downloadFile } from "@/lib/file-download";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,19 +45,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-} from "@/components/ui/select";
-import { FileUploader } from "@/components/ui/file-uploader";
-import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
 
 interface Event {
   id: number;
@@ -80,6 +67,17 @@ interface Task {
   priority: string;
   dueDate: string | null;
   eventId: number;
+  assignedTo?: string | null;
+  assignedUserName?: string | null;
+}
+
+interface Payment {
+  id: number;
+  name: string;
+  amount: string;
+  status: string;
+  dueDate: string | null;
+  paidDate: string | null;
 }
 
 const statusMap: Record<string, { label: string; variant: "secondary" | "warning" | "success" | "destructive" }> = {
@@ -108,14 +106,9 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"view" | "create">("view");
-  const [documents, setDocuments] = useState<Array<{ id: number; name: string; url: string; type?: string; mimeType?: string | null }>>([]);
   const [guests, setGuests] = useState<Array<{ id: number; firstName: string; lastName: string }>>([]);
-  const [showAddGuestDialog, setShowAddGuestDialog] = useState(false);
-  const [showAddDocDialog, setShowAddDocDialog] = useState(false);
-  const [newGuest, setNewGuest] = useState({ firstName: "", lastName: "", email: "", phone: "" });
-  const [newDoc, setNewDoc] = useState({ name: "", url: "" });
-  const [addingGuest, setAddingGuest] = useState(false);
-  const [addingDoc, setAddingDoc] = useState(false);
+  const [guestStats, setGuestStats] = useState({ total: 0, confirmed: 0, declined: 0, pending: 0 });
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [collaborators, setCollaborators] = useState<Array<{
     id: number;
     userId: string | null;
@@ -144,19 +137,6 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     acceptedAt: string | null;
   }>>([]);
   const [collabDrawerOpen, setCollabDrawerOpen] = useState(false);
-
-  /** Equipo card: internal members + contacts only — not bilateral partners (Partners card). */
-  const equipoCollaborators = useMemo(
-    () =>
-      collaborators.filter(
-        (c) => c.type !== "partner" && !(c.type === "vendor" && c.providerOrgId),
-      ),
-    [collaborators],
-  );
-  const [eventForms, setEventForms] = useState<Array<{ id: number; formId: number; formName?: string; type: string; slug: string | null; submissionCount: number }>>([]);
-  const [docPreviewOpen, setDocPreviewOpen] = useState(false);
-  const [docPreviewIndex, setDocPreviewIndex] = useState(0);
-  const [deletingDocId, setDeletingDocId] = useState<number | null>(null);
 
   // Set active event when loaded
   useEffect(() => {
@@ -202,24 +182,21 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
-  const fetchDocuments = async () => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/documents`);
-      const data = await res.json();
-      if (data.success) {
-        setDocuments(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch documents:", error);
-    }
-  };
 
   const fetchGuests = async () => {
     try {
       const res = await fetch(`/api/events/${eventId}/guests`);
       const data = await res.json();
       if (data.success) {
-        setGuests(data.data || []);
+        setGuests(data.data?.data || []);
+        if (data.data?.stats) {
+          setGuestStats({
+            total: data.data.stats.total || 0,
+            confirmed: data.data.stats.confirmed || 0,
+            declined: data.data.stats.declined || 0,
+            pending: data.data.stats.pending || 0,
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to fetch guests:", error);
@@ -238,25 +215,33 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     }
   };
 
-  const fetchEventForms = async () => {
+  const fetchPayments = async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/forms`);
+      const res = await fetch(`/api/finance/payments?eventId=${eventId}`);
       const data = await res.json();
       if (data.success) {
-        setEventForms(data.data || []);
+        setPayments(data.data || []);
       }
     } catch (error) {
-      console.error("Failed to fetch event forms:", error);
+      console.error("Failed to fetch payments:", error);
     }
   };
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      await Promise.all([fetchEvent(), fetchTasks(), fetchPartners(), fetchDocuments(), fetchGuests(), fetchCollaborators(), fetchEventForms()]);
+      await Promise.all([
+        fetchEvent(),
+        fetchTasks(),
+        fetchPartners(),
+        fetchGuests(),
+        fetchCollaborators(),
+        fetchPayments(),
+      ]);
       setLoading(false);
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const handleTaskClick = (task: Task) => {
@@ -265,82 +250,11 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
     setIsDrawerOpen(true);
   };
 
-  const openCreateDrawer = () => {
-    setSelectedTaskId(null);
-    setDrawerMode("create");
-    setIsDrawerOpen(true);
-  };
-
   const handleTaskCreated = (newTaskId: number) => {
     setSelectedTaskId(newTaskId);
     setDrawerMode("view");
     fetchTasks();
   };
-
-  const handleAddGuest = async () => {
-    if (!newGuest.firstName) return;
-    setAddingGuest(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/guests`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newGuest),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNewGuest({ firstName: "", lastName: "", email: "", phone: "" });
-        setShowAddGuestDialog(false);
-        fetchGuests();
-        fetchEvent(); // Update guest count
-      }
-    } finally {
-      setAddingGuest(false);
-    }
-  };
-
-  const handleAddDocument = async (doc?: { name: string; url: string }) => {
-    const docToAdd = doc || newDoc;
-    if (!docToAdd.name || !docToAdd.url) return;
-    setAddingDoc(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(docToAdd),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNewDoc({ name: "", url: "" });
-        fetchDocuments();
-      }
-    } finally {
-      setAddingDoc(false);
-    }
-  };
-
-  const handleDeleteDocument = async (docId: number) => {
-    if (!confirm("¿Eliminar este documento?")) return;
-    setDeletingDocId(docId);
-    try {
-      const res = await fetch(`/api/events/${eventId}/documents?id=${docId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchDocuments();
-      }
-    } finally {
-      setDeletingDocId(null);
-    }
-  };
-
-  const docPreviewFiles = documents.map((d) => ({
-    id: d.id,
-    name: d.name,
-    url: d.url,
-    type: d.type || "file",
-    mimeType: d.mimeType ?? null,
-  }));
 
   if (loading) {
     return (
@@ -373,6 +287,55 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   const status = statusMap[event.status] || statusMap.draft;
   const completedTasks = tasks.filter((t) => t.status === "completed").length;
   const completionRate = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const pendingTasks = tasks.filter((t) => t.status !== "completed");
+
+  // Days-left to event (prototype's `event.daysLeft`).
+  const daysLeft = (() => {
+    if (!event.date) return null;
+    const eventDate = new Date(event.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ms = eventDate.getTime() - today.getTime();
+    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  })();
+
+  // Active partners (prototype maps this to `status === 'Confirmado'`).
+  const activePartners = partners.filter((p) => p.status === "active").length;
+  const totalPartners = partners.length;
+
+  // RSVP counts come from guest list (donut chart input).
+  const rsvpConfirmed = guestStats.confirmed;
+  const rsvpPending = guestStats.pending;
+  const rsvpDeclined = guestStats.declined;
+  const rsvpTotal = guestStats.total || guests.length;
+
+  // Payment KPIs — prototype's "Pagado" + budget% + next 2 scheduled payments.
+  const budgetTotal = event.budget ? Number(event.budget) : 0;
+  const budgetPaid = payments
+    .filter((p) => p.status === "paid")
+    .reduce((acc, p) => acc + Number(p.amount || 0), 0);
+  const budgetPct = budgetTotal > 0 ? Math.round((budgetPaid / budgetTotal) * 100) : 0;
+  const upcomingPayments = payments
+    .filter((p) => p.status === "scheduled" || p.status === "pending")
+    .slice(0, 2);
+
+  // Avatar palette for task assignees (small chip).
+  const ASSIGNEE_COLORS = ["#6B8CE8", "#8CC8B0", "#4B7FB8", "#C4A08C", "#B89DC4", "#C49A3C"];
+  const colorForAssignee = (name: string) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return ASSIGNEE_COLORS[h % ASSIGNEE_COLORS.length];
+  };
+  const initialsForAssignee = (name: string) =>
+    name.split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
+
+  // Format due date as "12 mar" (prototype's pill format).
+  const formatDue = (d: string | null) => {
+    if (!d) return null;
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  };
 
   return (
     <div className="space-y-[var(--gap-cards-lg)]">
@@ -383,620 +346,513 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
           <span>Estas colaborando en este evento</span>
         </div>
       )}
-      {/* Back Button */}
-      <Link href="/dashboard/events">
-        <Button variant="ghost" className="gap-2">
-          <RiArrowLeftLine className="h-4 w-4" />
-          Volver a eventos
-        </Button>
-      </Link>
-
-      {/* Event Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{event.name}</h1>
-            <Badge variant={status.variant}>{status.label}</Badge>
-          </div>
-          {event.description && (
-            <p className="text-lg text-muted-foreground">{event.description}</p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {canEdit("general") && (
-            <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
-              <RiEditLine className="h-4 w-4" />
-              Editar Evento
+      {/* Top action row — edit + more menu */}
+      <div className="flex items-center justify-end gap-2">
+        {canEdit("general") && (
+          <Button className="gap-2" onClick={() => setIsEditEventOpen(true)}>
+            <RiEditLine className="h-4 w-4" />
+            Editar Evento
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <RiMoreLine className="h-4 w-4" />
             </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <RiMoreLine className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {can("events:create") && (
-                <DropdownMenuItem onClick={() => setIsDuplicateOpen(true)}>
-                  <RiFileCopyLine className="h-4 w-4 mr-2" />
-                  Duplicar Evento
-                </DropdownMenuItem>
-              )}
-              {can("events:create") && (
-                <DropdownMenuItem onClick={() => setIsSaveTemplateOpen(true)}>
-                  <RiFileList3Line className="h-4 w-4 mr-2" />
-                  Guardar como Template
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={`/dashboard/events/${eventId}/tasks`}>
-                  <RiFileListLine className="h-4 w-4 mr-2" />
-                  Ver todas las tareas
-                </Link>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {can("events:create") && (
+              <DropdownMenuItem onClick={() => setIsDuplicateOpen(true)}>
+                <RiFileCopyLine className="h-4 w-4 mr-2" />
+                Duplicar Evento
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+            {can("events:create") && (
+              <DropdownMenuItem onClick={() => setIsSaveTemplateOpen(true)}>
+                <RiFileList3Line className="h-4 w-4 mr-2" />
+                Guardar como Template
+              </DropdownMenuItem>
+            )}
+            {canEdit("settings") && (
+              <DropdownMenuItem onClick={() => setCollabDrawerOpen(true)}>
+                <RiTeamLine className="h-4 w-4 mr-2" />
+                Gestionar equipo
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/events/${eventId}/tasks`}>
+                <RiFileListLine className="h-4 w-4 mr-2" />
+                Ver todas las tareas
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Row 1 — Hero (2/3) + Resumen (1/3). Prototype: workspace_screens.jsx:40 */}
+      <div className="grid gap-[14px] lg:grid-cols-[2fr_1fr]">
+        {/* Hero card */}
+        <div
+          className="rounded-[12px]"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-subtle) 100%)",
+            border: "1px solid var(--line-1)",
+            padding: 18,
+          }}
+        >
+          <div className="flex items-start gap-4">
+            <div
+              className="flex-shrink-0 flex items-center justify-center"
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: 12,
+                background: "linear-gradient(135deg,#FCE0DA,#F9D4DC)",
+              }}
+            >
+              <RiCalendarLine className="h-7 w-7" style={{ color: "var(--ink-2)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] text-[var(--ink-3)] mb-0.5">Evento</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2
+                  className="text-[22px] font-semibold text-[var(--ink-1)]"
+                  style={{ letterSpacing: "-0.02em" }}
+                >
+                  {event.name}
+                </h2>
+                <Badge variant={status.variant}>{status.label}</Badge>
+              </div>
+              <div
+                className="flex gap-[18px] mt-2 text-[13px] flex-wrap"
+                style={{ color: "var(--ink-2)" }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <RiCalendarLine className="h-3.5 w-3.5" />
+                  {event.date
+                    ? new Date(event.date).toLocaleDateString("es-ES", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })
+                    : "Sin fecha"}
+                </span>
+                {event.location && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <RiMapPinLine className="h-3.5 w-3.5" />
+                    {event.location}
+                  </span>
+                )}
+                {canView("guests") && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <RiGroupLine className="h-3.5 w-3.5" />
+                    {event.guestCount} invitados
+                  </span>
+                )}
+              </div>
+              {event.description && (
+                <p className="text-[12.5px] text-[var(--ink-3)] mt-2 leading-[1.5]">
+                  {event.description}
+                </p>
+              )}
+            </div>
+            {daysLeft != null && (
+              <div
+                className="text-center flex-shrink-0"
+                style={{
+                  padding: "8px 16px",
+                  background: "white",
+                  borderRadius: 8,
+                  border: "1px solid var(--line-1)",
+                }}
+              >
+                <div
+                  className="text-[11px] font-semibold uppercase text-[var(--ink-3)]"
+                  style={{ letterSpacing: "0.06em" }}
+                >
+                  Faltan
+                </div>
+                <div
+                  className="text-[26px] font-bold leading-[1] mt-0.5"
+                  style={{ color: "var(--ink-1)" }}
+                >
+                  {daysLeft}
+                </div>
+                <div className="text-[11px] text-[var(--ink-3)]">días</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Resumen card */}
+        <div
+          className="rounded-[12px]"
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid var(--line-1)",
+            padding: 18,
+          }}
+        >
+          <div className="flex items-center gap-2 mb-3.5">
+            <RiFileListLine className="h-4 w-4 text-[var(--ink-2)]" />
+            <span className="text-[14px] font-semibold text-[var(--ink-1)]">Resumen</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2.5">
+            <div>
+              <div
+                className="text-[10.5px] uppercase text-[var(--ink-3)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                Partners
+              </div>
+              <div className="text-[14px] font-semibold mt-0.5">
+                {activePartners}/{totalPartners}
+              </div>
+            </div>
+            <div>
+              <div
+                className="text-[10.5px] uppercase text-[var(--ink-3)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                Tareas
+              </div>
+              <div className="text-[14px] font-semibold mt-0.5">
+                {completedTasks}/{tasks.length}
+              </div>
+            </div>
+            <div>
+              <div
+                className="text-[10.5px] uppercase text-[var(--ink-3)]"
+                style={{ letterSpacing: "0.06em" }}
+              >
+                RSVP
+              </div>
+              <div className="text-[14px] font-semibold mt-0.5">
+                {rsvpConfirmed}/{rsvpTotal}
+              </div>
+            </div>
+          </div>
+          {tasks.length > 0 && (
+            <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--line-1)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11.5px] text-[var(--ink-3)]">Progreso</span>
+                <span className="text-[11.5px] font-semibold text-[var(--ink-1)]">
+                  {completionRate}%
+                </span>
+              </div>
+              <div
+                className="h-1.5 rounded-[999px] overflow-hidden"
+                style={{ background: "var(--bg-subtle)" }}
+              >
+                <div
+                  className="h-full transition-all"
+                  style={{ width: `${completionRate}%`, background: "var(--ink-1)" }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-[var(--gap-cards)] md:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-primary/10 p-3">
-              <RiCalendarLine className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Fecha</p>
-              <p className="font-semibold">
-                {event.date
-                  ? new Date(event.date).toLocaleDateString("es-ES", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : "Sin fecha"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-success/10 p-3">
-              <RiMapPinLine className="h-5 w-5 text-success" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Lugar</p>
-              <p className="font-semibold">{event.location || "Sin definir"}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-warning/10 p-3">
-              <RiGroupLine className="h-5 w-5 text-warning" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Invitados</p>
-              <p className="font-semibold">{canView("guests") ? `${event.guestCount} personas` : "—"}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="rounded-lg bg-accent/10 p-3">
-              <RiMoneyDollarCircleLine className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Presupuesto</p>
-              <p className="font-semibold">
-                {canView("finances")
-                  ? (event.budget ? `$${parseFloat(event.budget).toLocaleString()}` : "Sin definir")
-                  : "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progress Section */}
-      {canView("tasks") && (
-      <Card>
-        <CardHeader>
-          <CardTitle>Progreso General</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">
-              Tareas completadas: {completedTasks} de {tasks.length}
-            </span>
-            <span className="text-muted-foreground">{completionRate}%</span>
-          </div>
-          <Progress value={completionRate} className="h-3" />
-        </CardContent>
-      </Card>
-      )}
-
-      {/* Content Grid */}
-      <div className="grid gap-[var(--gap-cards-lg)] lg:grid-cols-2">
-        {/* Equipo del Evento */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiUserAddLine className="h-5 w-5" />
-              Equipo ({equipoCollaborators.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              {canEdit("settings") && (
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => setCollabDrawerOpen(true)}>
-                  <RiAddLine className="h-4 w-4" />
-                  Agregar
-                </Button>
-              )}
-              <Link href={`/dashboard/events/${eventId}/settings`}>
-                <Button variant="ghost" size="sm">
-                  Ver todos
-                </Button>
+      {/* Row 2 — Tareas pendientes + RSVP donut + Próximos pagos.
+          Prototype: workspace_screens.jsx:85 */}
+      <div className="grid gap-[14px] lg:grid-cols-[1.2fr_1fr_1fr]">
+        {/* Tareas pendientes */}
+        {canView("tasks") && (
+          <div
+            className="rounded-[12px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: 18 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RiFileListLine className="h-4 w-4 text-[var(--ink-2)]" />
+                <span className="text-[14px] font-semibold text-[var(--ink-1)]">
+                  Tareas pendientes
+                </span>
+              </div>
+              <Link
+                href={`/dashboard/tasks?eventId=${eventId}`}
+                className="text-[13px] text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors no-underline"
+              >
+                Ver todas
               </Link>
             </div>
-          </CardHeader>
-          <CardContent>
-            {equipoCollaborators.length > 0 ? (
-              <div className="space-y-2">
-                {equipoCollaborators.slice(0, 6).map((collab) => {
-                  const name = collab.userName || collab.userEmail || collab.contactName || collab.vendorName || "Sin nombre";
-                  const subtext = (collab.userName && collab.userEmail) ? collab.userEmail : collab.contactEmail || collab.vendorCategory || null;
-                  const colorClass = collab.type === "contact" ? "bg-green-100 text-green-700" : collab.type === "vendor" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700";
-                  const typeLabel: Record<string, string> = { planner: "Miembro", contact: "Contacto", vendor: "Partner", partner: "Partner", client: "Cliente", assistant: "Asistente", guest: "Invitado" };
+            <div>
+              {pendingTasks.length === 0 ? (
+                <div className="py-4 text-[12.5px] text-[var(--ink-3)] text-center">
+                  No hay tareas pendientes.
+                </div>
+              ) : (
+                pendingTasks.slice(0, 4).map((t) => {
+                  const dueLabel = formatDue(t.dueDate);
+                  const assigneeName = t.assignedUserName || "Sin asignar";
                   return (
-                    <div key={collab.id} className="flex items-center gap-3 p-2 rounded border">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium shrink-0 ${colorClass}`}>
-                        {name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{name}</span>
-                          <Badge variant="outline" className="text-[10px] shrink-0">
-                            {typeLabel[collab.type] || collab.type}
-                          </Badge>
-                        </div>
-                        {subtext && (
-                          <p className="text-xs text-muted-foreground truncate">{subtext}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {equipoCollaborators.length > 6 && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    +{equipoCollaborators.length - 6} más
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay colaboradores asignados
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tasks */}
-        {canView("tasks") && <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiFileListLine className="h-5 w-5" />
-              Tareas ({tasks.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              {canEdit("tasks") && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  onClick={openCreateDrawer}
-                >
-                  <RiAddLine className="h-4 w-4" />
-                  Nueva
-                </Button>
-              )}
-              <Link href={`/dashboard/tasks?eventId=${eventId}`}>
-                <Button variant="outline" size="sm">
-                  Ver todas
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {tasks.length > 0 ? (
-              <div className="space-y-3">
-                {tasks.slice(0, 5).map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between rounded-lg border border-border p-3 cursor-pointer hover:bg-muted transition-colors"
-                    onClick={() => handleTaskClick(task)}
-                  >
-                    <div>
-                      <p className={`font-medium ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
-                        {task.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {task.dueDate
-                          ? `Vence: ${new Date(task.dueDate).toLocaleDateString("es-ES")}`
-                          : "Sin fecha"}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        task.priority === "high"
-                          ? "destructive"
-                          : task.priority === "medium"
-                          ? "warning"
-                          : "secondary"
-                      }
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-2.5 py-2 cursor-pointer"
+                      style={{ borderBottom: "1px solid var(--line-1)" }}
+                      onClick={() => handleTaskClick(t)}
                     >
-                      {task.priority === "high"
-                        ? "Alta"
-                        : task.priority === "medium"
-                        ? "Media"
-                        : "Baja"}
-                    </Badge>
-                  </div>
-                ))}
-                {tasks.length > 5 && (
-                  <p className="text-center text-sm text-muted-foreground">
-                    +{tasks.length - 5} tareas más
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No hay tareas asignadas</p>
-                {canEdit("tasks") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={openCreateDrawer}
-                  >
-                    <RiAddLine className="h-4 w-4" />
-                    Crear primera tarea
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>}
-
-        {/* Partners (bilateral collaborations) */}
-        {canView("partners") && <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiStore2Line className="h-5 w-5" />
-              Partners ({partners.length})
-            </CardTitle>
-            <div className="flex gap-2">
-              <Link href={`/dashboard/events/${eventId}/partners`}>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <RiAddLine className="h-4 w-4" />
-                  Asignar
-                </Button>
-              </Link>
-              <Link href={`/dashboard/events/${eventId}/partners`}>
-                <Button variant="ghost" size="sm">
-                  Ver todos
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {partners.length > 0 ? (
-              <div className="space-y-2">
-                {partners.map((partner) => (
-                  <div key={partner.id} className="flex items-center justify-between p-2 rounded border">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{partner.guestName || partner.guestSlug || "Partner"}</span>
-                      {partner.guestCategory && (
-                        <span className="text-sm text-muted-foreground">- {partner.guestCategory}</span>
+                      <div
+                        className="h-4 w-4 rounded-full flex-shrink-0"
+                        style={{ border: "1.5px solid var(--line-strong)" }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium text-[var(--ink-1)] truncate">
+                          {t.title}
+                        </div>
+                        <div className="text-[11px] text-[var(--ink-3)] mt-0.5">
+                          {t.priority === "high"
+                            ? "Alta prioridad"
+                            : t.priority === "medium"
+                              ? "Media prioridad"
+                              : "Baja prioridad"}
+                        </div>
+                      </div>
+                      {dueLabel && (
+                        <span
+                          className="inline-flex items-center rounded-[999px] text-[11px] font-medium px-2 py-0.5 flex-shrink-0"
+                          style={{ background: "var(--danger-bg)", color: "var(--danger-ink)" }}
+                        >
+                          {dueLabel}
+                        </span>
+                      )}
+                      {t.assignedUserName && (
+                        <div
+                          className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0"
+                          style={{ background: colorForAssignee(assigneeName) }}
+                          title={assigneeName}
+                        >
+                          {initialsForAssignee(assigneeName)}
+                        </div>
                       )}
                     </div>
-                    <Badge
-                      className={`text-[10px] shrink-0 ${
-                        partner.status === "active"
-                          ? "bg-green-100 text-green-700 hover:bg-green-100"
-                          : partner.status === "pending"
-                          ? "bg-amber-100 text-amber-700 hover:bg-amber-100"
-                          : "bg-gray-100 text-gray-500 hover:bg-gray-100"
-                      }`}
-                    >
-                      {partner.status === "active" ? "Activo" : partner.status === "pending" ? "Pendiente" : partner.status}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* RSVP donut */}
+        {canView("guests") && (
+          <div
+            className="rounded-[12px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: 18 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RiGroupLine className="h-4 w-4 text-[var(--ink-2)]" />
+                <span className="text-[14px] font-semibold text-[var(--ink-1)]">
+                  Estado RSVP
+                </span>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
+              <Link
+                href={`/dashboard/events/${eventId}/guests`}
+                className="text-[13px] text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors no-underline"
+              >
+                Ver invitados
+              </Link>
+            </div>
+            <RsvpDonut
+              total={rsvpTotal}
+              confirmed={rsvpConfirmed}
+              pending={rsvpPending}
+              rejected={rsvpDeclined}
+            />
+            <div className="flex justify-around mt-2.5 text-[12px]">
+              <RsvpDot color="#4F7A5E" label="Confirm." value={rsvpConfirmed} />
+              <RsvpDot color="#C89B3C" label="Pend." value={rsvpPending} />
+              <RsvpDot color="#B55450" label="Rechaz." value={rsvpDeclined} />
+            </div>
+          </div>
+        )}
+
+        {/* Próximos pagos — workspace_screens.jsx:118 */}
+        {canView("finances") && (
+          <div
+            className="rounded-[12px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: 18 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RiMoneyDollarCircleLine className="h-4 w-4 text-[var(--ink-2)]" />
+                <span className="text-[14px] font-semibold text-[var(--ink-1)]">
+                  Próximos pagos
+                </span>
+              </div>
+              <Link
+                href={`/dashboard/events/${eventId}/finances`}
+                className="text-[13px] text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors no-underline"
+              >
+                Ver todo
+              </Link>
+            </div>
+            <div>
+              <div
+                className="py-2"
+                style={{ borderBottom: "1px solid var(--line-1)" }}
+              >
+                <div
+                  className="text-[11px] uppercase text-[var(--ink-3)]"
+                  style={{ letterSpacing: "0.06em" }}
+                >
+                  Pagado
+                </div>
+                <div
+                  className="text-[18px] font-bold mt-0.5"
+                  style={{ color: "var(--ink-1)" }}
+                >
+                  €{budgetPaid.toLocaleString("es-ES")}
+                </div>
+                {budgetTotal > 0 ? (
+                  <div className="text-[11px] text-[var(--ink-3)]">
+                    {budgetPct}% de €{budgetTotal.toLocaleString("es-ES")}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-[var(--ink-3)]">
+                    Sin presupuesto definido
+                  </div>
+                )}
+              </div>
+              {upcomingPayments.length === 0 ? (
+                <div className="py-3 text-[12px] text-[var(--ink-3)] text-center">
+                  Sin pagos programados
+                </div>
+              ) : (
+                upcomingPayments.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-2 py-2"
+                    style={{ borderBottom: "1px solid var(--line-1)" }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-medium text-[var(--ink-1)] truncate">
+                        {p.name}
+                      </div>
+                      <div className="text-[11px] text-[var(--ink-3)] mt-0.5">
+                        {p.dueDate
+                          ? new Date(p.dueDate).toLocaleDateString("es-ES", {
+                              day: "numeric",
+                              month: "short",
+                            })
+                          : "Sin fecha"}
+                      </div>
+                    </div>
+                    <div className="text-[14px] font-semibold text-[var(--ink-1)]">
+                      €{Number(p.amount).toLocaleString("es-ES")}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Row 3 — Reuniones + Partners. Prototype: workspace_screens.jsx:155 */}
+      <div className="grid gap-[14px] lg:grid-cols-2">
+        {/* Próximas videollamadas y reuniones */}
+        <div
+          className="rounded-[12px]"
+          style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: 18 }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <RiCalendarLine className="h-4 w-4 text-[var(--ink-2)]" />
+              <span className="text-[14px] font-semibold text-[var(--ink-1)]">
+                Próximas videollamadas y reuniones
+              </span>
+            </div>
+          </div>
+          <div className="text-[12.5px] text-[var(--ink-3)] py-6 text-center">
+            Sin reuniones programadas
+          </div>
+        </div>
+
+        {/* Partners del evento */}
+        {canView("partners") && (
+          <div
+            className="rounded-[12px]"
+            style={{ background: "#FFFFFF", border: "1px solid var(--line-1)", padding: 18 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RiStore2Line className="h-4 w-4 text-[var(--ink-2)]" />
+                <span className="text-[14px] font-semibold text-[var(--ink-1)]">
+                  Partners del evento
+                </span>
+              </div>
+              <Link
+                href={`/dashboard/events/${eventId}/partners`}
+                className="text-[13px] text-[var(--ink-2)] hover:text-[var(--ink-1)] transition-colors no-underline"
+              >
+                Ver todos
+              </Link>
+            </div>
+            {partners.length === 0 ? (
+              <div className="text-[12.5px] text-[var(--ink-3)] py-4 text-center">
                 No hay partners asignados
               </div>
-            )}
-          </CardContent>
-        </Card>}
-
-        {/* Guests / Invitados */}
-        {canView("guests") && <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiGroupLine className="h-5 w-5" />
-              Lista de Invitados ({guests.length})
-            </CardTitle>
-            {canEdit("guests") && (
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddGuestDialog(true)}>
-                <RiUserAddLine className="h-4 w-4" />
-                Añadir
-              </Button>
-            )}
-            <Sheet open={showAddGuestDialog} onOpenChange={setShowAddGuestDialog}>
-              <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Añadir Invitado</SheetTitle>
-                </SheetHeader>
-                <div className="space-y-4 px-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nombre *</Label>
-                      <Input
-                        placeholder="Ej: Juan"
-                        value={newGuest.firstName}
-                        onChange={(e) => setNewGuest({ ...newGuest, firstName: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Apellido</Label>
-                      <Input
-                        placeholder="Ej: Pérez"
-                        value={newGuest.lastName}
-                        onChange={(e) => setNewGuest({ ...newGuest, lastName: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        placeholder="juan@ejemplo.com"
-                        value={newGuest.email}
-                        onChange={(e) => setNewGuest({ ...newGuest, email: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Teléfono</Label>
-                      <Input
-                        placeholder="+54 9 11 1234-5678"
-                        value={newGuest.phone}
-                        onChange={(e) => setNewGuest({ ...newGuest, phone: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowAddGuestDialog(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleAddGuest} disabled={addingGuest || !newGuest.firstName}>
-                      {addingGuest ? "Guardando..." : "Añadir Invitado"}
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </CardHeader>
-          <CardContent>
-            {guests.length > 0 ? (
-              <div className="space-y-2">
-                {guests.slice(0, 5).map((guest) => (
-                  <div key={guest.id} className="flex items-center gap-2 p-2 rounded border">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                      {guest.firstName.charAt(0)}{guest.lastName?.charAt(0) || ""}
-                    </div>
-                    <span>{guest.firstName} {guest.lastName}</span>
-                  </div>
-                ))}
-                {guests.length > 5 && (
-                  <p className="text-center text-sm text-muted-foreground">
-                    +{guests.length - 5} invitados más
-                  </p>
-                )}
-              </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay invitados registrados
-              </div>
-            )}
-          </CardContent>
-        </Card>}
-
-        {/* Documents */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiFileTextLine className="h-5 w-5" />
-              Documentos ({documents.length})
-            </CardTitle>
-            {canEdit("general") && (
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowAddDocDialog(true)}>
-                <RiUploadLine className="h-4 w-4" />
-                Subir
-              </Button>
-            )}
-            <Sheet open={showAddDocDialog} onOpenChange={setShowAddDocDialog}>
-              <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Subir Documento</SheetTitle>
-                </SheetHeader>
-                <div className="space-y-4 px-4 py-4">
-                  <FileUploader
-                    folder="event-documents"
-                    onUpload={async (result) => {
-                      await handleAddDocument({ name: result.name, url: result.url });
-                      setShowAddDocDialog(false);
-                    }}
-                  />
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">o pega un enlace</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nombre del documento</Label>
-                    <Input
-                      placeholder="Ej: Contrato de servicios"
-                      value={newDoc.name}
-                      onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>URL del documento</Label>
-                    <Input
-                      placeholder="https://..."
-                      value={newDoc.url}
-                      onChange={(e) => setNewDoc({ ...newDoc, url: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowAddDocDialog(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={() => handleAddDocument()} disabled={addingDoc || !newDoc.name || !newDoc.url}>
-                      {addingDoc ? "Guardando..." : "Guardar enlace"}
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </CardHeader>
-          <CardContent>
-            {documents.length > 0 ? (
-              <div className="space-y-2">
-                {documents.map((doc, idx) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center gap-2 p-2 rounded border hover:bg-muted/50 transition-colors"
-                  >
-                    <RiFileTextLine className="h-4 w-4 text-primary shrink-0" />
-                    <span className="font-medium flex-1 min-w-0 truncate">{doc.name}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => { setDocPreviewIndex(idx); setDocPreviewOpen(true); }}
-                        title="Vista previa"
-                      >
-                        <RiEyeLine className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => downloadFile(doc.url, doc.name)}
-                        title="Descargar"
-                      >
-                        <RiDownloadLine className="h-3.5 w-3.5" />
-                      </Button>
-                      {canEdit("general") && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          disabled={deletingDocId === doc.id}
-                          title="Eliminar"
-                        >
-                          <RiDeleteBinLine className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay documentos
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <FilePreviewDialog
-          open={docPreviewOpen}
-          onOpenChange={setDocPreviewOpen}
-          files={docPreviewFiles}
-          currentIndex={docPreviewIndex}
-          onIndexChange={setDocPreviewIndex}
-        />
-
-        {/* Formularios */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <RiFileListLine className="h-5 w-5" />
-              Formularios ({eventForms.length})
-            </CardTitle>
-            {can("forms:read") && (
-              <Link href="/dashboard/forms">
-                <Button variant="outline" size="sm">
-                  Ver todos
-                </Button>
-              </Link>
-            )}
-          </CardHeader>
-          <CardContent>
-            {eventForms.length > 0 ? (
-              <div className="space-y-2">
-                {eventForms.map((fi) => {
-                  const canEditForms = can("forms:update");
-                  const href = canEditForms
-                    ? `/dashboard/forms/${fi.formId}`
-                    : fi.slug
-                      ? `/f/${fi.slug}`
-                      : `#`;
+              <div className="flex flex-col gap-1.5">
+                {partners.slice(0, 5).map((partner) => {
+                  const partnerName = partner.guestName || partner.guestSlug || "Partner";
+                  const initials = partnerName.charAt(0).toUpperCase();
                   return (
-                    <Link
-                      key={fi.id}
-                      href={href}
-                      target={!canEditForms && fi.slug ? "_blank" : undefined}
-                      className="flex items-center justify-between p-2 rounded border hover:bg-muted transition-colors"
+                    <div
+                      key={partner.id}
+                      className="flex items-center gap-2.5 py-1.5"
+                      style={{ borderBottom: "1px solid var(--line-1)" }}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {fi.type === "landing" ? "Landing" : "Tarea"}
-                        </Badge>
-                        <span className="font-medium text-sm truncate">{fi.formName || `Form #${fi.formId}`}</span>
+                      <div
+                        className="h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 text-white"
+                        style={{ background: "#9B7EB8" }}
+                      >
+                        {initials}
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {fi.submissionCount} resp.
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12.5px] font-medium text-[var(--ink-1)] truncate">
+                          {partnerName}
+                        </div>
+                        {partner.guestCategory && (
+                          <div className="text-[11px] text-[var(--ink-3)] truncate">
+                            {partner.guestCategory}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className="inline-flex items-center rounded-[999px] text-[10.5px] px-2 py-0.5 flex-shrink-0"
+                        style={{
+                          background:
+                            partner.status === "active"
+                              ? "#D9ECD1"
+                              : partner.status === "pending"
+                                ? "#F6D9BE"
+                                : "var(--bg-subtle)",
+                          color:
+                            partner.status === "active"
+                              ? "#1F6A3A"
+                              : partner.status === "pending"
+                                ? "#A35A1F"
+                                : "var(--ink-3)",
+                        }}
+                      >
+                        {partner.status === "active"
+                          ? "Confirmado"
+                          : partner.status === "pending"
+                            ? "Pendiente"
+                            : partner.status}
                       </span>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No hay formularios vinculados
-              </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Timeline Preview */}
-        {canView("calendar") && <SchedulePreview eventId={eventId} />}
+          </div>
+        )}
       </div>
 
       {/* Task Drawer - for both view and create */}
@@ -1012,11 +868,12 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
         initialData={{ eventId }}
       />
 
-      {/* Edit Event Drawer */}
-      <EditEventDrawer
+      {/* Edit Event Drawer — same drawer as the "create event" flow,
+          hydrated with the existing event so the visual is consistent. */}
+      <CreateEventDrawer
         open={isEditEventOpen}
         onOpenChange={setIsEditEventOpen}
-        event={event}
+        editEvent={event}
         onEventUpdated={fetchEvent}
       />
 
@@ -1049,69 +906,81 @@ export function EventDetailClient({ eventId }: EventDetailClientProps) {
   );
 }
 
-function SchedulePreview({ eventId }: { eventId: number }) {
-  const [items, setItems] = useState<Array<{ id: number; title: string; date: string; startTime: string | null; endTime: string | null; source: string; taskTitle: string | null }>>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`/api/events/${eventId}/schedule?limit=5`);
-        const data = await res.json();
-        if (data.success) setItems(data.data);
-      } catch { /* ignore */ }
-      finally { setLoading(false); }
-    }
-    load();
-  }, [eventId]);
-
+// RsvpDonut — copied from prototype workspace_screens.jsx:193 (3-segment ring).
+function RsvpDonut({
+  total,
+  confirmed,
+  pending,
+  rejected,
+}: {
+  total: number;
+  confirmed: number;
+  pending: number;
+  rejected: number;
+}) {
+  const r = 34;
+  const C = 2 * Math.PI * r;
+  const safeTotal = total > 0 ? total : 1;
+  const segs = [
+    { v: confirmed, c: "#4F7A5E" },
+    { v: pending, c: "#C89B3C" },
+    { v: rejected, c: "#B55450" },
+  ];
+  let offset = 0;
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <RiCalendarLine className="h-5 w-5" />
-          Cronograma
-        </CardTitle>
-        <Link href={`/dashboard/events/${eventId}/schedule`}>
-          <Button variant="outline" size="sm">
-            Ver completo
-          </Button>
-        </Link>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-10 bg-muted animate-pulse rounded" />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No hay items en el cronograma
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div key={`${item.source}-${item.id}`} className="flex items-center gap-3 p-2 rounded-lg border text-sm">
-                <div className="w-14 text-center shrink-0">
-                  <span className="text-xs font-medium">{item.startTime || "--:--"}</span>
-                </div>
-                <div
-                  className="w-1 h-6 rounded-full shrink-0"
-                  style={{ backgroundColor: item.source === "task" ? "#f59e0b" : "#3b82f6" }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(item.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
-                    {item.source === "task" && item.taskTitle && ` · ${item.taskTitle}`}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <svg viewBox="0 0 100 100" width="100%" style={{ maxHeight: 120 }}>
+      <circle cx="50" cy="50" r={r} fill="none" stroke="var(--line-1)" strokeWidth="10" />
+      {segs.map((s, i) => {
+        const len = (s.v / safeTotal) * C;
+        const el = (
+          <circle
+            key={i}
+            cx="50"
+            cy="50"
+            r={r}
+            fill="none"
+            stroke={s.c}
+            strokeWidth="10"
+            strokeDasharray={`${len} ${C - len}`}
+            strokeDashoffset={-offset}
+            transform="rotate(-90 50 50)"
+            strokeLinecap="butt"
+          />
+        );
+        offset += len;
+        return el;
+      })}
+      <text
+        x="50"
+        y="48"
+        textAnchor="middle"
+        fontSize="16"
+        fontWeight="700"
+        fill="var(--ink-1)"
+      >
+        {confirmed}
+      </text>
+      <text x="50" y="62" textAnchor="middle" fontSize="9" fill="var(--ink-3)">
+        de {total}
+      </text>
+    </svg>
+  );
+}
+
+function RsvpDot({
+  color,
+  label,
+  value,
+}: {
+  color: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+      <span className="text-[var(--ink-3)]">{label}</span>
+      <strong className="text-[var(--ink-1)]">{value}</strong>
+    </div>
   );
 }

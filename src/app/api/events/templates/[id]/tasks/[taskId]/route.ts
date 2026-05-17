@@ -1,69 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { updateTaskTemplate, deleteTaskTemplate } from "@/lib/events";
+import { apiHandler, ok, badRequest, notFound } from "@/lib/api-handler";
 
 // PATCH /api/events/templates/[id]/tasks/[taskId] - Update task template
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("events:read");
     const { taskId } = await params;
     const taskTemplateId = parseInt(taskId, 10);
 
     if (isNaN(taskTemplateId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_ID", message: "Invalid task template ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid task template ID", "INVALID_ID");
     }
 
     const body = await request.json();
     const updated = await updateTaskTemplate(taskTemplateId, body);
 
     if (!updated) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Task template not found" } },
-        { status: 404 }
-      );
+      return notFound("Task template not found");
     }
 
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update task template";
-    return NextResponse.json(
-      { success: false, error: { code: "UPDATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(updated);
+  }, "PATCH /api/events/templates/[id]/tasks/[taskId]");
 }
 
 // DELETE /api/events/templates/[id]/tasks/[taskId] - Delete task template
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-  try {
+  return apiHandler(async () => {
     await requirePermission("events:read");
     const { taskId } = await params;
     const taskTemplateId = parseInt(taskId, 10);
 
     if (isNaN(taskTemplateId)) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_ID", message: "Invalid task template ID" } },
-        { status: 400 }
-      );
+      return badRequest("Invalid task template ID", "INVALID_ID");
     }
 
     await deleteTaskTemplate(taskTemplateId);
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete task template";
-    return NextResponse.json(
-      { success: false, error: { code: "DELETE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return ok(null);
+  }, "DELETE /api/events/templates/[id]/tasks/[taskId]");
 }

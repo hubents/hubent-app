@@ -1,9 +1,7 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PCard, Pill, Btn, Inp } from "@/components/ui/ds";
+import { PageHeader } from "@/components/layout/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSession } from "@/hooks/use-user-session";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
@@ -33,11 +31,11 @@ import {
 import { usePayments } from "@/hooks/use-payments";
 import { useState } from "react";
 
-const statusConfig: Record<string, { label: string; variant: "success" | "warning" | "destructive" | "secondary" }> = {
-  paid: { label: "Pagado", variant: "success" },
-  pending: { label: "Pendiente", variant: "warning" },
-  overdue: { label: "Vencido", variant: "destructive" },
-  partial: { label: "Parcial", variant: "secondary" },
+const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
+  paid: { label: "Pagado", bg: "#D1FAE5", color: "#065F46" },
+  pending: { label: "Pendiente", bg: "#FEF3C7", color: "#92400E" },
+  overdue: { label: "Vencido", bg: "#FEE2E2", color: "#991B1B" },
+  partial: { label: "Parcial", bg: "var(--bg-subtle)", color: "var(--ink-2)" },
 };
 
 export default function PaymentsPage() {
@@ -87,20 +85,14 @@ function PaymentsPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Pagos y Facturación</h1>
-          <p className="text-[var(--muted-foreground)]">
-            Control de pagos a proveedores y cobros a clientes
-          </p>
-        </div>
-        {canCreateFinance && (
-          <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+      <PageHeader
+        action={canCreateFinance && (
+          <Btn onClick={() => setIsDialogOpen(true)}>
             <RiAddLine className="h-4 w-4" />
             Nuevo Pago
-          </Button>
+          </Btn>
         )}
+      />
         <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <SheetContent className="sm:max-w-3xl overflow-y-auto">
             <SheetHeader>
@@ -112,7 +104,7 @@ function PaymentsPageContent() {
             <div className="grid gap-4 px-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Concepto *</label>
-                <Input
+                <Inp
                   placeholder="Descripción del pago"
                   value={newPayment.concept}
                   onChange={(e) => setNewPayment({ ...newPayment, concept: e.target.value })}
@@ -121,7 +113,7 @@ function PaymentsPageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Monto *</label>
-                  <Input
+                  <Inp
                     type="number"
                     placeholder="0.00"
                     value={newPayment.amount}
@@ -146,7 +138,7 @@ function PaymentsPageContent() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fecha de Vencimiento</label>
-                <Input
+                <Inp
                   type="date"
                   value={newPayment.dueDate}
                   onChange={(e) => setNewPayment({ ...newPayment, dueDate: e.target.value })}
@@ -154,7 +146,7 @@ function PaymentsPageContent() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Notas</label>
-                <Input
+                <Inp
                   placeholder="Notas adicionales"
                   value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
@@ -162,98 +154,87 @@ function PaymentsPageContent() {
               </div>
             </div>
             <SheetFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Btn variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
-              </Button>
-              <Button onClick={handleCreatePayment} disabled={!newPayment.concept || !newPayment.amount}>
+              </Btn>
+              <Btn onClick={handleCreatePayment} disabled={!newPayment.concept || !newPayment.amount}>
                 Crear Pago
-              </Button>
+              </Btn>
             </SheetFooter>
           </SheetContent>
         </Sheet>
-      </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-10 w-10 rounded-lg mb-2" />
-                <Skeleton className="h-4 w-20 mb-1" />
-                <Skeleton className="h-6 w-24" />
-              </CardContent>
-            </Card>
+            <PCard key={i} padding={16}>
+              <Skeleton className="h-10 w-10 rounded-lg mb-2" />
+              <Skeleton className="h-4 w-20 mb-1" />
+              <Skeleton className="h-6 w-24" />
+            </PCard>
           ))
         ) : (
           <>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-green-100 p-2">
-                    <RiArrowUpLine className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      Total Pagado
-                    </p>
-                    <p className="text-xl font-bold text-green-600">
-                      ${stats.totalPaid.toLocaleString()}
-                    </p>
-                  </div>
+            <PCard padding={16}>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-green-100 p-2">
+                  <RiArrowUpLine className="h-5 w-5 text-green-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    Total Pagado
+                  </p>
+                  <p className="text-xl font-bold text-green-600">
+                    ${stats.totalPaid.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </PCard>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-yellow-100 p-2">
-                    <RiTimeLine className="h-5 w-5 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      Pendiente
-                    </p>
-                    <p className="text-xl font-bold text-yellow-600">
-                      ${stats.totalPending.toLocaleString()}
-                    </p>
-                  </div>
+            <PCard padding={16}>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-yellow-100 p-2">
+                  <RiTimeLine className="h-5 w-5 text-yellow-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    Pendiente
+                  </p>
+                  <p className="text-xl font-bold text-yellow-600">
+                    ${stats.totalPending.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </PCard>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-red-100 p-2">
-                    <RiArrowDownLine className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-[var(--muted-foreground)]">Vencido</p>
-                    <p className="text-xl font-bold text-red-600">
-                      ${stats.totalOverdue.toLocaleString()}
-                    </p>
-                  </div>
+            <PCard padding={16}>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-red-100 p-2">
+                  <RiArrowDownLine className="h-5 w-5 text-red-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-sm text-[var(--muted-foreground)]">Vencido</p>
+                  <p className="text-xl font-bold text-red-600">
+                    ${stats.totalOverdue.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </PCard>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <RiMoneyDollarCircleLine className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      Total Transacciones
-                    </p>
-                    <p className="text-xl font-bold">{stats.count}</p>
-                  </div>
+            <PCard padding={16}>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-blue-100 p-2">
+                  <RiMoneyDollarCircleLine className="h-5 w-5 text-blue-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    Total Transacciones
+                  </p>
+                  <p className="text-xl font-bold">{stats.count}</p>
+                </div>
+              </div>
+            </PCard>
           </>
         )}
       </div>
@@ -262,44 +243,43 @@ function PaymentsPageContent() {
       <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <RiSearchLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
-          <Input 
-            placeholder="Buscar pagos..." 
-            className="pl-10"
+          <Inp
+            placeholder="Buscar pagos..."
+            style={{ paddingLeft: 36 }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant={filterType === "all" ? "default" : "outline"} 
+          <Btn
+            variant={filterType === "all" ? "primary" : "outline"}
             size="sm"
             onClick={() => setFilterType("all")}
           >
             Todos
-          </Button>
-          <Button 
-            variant={filterType === "vendor" ? "default" : "outline"} 
+          </Btn>
+          <Btn
+            variant={filterType === "vendor" ? "primary" : "outline"}
             size="sm"
             onClick={() => setFilterType("vendor")}
           >
             Proveedores
-          </Button>
-          <Button 
-            variant={filterType === "client" ? "default" : "outline"} 
+          </Btn>
+          <Btn
+            variant={filterType === "client" ? "primary" : "outline"}
             size="sm"
             onClick={() => setFilterType("client")}
           >
             Clientes
-          </Button>
+          </Btn>
         </div>
       </div>
 
       {/* Payments Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Historial de Pagos</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <PCard>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}>Historial de Pagos</div>
+        </div>
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -349,11 +329,13 @@ function PaymentsPageContent() {
                           )}
                         </td>
                         <td className="py-4">
-                          <Badge
-                            variant={payment.type === "client" ? "default" : "outline"}
+                          <Pill
+                            bg={payment.type === "client" ? "var(--color-primary)" : "transparent"}
+                            color={payment.type === "client" ? "#fff" : "var(--ink-1)"}
+                            style={payment.type !== "client" ? { border: "1px solid var(--line-strong)" } : undefined}
                           >
                             {payment.type === "client" ? "Cliente" : "Proveedor"}
-                          </Badge>
+                          </Pill>
                         </td>
                         <td className="py-4">
                           <p className="font-semibold">
@@ -372,17 +354,17 @@ function PaymentsPageContent() {
                           </p>
                         </td>
                         <td className="py-4">
-                          <Badge variant={status.variant}>{status.label}</Badge>
+                          <Pill bg={status.bg} color={status.color}>{status.label}</Pill>
                         </td>
                         <td className="py-4 text-right">
                           {payment.status !== "paid" && (
-                            <Button 
-                              variant="outline" 
+                            <Btn
+                              variant="outline"
                               size="sm"
                               onClick={() => markAsPaid(payment.id)}
                             >
                               Marcar Pagado
-                            </Button>
+                            </Btn>
                           )}
                         </td>
                       </tr>
@@ -399,15 +381,14 @@ function PaymentsPageContent() {
                 Registra tu primer pago o cobro
               </p>
               {canCreateFinance && (
-                <Button onClick={() => setIsDialogOpen(true)}>
+                <Btn onClick={() => setIsDialogOpen(true)}>
                   <RiAddLine className="h-4 w-4 mr-2" />
                   Nuevo Pago
-                </Button>
+                </Btn>
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </PCard>
     </div>
   );
 }

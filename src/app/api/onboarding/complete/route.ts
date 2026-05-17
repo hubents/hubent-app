@@ -1,20 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users, organizations, events, invitations, roles, subscriptions, subscriptionPlans, eventCollaborations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrganizationInviteEmail } from "@/lib/email";
 import { calculateProfileCompleteness } from "@/config/provider-constants";
+import { apiHandler, ok, badRequest } from "@/lib/api-handler";
 
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await auth();
 
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
+      return badRequest("No autorizado", "UNAUTHORIZED");
     }
 
     const body = await request.json();
@@ -25,6 +23,7 @@ export async function POST(request: NextRequest) {
       onboardingCompleted: true,
       updatedAt: new Date(),
     };
+    if (profile?.name) userUpdate.name = profile.name;
     if (profile?.phone) userUpdate.phone = profile.phone;
     if (profile?.bio) userUpdate.bio = profile.bio;
 
@@ -38,7 +37,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!userOrg) {
-      return NextResponse.json({ success: true });
+      return ok({ success: true });
     }
 
     // Handle orgType conversion (Google OAuth auto-created as tenant but user selected provider)
@@ -80,8 +79,8 @@ export async function POST(request: NextRequest) {
       };
 
       // Company base fields
+      if (company?.name) updateData.name = company.name;
       if (profile?.phone) updateData.phone = profile.phone;
-      if (company?.logo) updateData.logo = company.logo;
       if (company?.timezone || company?.currency) {
         updateData.settings = {
           timezone: company?.timezone || "America/Argentina/Buenos_Aires",
@@ -99,11 +98,13 @@ export async function POST(request: NextRequest) {
         if (providerProfile.city) updateData.city = providerProfile.city;
         if (providerProfile.region) updateData.region = providerProfile.region;
         if (providerProfile.coverImage) updateData.coverImage = providerProfile.coverImage;
+        if (providerProfile.logoUrl) updateData.logo = providerProfile.logoUrl;
+        if (providerProfile.providerModule) updateData.providerModule = providerProfile.providerModule;
       }
 
       // Calculate profile completeness
       const completeness = calculateProfileCompleteness({
-        logo: (updateData.logo as string) || userOrg.logo,
+        logo: (updateData.logo as string) || userOrg.logo || undefined,
         description: (updateData.description as string) || userOrg.description,
         tagline: (updateData.tagline as string) || userOrg.tagline,
         providerCategory: (updateData.providerCategory as string) || userOrg.providerCategory,
@@ -148,18 +149,16 @@ export async function POST(request: NextRequest) {
     } else {
       // ─── Planner Onboarding ───────────────────────────────────
       if (company) {
-        await db
-          .update(organizations)
-          .set({
-            logo: company.logo || null,
-            settings: {
-              timezone: company.timezone || "America/Argentina/Buenos_Aires",
-              currency: company.currency || "USD",
-              language: "es",
-            },
-            updatedAt: new Date(),
-          })
-          .where(eq(organizations.id, userOrg.id));
+        const orgUpdate: Record<string, unknown> = {
+          settings: {
+            timezone: company.timezone || "America/Argentina/Buenos_Aires",
+            currency: company.currency || "USD",
+            language: "es",
+          },
+          updatedAt: new Date(),
+        };
+        if (company.name) orgUpdate.name = company.name;
+        await db.update(organizations).set(orgUpdate).where(eq(organizations.id, userOrg.id));
       }
 
       // Create first event if provided
@@ -171,6 +170,8 @@ export async function POST(request: NextRequest) {
           date: event.date ? new Date(event.date) : null,
           status: "draft",
           createdBy: session.user!.id!,
+          guestCount: event.guestCount ? Number(event.guestCount) : null,
+          budget: event.budget ? String(event.budget) : null,
         });
       }
 
@@ -219,14 +220,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Onboarding complete error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
+    return ok(null);
+  }, "POST /api/onboarding/complete");
 }
 
 async function sendTeamInvitations(

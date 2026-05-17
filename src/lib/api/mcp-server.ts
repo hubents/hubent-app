@@ -1,8 +1,8 @@
 // ============================================
-// HubEnts MCP Server Definition
+// Hubents MCP Server Definition
 // ============================================
 // Model Context Protocol server for AI assistant integration.
-// Exposes HubEnts API tools for use by Claude, GPT, and other AI models.
+// Exposes Hubents API tools for use by Claude, GPT, and other AI models.
 
 import { CURRENT_API_VERSION } from "./api-versioning";
 
@@ -287,8 +287,8 @@ export const MCP_TOOLS: McpTool[] = [
 export const MCP_RESOURCES: McpResource[] = [
   {
     uri: "hubents://openapi-spec",
-    name: "HubEnts OpenAPI Spec",
-    description: "Complete OpenAPI 3.1 specification for the HubEnts Public API",
+    name: "Hubents OpenAPI Spec",
+    description: "Complete OpenAPI 3.1 specification for the Hubents Public API",
     mimeType: "application/json",
   },
   {
@@ -381,7 +381,7 @@ export function buildMcpToolCall(
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "X-HubEnts-Version": CURRENT_API_VERSION,
+      "X-Hubents-Version": CURRENT_API_VERSION,
     },
     body,
   };
@@ -395,7 +395,7 @@ export function getMcpServerManifest() {
   return {
     name: "hubents",
     version: "1.0.0",
-    description: "HubEnts event management platform - manage events, contacts, tasks, guests, CRM, finance, and forms.",
+    description: "Hubents event management platform - manage events, contacts, tasks, guests, CRM, finance, and forms.",
     tools: MCP_TOOLS,
     resources: MCP_RESOURCES,
   };

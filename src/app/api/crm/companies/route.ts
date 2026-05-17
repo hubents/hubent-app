@@ -1,59 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { getCompanies, createCompany } from "@/lib/crm";
+import { apiHandler, ok, created, badRequest, paginated } from "@/lib/api-handler";
 
 // GET /api/crm/companies - List companies
 export async function GET(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:read");
     const { searchParams } = new URL(request.url);
-    
+
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const search = searchParams.get("search") || undefined;
 
     const result = await getCompanies(session, { page, limit, search });
 
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-      meta: result.meta,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch companies";
-    return NextResponse.json(
-      { success: false, error: { code: "FETCH_ERROR", message } },
-      { status: 500 }
-    );
-  }
+    return paginated(result.data, result.meta);
+  }, "GET /api/crm/companies");
 }
 
 // POST /api/crm/companies - Create company
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("crm:manage");
     const body = await request.json();
 
     const { legalName } = body;
 
     if (!legalName) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Legal name is required" } },
-        { status: 400 }
-      );
+      return badRequest("Legal name is required");
     }
 
     const company = await createCompany(session, body);
 
-    return NextResponse.json({
-      success: true,
-      data: company,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create company";
-    return NextResponse.json(
-      { success: false, error: { code: "CREATE_ERROR", message } },
-      { status: 400 }
-    );
-  }
+    return created(company);
+  }, "POST /api/crm/companies");
 }

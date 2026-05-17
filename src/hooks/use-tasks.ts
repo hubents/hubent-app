@@ -13,7 +13,11 @@ interface Task {
   sortOrder: number | null;
   createdAt: Date | null;
   eventName?: string | null;
+  eventType?: string | null;
+  customEventType?: string | null;
   assignedUserName?: string | null;
+  participants?: Array<{ initials: string; color: string; name: string }>;
+  participantCount?: number;
 }
 
 interface TaskStats {
@@ -107,22 +111,18 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
 
   const updateTaskStatus = useCallback(
     async (taskId: number, status: string) => {
-      try {
-        const response = await fetch(`/api/tasks/${taskId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        });
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
 
-        if (response.ok) {
-          // Optimistic update
-          setTasks((prev) =>
-            prev.map((t) => (t.id === taskId ? { ...t, status } : t)),
-          );
-          fetchTasks(); // Refetch for accurate stats
-        }
-      } catch (err) {
-        console.error("Failed to update task:", err);
+      if (response.ok) {
+        // Optimistic update
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status } : t)),
+        );
+        fetchTasks(); // Refetch for accurate stats
       }
     },
     [fetchTasks],
@@ -137,36 +137,27 @@ export function useTasks(eventId?: number, scope?: TaskScope) {
       eventId?: number;
       assignedTo?: string;
     }) => {
-      try {
-        const response = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (result.success) {
-          fetchTasks();
-          return result.data;
-        }
-        return null;
-      } catch (err) {
-        console.error("Failed to create task:", err);
-        return null;
+      if (result.success) {
+        fetchTasks();
+        return result.data;
       }
+      return null;
     },
     [fetchTasks],
   );
 
   const deleteTask = useCallback(
     async (taskId: number) => {
-      try {
-        await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-        fetchTasks();
-      } catch (err) {
-        console.error("Failed to delete task:", err);
-      }
+      await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      fetchTasks();
     },
     [fetchTasks],
   );

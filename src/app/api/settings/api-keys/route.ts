@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/session";
 import { createApiKeyRecord, listApiKeys, getApiUsageStats, countApiKeys } from "@/lib/api/api-keys";
 import { ALL_SCOPES, PROVIDER_ALLOWED_SCOPES } from "@/lib/api/api-auth";
 import { getApiKeyLimit } from "@/lib/api/api-feature-flags";
+import { apiHandler, ok, created, badRequest, forbidden } from "@/lib/api-handler";
 import { z } from "zod";
 
 const createKeySchema = z.object({
@@ -14,7 +15,7 @@ const createKeySchema = z.object({
 });
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:update");
     const keys = await listApiKeys(session.organizationId);
     const stats = await getApiUsageStats(session.organizationId);
@@ -22,29 +23,18 @@ export async function GET() {
     const isProvider = session.orgType === "provider";
     const availableScopes = isProvider ? PROVIDER_ALLOWED_SCOPES : ALL_SCOPES;
 
-    return NextResponse.json({
-      success: true,
-      data: { keys, stats, available_scopes: availableScopes, org_type: session.orgType },
-    });
-  } catch (error) {
-    console.error("[API Keys GET]", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch API keys";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+    return ok({ keys, stats, available_scopes: availableScopes, org_type: session.orgType });
+  }, "GET /api/settings/api-keys");
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  return apiHandler(async () => {
     const session = await requirePermission("settings:update");
     const body = await request.json();
     const parsed = createKeySchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0].message } },
-        { status: 400 }
-      );
+      return badRequest(parsed.error.issues[0].message);
     }
 
     const d = parsed.data;
@@ -54,19 +44,13 @@ export async function POST(request: NextRequest) {
     const planSlug = session.plan?.slug || "starter";
     const maxKeys = getApiKeyLimit(planSlug);
     if (currentCount >= maxKeys) {
-      return NextResponse.json(
-        { success: false, error: { code: "LIMIT_REACHED", message: `Your plan (${planSlug}) allows a maximum of ${maxKeys} API keys. You currently have ${currentCount} active keys.` } },
-        { status: 403 }
-      );
+      return forbidden(`Your plan (${planSlug}) allows a maximum of ${maxKeys} API keys. You currently have ${currentCount} active keys.`);
     }
 
     // Validate scopes against ALL_SCOPES
     const invalidScopes = d.scopes.filter((s) => !ALL_SCOPES.includes(s as typeof ALL_SCOPES[number]));
     if (invalidScopes.length > 0) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_SCOPES", message: `Invalid scopes: ${invalidScopes.join(", ")}` } },
-        { status: 400 }
-      );
+      return badRequest(`Invalid scopes: ${invalidScopes.join(", ")}`, "INVALID_SCOPES");
     }
 
     // Enforce provider scope restrictions
@@ -74,10 +58,7 @@ export async function POST(request: NextRequest) {
     if (isProvider) {
       const forbiddenScopes = d.scopes.filter((s) => !PROVIDER_ALLOWED_SCOPES.includes(s as typeof PROVIDER_ALLOWED_SCOPES[number]));
       if (forbiddenScopes.length > 0) {
-        return NextResponse.json(
-          { success: false, error: { code: "SCOPE_NOT_ALLOWED", message: `Provider accounts cannot use scopes: ${forbiddenScopes.join(", ")}. Allowed: ${PROVIDER_ALLOWED_SCOPES.join(", ")}` } },
-          { status: 403 }
-        );
+        return forbidden(`Provider accounts cannot use scopes: ${forbiddenScopes.join(", ")}. Allowed: ${PROVIDER_ALLOWED_SCOPES.join(", ")}`);
       }
     }
 
@@ -91,15 +72,6 @@ export async function POST(request: NextRequest) {
       createdBy: session.user.userId,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: { ...apiKey, raw_key: rawKey },
-      message: "API key created. Copy the raw key now — it won't be shown again.",
-    }, { status: 201 });
-  } catch (error) {
-    console.error("[API Keys POST]", error);
-    const message = error instanceof Error ? error.message : "Failed to create API key";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "CREATE_ERROR", message } }, { status });
-  }
+    return created({ ...apiKey, raw_key: rawKey });
+  }, "POST /api/settings/api-keys");
 }

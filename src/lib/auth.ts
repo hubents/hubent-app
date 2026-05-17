@@ -71,7 +71,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // Resend provider for Magic Link - always include, will use env var at runtime
     Resend({
       apiKey: process.env.RESEND_API_KEY!,
-      from: process.env.EMAIL_FROM || "HubEnts <noreply@hubents.com>",
+      from: process.env.EMAIL_FROM || "Hubents <noreply@hubents.com>",
     }),
     // Google provider - always include, will use env vars at runtime
     Google({

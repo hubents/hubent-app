@@ -8,33 +8,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   RiAddLine,
   RiDeleteBinLine,
+  RiEditLine,
   RiFileTextLine,
   RiImageLine,
   RiLinkM,
   RiDownloadLine,
   RiMoneyDollarCircleLine,
-  RiVideoLine,
   RiCalendarEventLine,
   RiTimeLine,
   RiCalendarLine,
   RiArrowDownSLine,
-  RiEditLine,
-  RiAttachmentLine,
-  RiMoreLine,
   RiFileDownloadLine,
   RiEyeLine,
 } from "@remixicon/react";
 import { downloadFile } from "@/lib/file-download";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { useFileUpload } from "@/hooks/use-file-upload";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
@@ -43,13 +32,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { FileUploader } from "@/components/ui/file-uploader";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -57,6 +39,7 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { FilePreviewDialog } from "@/components/ui/file-preview-dialog";
+import { PaymentDrawer, type ConciliableDocument, type EditPaymentData } from "@/components/finance/payment-drawer";
 
 interface TaskDetail {
   id: number;
@@ -92,15 +75,6 @@ interface TaskPayment {
   vendorEmail: string | null;
   vendorPhone: string | null;
   vendorAddress: string | null;
-}
-
-interface Vendor {
-  id: number;
-  name: string;
-  category: string | null;
-  email: string | null;
-  phone: string | null;
-  address: string | null;
 }
 
 interface TaskScheduleItem {
@@ -146,6 +120,9 @@ interface FinancialDocument {
   total: string;
   status: string;
   currency?: string | null;
+  direction?: string | null;
+  contactId?: number | null;
+  vendorId?: number | null;
   companyName: string | null;
   personFirstName: string | null;
   personLastName: string | null;
@@ -167,7 +144,10 @@ interface TaskInfoTabProps {
   onDeletePayment: (paymentId: number) => Promise<boolean>;
   onDeleteLegacyPayment: (paymentId: number) => Promise<boolean>;
   onAddMeeting: (data: { title: string; date: string; startTime?: string; endTime?: string; description?: string }) => Promise<unknown>;
+  onUpdateMeeting?: (meetingId: number, updates: { title?: string; date?: string; startTime?: string | null; endTime?: string | null; description?: string | null; location?: string | null }) => Promise<unknown>;
   onDeleteMeeting: (meetingId: number) => Promise<boolean>;
+  /** Called after PaymentDrawer reports a successful save so the parent can refetch task detail. */
+  onTaskRefetch?: () => void;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -184,15 +164,14 @@ export function TaskInfoTab({
   unifiedPayments,
   meetings,
   loading,
-  onUpdateTask,
   onAddAttachment,
   onDeleteAttachment,
-  onAddPayment,
-  onUpdatePayment,
   onDeletePayment,
   onDeleteLegacyPayment,
   onAddMeeting,
+  onUpdateMeeting,
   onDeleteMeeting,
+  onTaskRefetch,
   readOnly = false,
 }: TaskInfoTabProps) {
   const [attachmentTab, setAttachmentTab] = useState("files");
@@ -200,24 +179,9 @@ export function TaskInfoTab({
   const [newLinkName, setNewLinkName] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [newPayment, setNewPayment] = useState({ 
-    amount: "", 
-    date: "",
-    vendorId: null as number | null,
-    paymentMethod: "",
-    notes: "",
-    direction: "outgoing",
-    status: "complete",
-    documentId: null as number | null,
-    attachmentUrl: "",
-    attachmentName: "",
-  });
-  const [addingPayment, setAddingPayment] = useState(false);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [loadingVendors, setLoadingVendors] = useState(false);
-  const [vendorSearch, setVendorSearch] = useState("");
-  const [vendorFilter, setVendorFilter] = useState<number | null>(null);
+  const [editPayment, setEditPayment] = useState<EditPaymentData | null>(null);
   const [concilDocs, setConcilDocs] = useState<FinancialDocument[]>([]);
+  const [editMeetingId, setEditMeetingId] = useState<number | null>(null);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [newFile, setNewFile] = useState({ name: "", url: "", type: "file" });
   const [addingFile, setAddingFile] = useState(false);
@@ -228,24 +192,6 @@ export function TaskInfoTab({
   const [newMeeting, setNewMeeting] = useState({ title: "", date: "", startTime: "", endTime: "", description: "" });
   const [addingMeeting, setAddingMeeting] = useState(false);
   const [expandedMeetings, setExpandedMeetings] = useState<Set<number>>(new Set());
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const { upload: uploadReceipt, uploading: receiptUploading } = useFileUpload({ folder: "payments" });
-
-  const fetchVendors = async (search?: string) => {
-    setLoadingVendors(true);
-    try {
-      const url = search ? `/api/vendors?search=${encodeURIComponent(search)}` : "/api/vendors";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setVendors(data.data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch vendors:", err);
-    } finally {
-      setLoadingVendors(false);
-    }
-  };
 
   const fetchConcilDocs = async () => {
     try {
@@ -273,48 +219,50 @@ export function TaskInfoTab({
   };
 
   const handleOpenPaymentDialog = () => {
+    setEditPayment(null);
     setShowPaymentDialog(true);
-    fetchVendors();
     fetchConcilDocs();
   };
 
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const result = await uploadReceipt(file);
-      if (result) {
-        setNewPayment((prev) => ({ ...prev, attachmentUrl: result.url, attachmentName: file.name }));
-        toast.success("Comprobante adjuntado");
-      }
-    } catch {
-      toast.error("Error al subir comprobante");
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const handleEditPayment = (payment: UnifiedPayment) => {
+    if (readOnly) return;
+    setEditPayment({
+      id: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      direction: payment.direction,
+      paymentDate: payment.paymentDate,
+      paymentMethod: payment.paymentMethod,
+      reference: payment.reference,
+      notes: payment.notes,
+      status: payment.status || undefined,
+      attachmentUrl: payment.attachmentUrl,
+      attachmentName: payment.attachmentName,
+      contactId: payment.contactId,
+      vendorId: payment.vendorId,
+      documentId: payment.documentId,
+    });
+    fetchConcilDocs();
+    setShowPaymentDialog(true);
   };
 
-  const handleAddPayment = async () => {
-    if (!newPayment.amount) return;
-    setAddingPayment(true);
-    try {
-      await onAddPayment({
-        amount: parseFloat(newPayment.amount),
-        date: newPayment.date || new Date().toISOString().split("T")[0],
-        vendorId: newPayment.vendorId || undefined,
-        paymentMethod: newPayment.paymentMethod || undefined,
-        notes: newPayment.notes || undefined,
-        direction: newPayment.direction,
-        status: newPayment.status,
-        documentId: newPayment.documentId || undefined,
-        attachmentUrl: newPayment.attachmentUrl || undefined,
-        attachmentName: newPayment.attachmentName || undefined,
-      });
-      setNewPayment({ amount: "", date: "", vendorId: null, paymentMethod: "", notes: "", direction: "outgoing", status: "complete", documentId: null, attachmentUrl: "", attachmentName: "" });
-      setShowPaymentDialog(false);
-      toast.success("Pago registrado");
-    } finally {
-      setAddingPayment(false);
-    }
+  const handleEditMeeting = (meeting: TaskScheduleItem) => {
+    if (readOnly) return;
+    setEditMeetingId(meeting.id);
+    setNewMeeting({
+      title: meeting.title || "",
+      date: meeting.date ? String(meeting.date).split("T")[0] : "",
+      startTime: meeting.startTime || "",
+      endTime: meeting.endTime || "",
+      description: meeting.description || "",
+    });
+    setShowMeetingForm(true);
+  };
+
+  const handleCancelMeetingEdit = () => {
+    setEditMeetingId(null);
+    setShowMeetingForm(false);
+    setNewMeeting({ title: "", date: "", startTime: "", endTime: "", description: "" });
   };
 
   const handleDeletePayment = async (paymentId: number) => {
@@ -352,19 +300,31 @@ export function TaskInfoTab({
   const images = safeAttachments.filter((a) => a.type === "image" || a.mimeType?.startsWith("image/"));
   const links = safeAttachments.filter((a) => a.type === "link");
 
-  const handleAddMeeting = async () => {
+  const handleSaveMeeting = async () => {
     if (!newMeeting.title.trim() || !newMeeting.date) return;
     setAddingMeeting(true);
     try {
-      await onAddMeeting({
-        title: newMeeting.title.trim(),
-        date: newMeeting.date,
-        startTime: newMeeting.startTime || undefined,
-        endTime: newMeeting.endTime || undefined,
-        description: newMeeting.description.trim() || undefined,
-      });
+      if (editMeetingId !== null) {
+        if (!onUpdateMeeting) return;
+        await onUpdateMeeting(editMeetingId, {
+          title: newMeeting.title.trim(),
+          date: newMeeting.date,
+          startTime: newMeeting.startTime || null,
+          endTime: newMeeting.endTime || null,
+          description: newMeeting.description.trim() || null,
+        });
+      } else {
+        await onAddMeeting({
+          title: newMeeting.title.trim(),
+          date: newMeeting.date,
+          startTime: newMeeting.startTime || undefined,
+          endTime: newMeeting.endTime || undefined,
+          description: newMeeting.description.trim() || undefined,
+        });
+      }
       setNewMeeting({ title: "", date: "", startTime: "", endTime: "", description: "" });
       setShowMeetingForm(false);
+      setEditMeetingId(null);
     } finally {
       setAddingMeeting(false);
     }
@@ -429,150 +389,21 @@ export function TaskInfoTab({
             Agregar Pago
           </Button>
           )}
-          <Sheet open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-            <SheetContent className="sm:max-w-3xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Registrar Pago</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-4 px-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Importe *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={newPayment.amount}
-                      onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Dirección</Label>
-                    <Select value={newPayment.direction} onValueChange={(v) => setNewPayment({ ...newPayment, direction: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="outgoing">Pago (salida)</SelectItem>
-                        <SelectItem value="incoming">Cobro (entrada)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Fecha</Label>
-                    <Input
-                      type="date"
-                      value={newPayment.date}
-                      onChange={(e) => setNewPayment({ ...newPayment, date: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Método de Pago</Label>
-                    <Select value={newPayment.paymentMethod} onValueChange={(v) => setNewPayment({ ...newPayment, paymentMethod: v })}>
-                      <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bank_transfer">Transferencia</SelectItem>
-                        <SelectItem value="cash">Efectivo</SelectItem>
-                        <SelectItem value="card">Tarjeta</SelectItem>
-                        <SelectItem value="other">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Select value={newPayment.status} onValueChange={(v) => setNewPayment({ ...newPayment, status: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pendiente</SelectItem>
-                        <SelectItem value="complete">Completado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Proveedor</Label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    value={newPayment.vendorId || ""}
-                    onChange={(e) => setNewPayment({ ...newPayment, vendorId: e.target.value ? parseInt(e.target.value) : null })}
-                  >
-                    <option value="">Seleccionar proveedor...</option>
-                    {vendors.map((vendor) => (
-                      <option key={vendor.id} value={vendor.id}>
-                        {vendor.name} {vendor.category ? `(${vendor.category})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingVendors && <p className="text-xs text-muted-foreground">Cargando proveedores...</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Conciliar con documento</Label>
-                  <select
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    value={newPayment.documentId || ""}
-                    onChange={(e) => setNewPayment({ ...newPayment, documentId: e.target.value ? parseInt(e.target.value) : null })}
-                  >
-                    <option value="">Sin conciliar</option>
-                    {concilDocs.map((doc) => (
-                      <option key={doc.id} value={doc.id}>
-                        {doc.type === "invoice" ? "Factura" : "Presupuesto"} {doc.number} — {parseFloat(doc.total).toLocaleString("es-ES", { style: "currency", currency: doc.currency || "EUR" })}
-                        {doc.status === "payment_promise" ? " (Promesa de pago)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Notas</Label>
-                  <Textarea
-                    placeholder="Observaciones adicionales..."
-                    value={newPayment.notes}
-                    onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Adjuntar comprobante</Label>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleReceiptUpload}
-                    className="hidden"
-                    accept="image/*,.pdf"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={receiptUploading}
-                    >
-                      <RiAttachmentLine className="h-4 w-4 mr-1" />
-                      {receiptUploading ? "Subiendo..." : "Seleccionar archivo"}
-                    </Button>
-                    {newPayment.attachmentName && (
-                      <span className="text-xs text-muted-foreground truncate">{newPayment.attachmentName}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleAddPayment} disabled={addingPayment || !newPayment.amount}>
-                    {addingPayment ? "Guardando..." : "Registrar Pago"}
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <PaymentDrawer
+            open={showPaymentDialog}
+            onOpenChange={(o) => {
+              setShowPaymentDialog(o);
+              if (!o) setEditPayment(null);
+            }}
+            taskId={task?.id}
+            conciliableDocuments={concilDocs as ConciliableDocument[]}
+            showContactSelector
+            defaultDirection="outgoing"
+            editPayment={editPayment}
+            onSuccess={() => {
+              onTaskRefetch?.();
+            }}
+          />
         </div>
         {/* Unified Payments */}
         <div className="rounded-lg border border-border">
@@ -590,7 +421,21 @@ export function TaskInfoTab({
           ) : (
             <div className="divide-y divide-border">
               {(unifiedPayments || []).map((payment) => (
-                <div key={`u-${payment.id}`} className="grid grid-cols-5 gap-4 p-3 items-center">
+                <div
+                  key={`u-${payment.id}`}
+                  className={`grid grid-cols-5 gap-4 p-3 items-center transition-colors ${
+                    readOnly ? "" : "cursor-pointer hover:bg-muted/40"
+                  }`}
+                  role={readOnly ? undefined : "button"}
+                  tabIndex={readOnly ? undefined : 0}
+                  onClick={() => handleEditPayment(payment)}
+                  onKeyDown={(e) => {
+                    if (!readOnly && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      handleEditPayment(payment);
+                    }
+                  }}
+                >
                   <div>
                     {payment.documentNumber ? (
                       <div>
@@ -618,9 +463,9 @@ export function TaskInfoTab({
                   <span className="text-sm font-medium">
                     {parseFloat(payment.amount).toLocaleString("es-ES", { style: "currency", currency: payment.currency || "EUR" })}
                   </span>
-                  <div className="flex items-center gap-1 justify-end">
+                  <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {payment.attachmentUrl && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(payment.attachmentUrl!, payment.attachmentName || "comprobante")}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadFile(payment.attachmentUrl!, payment.attachmentName || "comprobante")} title="Descargar comprobante">
                         <RiFileDownloadLine className="h-3.5 w-3.5" />
                       </Button>
                     )}
@@ -628,8 +473,20 @@ export function TaskInfoTab({
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleEditPayment(payment)}
+                      title="Editar pago"
+                    >
+                      <RiEditLine className="h-3.5 w-3.5" />
+                    </Button>
+                    )}
+                    {!readOnly && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7 text-destructive"
                       onClick={() => handleDeletePayment(payment.id)}
+                      title="Eliminar pago"
                     >
                       <RiDeleteBinLine className="h-3.5 w-3.5" />
                     </Button>
@@ -684,7 +541,15 @@ export function TaskInfoTab({
             variant="outline"
             size="sm"
             className="gap-1"
-            onClick={() => setShowMeetingForm(!showMeetingForm)}
+            onClick={() => {
+              if (showMeetingForm) {
+                handleCancelMeetingEdit();
+              } else {
+                setEditMeetingId(null);
+                setNewMeeting({ title: "", date: "", startTime: "", endTime: "", description: "" });
+                setShowMeetingForm(true);
+              }
+            }}
           >
             <RiAddLine className="h-4 w-4" />
             Add Meeting
@@ -692,59 +557,81 @@ export function TaskInfoTab({
           )}
         </div>
 
-        {/* Add Meeting Form */}
-        {showMeetingForm && (
-          <div className="p-4 rounded-lg border border-border bg-muted/50 space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <Input
-                placeholder="Descripción *"
-                value={newMeeting.title}
-                onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
-              />
-              <Input
-                type="date"
-                value={newMeeting.date}
-                onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}
-              />
-              <div className="flex gap-2">
+        {/* Add / Edit Meeting Drawer */}
+        <Sheet
+          open={showMeetingForm}
+          onOpenChange={(o) => {
+            if (!o) handleCancelMeetingEdit();
+            else setShowMeetingForm(true);
+          }}
+        >
+          <SheetContent className="sm:max-w-xl flex flex-col overflow-hidden">
+            <SheetHeader>
+              <SheetTitle>
+                {editMeetingId !== null ? "Editar Meeting" : "Nuevo Meeting"}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              <div className="space-y-2">
+                <Label>Descripción *</Label>
                 <Input
-                  type="time"
-                  placeholder="Inicio"
-                  value={newMeeting.startTime}
-                  onChange={(e) => setNewMeeting({ ...newMeeting, startTime: e.target.value })}
+                  placeholder="Reunión con..."
+                  value={newMeeting.title}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })}
                 />
-                <Input
-                  type="time"
-                  placeholder="Fin"
-                  value={newMeeting.endTime}
-                  onChange={(e) => setNewMeeting({ ...newMeeting, endTime: e.target.value })}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Fecha *</Label>
+                  <Input
+                    type="date"
+                    value={newMeeting.date}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Inicio</Label>
+                  <Input
+                    type="time"
+                    value={newMeeting.startTime}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, startTime: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fin</Label>
+                  <Input
+                    type="time"
+                    value={newMeeting.endTime}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, endTime: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Notas / Detalles</Label>
+                <Textarea
+                  placeholder="Más detalles (opcional)"
+                  value={newMeeting.description}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
+                  rows={4}
                 />
               </div>
             </div>
-            <Textarea
-              placeholder="Más detalles (opcional)"
-              value={newMeeting.description}
-              onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowMeetingForm(false)}
-              >
+            <div className="border-t border-border px-6 py-3 flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={handleCancelMeetingEdit}>
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                onClick={handleAddMeeting}
+                onClick={handleSaveMeeting}
                 disabled={addingMeeting || !newMeeting.title.trim() || !newMeeting.date}
               >
-                {addingMeeting ? "Añadiendo..." : "Añadir"}
+                {addingMeeting
+                  ? editMeetingId !== null ? "Guardando..." : "Añadiendo..."
+                  : editMeetingId !== null ? "Guardar cambios" : "Añadir meeting"}
               </Button>
             </div>
-          </div>
-        )}
+          </SheetContent>
+        </Sheet>
 
         {/* Meetings List */}
         {safeMeetings.length === 0 ? (
@@ -761,7 +648,20 @@ export function TaskInfoTab({
               >
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="flex items-center gap-4 p-4 bg-background">
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className={`flex-1 min-w-0 ${
+                        readOnly ? "" : "cursor-pointer"
+                      }`}
+                      role={readOnly ? undefined : "button"}
+                      tabIndex={readOnly ? undefined : 0}
+                      onClick={() => handleEditMeeting(meeting)}
+                      onKeyDown={(e) => {
+                        if (!readOnly && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          handleEditMeeting(meeting);
+                        }
+                      }}
+                    >
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Descripción</p>
@@ -801,8 +701,20 @@ export function TaskInfoTab({
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditMeeting(meeting)}
+                        title="Editar meeting"
+                      >
+                        <RiEditLine className="h-4 w-4" />
+                      </Button>
+                      )}
+                      {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={() => onDeleteMeeting(meeting.id)}
+                        title="Eliminar meeting"
                       >
                         <RiDeleteBinLine className="h-4 w-4" />
                       </Button>
@@ -826,30 +738,6 @@ export function TaskInfoTab({
           </div>
         )}
 
-        {/* Footer Actions */}
-        {!readOnly && safeMeetings.length > 0 && (
-          <div className="flex justify-between pt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive"
-              onClick={() => {
-                if (confirm("¿Eliminar todos los meetings?")) {
-                  safeMeetings.forEach((m) => onDeleteMeeting(m.id));
-                }
-              }}
-            >
-              Remove Meeting
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMeetingForm(true)}
-            >
-              Add Meeting
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Attachments Section */}

@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
 import { requirePlatformAdmin } from "@/lib/session";
 import { db } from "@/db";
 import { apiKeys, apiKeyLogs, organizations, webhooks, webhookLogs } from "@/db/schema";
-import { eq, count, sql, desc, and, gt } from "drizzle-orm";
+import { eq, count, sql, desc, gt } from "drizzle-orm";
+import { apiHandler, ok } from "@/lib/api-handler";
 
 export async function GET() {
-  try {
+  return apiHandler(async () => {
     await requirePlatformAdmin();
 
     const thirtyDaysAgo = new Date();
@@ -109,40 +109,33 @@ export async function GET() {
       .from(apiKeys)
       .where(eq(apiKeys.isActive, true));
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        keys: {
-          total: totalKeys?.count ?? 0,
-          active: activeKeys?.count ?? 0,
-          revoked: revokedKeys?.count ?? 0,
-          by_environment: keysByEnv.reduce((acc, e) => {
-            if (e.environment) acc[e.environment] = e.count;
-            return acc;
-          }, {} as Record<string, number>),
-        },
-        requests: {
-          total_30d: requestStats?.total ?? 0,
-          errors_30d: requestStats?.errors ?? 0,
-          error_rate: requestStats?.total ? ((requestStats.errors / requestStats.total) * 100).toFixed(2) + "%" : "0%",
-          daily_volume: dailyVolume,
-        },
-        webhooks: {
-          total: totalWebhooks?.count ?? 0,
-          active: activeWebhooks?.count ?? 0,
-          deliveries_30d: webhookDeliveries?.total ?? 0,
-          delivered_30d: webhookDeliveries?.delivered ?? 0,
-          failed_30d: webhookDeliveries?.failed ?? 0,
-        },
-        orgs_with_api: orgsWithApi?.[0]?.count ?? 0,
-        top_organizations: topOrgs,
-        top_endpoints: topEndpoints,
-        recent_keys: recentKeys,
+    return ok({
+      keys: {
+        total: totalKeys?.count ?? 0,
+        active: activeKeys?.count ?? 0,
+        revoked: revokedKeys?.count ?? 0,
+        by_environment: keysByEnv.reduce((acc, e) => {
+          if (e.environment) acc[e.environment] = e.count;
+          return acc;
+        }, {} as Record<string, number>),
       },
+      requests: {
+        total_30d: requestStats?.total ?? 0,
+        errors_30d: requestStats?.errors ?? 0,
+        error_rate: requestStats?.total ? ((requestStats.errors / requestStats.total) * 100).toFixed(2) + "%" : "0%",
+        daily_volume: dailyVolume,
+      },
+      webhooks: {
+        total: totalWebhooks?.count ?? 0,
+        active: activeWebhooks?.count ?? 0,
+        deliveries_30d: webhookDeliveries?.total ?? 0,
+        delivered_30d: webhookDeliveries?.delivered ?? 0,
+        failed_30d: webhookDeliveries?.failed ?? 0,
+      },
+      orgs_with_api: orgsWithApi?.[0]?.count ?? 0,
+      top_organizations: topOrgs,
+      top_endpoints: topEndpoints,
+      recent_keys: recentKeys,
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch API platform stats";
-    const status = message.includes("Unauthorized") ? 401 : message.includes("Forbidden") ? 403 : 500;
-    return NextResponse.json({ success: false, error: { code: "FETCH_ERROR", message } }, { status });
-  }
+  }, "GET /api/admin/api-platform");
 }

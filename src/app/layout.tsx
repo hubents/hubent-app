@@ -12,7 +12,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "HubEnts - Wedding & Event Management",
+  title: "Hubents - Wedding & Event Management",
   description: "Plataforma integral para gestión de bodas y eventos",
   icons: {
     icon: [
