@@ -1,58 +1,29 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  RiAddLine,
-  RiDeleteBinLine,
-  RiSaveLine,
-  RiLoader4Line,
-  RiEyeLine,
-  RiCheckDoubleLine,
-  RiFileCopyLine,
-  RiExchangeLine,
-  RiTruckLine,
-} from "@remixicon/react";
+  PlusSignIcon,
+  Delete01Icon,
+  EyeIcon,
+  Copy01Icon,
+  Exchange01Icon,
+  TruckIcon,
+  Cancel01Icon,
+  ArrowDown01Icon,
+} from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { LiveDocumentPreview, type OrganizationPreviewData } from "./live-document-preview";
 import { ContactSelector, type ContactSelectorValue } from "./contact-selector";
-import { cn } from "@/lib/utils";
 import { CURRENCIES, CURRENCY_SYMBOLS, DEFAULT_ENABLED_CURRENCIES } from "@/lib/constants/locale";
+import { fmtMoney } from "@/lib/format";
 
 type DocumentType = "quote" | "invoice" | "proforma" | "delivery_note" | "credit_note";
 
 interface DocumentItem {
   id?: number;
   description: string;
+  details?: string;
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -60,27 +31,9 @@ interface DocumentItem {
   total: number;
 }
 
-interface Event {
-  id: number;
-  name: string;
-}
-
-interface TaxRate {
-  id: number;
-  name: string;
-  rate: string;
-  isDefault: boolean;
-  isActive?: boolean;
-}
-
-interface BankAccount {
-  id: number;
-  name: string;
-  bankName: string | null;
-  iban: string | null;
-  swift: string | null;
-  isDefault: boolean;
-}
+interface Event { id: number; name: string; }
+interface TaxRate { id: number; name: string; rate: string; isDefault: boolean; isActive?: boolean; }
+interface BankAccount { id: number; name: string; bankName: string | null; iban: string | null; swift: string | null; isDefault: boolean; }
 
 interface InitialDocumentData {
   contactId?: number;
@@ -127,43 +80,97 @@ const paymentMethodOptions = [
   { value: "other", label: "Otro" },
 ];
 
+const FIN_ACCOUNTS = [
+  "70500000 Prestaciones de servicios",
+  "70400000 Venta de mercaderías",
+  "75000000 Otros ingresos",
+];
+
+// Shared input style
+const INPUT: React.CSSProperties = {
+  width: "100%", padding: "8px 10px", boxSizing: "border-box",
+  border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)",
+  background: "var(--bg-panel)", color: "var(--ink-1)",
+  fontSize: 13, fontFamily: "inherit", outline: "none",
+};
+
+// Borderless input for the top strip cells
+const STRIP_INPUT: React.CSSProperties = {
+  width: "100%", padding: "4px 0", boxSizing: "border-box",
+  border: "none", background: "transparent", color: "var(--ink-1)",
+  fontSize: 13, fontFamily: "inherit", outline: "none",
+};
+
+// Select with chevron
+function FSelect({ value, onChange, style, children }: {
+  value: string; onChange: (v: string) => void;
+  style?: React.CSSProperties; children: React.ReactNode;
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{ ...INPUT, appearance: "none", paddingRight: 28, cursor: "pointer", ...style }}>
+        {children}
+      </select>
+      <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none", display: "flex" }}>
+        <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={1.5} />
+      </span>
+    </div>
+  );
+}
+
+// Borderless select for top strip
+function StripSelect({ value, onChange, children }: {
+  value: string; onChange: (v: string) => void; children: React.ReactNode;
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{ ...STRIP_INPUT, appearance: "none", paddingRight: 20, cursor: "pointer" }}>
+        {children}
+      </select>
+      <span style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none", display: "flex" }}>
+        <HugeiconsIcon icon={ArrowDown01Icon} size={12} strokeWidth={1.5} />
+      </span>
+    </div>
+  );
+}
+
 export function DocumentDrawer({
-  open,
-  onOpenChange,
-  type,
-  documentId,
-  initialData,
-  onSuccess,
-  onDuplicate,
-  onConvert,
-  saveEndpoint,
-  lockedEvent,
-  lockedClientLabel,
-  eventsEndpoint,
-  vendorsEndpoint,
+  open, onOpenChange, type, documentId, initialData, onSuccess,
+  onDuplicate, onConvert, saveEndpoint, lockedEvent, lockedClientLabel,
+  eventsEndpoint, vendorsEndpoint,
 }: DocumentDrawerProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [documentNumber, setDocumentNumber] = useState<string | undefined>();
   const [documentStatus, setDocumentStatus] = useState<string | undefined>();
+  const [showNotes, setShowNotes] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [accountingAccount, setAccountingAccount] = useState(FIN_ACCOUNTS[0]);
+  const [perConcept, setPerConcept] = useState(false);
+  const [tags, setTags] = useState("");
+  const [perConceptTags, setPerConceptTags] = useState(false);
 
   const isDeliveryNote = type === "delivery_note";
 
   // Form state
   const [contactValue, setContactValue] = useState<ContactSelectorValue | null>(null);
   const [eventId, setEventId] = useState<string>("");
+  const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
   const [termsAndConditions, setTermsAndConditions] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paymentNotes, setPaymentNotes] = useState("");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [globalDiscountEnabled, setGlobalDiscountEnabled] = useState(false);
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [globalDiscountType, setGlobalDiscountType] = useState<"percentage" | "fixed">("percentage");
   const [items, setItems] = useState<DocumentItem[]>([
-    { description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 21, total: 0 },
+    { description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 21, total: 0 },
   ]);
 
   // Reference data
@@ -177,58 +184,41 @@ export function DocumentDrawer({
   const [preloadedVendors, setPreloadedVendors] = useState<Array<{ id: number; type: "vendor"; name: string; email: string | null; category?: string | null }> | undefined>();
 
   useEffect(() => {
-    if (open) {
-      fetchReferenceData();
-      if (lockedEvent) {
-        setEventId(lockedEvent.id.toString());
+    if (!open) return;
+    fetchReferenceData();
+    if (lockedEvent) setEventId(lockedEvent.id.toString());
+    if (documentId) { fetchDocument(); }
+    else if (initialData) {
+      if (initialData.contactId) setContactValue({ type: "contact", id: initialData.contactId });
+      else if (initialData.vendorId) setContactValue({ type: "vendor", id: initialData.vendorId });
+      if (!lockedEvent) setEventId(initialData.eventId?.toString() || "");
+      setNotes(initialData.notes || "");
+      setTermsAndConditions(initialData.termsAndConditions || "");
+      if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
+      if (initialData.bankAccountId) setBankAccountId(initialData.bankAccountId.toString());
+      if (initialData.globalDiscount && initialData.globalDiscount > 0) {
+        setGlobalDiscountEnabled(true);
+        setGlobalDiscount(initialData.globalDiscount);
+        setGlobalDiscountType(initialData.globalDiscountType || "percentage");
       }
-      if (documentId) {
-        fetchDocument();
-      } else if (initialData) {
-        if (initialData.contactId) {
-          setContactValue({ type: "contact", id: initialData.contactId });
-        } else if (initialData.vendorId) {
-          setContactValue({ type: "vendor", id: initialData.vendorId });
-        }
-        if (!lockedEvent) {
-          setEventId(initialData.eventId?.toString() || "");
-        }
-        setNotes(initialData.notes || "");
-        setTermsAndConditions(initialData.termsAndConditions || "");
-        if (initialData.paymentMethod) setPaymentMethod(initialData.paymentMethod);
-        if (initialData.bankAccountId) setBankAccountId(initialData.bankAccountId.toString());
-        if (initialData.globalDiscount && initialData.globalDiscount > 0) {
-          setGlobalDiscountEnabled(true);
-          setGlobalDiscount(initialData.globalDiscount);
-          setGlobalDiscountType(initialData.globalDiscountType || "percentage");
-        }
-        if (initialData.items && initialData.items.length > 0) {
-          setItems(initialData.items);
-        }
-      } else {
-        resetForm();
-        if (lockedEvent) {
-          setEventId(lockedEvent.id.toString());
-        }
-      }
+      if (initialData.items?.length) setItems(initialData.items);
+    } else {
+      resetForm();
+      if (lockedEvent) setEventId(lockedEvent.id.toString());
     }
-  }, [open, documentId, initialData]);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onOpenChange(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, documentId]);
 
   function resetForm() {
-    setContactValue(null);
-    setEventId("");
-    setDueDate("");
-    setValidUntil("");
-    setNotes("");
-    setTermsAndConditions("");
-    setPaymentMethod("");
-    setBankAccountId("");
-    setGlobalDiscountEnabled(false);
-    setGlobalDiscount(0);
-    setGlobalDiscountType("percentage");
-    setDocumentNumber(undefined);
-    setDocumentStatus(undefined);
-    setItems([{ description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
+    setContactValue(null); setEventId(""); setDueDate(""); setValidUntil("");
+    setNotes(""); setTermsAndConditions(""); setPaymentMethod(""); setPaymentNotes("");
+    setBankAccountId(""); setGlobalDiscountEnabled(false); setGlobalDiscount(0);
+    setGlobalDiscountType("percentage"); setDocumentNumber(undefined); setDocumentStatus(undefined);
+    setIssueDate(new Date().toISOString().split("T")[0]);
+    setAccountingAccount(FIN_ACCOUNTS[0]); setPerConcept(false); setTags(""); setPerConceptTags(false);
+    setItems([{ description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
   }
 
   async function fetchReferenceData() {
@@ -239,90 +229,39 @@ export function DocumentDrawer({
         fetch("/api/finance/settings"),
         fetch("/api/finance/bank-accounts"),
       ]);
-
-      if (eventsRes?.ok) {
-        const data = await (eventsRes as Response).json();
-        setEvents(data.data || []);
-      }
-
+      if (eventsRes?.ok) { const d = await (eventsRes as Response).json(); setEvents(d.data || []); }
       if (taxRatesRes.ok) {
-        const data = await taxRatesRes.json();
-        setTaxRates(data.data || []);
-        const defaultRate = data.data?.find((t: TaxRate) => t.isDefault);
-        if (defaultRate) {
-          setDefaultTaxRate(parseFloat(defaultRate.rate));
-        }
+        const d = await taxRatesRes.json(); setTaxRates(d.data || []);
+        const def = d.data?.find((t: TaxRate) => t.isDefault);
+        if (def) setDefaultTaxRate(parseFloat(def.rate));
       }
-
-      if (bankAccountsRes.ok) {
-        const data = await bankAccountsRes.json();
-        setBankAccounts(data.data || []);
-      }
-
+      if (bankAccountsRes.ok) { const d = await bankAccountsRes.json(); setBankAccounts(d.data || []); }
       if (settingsRes.ok) {
-        const data = await settingsRes.json();
-        if (data.data?.defaultTermsAndConditions && !documentId && !initialData) {
-          setTermsAndConditions(data.data.defaultTermsAndConditions);
-        }
-        if (data.data?.quoteValidityDays && type === "quote" && !documentId && !initialData) {
-          const validDate = new Date();
-          validDate.setDate(validDate.getDate() + data.data.quoteValidityDays);
-          setValidUntil(validDate.toISOString().split("T")[0]);
+        const d = await settingsRes.json();
+        if (d.data?.defaultTermsAndConditions && !documentId && !initialData) setTermsAndConditions(d.data.defaultTermsAndConditions);
+        if (d.data?.quoteValidityDays && type === "quote" && !documentId && !initialData) {
+          const dt = new Date(); dt.setDate(dt.getDate() + d.data.quoteValidityDays);
+          setValidUntil(dt.toISOString().split("T")[0]);
         }
         if (!documentId && !initialData) {
-          if (data.data?.defaultPaymentMethod) setPaymentMethod(data.data.defaultPaymentMethod);
-          if (data.data?.defaultBankAccountId) setBankAccountId(data.data.defaultBankAccountId.toString());
+          if (d.data?.defaultPaymentMethod) setPaymentMethod(d.data.defaultPaymentMethod);
+          if (d.data?.defaultBankAccountId) setBankAccountId(d.data.defaultBankAccountId.toString());
         }
-        // Currency from org settings
-        if (data.data?.defaultCurrency) {
-          if (!documentId) setCurrency(data.data.defaultCurrency);
-        }
-        if (data.data?.enabledCurrencies && Array.isArray(data.data.enabledCurrencies)) {
-          setEnabledCurrencies(data.data.enabledCurrencies);
-        }
+        if (d.data?.defaultCurrency && !documentId) setCurrency(d.data.defaultCurrency);
+        if (d.data?.enabledCurrencies && Array.isArray(d.data.enabledCurrencies)) setEnabledCurrencies(d.data.enabledCurrencies);
       }
-
-      // Fetch custom vendors for providers (planner orgs)
       if (vendorsEndpoint) {
         try {
-          const vendorsRes = await fetch(vendorsEndpoint);
-          if (vendorsRes.ok) {
-            const vData = await vendorsRes.json();
-            setPreloadedVendors(
-              (vData.data || []).map((v: any) => ({
-                id: v.id,
-                type: "vendor" as const,
-                name: v.name,
-                email: v.email || null,
-                category: v.category || null,
-              }))
-            );
-          }
+          const vr = await fetch(vendorsEndpoint);
+          if (vr.ok) { const vd = await vr.json(); setPreloadedVendors((vd.data || []).map((v: any) => ({ id: v.id, type: "vendor" as const, name: v.name, email: v.email || null, category: v.category || null }))); }
         } catch {}
       }
-
-      // Fetch organization data for preview (fiscal + logo)
-      const profileRes = await fetch("/api/user/profile");
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        const org = profileData.data?.organization;
-        if (org) {
-          setOrgData({
-            name: org.fiscalName || org.name,
-            taxId: org.taxId || undefined,
-            fiscalAddress: org.fiscalAddress || undefined,
-            fiscalCity: org.fiscalCity || undefined,
-            fiscalPostalCode: org.fiscalPostalCode || undefined,
-            fiscalCountry: org.fiscalCountry || undefined,
-            fiscalEmail: org.fiscalEmail || undefined,
-            fiscalPhone: org.fiscalPhone || undefined,
-            invoiceLogo: org.invoiceLogo || org.logo || undefined,
-          });
-        }
+      const pr = await fetch("/api/user/profile");
+      if (pr.ok) {
+        const pd = await pr.json(); const org = pd.data?.organization;
+        if (org) setOrgData({ name: org.fiscalName || org.name, taxId: org.taxId || undefined, fiscalAddress: org.fiscalAddress || undefined, fiscalCity: org.fiscalCity || undefined, fiscalPostalCode: org.fiscalPostalCode || undefined, fiscalCountry: org.fiscalCountry || undefined, fiscalEmail: org.fiscalEmail || undefined, fiscalPhone: org.fiscalPhone || undefined, invoiceLogo: org.invoiceLogo || org.logo || undefined });
       }
-    } catch (error) {
-      console.error("Failed to fetch reference data:", error);
-    }
+    } catch (err) { console.error("fetchReferenceData:", err); }
   }
 
   async function fetchDocument() {
@@ -333,706 +272,548 @@ export function DocumentDrawer({
         const data = await res.json();
         if (data.success && data.data) {
           const doc = data.data;
-          if (doc.contactId) {
-            setContactValue({
-              type: "contact", id: doc.contactId,
-              name: doc.contactName || undefined,
-              email: doc.contactEmail || undefined,
-              phone: doc.contactPhone || undefined,
-              address: doc.contactAddress || undefined,
-              taxId: doc.contactTaxId || undefined,
-            });
-          } else if (doc.vendorId) {
-            setContactValue({
-              type: "vendor", id: doc.vendorId,
-              name: doc.vendorName || undefined,
-              email: doc.vendorEmail || undefined,
-              phone: doc.vendorPhone || undefined,
-              address: doc.vendorAddress || undefined,
-            });
-          }
-          setDocumentNumber(doc.number || undefined);
-          setDocumentStatus(doc.status || undefined);
+          if (doc.contactId) setContactValue({ type: "contact", id: doc.contactId, name: doc.contactName || undefined, email: doc.contactEmail || undefined, phone: doc.contactPhone || undefined, address: doc.contactAddress || undefined, taxId: doc.contactTaxId || undefined });
+          else if (doc.vendorId) setContactValue({ type: "vendor", id: doc.vendorId, name: doc.vendorName || undefined, email: doc.vendorEmail || undefined, phone: doc.vendorPhone || undefined, address: doc.vendorAddress || undefined });
+          setDocumentNumber(doc.number || undefined); setDocumentStatus(doc.status || undefined);
           if (doc.currency) setCurrency(doc.currency);
           setEventId(doc.eventId?.toString() || "");
           setDueDate(doc.dueDate ? doc.dueDate.split("T")[0] : "");
           setValidUntil(doc.validUntil ? doc.validUntil.split("T")[0] : "");
-          setNotes(doc.notes || "");
-          setTermsAndConditions(doc.termsAndConditions || "");
-          setPaymentMethod(doc.paymentMethod || "");
-          setBankAccountId(doc.bankAccountId?.toString() || "");
+          setNotes(doc.notes || ""); setTermsAndConditions(doc.termsAndConditions || "");
+          setPaymentMethod(doc.paymentMethod || ""); setBankAccountId(doc.bankAccountId?.toString() || "");
           const gd = parseFloat(doc.globalDiscount || "0");
-          if (gd > 0) {
-            setGlobalDiscountEnabled(true);
-            setGlobalDiscount(gd);
-            setGlobalDiscountType(doc.globalDiscountType || "percentage");
-          }
-          if (doc.items?.length > 0) {
-            setItems(
-              doc.items.map((item: any) => ({
-                id: item.id,
-                description: item.description,
-                quantity: parseFloat(item.quantity),
-                unitPrice: parseFloat(item.unitPrice),
-                discount: parseFloat(item.discount || "0"),
-                taxRate: parseFloat(item.taxRate ?? "21"),
-                total: parseFloat(item.total),
-              }))
-            );
-          }
+          if (gd > 0) { setGlobalDiscountEnabled(true); setGlobalDiscount(gd); setGlobalDiscountType(doc.globalDiscountType || "percentage"); }
+          if (doc.items?.length > 0) setItems(doc.items.map((it: any) => ({ id: it.id, description: it.description, details: "", quantity: parseFloat(it.quantity), unitPrice: parseFloat(it.unitPrice), discount: parseFloat(it.discount || "0"), taxRate: parseFloat(it.taxRate ?? "21"), total: parseFloat(it.total) })));
         }
       }
-    } catch (error) {
-      console.error("Failed to fetch document:", error);
-      toast.error("Error al cargar el documento");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { toast.error("Error al cargar el documento"); }
+    finally { setLoading(false); }
   }
 
   function addItem() {
-    setItems([
-      ...items,
-      { description: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 },
-    ]);
+    setItems([...items, { description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
   }
-
-  function removeItem(index: number) {
-    if (items.length === 1) return;
-    setItems(items.filter((_, i) => i !== index));
-  }
-
-  function updateItem(index: number, field: keyof DocumentItem, value: string | number) {
-    const newItems = [...items];
-    const item = { ...newItems[index] };
-
-    if (field === "description") {
-      item.description = value as string;
-    } else {
-      item[field] = parseFloat(value as string) || 0;
-    }
-
-    // Recalculate total
-    const subtotal = item.quantity * item.unitPrice;
-    const discountAmount = subtotal * (item.discount / 100);
-    item.total = subtotal - discountAmount;
-
-    newItems[index] = item;
-    setItems(newItems);
+  function removeItem(i: number) { if (items.length > 1) setItems(items.filter((_, idx) => idx !== i)); }
+  function updateItem(i: number, field: keyof DocumentItem, value: string | number) {
+    const next = [...items];
+    const item = { ...next[i] };
+    if (field === "description" || field === "details") { (item as any)[field] = value as string; }
+    else { (item as any)[field] = parseFloat(value as string) || 0; }
+    const sub = item.quantity * item.unitPrice;
+    item.total = sub - sub * (item.discount / 100);
+    next[i] = item; setItems(next);
   }
 
   function calculateTotals() {
-    let subtotalLines = 0;
-    let taxAmount = 0;
-
-    items.forEach((item) => {
-      subtotalLines += item.total;
-    });
-
-    // Apply global discount
-    let globalDiscountAmount = 0;
-    if (globalDiscountEnabled && globalDiscount > 0) {
-      globalDiscountAmount = globalDiscountType === "percentage"
-        ? subtotalLines * (globalDiscount / 100)
-        : globalDiscount;
-    }
-    const subtotalAfterDiscount = subtotalLines - globalDiscountAmount;
-
-    // Calculate tax on subtotal after global discount
-    items.forEach((item) => {
-      const proportion = subtotalLines > 0 ? item.total / subtotalLines : 0;
-      const taxableAmount = subtotalAfterDiscount * proportion;
-      taxAmount += taxableAmount * (item.taxRate / 100);
-    });
-
-    return {
-      subtotalLines,
-      globalDiscountAmount,
-      subtotalAfterDiscount,
-      taxAmount,
-      total: subtotalAfterDiscount + taxAmount,
-    };
+    let sub = 0, tax = 0;
+    items.forEach(it => { sub += it.total; });
+    let disc = 0;
+    if (globalDiscountEnabled && globalDiscount > 0) disc = globalDiscountType === "percentage" ? sub * (globalDiscount / 100) : globalDiscount;
+    const afterDisc = sub - disc;
+    items.forEach(it => { const prop = sub > 0 ? it.total / sub : 0; tax += afterDisc * prop * (it.taxRate / 100); });
+    return { sub, disc, afterDisc, tax, total: afterDisc + tax };
   }
 
   async function handleSubmit() {
-    if (items.length === 0 || !items.some((item) => item.description.trim())) {
-      toast.error("Agrega al menos un ítem con descripción");
-      return;
-    }
-
+    if (!items.some(it => it.description.trim())) { toast.error("Agrega al menos un ítem con descripción"); return; }
     setSaving(true);
     try {
       const direction = contactValue?.type === "vendor" ? "incoming" : "outgoing";
-
       const payload = {
         type,
         contactId: contactValue?.type === "contact" ? contactValue.id : undefined,
         vendorId: contactValue?.type === "vendor" ? contactValue.id : undefined,
         eventId: eventId ? parseInt(eventId) : undefined,
-        dueDate: dueDate || undefined,
-        validUntil: validUntil || undefined,
-        notes: notes || undefined,
-        termsAndConditions: termsAndConditions || undefined,
-        paymentMethod: paymentMethod || undefined,
-        bankAccountId: bankAccountId ? parseInt(bankAccountId) : undefined,
+        dueDate: dueDate || undefined, validUntil: validUntil || undefined,
+        notes: notes || undefined, termsAndConditions: termsAndConditions || undefined,
+        paymentMethod: paymentMethod || undefined, bankAccountId: bankAccountId ? parseInt(bankAccountId) : undefined,
         globalDiscount: globalDiscountEnabled ? globalDiscount : 0,
         globalDiscountType: globalDiscountEnabled ? globalDiscountType : "percentage",
-        direction,
-        currency,
-        status: documentId ? undefined : "sent",
-        items: items.filter((item) => item.description.trim()).map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: isDeliveryNote ? 0 : item.unitPrice,
-          discount: isDeliveryNote ? 0 : item.discount,
-          taxRate: isDeliveryNote ? 0 : item.taxRate,
+        direction, currency, status: documentId ? undefined : "sent",
+        items: items.filter(it => it.description.trim()).map(it => ({
+          description: it.description, quantity: it.quantity,
+          unitPrice: isDeliveryNote ? 0 : it.unitPrice,
+          discount: isDeliveryNote ? 0 : it.discount,
+          taxRate: isDeliveryNote ? 0 : it.taxRate,
         })),
       };
-
-      const url = documentId
-        ? `/api/finance/documents/${documentId}`
-        : (saveEndpoint || "/api/finance/documents");
-      const method = documentId ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} guardado`);
-        onOpenChange(false);
-        onSuccess?.();
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Error al guardar");
-      }
-    } catch (error) {
-      toast.error("Error al guardar");
-    } finally {
-      setSaving(false);
-    }
+      const url = documentId ? `/api/finance/documents/${documentId}` : (saveEndpoint || "/api/finance/documents");
+      const res = await fetch(url, { method: documentId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (res.ok) { toast.success(documentId ? "Documento actualizado" : `${typeLabels[type]} guardado`); onOpenChange(false); onSuccess?.(); }
+      else { const err = await res.json(); toast.error(err.error?.message || "Error al guardar"); }
+    } catch { toast.error("Error al guardar"); }
+    finally { setSaving(false); }
   }
 
   const totals = calculateTotals();
+  const fmt = (n: number) => fmtMoney(n, currency || "EUR");
+  const dash = (n: number) => n === 0 ? "—" : fmt(n);
+  const selectedBank = bankAccounts.find(b => b.id.toString() === bankAccountId);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: currency || "EUR",
-    }).format(amount);
-  };
-
-  const selectedBank = bankAccounts.find((b) => b.id.toString() === bankAccountId);
-
-  // Build preview data
   const previewData = useMemo(() => {
-    const selectedEvent = events.find((e) => e.id.toString() === eventId);
-
+    const selectedEvent = events.find(e => e.id.toString() === eventId);
     return {
-      type,
-      contactName: contactValue?.type === "contact" ? contactValue.name : undefined,
+      type, contactName: contactValue?.type === "contact" ? contactValue.name : undefined,
       vendorName: contactValue?.type === "vendor" ? contactValue.name : undefined,
-      contactEmail: contactValue?.email || undefined,
-      contactPhone: contactValue?.phone || undefined,
-      contactAddress: contactValue?.address || undefined,
-      contactTaxId: contactValue?.taxId || undefined,
-      eventName: selectedEvent?.name,
-      documentNumber,
-      documentId: documentId || undefined,
-      status: documentStatus,
-      items,
-      notes,
-      termsAndConditions,
-      dueDate,
-      validUntil,
-      organization: orgData,
-      globalDiscount,
-      globalDiscountType,
-      globalDiscountEnabled,
-      paymentMethod: paymentMethod || undefined,
-      currency,
+      contactEmail: contactValue?.email || undefined, contactPhone: contactValue?.phone || undefined,
+      contactAddress: contactValue?.address || undefined, contactTaxId: contactValue?.taxId || undefined,
+      eventName: selectedEvent?.name, documentNumber, documentId: documentId || undefined, status: documentStatus,
+      items, notes, termsAndConditions, dueDate, validUntil, organization: orgData,
+      globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod: paymentMethod || undefined, currency,
     };
   }, [type, contactValue, eventId, items, notes, termsAndConditions, dueDate, validUntil, events, orgData, documentNumber, documentId, documentStatus, globalDiscount, globalDiscountType, globalDiscountEnabled, paymentMethod, currency]);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent 
-        className={cn(
-          "overflow-hidden p-0 flex flex-col",
-          showPreview ? "w-full sm:max-w-[1500px]" : "w-full sm:max-w-5xl"
-        )}
-      >
-        <SheetHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <SheetTitle>
-                {documentId ? `Editar ${typeLabels[type]}` : `Nuevo ${typeLabels[type]}`}
-              </SheetTitle>
-              <SheetDescription>
-                {documentId
-                  ? `Modifica los datos del ${typeLabels[type].toLowerCase()}`
-                  : `Crea un nuevo ${typeLabels[type].toLowerCase()}`}
-              </SheetDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <RiEyeLine className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="preview-toggle" className="text-sm text-muted-foreground cursor-pointer">
-                Vista previa
-              </Label>
-              <Switch
-                id="preview-toggle"
-                checked={showPreview}
-                onCheckedChange={setShowPreview}
-              />
-            </div>
-          </div>
-        </SheetHeader>
+  if (!open) return null;
 
+  const dateLabel = type === "quote" ? "Válido hasta" : "Vencimiento";
+  const dateValue = type === "quote" ? validUntil : dueDate;
+  const setDateValue = type === "quote" ? setValidUntil : setDueDate;
+
+  // Lines table grid template
+  const linesGrid = isDeliveryNote
+    ? "24px 2fr 1.2fr 72px 40px"
+    : "24px 2fr 1.2fr 72px 80px 64px 130px 80px 40px";
+
+  const colHdr: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: "var(--ink-3)",
+    padding: "10px 10px",
+    borderBottom: "1px solid var(--line-1)", background: "var(--bg-subtle)",
+    display: "flex", alignItems: "center",
+  };
+
+  return (
+    <div
+      onClick={() => onOpenChange(false)}
+      style={{ position: "fixed", inset: 0, background: "rgba(30,25,20,0.28)", display: "flex", justifyContent: "flex-end", zIndex: 50, backdropFilter: "blur(2px)" }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: showPreview ? "100vw" : "min(1320px, 100vw)", height: "100%", background: "var(--bg-panel)", borderLeft: "1px solid var(--line-1)", boxShadow: "-20px 0 40px -10px rgba(0,0,0,.15)", display: "flex", flexDirection: "column" }}
+      >
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid var(--line-1)", flexShrink: 0, gap: 12 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-1)", margin: 0, letterSpacing: "-0.01em", flex: 1 }}>
+            {documentId ? `Editar ${typeLabels[type].toLowerCase()}` : `Nuevo ${typeLabels[type].toLowerCase()}`}
+          </h2>
+
+          {/* Convert / Duplicate (edit mode) */}
+          {documentId && (onDuplicate || onConvert) && (
+            <div style={{ display: "flex", gap: 6 }}>
+              {onDuplicate && (
+                <button onClick={() => { if (confirm(`¿Duplicar?`)) onDuplicate!(); }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
+                  <HugeiconsIcon icon={Copy01Icon} size={12} strokeWidth={1.5} /> Duplicar
+                </button>
+              )}
+              {onConvert && type !== "invoice" && type !== "credit_note" && (
+                <button onClick={() => { if (confirm(`¿Convertir a factura?`)) onConvert!("invoice"); }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
+                  <HugeiconsIcon icon={Exchange01Icon} size={12} strokeWidth={1.5} /> Convertir a Factura
+                </button>
+              )}
+              {onConvert && type !== "delivery_note" && (
+                <button onClick={() => { if (confirm(`¿Convertir a albarán?`)) onConvert!("delivery_note"); }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
+                  <HugeiconsIcon icon={TruckIcon} size={12} strokeWidth={1.5} /> Convertir a Albarán
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Vista previa button */}
+          <button onClick={() => setShowPreview(v => !v)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", fontSize: 13, fontWeight: 500, color: showPreview ? "var(--ink-1)" : "var(--ink-2)", cursor: "pointer", background: showPreview ? "var(--bg-soft)" : "transparent" }}>
+            <HugeiconsIcon icon={EyeIcon} size={14} strokeWidth={1.5} />
+            Vista previa
+          </button>
+
+          <button onClick={() => onOpenChange(false)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", padding: 6, display: "flex" }}>
+            <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.5} />
+          </button>
+        </div>
+
+        {/* ── Body ───────────────────────────────────────────────── */}
         {loading ? (
-          <div className="flex items-center justify-center py-12 flex-1">
-            <RiLoader4Line className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--ink-3)" }}>Cargando...</span>
           </div>
         ) : (
-          <div className={cn("flex-1 overflow-hidden", showPreview ? "flex" : "overflow-y-auto")}>
-            {/* Form Section */}
-            <div className={cn(
-              "overflow-y-auto p-6",
-              showPreview ? "w-1/2 border-r" : "w-full"
-            )}>
-            <div className="space-y-6">
-            {/* Contact Selector + Event */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Cliente / Proveedor</Label>
-                {lockedClientLabel ? (
-                  <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm">
-                    {lockedClientLabel}
-                  </div>
-                ) : (
-                  <ContactSelector
-                    value={contactValue}
-                    onChange={setContactValue}
-                    vendors={preloadedVendors}
-                  />
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Evento {lockedEvent ? "" : "(opcional)"}</Label>
-                {lockedEvent ? (
-                  <div className="flex items-center h-10 px-3 rounded-md border bg-muted/50 text-sm font-medium">
-                    {lockedEvent.name}
-                  </div>
-                ) : (
-                  <Select
-                    value={eventId || "none"}
-                    onValueChange={(v) => setEventId(v === "none" ? "" : v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vincular a evento..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin evento</SelectItem>
-                      {events.map((event) => (
-                        <SelectItem key={event.id} value={event.id.toString()}>
-                          {event.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-            {/* Currency + Dates */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Moneda</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.filter(c => enabledCurrencies.includes(c.value) || c.value === currency).map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {CURRENCY_SYMBOLS[c.value] || c.value} {c.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {type === "quote" ? (
-                <div className="space-y-2">
-                  <Label>Válido hasta</Label>
-                  <Input
-                    type="date"
-                    value={validUntil}
-                    onChange={(e) => setValidUntil(e.target.value)}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Fecha de vencimiento</Label>
-                  <Input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
+            {/* Main form */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
-            {/* Payment Method (not for delivery notes) */}
-            {!isDeliveryNote && (
-              <>
-                <Separator />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Método de pago</Label>
-                    <Select
-                      value={paymentMethod || "none"}
-                      onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin especificar</SelectItem>
-                        {paymentMethodOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {paymentMethod === "bank_transfer" && (
-                    <div className="space-y-2">
-                      <Label>Cuenta bancaria</Label>
-                      <Select
-                        value={bankAccountId || "none"}
-                        onValueChange={(v) => setBankAccountId(v === "none" ? "" : v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar cuenta..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin especificar</SelectItem>
-                          {bankAccounts.map((acc) => (
-                            <SelectItem key={acc.id} value={acc.id.toString()}>
-                              {acc.name} {acc.iban && `(${acc.iban.slice(-8)})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedBank?.iban && (
-                        <p className="text-xs text-muted-foreground">
-                          IBAN: {selectedBank.iban}
-                          {selectedBank.swift && ` · BIC: ${selectedBank.swift}`}
-                        </p>
-                      )}
-                    </div>
+              {/* ── Top fields strip ─────────────────────────────── */}
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.2fr 1fr 1fr", borderBottom: "1px solid var(--line-1)", flexShrink: 0, background: "var(--bg-panel)" }}>
+                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Contacto</div>
+                  {lockedClientLabel ? (
+                    <div style={{ fontSize: 13, color: "var(--ink-2)" }}>{lockedClientLabel}</div>
+                  ) : (
+                    <ContactSelector value={contactValue} onChange={setContactValue} vendors={preloadedVendors} stripMode />
                   )}
                 </div>
-              </>
-            )}
 
-            <Separator />
+                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Evento</div>
+                  {lockedEvent ? (
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>{lockedEvent.name}</div>
+                  ) : (
+                    <StripSelect value={eventId} onChange={setEventId}>
+                      <option value="">Sin evento</option>
+                      {events.map(ev => <option key={ev.id} value={ev.id.toString()}>{ev.name}</option>)}
+                    </StripSelect>
+                  )}
+                </div>
 
-            {/* Items */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Líneas</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                  <RiAddLine className="mr-1 h-4 w-4" />
-                  Añadir línea
-                </Button>
-              </div>
+                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Número de documento</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>{documentNumber || "Autogenerado"}</div>
+                </div>
 
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[180px]">Descripción</TableHead>
-                      <TableHead className="w-24">Cant.</TableHead>
-                      {!isDeliveryNote && (
-                        <>
-                          <TableHead className="w-28">Precio</TableHead>
-                          <TableHead className="w-24">Dto.%</TableHead>
-                          <TableHead className="w-32">IVA%</TableHead>
-                          <TableHead className="w-28 text-right">Total</TableHead>
-                        </>
-                      )}
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Input
-                            value={item.description}
-                            onChange={(e) => updateItem(index, "description", e.target.value)}
-                            placeholder="Descripción del servicio..."
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(index, "quantity", e.target.value)}
-                          />
-                        </TableCell>
-                        {!isDeliveryNote && (
-                          <>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.unitPrice}
-                                onChange={(e) => updateItem(index, "unitPrice", e.target.value)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={item.discount}
-                                onChange={(e) => updateItem(index, "discount", e.target.value)}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={item.taxRate.toString()}
-                                onValueChange={(v) => updateItem(index, "taxRate", v)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {taxRates.length > 0 ? (
-                                    taxRates.filter(t => t.isActive !== false).map((tax) => (
-                                      <SelectItem key={tax.id} value={parseFloat(tax.rate).toString()}>
-                                        {tax.name} ({parseFloat(tax.rate)}%)
-                                      </SelectItem>
-                                    ))
-                                  ) : (
-                                    <>
-                                      <SelectItem value="0">Exento (0%)</SelectItem>
-                                      <SelectItem value="4">Superreducido (4%)</SelectItem>
-                                      <SelectItem value="10">Reducido (10%)</SelectItem>
-                                      <SelectItem value="21">General (21%)</SelectItem>
-                                    </>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(item.total)}
-                            </TableCell>
-                          </>
-                        )}
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeItem(index)}
-                            disabled={items.length === 1}
-                          >
-                            <RiDeleteBinLine className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                <div style={{ padding: "10px 16px", borderRight: "1px solid var(--line-1)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Fecha</div>
+                  <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} style={STRIP_INPUT} />
+                </div>
 
-              {/* Global Discount (not for delivery notes) */}
-              {!isDeliveryNote && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="global-discount"
-                      checked={globalDiscountEnabled}
-                      onCheckedChange={(checked) => {
-                        setGlobalDiscountEnabled(!!checked);
-                        if (!checked) setGlobalDiscount(0);
-                      }}
-                    />
-                    <Label htmlFor="global-discount" className="text-sm cursor-pointer">
-                      Descuento global
-                    </Label>
+                {!isDeliveryNote && (
+                  <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>{dateLabel}</div>
+                    <input type="date" value={dateValue} onChange={e => setDateValue(e.target.value)} style={STRIP_INPUT} />
                   </div>
-                  {globalDiscountEnabled && (
-                    <div className="flex items-center gap-2 pl-6">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={globalDiscount}
-                        onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
-                        className="w-28"
+                )}
+              </div>
+
+              {/* ── Lines table ──────────────────────────────────── */}
+              <div style={{ flexShrink: 0 }}>
+                {/* Lines header */}
+                <div style={{ display: "grid", gridTemplateColumns: linesGrid }}>
+                  <div style={colHdr} />
+                  <div style={colHdr}>Concepto</div>
+                  <div style={colHdr}>Descripción</div>
+                  <div style={colHdr}>Cantidad</div>
+                  {!isDeliveryNote && (
+                    <>
+                      <div style={colHdr}>Precio</div>
+                      <div style={colHdr}>Dto. %</div>
+                      <div style={colHdr}>Impuestos</div>
+                      <div style={{ ...colHdr, justifyContent: "flex-end" }}>Total</div>
+                    </>
+                  )}
+                  <div style={colHdr} />
+                </div>
+
+                {/* Line rows */}
+                {items.map((item, idx) => (
+                  <div key={idx} style={{ display: "grid", gridTemplateColumns: linesGrid, borderBottom: "1px solid var(--line-1)", alignItems: "start" }}>
+                    {/* Drag handle */}
+                    <div style={{ padding: "12px 4px 12px 8px", color: "var(--ink-3)", cursor: "grab", display: "flex", alignItems: "flex-start", paddingTop: 14 }}>
+                      <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+                        <circle cx="3" cy="3" r="1.2" fill="currentColor" /><circle cx="7" cy="3" r="1.2" fill="currentColor" />
+                        <circle cx="3" cy="7" r="1.2" fill="currentColor" /><circle cx="7" cy="7" r="1.2" fill="currentColor" />
+                        <circle cx="3" cy="11" r="1.2" fill="currentColor" /><circle cx="7" cy="11" r="1.2" fill="currentColor" />
+                      </svg>
+                    </div>
+
+                    {/* Concepto */}
+                    <div style={{ padding: "8px 10px 8px 0" }}>
+                      <textarea
+                        placeholder="Concepto — usa @ para buscar producto"
+                        value={item.description}
+                        onChange={e => updateItem(idx, "description", e.target.value)}
+                        rows={2}
+                        style={{ ...INPUT, resize: "vertical", minHeight: 52, padding: "8px 10px", fontSize: 13 }}
                       />
-                      <Select
-                        value={globalDiscountType}
-                        onValueChange={(v) => setGlobalDiscountType(v as "percentage" | "fixed")}
-                      >
-                        <SelectTrigger className="w-24">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percentage">%</SelectItem>
-                          <SelectItem value="fixed">{CURRENCY_SYMBOLS[currency] || "\u20ac"}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    </div>
+
+                    {/* Descripción */}
+                    <div style={{ padding: "8px 10px 8px 0" }}>
+                      <textarea
+                        placeholder="Descripción"
+                        value={item.details || ""}
+                        onChange={e => updateItem(idx, "details", e.target.value)}
+                        rows={2}
+                        style={{ ...INPUT, resize: "vertical", minHeight: 52, padding: "8px 10px", fontSize: 13 }}
+                      />
+                    </div>
+
+                    {/* Cantidad */}
+                    <div style={{ padding: "10px" }}>
+                      <input type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, "quantity", e.target.value)}
+                        style={{ ...STRIP_INPUT, textAlign: "center" }} />
+                    </div>
+
+                    {!isDeliveryNote && (
+                      <>
+                        {/* Precio */}
+                        <div style={{ padding: "10px" }}>
+                          <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateItem(idx, "unitPrice", e.target.value)}
+                            style={{ ...STRIP_INPUT, textAlign: "right" }} />
+                        </div>
+
+                        {/* Dto.% */}
+                        <div style={{ padding: "10px" }}>
+                          <input type="number" min="0" max="100" value={item.discount} onChange={e => updateItem(idx, "discount", e.target.value)}
+                            style={{ ...STRIP_INPUT, textAlign: "right" }} />
+                        </div>
+
+                        {/* Impuestos — tag pill style */}
+                        <div style={{ padding: "8px 10px 8px 0", display: "flex", alignItems: "flex-start", paddingTop: 10 }}>
+                          <div style={{ position: "relative", width: "100%" }}>
+                            <select value={item.taxRate.toString()} onChange={e => updateItem(idx, "taxRate", e.target.value)}
+                              style={{ width: "100%", appearance: "none", paddingLeft: 8, paddingRight: 22, paddingTop: 4, paddingBottom: 4, cursor: "pointer", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", background: "var(--bg-subtle)", color: "var(--ink-1)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
+                              {taxRates.length > 0 ? (
+                                taxRates.filter(t => t.isActive !== false).map(tax => (
+                                  <option key={tax.id} value={parseFloat(tax.rate).toString()}>× IVA {parseFloat(tax.rate)}%</option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="0">× Exento 0%</option>
+                                  <option value="4">× IVA 4%</option>
+                                  <option value="10">× IVA 10%</option>
+                                  <option value="21">× IVA 21%</option>
+                                </>
+                              )}
+                            </select>
+                            <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none", display: "flex" }}>
+                              <HugeiconsIcon icon={ArrowDown01Icon} size={10} strokeWidth={1.5} />
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Total */}
+                        <div style={{ padding: "10px 10px 10px 0", textAlign: "right", fontSize: 13, fontWeight: 500, color: "var(--ink-1)" }}>
+                          {dash(item.total)}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Delete */}
+                    <div style={{ padding: "8px 8px 8px 0", display: "flex", justifyContent: "center", paddingTop: 12 }}>
+                      <button onClick={() => removeItem(idx)} disabled={items.length === 1}
+                        style={{ background: "none", border: "none", cursor: items.length === 1 ? "not-allowed" : "pointer", color: items.length === 1 ? "var(--line-1)" : "#C0392B", padding: 4, display: "flex" }}>
+                        <HugeiconsIcon icon={Delete01Icon} size={15} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add line + Add discount + Totals row */}
+                <div style={{ display: "flex", alignItems: "flex-start", padding: "12px 16px", borderBottom: "1px solid var(--line-1)", gap: 16 }}>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <button onClick={addItem}
+                      style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-1)", cursor: "pointer" }}>
+                      <HugeiconsIcon icon={PlusSignIcon} size={13} strokeWidth={1.5} />
+                      Añadir línea
+                    </button>
+
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-2)", cursor: "pointer" }}>
+                      <input type="checkbox" checked={showNotes} onChange={e => setShowNotes(e.target.checked)}
+                        style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
+                      Añadir texto en el documento
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-2)", cursor: "pointer" }}>
+                      <input type="checkbox" checked={showTerms} onChange={e => setShowTerms(e.target.checked)}
+                        style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
+                      Añadir mensaje al final
+                    </label>
+                  </div>
+
+                  {/* Totals */}
+                  {!isDeliveryNote && (
+                    <div style={{ minWidth: 300, flexShrink: 0 }}>
+                      {!globalDiscountEnabled && (
+                        <button onClick={() => setGlobalDiscountEnabled(true)}
+                          style={{ display: "block", marginLeft: "auto", marginBottom: 10, fontSize: 13, fontWeight: 500, color: "var(--primary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                          + Añadir descuento
+                        </button>
+                      )}
+                      {globalDiscountEnabled && (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8 }}>
+                          <span style={{ fontSize: 13, color: "var(--ink-3)", flexShrink: 0 }}>Descuento global</span>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            <input type="number" min="0" step="0.01" value={globalDiscount} onChange={e => setGlobalDiscount(parseFloat(e.target.value) || 0)}
+                              style={{ ...INPUT, width: 80, padding: "5px 8px" }} />
+                            <FSelect value={globalDiscountType} onChange={v => setGlobalDiscountType(v as "percentage" | "fixed")} style={{ padding: "5px 28px 5px 8px" }}>
+                              <option value="percentage">%</option>
+                              <option value="fixed">{CURRENCY_SYMBOLS[currency] || "€"}</option>
+                            </FSelect>
+                            <button onClick={() => { setGlobalDiscountEnabled(false); setGlobalDiscount(0); }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 16, padding: 2 }}>×</button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}>
+                        <span style={{ color: "var(--ink-3)" }}>Subtotal</span>
+                        <span style={{ fontWeight: 500 }}>{fmt(totals.sub)}</span>
+                      </div>
+                      {totals.disc > 0 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}>
+                          <span style={{ color: "#4A8C4A" }}>Descuento</span>
+                          <span style={{ color: "#4A8C4A", fontWeight: 500 }}>-{fmt(totals.disc)}</span>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}>
+                        <span style={{ color: "var(--ink-3)" }}>IVA</span>
+                        <span style={{ fontWeight: 500 }}>{fmt(totals.tax)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700, padding: "10px 0 4px", borderTop: "1px solid var(--line-1)", marginTop: 6 }}>
+                        <span>Total</span>
+                        <span>{fmt(totals.total)}</span>
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Totals (not for delivery notes) */}
-              {!isDeliveryNote && (
-                <div className="flex justify-end">
-                  <div className="w-72 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatCurrency(totals.subtotalLines)}</span>
-                    </div>
-                    {totals.globalDiscountAmount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>
-                          Descuento global
-                          {globalDiscountType === "percentage" && ` (${globalDiscount}%)`}
-                        </span>
-                        <span>-{formatCurrency(totals.globalDiscountAmount)}</span>
+                {/* Notes / Terms (shown via checkbox) */}
+                {(showNotes || showTerms) && (
+                  <div style={{ padding: "16px 16px 0", display: "grid", gridTemplateColumns: showNotes && showTerms ? "1fr 1fr" : "1fr", gap: 16 }}>
+                    {showNotes && (
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Notas</div>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notas adicionales..." rows={3}
+                          style={{ ...INPUT, resize: "vertical", padding: "10px 12px", fontFamily: "inherit" }} />
                       </div>
                     )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">IVA</span>
-                      <span>{formatCurrency(totals.taxAmount)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-semibold text-base">
-                      <span>Total</span>
-                      <span>{formatCurrency(totals.total)}</span>
-                    </div>
+                    {showTerms && (
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Términos y condiciones</div>
+                        <textarea value={termsAndConditions} onChange={e => setTermsAndConditions(e.target.value)} placeholder="Términos y condiciones..." rows={3}
+                          style={{ ...INPUT, resize: "vertical", padding: "10px 12px", fontFamily: "inherit" }} />
+                      </div>
+                    )}
                   </div>
+                )}
+              </div>
+
+              {/* ── Bottom sections ──────────────────────────────── */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderTop: "1px solid var(--line-1)", marginTop: 0, flex: 1 }}>
+                {/* Método de pago */}
+                <div style={{ padding: "20px 24px", borderRight: "1px solid var(--line-1)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)", marginBottom: 14 }}>Método de pago</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6 }}>Selecciona una forma de pago</div>
+                  <div style={{ marginBottom: 12 }}>
+                    <FSelect value={paymentMethod} onChange={setPaymentMethod}>
+                      <option value="">Sin especificar</option>
+                      {paymentMethodOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </FSelect>
+                  </div>
+
+                  {paymentMethod === "bank_transfer" && bankAccounts.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <FSelect value={bankAccountId} onChange={v => {
+                        setBankAccountId(v);
+                        const acc = bankAccounts.find(b => b.id.toString() === v);
+                        if (acc && !paymentNotes) setPaymentNotes(`${acc.bankName ? acc.bankName + " " : ""}${acc.iban || ""}`.trim());
+                      }}>
+                        <option value="">Sin cuenta especificada</option>
+                        {bankAccounts.map(acc => <option key={acc.id} value={acc.id.toString()}>{acc.name}{acc.iban ? ` (${acc.iban.slice(-8)})` : ""}</option>)}
+                      </FSelect>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6 }}>Este texto aparecerá en el documento</div>
+                  <textarea
+                    value={paymentNotes}
+                    onChange={e => setPaymentNotes(e.target.value)}
+                    placeholder={selectedBank?.iban ? `Pagos por transferencia a: ${selectedBank.bankName || selectedBank.name} ${selectedBank.iban}` : "Información de pago..."}
+                    rows={3}
+                    style={{ ...INPUT, resize: "vertical", padding: "10px 12px", fontFamily: "inherit", fontSize: 13 }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (selectedBank) setPaymentNotes(`Pagos por transferencia a: ${selectedBank.bankName || selectedBank.name} ${selectedBank.iban || ""}`.trim());
+                    }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-primary, #3970FF)", fontSize: 12.5, fontWeight: 500, padding: "8px 0 0", display: "block" }}
+                  >
+                    Editar forma de pago
+                  </button>
                 </div>
-              )}
-            </div>
 
-            <Separator />
+                {/* Categorización */}
+                <div style={{ padding: "20px 24px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)", marginBottom: 14 }}>Categorización</div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notas adicionales..."
-                rows={2}
-              />
-            </div>
+                  {/* Cuenta contable */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Cuenta contable</div>
+                    <FSelect value={accountingAccount} onChange={setAccountingAccount}>
+                      {FIN_ACCOUNTS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </FSelect>
+                  </div>
 
-            {/* Terms (not for delivery notes) */}
-            {!isDeliveryNote && (
-              <div className="space-y-2">
-                <Label>Términos y Condiciones</Label>
-                <Textarea
-                  value={termsAndConditions}
-                  onChange={(e) => setTermsAndConditions(e.target.value)}
-                  placeholder="Términos y condiciones..."
-                  rows={3}
-                />
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-2)", cursor: "pointer", marginBottom: 12, userSelect: "none" }}>
+                    <input type="checkbox" checked={perConcept} onChange={e => setPerConcept(e.target.checked)}
+                      style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
+                    Cuenta por concepto
+                  </label>
+
+                  {/* Etiquetas */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Etiquetas</div>
+                    <input value={tags} onChange={e => setTags(e.target.value)} placeholder="Tags"
+                      style={{ ...INPUT, padding: "8px 10px" }} />
+                  </div>
+
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-2)", cursor: "pointer", marginBottom: 12, userSelect: "none" }}>
+                    <input type="checkbox" checked={perConceptTags} onChange={e => setPerConceptTags(e.target.checked)}
+                      style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
+                    Etiquetas por concepto
+                  </label>
+
+                  {/* Nota interna */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-3)", marginBottom: 6 }}>Nota interna</div>
+                    <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Nota interna"
+                      style={{ ...INPUT, padding: "8px 10px" }} />
+                  </div>
+
+                  {/* No asignado */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--line-1)", fontSize: 12.5, marginBottom: 16 }}>
+                    <span style={{ color: "var(--ink-3)" }}>No asignado</span>
+                    <span style={{ fontWeight: 500 }}>{fmt(0)}</span>
+                  </div>
+
+                  {/* Moneda */}
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 6 }}>Moneda</div>
+                  <FSelect value={currency} onChange={setCurrency} style={{ maxWidth: 200 }}>
+                    {CURRENCIES.filter(c => enabledCurrencies.includes(c.value) || c.value === currency).map(c => (
+                      <option key={c.value} value={c.value}>{CURRENCY_SYMBOLS[c.value] || c.value} {c.value}</option>
+                    ))}
+                  </FSelect>
+                </div>
               </div>
-            )}
-
-            {/* Convert/Duplicate actions (edit mode) */}
-            {documentId && (onDuplicate || onConvert) && (
-              <div className="flex flex-wrap gap-2 pt-4 border-t">
-                {onDuplicate && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm(`¿Duplicar este ${typeLabels[type].toLowerCase()}?`)) {
-                        onDuplicate();
-                      }
-                    }}
-                  >
-                    <RiFileCopyLine className="mr-2 h-4 w-4" />
-                    Duplicar
-                  </Button>
-                )}
-                {onConvert && type !== "invoice" && type !== "credit_note" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm(`¿Convertir este ${typeLabels[type].toLowerCase()} a factura?`)) {
-                        onConvert("invoice");
-                      }
-                    }}
-                  >
-                    <RiExchangeLine className="mr-2 h-4 w-4" />
-                    Convertir a Factura
-                  </Button>
-                )}
-                {onConvert && type !== "delivery_note" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm(`¿Convertir este ${typeLabels[type].toLowerCase()} a albarán?`)) {
-                        onConvert("delivery_note");
-                      }
-                    }}
-                  >
-                    <RiTruckLine className="mr-2 h-4 w-4" />
-                    Convertir a Albarán
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => handleSubmit()}
-                disabled={saving}
-              >
-                {saving ? (
-                  <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RiSaveLine className="mr-2 h-4 w-4" />
-                )}
-                {documentId ? "Guardar cambios" : "Guardar"}
-              </Button>
-            </div>
-            </div>
             </div>
 
-            {/* Preview Section */}
+            {/* Preview panel */}
             {showPreview && (
-              <div className="w-1/2 overflow-hidden">
+              <div style={{ width: "min(600px, 45vw)", borderLeft: "1px solid var(--line-1)", overflow: "auto", padding: "32px 28px", background: "var(--bg-soft)", flexShrink: 0 }}>
                 <LiveDocumentPreview data={previewData} />
+                <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 16 }}>Vista previa · Los datos finales pueden variar</p>
               </div>
             )}
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+
+        {/* ── Footer ─────────────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 24px", borderTop: "1px solid var(--line-1)", background: "var(--bg-panel)", flexShrink: 0 }}>
+          <button onClick={() => onOpenChange(false)}
+            style={{ padding: "9px 18px", fontSize: 13, fontWeight: 500, background: "none", border: "1px solid var(--line-1)", borderRadius: "var(--r-sm)", color: "var(--ink-2)", cursor: "pointer" }}>
+            Descartar
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 20px", fontSize: 13, fontWeight: 600, background: "var(--primary, #3970FF)", border: "none", borderRadius: "var(--r-sm)", color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11.5 8.5v2.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V8.5" />
+              <path d="M4.5 4.5l2.5 2.5 2.5-2.5" />
+              <path d="M7 7V1.5" />
+            </svg>
+            {saving ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

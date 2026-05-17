@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
@@ -16,8 +14,19 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { RiUserLine, RiStore2Line, RiContactsLine, RiArrowDownSLine, RiCloseLine } from "@remixicon/react";
+import { hgIcon } from "@/components/ui/hg-icon";
+import {
+  UserCircleIcon,
+  Store01Icon,
+  ArrowDown01Icon,
+  Cancel01Icon,
+} from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
+
+const IcoUser = hgIcon(UserCircleIcon);
+const IcoStore = hgIcon(Store01Icon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
+const IcoX = hgIcon(Cancel01Icon);
 
 type EntityType = "contact" | "vendor";
 
@@ -50,6 +59,7 @@ interface ContactSelectorProps {
   disabled?: boolean;
   contacts?: ContactOption[];
   vendors?: ContactOption[];
+  stripMode?: boolean;
 }
 
 type FilterTab = "all" | "clients" | "vendors" | "contacts";
@@ -61,6 +71,7 @@ export function ContactSelector({
   disabled = false,
   contacts: externalContacts,
   vendors: externalVendors,
+  stripMode = false,
 }: ContactSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -90,7 +101,7 @@ export function ContactSelector({
       if (contactsRes.ok) {
         const data = await contactsRes.json();
         setContacts(
-          (data.data || []).map((c: any) => ({
+          (data.data?.data || []).map((c: any) => ({
             id: c.id,
             type: "contact" as EntityType,
             name: c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
@@ -175,9 +186,27 @@ export function ContactSelector({
     return options;
   }, [allOptions, activeTab, search]);
 
+  // Resolve display info for the trigger.
+  // 1. Prefer the matching option from the loaded list (full record).
+  // 2. Fall back to the inline `value.name` when the consumer injected the
+  //    selection programmatically before this component fetched its catalog
+  //    (e.g. the payment drawer pre-fills a contact from a reconciled invoice).
   const selectedOption = useMemo(() => {
     if (!value) return null;
-    return allOptions.find((o) => o.type === value.type && o.id === value.id) || null;
+    const fromList = allOptions.find((o) => o.type === value.type && o.id === value.id);
+    if (fromList) return fromList;
+    if (value.name) {
+      return {
+        id: value.id,
+        type: value.type,
+        name: value.name,
+        email: value.email ?? null,
+        phone: value.phone ?? null,
+        address: value.address ?? null,
+        taxId: value.taxId ?? null,
+      } satisfies ContactOption;
+    }
+    return null;
   }, [value, allOptions]);
 
   const tabs: { key: FilterTab; label: string }[] = [
@@ -190,44 +219,55 @@ export function ContactSelector({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
+        <button
+          type="button"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="w-full justify-between font-normal h-9"
+          className="w-full inline-flex items-center justify-between gap-2 text-[13px] font-normal text-[var(--ink-1)] cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={stripMode
+            ? { background: "transparent", border: "none", padding: "4px 0", height: "auto" }
+            : { background: "#FFFFFF", border: "1px solid var(--line-strong)", height: 36, borderRadius: "var(--r-sm)", padding: "0 12px" }
+          }
         >
           {selectedOption ? (
-            <div className="flex items-center gap-2 truncate">
+            <div className="flex items-center gap-2 truncate flex-1 min-w-0">
               {selectedOption.type === "vendor" ? (
-                <RiStore2Line className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <IcoStore className="h-3.5 w-3.5 text-[var(--ink-3)] flex-shrink-0" />
               ) : (
-                <RiUserLine className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <IcoUser className="h-3.5 w-3.5 text-[var(--ink-3)] flex-shrink-0" />
               )}
               <span className="truncate">{selectedOption.name}</span>
-              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+              <span
+                className="inline-flex items-center rounded-[999px] text-[10px] px-1.5 py-0.5 flex-shrink-0"
+                style={{
+                  background: "transparent",
+                  color: "var(--ink-3)",
+                  border: "1px solid var(--line-1)",
+                }}
+              >
                 {selectedOption.type === "vendor" ? "Proveedor" : "Cliente"}
-              </Badge>
+              </span>
             </div>
           ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="text-[var(--ink-3)]">{placeholder}</span>
           )}
           <div className="flex items-center gap-1 flex-shrink-0">
             {value && (
               <span
                 role="button"
-                className="hover:bg-muted rounded p-0.5"
+                className="rounded p-0.5 cursor-pointer transition-colors hover:bg-[var(--bg-subtle)]"
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange(null);
                 }}
               >
-                <RiCloseLine className="h-3.5 w-3.5 text-muted-foreground" />
+                <IcoX className="h-3.5 w-3.5 text-[var(--ink-3)]" />
               </span>
             )}
-            <RiArrowDownSLine className="h-4 w-4 text-muted-foreground" />
+            <IcoChevDown className="h-3.5 w-3.5 text-[var(--ink-3)]" />
           </div>
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command shouldFilter={false}>
@@ -237,21 +277,29 @@ export function ContactSelector({
             onValueChange={setSearch}
           />
           {/* Tabs */}
-          <div className="flex border-b px-1 py-1 gap-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "px-2 py-1 text-xs rounded-md transition-colors",
-                  activeTab === tab.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div
+            className="flex gap-1 px-1.5 py-1.5"
+            style={{ borderBottom: "1px solid var(--line-1)" }}
+          >
+            {tabs.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    "px-2.5 py-1 text-[11.5px] rounded-[6px] transition-colors cursor-pointer border-none"
+                  )}
+                  style={{
+                    background: active ? "var(--ink-1)" : "transparent",
+                    color: active ? "#FFFFFF" : "var(--ink-3)",
+                    fontWeight: active ? 600 : 500,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
           <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty>
@@ -270,19 +318,26 @@ export function ContactSelector({
                 >
                   <div className="flex items-center gap-2 w-full">
                     {option.type === "vendor" ? (
-                      <RiStore2Line className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <IcoStore className="h-4 w-4 text-[var(--ink-3)] flex-shrink-0" />
                     ) : (
-                      <RiUserLine className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <IcoUser className="h-4 w-4 text-[var(--ink-3)] flex-shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="truncate font-medium text-sm">{option.name}</span>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 flex-shrink-0">
+                        <span className="truncate font-medium text-[13px] text-[var(--ink-1)]">{option.name}</span>
+                        <span
+                          className="inline-flex items-center rounded-[999px] text-[10px] px-1.5 py-0.5 flex-shrink-0"
+                          style={{
+                            background: "transparent",
+                            color: "var(--ink-3)",
+                            border: "1px solid var(--line-1)",
+                          }}
+                        >
                           {option.type === "vendor" ? "Proveedor" : option.contactType === "company" ? "Empresa" : "Persona"}
-                        </Badge>
+                        </span>
                       </div>
                       {option.email && (
-                        <p className="text-xs text-muted-foreground truncate">{option.email}</p>
+                        <p className="text-[11px] text-[var(--ink-3)] truncate">{option.email}</p>
                       )}
                     </div>
                   </div>
