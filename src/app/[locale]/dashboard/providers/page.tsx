@@ -1,16 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { EventScopedGuard } from "@/components/layout/event-scoped-guard";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { hgIcon } from "@/components/ui/hg-icon";
 import {
   Store01Icon,
@@ -19,9 +12,12 @@ import {
   Location01Icon,
   CheckmarkCircle01Icon,
   LinkSquare01Icon,
+  FilterIcon,
+  ArrowDown01Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { PROVIDER_CATEGORIES, PLANNER_CATEGORIES, getOrgTypeLabel } from "@/config/provider-constants";
+import { LocationPicker, type LocationFilter } from "@/components/partners/location-picker";
 
 const IcoStore    = hgIcon(Store01Icon);
 const IcoSearch   = hgIcon(Search01Icon);
@@ -29,6 +25,8 @@ const IcoInsta    = hgIcon(InstagramIcon);
 const IcoLocation = hgIcon(Location01Icon);
 const IcoVerified = hgIcon(CheckmarkCircle01Icon);
 const IcoLink     = hgIcon(LinkSquare01Icon);
+const IcoFilter   = hgIcon(FilterIcon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
 
 interface PartnersDirectoryOrg {
   id: number;
@@ -38,6 +36,7 @@ interface PartnersDirectoryOrg {
   orgType: string | null;
   instagramHandle: string | null;
   providerCategory: string | null;
+  categories: string[] | null;
   tagline: string | null;
   city: string | null;
   region: string | null;
@@ -64,17 +63,38 @@ function ProvidersDirectoryContent() {
   const [orgs, setOrgs] = useState<PartnersDirectoryOrg[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("");
+  const [location, setLocation] = useState<LocationFilter | null>(null);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
   const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    if (!catOpen) return;
+    const h = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [catOpen]);
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (category) params.set("category", category);
+      if (categories.length > 0) params.set("categories", categories.join(","));
       if (typeFilter) params.set("type", typeFilter);
+      if (location) {
+        params.set("locationCity", location.city);
+        params.set("locationRegion", location.region);
+        params.set("locationCountry", location.country);
+        params.set("locationRadius", location.radius.toString());
+        params.set("locationLat", location.lat.toString());
+        params.set("locationLon", location.lon.toString());
+      }
       params.set("limit", "50");
 
       const res = await fetch(`/api/providers?${params}`);
@@ -88,7 +108,7 @@ function ProvidersDirectoryContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, typeFilter]);
+  }, [search, categories, typeFilter, location]);
 
   useEffect(() => {
     const timer = setTimeout(fetchOrgs, 300);
@@ -108,7 +128,8 @@ function ProvidersDirectoryContent() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        {/* Search */}
         <div
           style={{
             flex: 1, minWidth: 220,
@@ -128,27 +149,140 @@ function ProvidersDirectoryContent() {
             }}
           />
         </div>
-        <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
-          <SelectTrigger style={{ width: 180, borderRadius: 8, fontSize: 13, border: "1px solid var(--line-1)" }}>
-            <SelectValue placeholder={t("typePlaceholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("typeAll")}</SelectItem>
-            <SelectItem value="provider">{t("typeProvider")}</SelectItem>
-            <SelectItem value="planner">{t("typePlanner")}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
-          <SelectTrigger style={{ width: 200, borderRadius: 8, fontSize: 13, border: "1px solid var(--line-1)" }}>
-            <SelectValue placeholder={t("categoryPlaceholder")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("allCategories")}</SelectItem>
-            {ALL_CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        {/* Category multi-select dropdown */}
+        <div ref={catRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setCatOpen((o) => !o)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+              fontSize: 12.5, fontWeight: 500, fontFamily: "inherit",
+              background: categories.length > 0 ? "var(--ink-1)" : "#FFFFFF",
+              color: categories.length > 0 ? "white" : "var(--ink-1)",
+              border: categories.length > 0 ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+            }}
+          >
+            <IcoFilter style={{ width: 12, height: 12 }} />
+            {categories.length === 0
+              ? t("categoryPlaceholder")
+              : categories.length === 1
+                ? categories[0]
+                : `${categories.length} categorías`}
+            <IcoChevDown style={{ width: 12, height: 12 }} />
+          </button>
+          {catOpen && (
+            <div
+              style={{
+                position: "absolute", left: 0, top: "calc(100% + 4px)",
+                borderRadius: 8, padding: 4, zIndex: 50,
+                background: "white", border: "1px solid var(--line-1)",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                minWidth: 240, maxHeight: 320, overflowY: "auto",
+              }}
+            >
+              {categories.length > 0 && (
+                <button
+                  onClick={() => setCategories([])}
+                  style={{
+                    display: "flex", alignItems: "center", width: "100%",
+                    textAlign: "left", cursor: "pointer",
+                    padding: "7px 10px", background: "transparent", border: "none",
+                    borderBottom: "1px solid var(--line-1)", borderRadius: 0,
+                    fontSize: 12, color: "var(--ink-3)", marginBottom: 4,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Limpiar selección
+                </button>
+              )}
+              {ALL_CATEGORIES.map((c) => {
+                const checked = categories.includes(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCategories((prev) =>
+                      checked ? prev.filter((x) => x !== c) : [...prev, c]
+                    )}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", textAlign: "left", cursor: "pointer",
+                      padding: "8px 10px",
+                      background: checked ? "var(--bg-subtle)" : "transparent",
+                      border: "none", borderRadius: 4,
+                      fontSize: 12.5, fontWeight: checked ? 600 : 400,
+                      color: "var(--ink-1)", gap: 8, fontFamily: "inherit",
+                    }}
+                  >
+                    <span>{c}</span>
+                    <span
+                      style={{
+                        width: 16, height: 16, borderRadius: "50%",
+                        border: checked ? "none" : "1.5px solid var(--line-strong)",
+                        background: checked ? "var(--ink-1)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {checked && (
+                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                          <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Location picker button */}
+        <button
+          onClick={() => setLocationOpen(true)}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+            fontSize: 12.5, fontWeight: 500, fontFamily: "inherit",
+            background: location ? "var(--ink-1)" : "#FFFFFF",
+            color: location ? "white" : "var(--ink-1)",
+            border: location ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+          }}
+        >
+          <IcoLocation style={{ width: 12, height: 12 }} />
+          {location
+            ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}`
+            : (t("location") ?? "Ubicación")}
+        </button>
+
+        <LocationPicker
+          open={locationOpen}
+          onClose={() => setLocationOpen(false)}
+          value={location}
+          onApply={(loc) => setLocation(loc)}
+        />
+
+        {/* Type toggle: Todos / Proveedor / Planner */}
+        {(["", "provider", "planner"] as const).map((val) => {
+          const label = val === "" ? t("typeAll") : val === "provider" ? t("typeProvider") : t("typePlanner");
+          const active = typeFilter === val;
+          return (
+            <button
+              key={val}
+              onClick={() => setTypeFilter(val)}
+              style={{
+                display: "inline-flex", alignItems: "center",
+                padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                fontSize: 12.5, fontWeight: 500, fontFamily: "inherit",
+                background: active ? "var(--ink-1)" : "#FFFFFF",
+                color: active ? "white" : "var(--ink-1)",
+                border: active ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Results */}
@@ -170,7 +304,7 @@ function ProvidersDirectoryContent() {
             {t("noResults")}
           </p>
           <p style={{ fontSize: 13, color: "var(--ink-3)", margin: 0 }}>
-            {search || category || typeFilter
+            {search || categories.length > 0 || typeFilter || location
               ? t("tryOtherFilters")
               : t("noOrgs")}
           </p>
@@ -227,11 +361,16 @@ function ProvidersDirectoryContent() {
                     <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: colors.bg, color: colors.fg }}>
                       {getOrgTypeLabel(org.orgType)}
                     </span>
-                    {org.providerCategory && (
-                      <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)" }}>
-                        {org.providerCategory}
+                    {(org.categories && org.categories.length > 0
+                      ? org.categories
+                      : org.providerCategory
+                        ? [org.providerCategory]
+                        : []
+                    ).map((cat) => (
+                      <span key={cat} style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)" }}>
+                        {cat}
                       </span>
-                    )}
+                    ))}
                     {location && (
                       <span style={{ fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 99, background: "var(--bg-subtle)", color: "var(--ink-2)", border: "1px solid var(--line-1)", display: "inline-flex", alignItems: "center", gap: 3 }}>
                         <IcoLocation style={{ width: 10, height: 10 }} />

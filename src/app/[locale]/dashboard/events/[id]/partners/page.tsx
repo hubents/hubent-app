@@ -19,6 +19,8 @@ import {
   FilterIcon,
   GridViewIcon,
   ListViewIcon,
+  ArrowDown01Icon,
+  Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { Btn, Pill } from "@/components/ui/ds";
 import { Link } from "@/i18n/navigation";
@@ -37,9 +39,11 @@ const IcoDelete   = hgIcon(Delete01Icon);
 const IcoSend     = hgIcon(SentIcon);
 const IcoInsta    = hgIcon(InstagramIcon);
 const IcoLocation = hgIcon(Location01Icon);
-const IcoFilter   = hgIcon(FilterIcon);
-const IcoGrid     = hgIcon(GridViewIcon);
-const IcoList     = hgIcon(ListViewIcon);
+const IcoFilter    = hgIcon(FilterIcon);
+const IcoGrid      = hgIcon(GridViewIcon);
+const IcoList      = hgIcon(ListViewIcon);
+const IcoChevDown  = hgIcon(ArrowDown01Icon);
+const IcoCheck     = hgIcon(Tick01Icon);
 
 // ── Types ───────────────────────────────────────────────────────
 interface EventPartner {
@@ -159,9 +163,21 @@ export default function EventPartnersPage({ params }: { params: Promise<{ id: st
   const [partners, setPartners] = useState<EventPartner[]>([]);
   const [vendors, setVendors]   = useState<EventVendor[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [search, setSearch]         = useState("");
+  const [catFilter, setCatFilter]   = useState<string[]>([]);
+  const [catOpen, setCatOpen]       = useState(false);
+  const catRef                       = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode]     = useState<"grid" | "list">("grid");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!catOpen) return;
+    const h = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
+  }, [catOpen]);
 
   useEffect(() => {
     fetch(`/api/events/${eventId}`)
@@ -201,18 +217,35 @@ export default function EventPartnersPage({ params }: { params: Promise<{ id: st
     ...partners.map((p) => ({ kind: "partner" as const, data: p, key: `p-${p.id}` })),
     ...vendors.map((v) => ({ kind: "vendor" as const, data: v, key: `v-${v.id}` })),
   ];
-  const filtered = search
-    ? allItems.filter(({ kind, data }) => {
-        if (kind === "partner") {
-          const p = data as EventPartner;
-          return (p.guestName?.toLowerCase().includes(lc) ?? false)
-            || (p.guestCategory?.toLowerCase().includes(lc) ?? false)
-            || (p.invitationEmail?.toLowerCase().includes(lc) ?? false);
-        }
+
+  const availableCats = Array.from(new Set(
+    allItems
+      .map(({ kind, data }) =>
+        kind === "partner" ? (data as EventPartner).guestCategory : (data as EventVendor).category
+      )
+      .filter(Boolean) as string[]
+  )).sort();
+
+  const filtered = allItems.filter(({ kind, data }) => {
+    if (search) {
+      if (kind === "partner") {
+        const p = data as EventPartner;
+        if (!(p.guestName?.toLowerCase().includes(lc) ?? false)
+          && !(p.guestCategory?.toLowerCase().includes(lc) ?? false)
+          && !(p.invitationEmail?.toLowerCase().includes(lc) ?? false)) return false;
+      } else {
         const v = data as EventVendor;
-        return v.vendorName.toLowerCase().includes(lc) || (v.category?.toLowerCase().includes(lc) ?? false);
-      })
-    : allItems;
+        if (!v.vendorName.toLowerCase().includes(lc) && !(v.category?.toLowerCase().includes(lc) ?? false)) return false;
+      }
+    }
+    if (catFilter.length > 0) {
+      const cat = kind === "partner"
+        ? (data as EventPartner).guestCategory
+        : (data as EventVendor).category;
+      if (!cat || !catFilter.includes(cat)) return false;
+    }
+    return true;
+  });
 
   const total = allItems.length;
   const shown = filtered.length;
@@ -257,17 +290,75 @@ export default function EventPartnersPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Category filter */}
-          <button style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "7px 12px", borderRadius: 8,
-            background: "#FFFFFF", border: "1px solid var(--line-1)",
-            fontSize: 13, color: "var(--ink-2)", fontFamily: "inherit",
-            cursor: "pointer", fontWeight: 500,
-          }}>
-            <IcoFilter style={{ width: 14, height: 14 }} />
-            {t("category")}
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>▾</span>
-          </button>
+          <div ref={catRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setCatOpen((o) => !o)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                fontSize: 12.5, fontWeight: 500, fontFamily: "inherit",
+                background: catFilter.length > 0 ? "var(--ink-1)" : "#FFFFFF",
+                color: catFilter.length > 0 ? "white" : "var(--ink-1)",
+                border: catFilter.length > 0 ? "1px solid var(--ink-1)" : "1px solid var(--line-1)",
+              }}
+            >
+              <IcoFilter style={{ width: 13, height: 13 }} />
+              {catFilter.length === 0
+                ? t("category")
+                : catFilter.length === 1
+                  ? catFilter[0]
+                  : `${catFilter.length} categorías`}
+              <IcoChevDown style={{ width: 11, height: 11 }} />
+            </button>
+            {catOpen && availableCats.length > 0 && (
+              <div style={{
+                position: "absolute", left: 0, top: "calc(100% + 4px)",
+                background: "white", border: "1px solid var(--line-1)",
+                borderRadius: 8, boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                minWidth: 220, maxHeight: 300, overflowY: "auto", zIndex: 50, padding: 4,
+              }}>
+                {catFilter.length > 0 && (
+                  <button
+                    onClick={() => setCatFilter([])}
+                    style={{
+                      display: "flex", alignItems: "center", width: "100%", textAlign: "left",
+                      padding: "7px 10px", background: "transparent", border: "none",
+                      borderBottom: "1px solid var(--line-1)", borderRadius: 0, cursor: "pointer",
+                      fontSize: 12, color: "var(--ink-3)", marginBottom: 4,
+                    }}
+                  >
+                    Limpiar selección
+                  </button>
+                )}
+                {availableCats.map((c) => {
+                  const checked = catFilter.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => setCatFilter((prev) => checked ? prev.filter((x) => x !== c) : [...prev, c])}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        width: "100%", textAlign: "left", padding: "8px 10px", cursor: "pointer",
+                        background: checked ? "var(--bg-subtle)" : "transparent",
+                        border: "none", borderRadius: 4, fontSize: 12.5, gap: 8,
+                        fontWeight: checked ? 600 : 400, color: "var(--ink-1)",
+                      }}
+                    >
+                      <span>{c}</span>
+                      <span style={{
+                        width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                        border: checked ? "none" : "1.5px solid var(--line-1)",
+                        background: checked ? "var(--ink-1)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {checked && <IcoCheck style={{ width: 9, height: 9, color: "white" }} />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Right side */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
