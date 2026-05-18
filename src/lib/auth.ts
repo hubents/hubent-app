@@ -85,9 +85,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/auth/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
+      }
+      if (trigger === "update" && session) {
+        if (session.name !== undefined) token.name = session.name;
+        if (session.image !== undefined) token.image = session.image;
       }
       return token;
     },
@@ -95,6 +99,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user && token.id) {
         session.user.id = token.id as string;
       }
+      if (token.name !== undefined) session.user.name = token.name as string;
+      if (token.image !== undefined) (session.user as { image?: string | null }).image = token.image as string | null;
       return session;
     },
     async signIn({ user, account }) {

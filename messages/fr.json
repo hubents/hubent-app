@@ -34,7 +34,8 @@
       "audiovisual": "Audiovisuel",
       "venues": "Lieux",
       "warehouses": "Entrepôts",
-      "orders": "Commandes"
+      "orders": "Commandes",
+      "coming": "Bientôt"
     },
     "bottom": {
       "invite": "Parrainez et gagnez 500 €",
@@ -1805,7 +1806,101 @@
       "errorAddPhoto": "Erreur lors de l'ajout de la photo"
     }
   },
-  "contacts": {},
+  "contacts": {
+    "types": {
+      "vendor": "Fournisseur",
+      "lead": "Lead",
+      "company": "Entreprise",
+      "client": "Client"
+    },
+    "sort": {
+      "placeholder": "Trier par",
+      "nameAZ": "Nom A → Z",
+      "nameZA": "Nom Z → A",
+      "cityAZ": "Ville A → Z",
+      "type": "Type",
+      "groupName": "Nom",
+      "groupCity": "Ville",
+      "groupType": "Type",
+      "clearSort": "Supprimer le tri"
+    },
+    "actions": {
+      "viewDetails": "Voir les détails",
+      "call": "Appeler",
+      "whatsapp": "WhatsApp",
+      "sendEmail": "Envoyer un e-mail",
+      "convertLead": "Convertir en Lead",
+      "linkToEvent": "Lier à un événement ou une tâche",
+      "delete": "Supprimer",
+      "moreActions": "Actions"
+    },
+    "kpi": {
+      "total": "Total contacts",
+      "totalSub": "tous les enregistrements",
+      "persons": "Personnes",
+      "personsSub": "contacts individuels",
+      "companies": "Entreprises",
+      "companiesSub": "organisations",
+      "vendors": "Fournisseurs",
+      "vendorsSub": "liés aux partenaires"
+    },
+    "segments": {
+      "all": "Tous",
+      "persons": "Personne",
+      "companies": "Entreprise",
+      "vendors": "Fournisseur"
+    },
+    "toolbar": {
+      "search": "Rechercher...",
+      "export": "Exporter",
+      "import": "Importer",
+      "goToPartners": "Aller aux partenaires",
+      "newContact": "Nouveau contact"
+    },
+    "vendorNotice": "Les fournisseurs ne sont pas créés ici. Ajoutez-les depuis Partenaires en les marquant comme favoris.",
+    "bulk": {
+      "selected": "{count, plural, one {# sélectionné} other {# sélectionnés}}",
+      "export": "Exporter",
+      "delete": "Supprimer",
+      "cancel": "Annuler"
+    },
+    "empty": {
+      "title": "Aucun contact",
+      "filtered": "Aucun contact trouvé avec ces filtres",
+      "initial": "Créez votre premier contact pour commencer"
+    },
+    "table": {
+      "contact": "Contact",
+      "title": "Titre",
+      "address": "Adresse",
+      "id": "ID",
+      "type": "Type"
+    },
+    "pagination": "Affichage {start}–{end} sur {total}",
+    "confirm": {
+      "deleteOne": "Supprimer le contact",
+      "deleteMany": "{count, plural, one {Supprimer # contact} other {Supprimer # contacts}}",
+      "deleteDesc": "Cette action est irréversible.",
+      "deleteLabel": "Supprimer"
+    },
+    "csv": {
+      "noContacts": "Aucun contact à exporter",
+      "headers": {
+        "type": "Type",
+        "name": "Nom",
+        "email": "E-mail",
+        "phone": "Téléphone",
+        "city": "Ville",
+        "category": "Catégorie",
+        "isVendor": "Est fournisseur",
+        "tags": "Tags"
+      },
+      "typeCompany": "Entreprise",
+      "typePerson": "Personne",
+      "yes": "Oui",
+      "no": "Non"
+    }
+  },
   "documents": {
     "pageTitle": "Documents",
     "pageSubtitle": "Contrats, propositions, fichiers internes et ressources",

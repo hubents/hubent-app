@@ -37,12 +37,16 @@ export default auth((req) => {
 
   const isUnlocalized = UNLOCALIZED_PREFIXES.some((p) => pathname.startsWith(p));
 
+  // Run intl middleware first; capture its response to preserve locale headers
+  let intlBaseResponse: NextResponse | undefined;
   if (!isUnlocalized) {
     const intlResponse = intlMiddleware(req as NextRequest);
     const location = intlResponse.headers.get("location");
     if (location && intlResponse.status >= 300 && intlResponse.status < 400) {
       return intlResponse;
     }
+    // Keep the intl response as base so its x-next-intl-locale request headers survive
+    intlBaseResponse = intlResponse;
   }
 
   const pathnameForAuth = stripLocale(pathname);
@@ -74,8 +78,8 @@ export default auth((req) => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const reqAny = req as any;
-  if (isPublicRoute) return buildResponse(reqAny, isLoggedIn);
-  if (isInviteRoute) return NextResponse.next();
+  if (isPublicRoute) return buildResponse(reqAny, isLoggedIn, intlBaseResponse);
+  if (isInviteRoute) return intlBaseResponse ?? NextResponse.next();
 
   if (isProviderLogin) return localeRedirect("/auth/login");
   if (pathnameForAuth === "/provider/register" || pathnameForAuth.startsWith("/provider/register/")) {
@@ -88,14 +92,14 @@ export default auth((req) => {
 
   if (isTenantAuthRoute) {
     if (isLoggedIn) return localeRedirect("/dashboard");
-    return NextResponse.next();
+    return intlBaseResponse ?? NextResponse.next();
   }
 
   if (isAdminAuthRoute) {
     if (isLoggedIn && pathnameForAuth === "/admin/login") {
       return NextResponse.redirect(new URL("/admin", nextUrl));
     }
-    return NextResponse.next();
+    return intlBaseResponse ?? NextResponse.next();
   }
 
   if (isDashboardRoute || isClientPortal) {
@@ -105,13 +109,14 @@ export default auth((req) => {
     }
   }
 
-  return buildResponse(reqAny, isLoggedIn);
+  return buildResponse(reqAny, isLoggedIn, intlBaseResponse);
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildResponse(req: any, isLoggedIn: boolean) {
+function buildResponse(req: any, isLoggedIn: boolean, intlBaseResponse?: NextResponse) {
   if (isLoggedIn && req.auth?.user) {
-    const response = NextResponse.next();
+    // Use intl response as base to preserve locale headers set by the intl middleware
+    const response = intlBaseResponse ?? NextResponse.next();
     response.headers.set("x-user-id", req.auth.user.id || "");
     response.headers.set("x-user-email", req.auth.user.email || "");
 
@@ -130,7 +135,7 @@ function buildResponse(req: any, isLoggedIn: boolean) {
     }
     return response;
   }
-  return NextResponse.next();
+  return intlBaseResponse ?? NextResponse.next();
 }
 
 export const config = {

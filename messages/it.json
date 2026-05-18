@@ -34,7 +34,8 @@
       "audiovisual": "Audiovisivo",
       "venues": "Venues",
       "warehouses": "Magazzini",
-      "orders": "Ordini"
+      "orders": "Ordini",
+      "coming": "Presto"
     },
     "bottom": {
       "invite": "Invita e guadagna 500 €",
@@ -1805,7 +1806,101 @@
       "errorAddPhoto": "Errore durante l'aggiunta della foto"
     }
   },
-  "contacts": {},
+  "contacts": {
+    "types": {
+      "vendor": "Fornitore",
+      "lead": "Lead",
+      "company": "Azienda",
+      "client": "Cliente"
+    },
+    "sort": {
+      "placeholder": "Ordina per",
+      "nameAZ": "Nome A → Z",
+      "nameZA": "Nome Z → A",
+      "cityAZ": "Città A → Z",
+      "type": "Tipo",
+      "groupName": "Nome",
+      "groupCity": "Città",
+      "groupType": "Tipo",
+      "clearSort": "Rimuovi ordinamento"
+    },
+    "actions": {
+      "viewDetails": "Visualizza dettagli",
+      "call": "Chiama",
+      "whatsapp": "WhatsApp",
+      "sendEmail": "Invia e-mail",
+      "convertLead": "Converti in Lead",
+      "linkToEvent": "Collega a evento o attività",
+      "delete": "Elimina",
+      "moreActions": "Azioni"
+    },
+    "kpi": {
+      "total": "Totale contatti",
+      "totalSub": "tutti i record",
+      "persons": "Persone",
+      "personsSub": "contatti individuali",
+      "companies": "Aziende",
+      "companiesSub": "organizzazioni",
+      "vendors": "Fornitori",
+      "vendorsSub": "collegati ai partner"
+    },
+    "segments": {
+      "all": "Tutti",
+      "persons": "Persona",
+      "companies": "Azienda",
+      "vendors": "Fornitore"
+    },
+    "toolbar": {
+      "search": "Cerca...",
+      "export": "Esporta",
+      "import": "Importa",
+      "goToPartners": "Vai ai Partner",
+      "newContact": "Nuovo contatto"
+    },
+    "vendorNotice": "I fornitori non vengono creati qui. Aggiungili da Partner contrassegnandoli come preferiti.",
+    "bulk": {
+      "selected": "{count, plural, one {# selezionato} other {# selezionati}}",
+      "export": "Esporta",
+      "delete": "Elimina",
+      "cancel": "Annulla"
+    },
+    "empty": {
+      "title": "Nessun contatto",
+      "filtered": "Nessun contatto trovato con questi filtri",
+      "initial": "Crea il tuo primo contatto per iniziare"
+    },
+    "table": {
+      "contact": "Contatto",
+      "title": "Titolo",
+      "address": "Indirizzo",
+      "id": "ID",
+      "type": "Tipo"
+    },
+    "pagination": "Visualizzazione {start}–{end} di {total}",
+    "confirm": {
+      "deleteOne": "Elimina contatto",
+      "deleteMany": "{count, plural, one {Elimina # contatto} other {Elimina # contatti}}",
+      "deleteDesc": "Questa azione non può essere annullata.",
+      "deleteLabel": "Elimina"
+    },
+    "csv": {
+      "noContacts": "Nessun contatto da esportare",
+      "headers": {
+        "type": "Tipo",
+        "name": "Nome",
+        "email": "E-mail",
+        "phone": "Telefono",
+        "city": "Città",
+        "category": "Categoria",
+        "isVendor": "È fornitore",
+        "tags": "Tag"
+      },
+      "typeCompany": "Azienda",
+      "typePerson": "Persona",
+      "yes": "Sì",
+      "no": "No"
+    }
+  },
   "documents": {
     "pageTitle": "Documenti",
     "pageSubtitle": "Contratti, proposte, file interni e risorse",

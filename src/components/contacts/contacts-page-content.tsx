@@ -37,6 +37,7 @@ import { NumericPagination } from "@/components/ui/numeric-pagination";
 import { useUserSession } from "@/hooks/use-user-session";
 import { Av } from "@/components/ui/ds";
 import { appConfirm } from "@/lib/confirm";
+import { useTranslations } from "next-intl";
 
 const IcoSearch = hgIcon(Search01Icon);
 const IcoFilter = hgIcon(FilterIcon);
@@ -59,24 +60,24 @@ const IcoSparkles = hgIcon(SparklesIcon);
 
 type Segment = "all" | "vendors" | "companies" | "persons";
 
-// Pill colors mirror the prototype's TYPE_PILL palette.
+// Pill colors keyed by contact type code (locale-independent).
 const TYPE_PILL: Record<string, { bg: string; fg: string; dot: string }> = {
-  Cliente:   { bg: "#EAE6F5", fg: "#5B3BA2", dot: "#8B6BC9" },
-  Lead:      { bg: "#FFF2D1", fg: "#8A6B1E", dot: "#D6A937" },
-  Proveedor: { bg: "#FBEADB", fg: "#A65B1E", dot: "#E89C6B" },
-  Empresa:   { bg: "#F8D7D4", fg: "#9A3A33", dot: "#C97A7A" },
-  Persona:   { bg: "#DCE8F5", fg: "#1F4A87", dot: "#5B8FE8" },
+  client:   { bg: "#EAE6F5", fg: "#5B3BA2", dot: "#8B6BC9" },
+  lead:     { bg: "#FFF2D1", fg: "#8A6B1E", dot: "#D6A937" },
+  vendor:   { bg: "#FBEADB", fg: "#A65B1E", dot: "#E89C6B" },
+  company:  { bg: "#F8D7D4", fg: "#9A3A33", dot: "#C97A7A" },
+  person:   { bg: "#DCE8F5", fg: "#1F4A87", dot: "#5B8FE8" },
 };
 
-function TypePill({ value }: { value: string }) {
-  const s = TYPE_PILL[value] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", dot: "var(--ink-4)" };
+function TypePill({ typeKey, label }: { typeKey: string; label: string }) {
+  const s = TYPE_PILL[typeKey] || { bg: "var(--bg-subtle)", fg: "var(--ink-2)", dot: "var(--ink-4)" };
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-[999px] text-[11.5px] font-medium"
       style={{ background: s.bg, color: s.fg, padding: "3px 10px" }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
-      {value}
+      {label}
     </span>
   );
 }
@@ -114,15 +115,9 @@ function Kpi({
 
 // Sort dropdown — same UX as the prototype's "Ordenar / etiqueta".
 type SortKey = "default" | "name-az" | "name-za" | "city-az" | "type-az";
-const SORT_LABELS: Record<SortKey, string> = {
-  "default": "Ordenar por",
-  "name-az": "Nombre A → Z",
-  "name-za": "Nombre Z → A",
-  "city-az": "Ciudad A → Z",
-  "type-az": "Tipo",
-};
 
 function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortKey) => void }) {
+  const t = useTranslations("contacts");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -134,10 +129,18 @@ function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortK
     return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
   }, [open]);
 
+  const sortLabels: Record<SortKey, string> = {
+    "default": t("sort.placeholder"),
+    "name-az": t("sort.nameAZ"),
+    "name-za": t("sort.nameZA"),
+    "city-az": t("sort.cityAZ"),
+    "type-az": t("sort.type"),
+  };
+
   const groups: { group: string; items: { v: SortKey; l: string }[] }[] = [
-    { group: "Nombre", items: [{ v: "name-az", l: "A → Z" }, { v: "name-za", l: "Z → A" }] },
-    { group: "Ciudad", items: [{ v: "city-az", l: "A → Z" }] },
-    { group: "Tipo", items: [{ v: "type-az", l: "Tipo" }] },
+    { group: t("sort.groupName"), items: [{ v: "name-az", l: "A → Z" }, { v: "name-za", l: "Z → A" }] },
+    { group: t("sort.groupCity"), items: [{ v: "city-az", l: "A → Z" }] },
+    { group: t("sort.groupType"), items: [{ v: "type-az", l: t("sort.type") }] },
   ];
 
   return (
@@ -148,7 +151,7 @@ function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortK
         style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
       >
         <IcoFilter className="h-[14px] w-[14px]" />
-        <span>{SORT_LABELS[value]}</span>
+        <span>{sortLabels[value]}</span>
         <IcoChevDown className="h-3 w-3 text-[var(--ink-3)]" />
       </button>
       {open && (
@@ -187,7 +190,7 @@ function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortK
               className="w-full text-left px-2.5 py-2 mt-1.5 text-[12px] text-[var(--ink-3)] cursor-pointer bg-transparent border-none"
               style={{ borderTop: "1px solid var(--line-1)" }}
             >
-              Quitar ordenación
+              {t("sort.clearSort")}
             </button>
           )}
         </div>
@@ -218,6 +221,7 @@ function RowMenu({
   onLink: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("contacts");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -230,13 +234,13 @@ function RowMenu({
   }, [open]);
 
   const items: { icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean; show: boolean }[] = [
-    { icon: <IcoUser className="h-3.5 w-3.5" />, label: "Ver detalles", onClick: onView, show: true },
-    { icon: <IcoPhone className="h-3.5 w-3.5" />, label: "Llamar", onClick: onCall, show: !!contact.phone },
-    { icon: <IcoWhatsApp className="h-3.5 w-3.5" />, label: "WhatsApp", onClick: onWhatsApp, show: !!contact.phone },
-    { icon: <IcoMail className="h-3.5 w-3.5" />, label: "Enviar email", onClick: onEmail, show: !!contact.email },
-    { icon: <IcoStore className="h-3.5 w-3.5" />, label: "Convertir a Lead", onClick: onConvertLead, show: !contact.isLead },
-    { icon: <IcoLink className="h-3.5 w-3.5" />, label: "Vincular a evento o tarea", onClick: onLink, show: true },
-    { icon: <IcoTrash className="h-3.5 w-3.5" />, label: "Eliminar", onClick: onDelete, danger: true, show: canManage },
+    { icon: <IcoUser className="h-3.5 w-3.5" />, label: t("actions.viewDetails"), onClick: onView, show: true },
+    { icon: <IcoPhone className="h-3.5 w-3.5" />, label: t("actions.call"), onClick: onCall, show: !!contact.phone },
+    { icon: <IcoWhatsApp className="h-3.5 w-3.5" />, label: t("actions.whatsapp"), onClick: onWhatsApp, show: !!contact.phone },
+    { icon: <IcoMail className="h-3.5 w-3.5" />, label: t("actions.sendEmail"), onClick: onEmail, show: !!contact.email },
+    { icon: <IcoStore className="h-3.5 w-3.5" />, label: t("actions.convertLead"), onClick: onConvertLead, show: !contact.isLead },
+    { icon: <IcoLink className="h-3.5 w-3.5" />, label: t("actions.linkToEvent"), onClick: onLink, show: true },
+    { icon: <IcoTrash className="h-3.5 w-3.5" />, label: t("actions.delete"), onClick: onDelete, danger: true, show: canManage },
   ];
 
   return (
@@ -244,7 +248,7 @@ function RowMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center justify-center h-8 w-8 rounded-[8px] cursor-pointer transition-colors hover:bg-[var(--bg-hover)] border-none bg-transparent"
-        aria-label="Acciones"
+        aria-label={t("actions.moreActions")}
       >
         <IcoMore className="h-[14px] w-[14px] text-[var(--ink-2)]" />
       </button>
@@ -277,6 +281,7 @@ function RowMenu({
 }
 
 export function ContactsPageContent() {
+  const t = useTranslations("contacts");
   const { can } = useUserSession();
   const canManage = can("crm:manage");
   const searchParams = useSearchParams();
@@ -345,12 +350,14 @@ export function ContactsPageContent() {
     return parts.join(", ");
   };
 
-  const getContactTypeLabel = (contact: Contact): string => {
-    if (contact.isVendor) return "Proveedor";
-    if (contact.isLead) return "Lead";
-    if (contact.type === "company") return "Empresa";
-    return "Cliente";
+  const getContactTypeKey = (contact: Contact): string => {
+    if (contact.isVendor) return "vendor";
+    if (contact.isLead) return "lead";
+    if (contact.type === "company") return "company";
+    return "client";
   };
+
+  const getContactTypeLabel = (contact: Contact): string => t(`types.${getContactTypeKey(contact)}`);
 
   const sortedContacts = useMemo(() => {
     const result = [...contacts];
@@ -365,7 +372,7 @@ export function ContactsPageContent() {
         result.sort((a, b) => (a.city || "").localeCompare(b.city || "", "es"));
         break;
       case "type-az":
-        result.sort((a, b) => getContactTypeLabel(a).localeCompare(getContactTypeLabel(b), "es"));
+        result.sort((a, b) => getContactTypeKey(a).localeCompare(getContactTypeKey(b)));
         break;
     }
     return result;
@@ -388,7 +395,7 @@ export function ContactsPageContent() {
   };
 
   const handleBulkDelete = async () => {
-    if (!await appConfirm({ title: `Eliminar ${selectedIds.size} contacto${selectedIds.size > 1 ? "s" : ""}`, description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) return;
+    if (!await appConfirm({ title: t("confirm.deleteMany", { count: selectedIds.size }), description: t("confirm.deleteDesc"), variant: "destructive", confirmLabel: t("confirm.deleteLabel") })) return;
     for (const id of selectedIds) {
       await deleteContact(id);
     }
@@ -467,21 +474,21 @@ export function ContactsPageContent() {
   };
 
   const handleDeleteContact = async (contactId: number) => {
-    if (await appConfirm({ title: "Eliminar contacto", description: "Esta acción no se puede deshacer.", variant: "destructive", confirmLabel: "Eliminar" })) {
+    if (await appConfirm({ title: t("confirm.deleteOne"), description: t("confirm.deleteDesc"), variant: "destructive", confirmLabel: t("confirm.deleteLabel") })) {
       await deleteContact(contactId);
     }
   };
 
   function exportToCSV(rows: Contact[]) {
-    const headers = ["Tipo", "Nombre", "Email", "Teléfono", "Ciudad", "Categoría", "Es Proveedor", "Tags"];
+    const headers = [t("csv.headers.type"), t("csv.headers.name"), t("csv.headers.email"), t("csv.headers.phone"), t("csv.headers.city"), t("csv.headers.category"), t("csv.headers.isVendor"), t("csv.headers.tags")];
     const csvRows = rows.map((c) => [
-      c.type === "company" ? "Empresa" : "Persona",
+      c.type === "company" ? t("csv.typeCompany") : t("csv.typePerson"),
       c.name,
       c.email || "",
       c.phone ? `${c.phoneCountryCode || ""} ${c.phone}` : "",
       c.city || "",
       getContactCategory(c) || "",
-      c.isVendor ? "Sí" : "No",
+      c.isVendor ? t("csv.yes") : t("csv.no"),
       c.tags?.join(", ") || "",
     ]);
     const csv = [
@@ -501,17 +508,17 @@ export function ContactsPageContent() {
 
   const handleExportCSV = () => {
     if (contacts.length === 0) {
-      alert("No hay contactos para exportar");
+      alert(t("csv.noContacts"));
       return;
     }
     exportToCSV(contacts);
   };
 
   const segmentOptions: { k: Segment; label: string; icon: React.ReactNode }[] = [
-    { k: "all", label: "Todos", icon: null },
-    { k: "persons", label: "Persona", icon: <IcoUser className="h-3 w-3" /> },
-    { k: "companies", label: "Empresa", icon: <IcoBuilding className="h-3 w-3" /> },
-    { k: "vendors", label: "Proveedor", icon: <IcoStore className="h-3 w-3" /> },
+    { k: "all", label: t("segments.all"), icon: null },
+    { k: "persons", label: t("segments.persons"), icon: <IcoUser className="h-3 w-3" /> },
+    { k: "companies", label: t("segments.companies"), icon: <IcoBuilding className="h-3 w-3" /> },
+    { k: "vendors", label: t("segments.vendors"), icon: <IcoStore className="h-3 w-3" /> },
   ];
 
   return (
@@ -536,27 +543,27 @@ export function ContactsPageContent() {
         ) : (
           <>
             <Kpi
-              label="Total contactos"
+              label={t("kpi.total")}
               value={stats.total}
-              sub="todos los registros"
+              sub={t("kpi.totalSub")}
               icon={<IcoUser className="h-3.5 w-3.5" />}
             />
             <Kpi
-              label="Personas"
+              label={t("kpi.persons")}
               value={stats.persons}
-              sub="contactos individuales"
+              sub={t("kpi.personsSub")}
               icon={<IcoUser className="h-3.5 w-3.5" />}
             />
             <Kpi
-              label="Empresas"
+              label={t("kpi.companies")}
               value={stats.companies}
-              sub="organizaciones"
+              sub={t("kpi.companiesSub")}
               icon={<IcoBuilding className="h-3.5 w-3.5" />}
             />
             <Kpi
-              label="Proveedores"
+              label={t("kpi.vendors")}
               value={stats.vendors}
-              sub="vinculados a partners"
+              sub={t("kpi.vendorsSub")}
               icon={<IcoStore className="h-3.5 w-3.5" />}
             />
           </>
@@ -582,7 +589,7 @@ export function ContactsPageContent() {
             <IcoSearch className="h-3.5 w-3.5 text-[var(--ink-3)]" />
             <input
               type="text"
-              placeholder="Buscar..."
+              placeholder={t("toolbar.search")}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="flex-1 bg-transparent outline-none text-[13px] text-[var(--ink-1)] placeholder:text-[var(--ink-3)]"
@@ -598,7 +605,7 @@ export function ContactsPageContent() {
               style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
             >
               <IcoDownload className="h-[14px] w-[14px]" />
-              Exportar
+              {t("toolbar.export")}
             </button>
             {canManage && segment !== "vendors" && (
               <button
@@ -607,7 +614,7 @@ export function ContactsPageContent() {
                 style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
               >
                 <IcoUpload className="h-[14px] w-[14px]" />
-                Importar
+                {t("toolbar.import")}
               </button>
             )}
             {canManage && segment === "vendors" ? (
@@ -621,7 +628,7 @@ export function ContactsPageContent() {
                 }}
               >
                 <IcoStore className="h-[14px] w-[14px]" />
-                Ir a Partners
+                {t("toolbar.goToPartners")}
               </a>
             ) : canManage ? (
               <button
@@ -634,7 +641,7 @@ export function ContactsPageContent() {
                 }}
               >
                 <IcoPlus className="h-[14px] w-[14px]" />
-                Nuevo contacto
+                {t("toolbar.newContact")}
               </button>
             ) : null}
           </div>
@@ -684,14 +691,7 @@ export function ContactsPageContent() {
               <IcoSparkles className="h-3.5 w-3.5" />
             </span>
             <span className="text-[12.5px] text-[var(--ink-2)]">
-              Los proveedores no se crean aquí. Se añaden desde{" "}
-              <a
-                href="/dashboard/partners"
-                className="font-semibold text-[var(--ink-1)] hover:underline"
-              >
-                Partners
-              </a>{" "}
-              marcándolos como favoritos.
+              {t("vendorNotice")}
             </span>
           </div>
         )}
@@ -707,7 +707,7 @@ export function ContactsPageContent() {
             }}
           >
             <span className="text-[12.5px] font-medium text-[var(--ink-1)]">
-              {selectedIds.size} seleccionado{selectedIds.size > 1 ? "s" : ""}
+              {t("bulk.selected", { count: selectedIds.size })}
             </span>
             <button
               onClick={handleBulkExport}
@@ -715,7 +715,7 @@ export function ContactsPageContent() {
               style={{ background: "#FFFFFF", border: "1px solid var(--line-strong)" }}
             >
               <IcoDownload className="h-3 w-3" />
-              Exportar
+              {t("bulk.export")}
             </button>
             {canManage && (
               <button
@@ -728,7 +728,7 @@ export function ContactsPageContent() {
                 }}
               >
                 <IcoTrash className="h-3 w-3" />
-                Eliminar
+                {t("bulk.delete")}
               </button>
             )}
             <button
@@ -736,7 +736,7 @@ export function ContactsPageContent() {
               className="ml-auto inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-[12px] text-[var(--ink-3)] cursor-pointer transition-colors border-none bg-transparent hover:bg-[var(--bg-hover)]"
             >
               <IcoX className="h-3 w-3" />
-              Cancelar
+              {t("bulk.cancel")}
             </button>
           </div>
         )}
@@ -752,10 +752,10 @@ export function ContactsPageContent() {
           <div className="text-center py-14">
             <IcoUser className="mx-auto h-10 w-10 text-[var(--ink-4)] mb-3" />
             <h3 className="text-[14px] font-semibold text-[var(--ink-1)] mb-1">
-              No hay contactos
+              {t("empty.title")}
             </h3>
             <p className="text-[12.5px] text-[var(--ink-3)] mb-4">
-              {search ? "No se encontraron contactos con esos filtros" : "Crea tu primer contacto para comenzar"}
+              {search ? t("empty.filtered") : t("empty.initial")}
             </p>
             {!search && canManage && (
               <button
@@ -768,7 +768,7 @@ export function ContactsPageContent() {
                 }}
               >
                 <IcoPlus className="h-[14px] w-[14px]" />
-                Nuevo contacto
+                {t("toolbar.newContact")}
               </button>
             )}
           </div>
@@ -783,11 +783,11 @@ export function ContactsPageContent() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </th>
-                  <th>Contacto</th>
-                  <th className="hidden md:table-cell">Título</th>
-                  <th className="hidden lg:table-cell">Dirección</th>
-                  <th className="hidden xl:table-cell">ID</th>
-                  <th>Tipo</th>
+                  <th>{t("table.contact")}</th>
+                  <th className="hidden md:table-cell">{t("table.title")}</th>
+                  <th className="hidden lg:table-cell">{t("table.address")}</th>
+                  <th className="hidden xl:table-cell">{t("table.id")}</th>
+                  <th>{t("table.type")}</th>
                   <th style={{ width: 44 }}></th>
                 </tr>
               </thead>
@@ -795,6 +795,7 @@ export function ContactsPageContent() {
                 {sortedContacts.map((contact) => {
                   const idDisplay = getContactIdDisplay(contact);
                   const address = getContactAddress(contact);
+                  const typeKey = getContactTypeKey(contact);
                   const typeLabel = getContactTypeLabel(contact);
                   const isSelected = selectedIds.has(contact.id);
 
@@ -845,7 +846,7 @@ export function ContactsPageContent() {
                         )}
                       </td>
                       <td>
-                        <TypePill value={typeLabel} />
+                        <TypePill typeKey={typeKey} label={typeLabel} />
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <RowMenu
@@ -873,7 +874,7 @@ export function ContactsPageContent() {
       {meta.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-[12.5px] text-[var(--ink-3)]">
-            Mostrando {((meta.page - 1) * meta.limit) + 1}–{Math.min(meta.page * meta.limit, meta.total)} de {meta.total}
+            {t("pagination", { start: ((meta.page - 1) * meta.limit) + 1, end: Math.min(meta.page * meta.limit, meta.total), total: meta.total })}
           </p>
           <NumericPagination
             currentPage={meta.page}

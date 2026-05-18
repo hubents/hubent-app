@@ -9,7 +9,6 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useEvent } from "@/contexts/event-context";
-import { useSession, signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -169,9 +168,7 @@ const SECTION_SUBITEMS: Record<string, { id: string; label: string }[]> = {
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useUserSession } from "@/hooks/use-user-session";
-import { useOnboardingProgress } from "@/hooks/use-onboarding-progress";
 import { getSidebarSections } from "@/lib/tenant-type";
-import { Av } from "@/components/ui/ds";
 import {
   Tooltip,
   TooltipContent,
@@ -304,7 +301,7 @@ function TenantChip({ collapsed }: { collapsed: boolean }) {
 }
 
 // ============================================================
-// UserChip — perfil del usuario al final del sidebar.
+// NavConfigPanel — sidebar customisation panel.
 // Avatar + nombre + rol, dropdown hacia arriba con menú.
 // ============================================================
 type Theme = "sand" | "mono" | "forest" | "dark";
@@ -326,252 +323,6 @@ function applyTheme(theme: Theme) {
   try { localStorage.setItem("hubents:theme", theme); } catch {}
 }
 
-function applyDensity(d: Density) {
-  if (typeof document === "undefined") return;
-  if (d === "compact") document.documentElement.setAttribute("data-density", "compact");
-  else document.documentElement.removeAttribute("data-density");
-  try { localStorage.setItem("hubents:density", d); } catch {}
-}
-
-function OnboardingRing({ pct, size = 40 }: { pct: number; size?: number }) {
-  if (pct >= 100) return null;
-  const r = (size - 4) / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
-  return (
-    <svg
-      width={size} height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-    >
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--line-1)" strokeWidth="2.5" />
-      <circle
-        cx={size/2} cy={size/2} r={r} fill="none"
-        stroke="#F59E0B" strokeWidth="2.5"
-        strokeDasharray={circ} strokeDashoffset={circ - dash}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`}
-        style={{ transition: "stroke-dashoffset .5s ease" }}
-      />
-    </svg>
-  );
-}
-
-function UserChip({ collapsed }: { collapsed: boolean }) {
-  const router = useRouter();
-  const { data: session } = useSession();
-  useUserSession();
-  const onboarding = useOnboardingProgress();
-  const tMenu = useTranslations("userMenu");
-  const [open, setOpen] = useState(false);
-  const [tweaksOpen, setTweaksOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>("sand");
-  const [density, setDensity] = useState<Density>("comfortable");
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Hydrate theme/density from localStorage on mount
-  useEffect(() => {
-    try {
-      const t = (localStorage.getItem("hubents:theme") as Theme | null) || "sand";
-      const d = (localStorage.getItem("hubents:density") as Density | null) || "comfortable";
-      setTheme(t); applyTheme(t);
-      setDensity(d); applyDensity(d);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
-    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
-  }, [open]);
-
-  const name = session?.user?.name || tMenu("userFallback");
-  const email = session?.user?.email || "";
-  const userImage = (session?.user as { image?: string | null })?.image;
-
-  const obPct = onboarding?.pct ?? 100;
-
-  if (collapsed) {
-    return (
-      <div className="px-2 flex justify-center">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => router.push("/dashboard/profile")}
-              className="relative flex h-10 w-10 items-center justify-center"
-            >
-              <OnboardingRing pct={obPct} size={40} />
-              <div className="overflow-hidden rounded-full" style={{ width: 32, height: 32 }}>
-                <Av src={userImage} name={name} size={32} />
-              </div>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {obPct < 100 ? tMenu("profilePct", { pct: obPct, name }) : tMenu("profileComplete", { name })}
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={ref} className="relative px-3">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={cn(
-          "flex w-full items-center rounded-[10px] border border-transparent text-left transition-all",
-          open
-            ? "bg-[var(--bg-subtle)] border-[var(--line-1)]"
-            : "hover:bg-[var(--bg-hover)] hover:border-[var(--line-1)]"
-        )}
-        style={{ padding: "8px 10px", gap: "10px" }}
-      >
-        {/* Avatar con anillo de progreso */}
-        <div className="relative flex-shrink-0" style={{ width: 38, height: 38 }}>
-          <OnboardingRing pct={obPct} size={38} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="overflow-hidden rounded-full" style={{ width: 30, height: 30 }}>
-              <Av src={userImage} name={name} size={30} />
-            </div>
-          </div>
-        </div>
-        {/* Nombre */}
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold text-[var(--ink-1)]" style={{ lineHeight: 1.3 }}>
-            {name}
-          </div>
-          <div className="truncate text-[11px] text-[var(--ink-3)]" style={{ lineHeight: 1.3 }}>{email}</div>
-        </div>
-        <IcoChevDown
-          className={cn(
-            "h-[14px] w-[14px] flex-shrink-0 text-[var(--ink-3)] transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {open && (
-        <div
-          style={{ backgroundColor: "#FFFFFF", borderColor: "#E8E3D8", zIndex: 9999 }}
-          className="absolute left-2 right-2 bottom-[calc(100%+4px)] rounded-[12px] border p-1 shadow-[0_8px_28px_rgba(0,0,0,.12),0_2px_6px_rgba(0,0,0,.05)]"
-        >
-          <div className="flex items-center gap-2.5 px-2 py-2">
-            <Av src={userImage} name={name} size={32} />
-            <div className="min-w-0">
-              <div className="truncate text-[12.5px] font-semibold leading-tight text-[var(--ink-1)]">{name}</div>
-              <div className="truncate text-[11px] leading-tight text-[var(--ink-3)]">{email}</div>
-            </div>
-          </div>
-          <div className="my-1 mx-1 h-px bg-[var(--line-1)]" />
-          <button
-            onClick={() => { setOpen(false); router.push("/dashboard/profile"); }}
-            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
-          >
-            <IcoUser className="h-4 w-4 text-[var(--ink-2)]" />
-            {tMenu("profile")}
-          </button>
-          <button
-            onClick={() => { setOpen(false); router.push("/dashboard/public-profile"); }}
-            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
-          >
-            <IcoStore className="h-4 w-4 text-[var(--ink-2)]" />
-            {tMenu("publicProfile")}
-          </button>
-          <button
-            onClick={() => { setOpen(false); router.push("/dashboard/settings"); }}
-            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
-          >
-            <IcoSettings className="h-4 w-4 text-[var(--ink-2)]" />
-            {tMenu("preferences")}
-          </button>
-
-          {/* Tweaks (theme + density) */}
-          <div className="my-1 mx-1 h-px bg-[var(--line-1)]" />
-          <button
-            onClick={() => setTweaksOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
-          >
-            <span className="flex items-center gap-2.5">
-              <IcoDashboard className="h-4 w-4 text-[var(--ink-2)]" />
-              {tMenu("tweaks")}
-            </span>
-            <IcoChevDown
-              className={cn(
-                "h-3 w-3 text-[var(--ink-3)] transition-transform",
-                tweaksOpen && "rotate-180"
-              )}
-            />
-          </button>
-          {tweaksOpen && (
-            <div className="mx-1.5 mb-1 mt-0.5 flex flex-col gap-3 rounded-[10px] bg-[var(--bg-subtle)] p-2.5">
-              <div>
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">
-                  {tMenu("theme")}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(["sand", "mono", "forest", "dark"] as const).map((v) => {
-                    const active = theme === v;
-                    return (
-                      <button
-                        key={v}
-                        onClick={() => { setTheme(v); applyTheme(v); }}
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
-                          active
-                            ? "bg-[var(--ink-1)] text-white border border-[var(--ink-1)]"
-                            : "bg-white text-[var(--ink-2)] border border-[var(--line-1)] hover:border-[var(--line-strong)]"
-                        )}
-                      >
-                        {tMenu(`themes.${v}`)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">
-                  {tMenu("density")}
-                </div>
-                <div className="flex gap-1">
-                  {(["comfortable", "compact"] as const).map((v) => {
-                    const active = density === v;
-                    return (
-                      <button
-                        key={v}
-                        onClick={() => { setDensity(v); applyDensity(v); }}
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
-                          active
-                            ? "bg-[var(--ink-1)] text-white border border-[var(--ink-1)]"
-                            : "bg-white text-[var(--ink-2)] border border-[var(--line-1)] hover:border-[var(--line-strong)]"
-                        )}
-                      >
-                        {tMenu(`densities.${v}`)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="my-1 mx-1 h-px bg-[var(--line-1)]" />
-          <button
-            onClick={() => signOut({ callbackUrl: "/auth/login", redirect: true })}
-            className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-2)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-1)]"
-          >
-            <IcoLogout className="h-4 w-4 text-[var(--ink-2)]" />
-            {tMenu("signOut")}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ============================================================
 // NavConfigPanel — inline sidebar customisation panel.
@@ -860,6 +611,7 @@ function NavParent({
   onToggle: () => void;
   pathname: string;
 }) {
+  const tSidebar = useTranslations("sidebar");
   const [hover, setHover] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -949,7 +701,7 @@ function NavParent({
                       border: "1px solid var(--line-strong)",
                     }}
                   >
-                    Próx.
+                    {tSidebar("nav.coming")}
                   </span>
                 )}
               </Link>
@@ -1263,9 +1015,10 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   // logic so the order is fully controlled by orderedSectionIds.
   // Sub-items hidden via navPrefs are filtered before passing to NavParent.
   const hiddenSubItems = new Set(navPrefs.hidden);
-  const visibleContactsSub = contactsSubNav.filter((i) => !hiddenSubItems.has(`contacts.${i.name}`));
-  const visibleFinanceSub = financeSubNav.filter((i) => !hiddenSubItems.has(`finance.${i.name}`));
-  const visibleProductivitySub = productivitySubNav.filter((i) => !hiddenSubItems.has(`productivity.${i.name}`));
+  const visibleContactsSub = contactsSubNav.filter((i) => !hiddenSubItems.has(`contacts.${i.name}`)).map((i) => ({ ...i, name: navLabel(i.name) }));
+  const visibleFinanceSub = financeSubNav.filter((i) => !hiddenSubItems.has(`finance.${i.name}`)).map((i) => ({ ...i, name: navLabel(i.name) }));
+  const visibleProductivitySub = productivitySubNav.filter((i) => !hiddenSubItems.has(`productivity.${i.name}`)).map((i) => ({ ...i, name: navLabel(i.name) }));
+  const translatedLogisticsSub = logisticsSubNav.map((i) => ({ ...i, name: navLabel(i.name) }));
 
   const renderSection = (sectionId: string): React.ReactNode => {
     switch (sectionId) {
@@ -1380,7 +1133,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </Tooltip>
             ) : (
               <NavParent
-                name="Contactos"
+                name={navLabel("Contactos")}
                 icon={IcoContacts}
                 parentHref="/dashboard/contacts"
                 childrenItems={visibleContactsSub}
@@ -1414,7 +1167,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <eventsItem.icon className="h-[18px] w-[18px]" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">{eventsItem.name}</TooltipContent>
+                <TooltipContent side="right">{navLabel(eventsItem.name)}</TooltipContent>
               </Tooltip>
             ) : (
               <Link
@@ -1427,7 +1180,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               >
                 <eventsItem.icon className="h-[18px] w-[18px]" />
-                {eventsItem.name}
+                {navLabel(eventsItem.name)}
               </Link>
             )}
           </React.Fragment>
@@ -1455,7 +1208,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <crmItem.icon className="h-[18px] w-[18px]" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">{crmItem.name}</TooltipContent>
+                <TooltipContent side="right">{navLabel(crmItem.name)}</TooltipContent>
               </Tooltip>
             ) : (
               <Link
@@ -1468,7 +1221,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               >
                 <crmItem.icon className="h-[18px] w-[18px]" />
-                {crmItem.name}
+                {navLabel(crmItem.name)}
               </Link>
             )}
           </React.Fragment>
@@ -1498,7 +1251,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </Tooltip>
             ) : (
               <NavParent
-                name="Finanzas"
+                name={navLabel("Finanzas")}
                 icon={IcoBank}
                 parentHref="/dashboard/finance"
                 childrenItems={visibleFinanceSub}
@@ -1543,7 +1296,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               >
                 <IcoProducts className="h-[18px] w-[18px]" />
-                Productos
+                {navLabel("Productos")}
               </Link>
             )}
           </React.Fragment>
@@ -1568,14 +1321,14 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <providerModuleNav.icon className="h-[18px] w-[18px]" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">{providerModuleNav.name}</TooltipContent>
+                <TooltipContent side="right">{navLabel(providerModuleNav.name)}</TooltipContent>
               </Tooltip>
             ) : providerModuleNav.href === "/dashboard/logistics" ? (
               <NavParent
-                name="Logística"
+                name={navLabel("Logística")}
                 icon={IcoLogistics}
                 parentHref="/dashboard/logistics"
-                childrenItems={logisticsSubNav}
+                childrenItems={translatedLogisticsSub}
                 isInSection={isLogisticsPage}
                 expanded={logisticsExpanded}
                 onToggle={() => setLogisticsExpanded((e) => !e)}
@@ -1592,7 +1345,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                 )}
               >
                 <providerModuleNav.icon className="h-[18px] w-[18px]" />
-                {providerModuleNav.name}
+                {navLabel(providerModuleNav.name)}
               </Link>
             )}
           </React.Fragment>
@@ -1621,7 +1374,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               </Tooltip>
             ) : (
               <NavParent
-                name="Productividad"
+                name={navLabel("Productividad")}
                 icon={IcoChart}
                 childrenItems={visibleProductivitySub}
                 isInSection={isProductivityPage}
@@ -1757,69 +1510,63 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
             )}
           </nav>
 
-          {/* NAV_BOTTOM — Invita y gana + Ayuda y soporte */}
-          {!navConfigOpen && !eventScoped && !isCollapsed && (
-            <div className="px-2 pt-1 pb-1 space-y-0.5">
-              <div className="mx-1 mb-2 h-px bg-[var(--line-1)]" />
-              <button
-                onClick={() => {
-                  toast(tSidebar("bottom.inviteToast"));
-                }}
-                className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer"
-              >
-                <IcoGift className="h-[17px] w-[17px]" />
-                <span className="text-left">{tSidebar("bottom.invite")}</span>
-              </button>
-              <a
-                href="mailto:hello@hubents.com"
-                className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors no-underline"
-              >
-                <IcoHelp className="h-[17px] w-[17px]" />
-                <span>{tSidebar("bottom.support")}</span>
-              </a>
-            </div>
-          )}
-
-          {/* Collapsed: icon-only bottom nav */}
-          {!navConfigOpen && !eventScoped && isCollapsed && (
-            <div className="px-2 pt-1 pb-1 space-y-0.5">
-              <div className="mx-auto mb-2 h-px w-7 bg-[var(--line-1)]" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => toast(tSidebar("bottom.inviteToast"))}
-                    className="flex items-center justify-center rounded-[8px] p-3 text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer w-full"
-                  >
-                    <IcoGift className="h-5 w-5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">{tSidebar("bottom.invite")}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <a
-                    href="mailto:hello@hubents.com"
-                    className="flex items-center justify-center rounded-[8px] p-3 text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors no-underline w-full"
-                  >
-                    <IcoHelp className="h-5 w-5" />
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent side="right">{tSidebar("bottom.support")}</TooltipContent>
-              </Tooltip>
-            </div>
-          )}
-
-
-          {/* Footer: User chip + collapse toggle */}
+          {/* Footer: Invita y gana + Ayuda y soporte + collapse toggle */}
           <div className="px-0 py-3">
-            <div className="mx-2 mb-2 h-px bg-[var(--line-1)]" />
-            {!eventScoped && <UserChip collapsed={isCollapsed} />}
+            <div className="mx-2 mb-1 h-px bg-[var(--line-1)]" />
+
+            {/* Expanded */}
+            {!navConfigOpen && !eventScoped && !isCollapsed && (
+              <div className="px-2 pb-1 space-y-0.5">
+                <button
+                  onClick={() => toast(tSidebar("bottom.inviteToast"))}
+                  className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  <IcoGift className="h-[17px] w-[17px]" />
+                  <span className="text-left">{tSidebar("bottom.invite")}</span>
+                </button>
+                <a
+                  href="mailto:hello@hubents.com"
+                  className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors no-underline"
+                >
+                  <IcoHelp className="h-[17px] w-[17px]" />
+                  <span>{tSidebar("bottom.support")}</span>
+                </a>
+              </div>
+            )}
+
+            {/* Collapsed: icon-only */}
+            {!navConfigOpen && !eventScoped && isCollapsed && (
+              <div className="px-2 pb-1 space-y-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => toast(tSidebar("bottom.inviteToast"))}
+                      className="flex items-center justify-center rounded-[8px] p-3 text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer w-full"
+                    >
+                      <IcoGift className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{tSidebar("bottom.invite")}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a
+                      href="mailto:hello@hubents.com"
+                      className="flex items-center justify-center rounded-[8px] p-3 text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors no-underline w-full"
+                    >
+                      <IcoHelp className="h-5 w-5" />
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{tSidebar("bottom.support")}</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
 
             {/* Toggle Button */}
             {onToggle && !isEventView && (
               <button
                 onClick={onToggle}
-                className="mt-2 mx-2 flex items-center justify-center rounded-[8px] p-2 text-[var(--ink-3)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors"
+                className="mt-1 mx-2 flex items-center justify-center rounded-[8px] p-2 text-[var(--ink-3)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors"
                 style={{ width: "calc(100% - 16px)" }}
               >
                 {isCollapsed ? (

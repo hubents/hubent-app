@@ -34,7 +34,8 @@
       "audiovisual": "Audiovisual",
       "venues": "Venues",
       "warehouses": "Warehouses",
-      "orders": "Orders"
+      "orders": "Orders",
+      "coming": "Soon"
     },
     "bottom": {
       "invite": "Invite & earn up to €500",
@@ -1805,7 +1806,101 @@
       "errorAddPhoto": "Error adding photo"
     }
   },
-  "contacts": {},
+  "contacts": {
+    "types": {
+      "vendor": "Vendor",
+      "lead": "Lead",
+      "company": "Company",
+      "client": "Client"
+    },
+    "sort": {
+      "placeholder": "Sort by",
+      "nameAZ": "Name A → Z",
+      "nameZA": "Name Z → A",
+      "cityAZ": "City A → Z",
+      "type": "Type",
+      "groupName": "Name",
+      "groupCity": "City",
+      "groupType": "Type",
+      "clearSort": "Clear sort"
+    },
+    "actions": {
+      "viewDetails": "View details",
+      "call": "Call",
+      "whatsapp": "WhatsApp",
+      "sendEmail": "Send email",
+      "convertLead": "Convert to Lead",
+      "linkToEvent": "Link to event or task",
+      "delete": "Delete",
+      "moreActions": "Actions"
+    },
+    "kpi": {
+      "total": "Total contacts",
+      "totalSub": "all records",
+      "persons": "People",
+      "personsSub": "individual contacts",
+      "companies": "Companies",
+      "companiesSub": "organizations",
+      "vendors": "Vendors",
+      "vendorsSub": "linked to partners"
+    },
+    "segments": {
+      "all": "All",
+      "persons": "Person",
+      "companies": "Company",
+      "vendors": "Vendor"
+    },
+    "toolbar": {
+      "search": "Search...",
+      "export": "Export",
+      "import": "Import",
+      "goToPartners": "Go to Partners",
+      "newContact": "New contact"
+    },
+    "vendorNotice": "Vendors are not created here. Add them from Partners by marking them as favorites.",
+    "bulk": {
+      "selected": "{count, plural, one {# selected} other {# selected}}",
+      "export": "Export",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "empty": {
+      "title": "No contacts",
+      "filtered": "No contacts found with those filters",
+      "initial": "Create your first contact to get started"
+    },
+    "table": {
+      "contact": "Contact",
+      "title": "Title",
+      "address": "Address",
+      "id": "ID",
+      "type": "Type"
+    },
+    "pagination": "Showing {start}–{end} of {total}",
+    "confirm": {
+      "deleteOne": "Delete contact",
+      "deleteMany": "{count, plural, one {Delete # contact} other {Delete # contacts}}",
+      "deleteDesc": "This action cannot be undone.",
+      "deleteLabel": "Delete"
+    },
+    "csv": {
+      "noContacts": "No contacts to export",
+      "headers": {
+        "type": "Type",
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "city": "City",
+        "category": "Category",
+        "isVendor": "Is Vendor",
+        "tags": "Tags"
+      },
+      "typeCompany": "Company",
+      "typePerson": "Person",
+      "yes": "Yes",
+      "no": "No"
+    }
+  },
   "documents": {
     "pageTitle": "Documents",
     "pageSubtitle": "Contracts, proposals, internal files and resources",
