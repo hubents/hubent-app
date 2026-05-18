@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+
+const MapWithCircle = lazy(() =>
+  import("./map-with-circle").then((m) => ({ default: m.MapWithCircle }))
+);
 import { hgIcon } from "@/components/ui/hg-icon";
 import {
   ArrowLeft01Icon,
@@ -125,20 +129,6 @@ export function LocationPicker({ open, onClose, value, onApply }: LocationPicker
 
   const radiusLabel = radius >= RADIUS_MAX ? "Sin límite" : `${radius} km`;
   const radiusPct = Math.round(((radius - 10) / (RADIUS_MAX - 10)) * 100);
-
-  // Calculate OSM iframe bbox based on selected location and radius
-  const mapSrc = selected
-    ? (() => {
-        const delta = radius >= RADIUS_MAX ? 8 : Math.max(radius / 80, 0.05);
-        const bbox = [
-          (selected.lon - delta).toFixed(6),
-          (selected.lat - delta).toFixed(6),
-          (selected.lon + delta).toFixed(6),
-          (selected.lat + delta).toFixed(6),
-        ].join(",");
-        return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${selected.lat},${selected.lon}`;
-      })()
-    : null;
 
   const showSuggestions = suggestions.length > 0 && !selected;
   const showMap = !!selected && !showSuggestions;
@@ -298,16 +288,17 @@ export function LocationPicker({ open, onClose, value, onApply }: LocationPicker
           </div>
         )}
 
-        {/* Map */}
-        {showMap && mapSrc && (
+        {/* Map with radius circle */}
+        {showMap && selected && (
           <div style={{ flex: 1, minHeight: 0, marginTop: 12 }}>
-            <iframe
-              key={mapSrc}
-              src={mapSrc}
-              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-              loading="lazy"
-              title="Mapa de ubicación"
-            />
+            <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "#F0F0F0" }} />}>
+              <MapWithCircle
+                lat={selected.lat}
+                lon={selected.lon}
+                radiusKm={radius}
+                sinLimit={radius >= RADIUS_MAX}
+              />
+            </Suspense>
           </div>
         )}
 
