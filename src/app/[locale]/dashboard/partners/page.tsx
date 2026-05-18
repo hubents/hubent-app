@@ -465,27 +465,33 @@ function PartnersContent() {
             />
           </div>
 
-          {/* Category dropdown — dark when active */}
+          {/* Category dropdown — icon only */}
           <div ref={catRef} className="relative">
             <button
               onClick={() => setCatOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+              title={categories.length > 0 ? categories.join(", ") : t("category")}
+              className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors relative"
               style={{
-                padding: "7px 12px",
-                fontSize: 12.5,
-                fontWeight: 500,
+                padding: "7px 10px",
                 background: categories.length > 0 ? "var(--ink-1)" : "#FFFFFF",
                 color: categories.length > 0 ? "white" : "var(--ink-1)",
                 border: categories.length > 0 ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
               }}
             >
-              <IcoFilter className="h-3 w-3" />
-              {categories.length === 0
-                ? t("category")
-                : categories.length === 1
-                  ? categories[0]
-                  : `${categories.length} categorías`}
-              <IcoChevDown className="h-3 w-3" />
+              <IcoFilter className="h-3.5 w-3.5" />
+              {categories.length > 0 && (
+                <span style={{
+                  position: "absolute", top: -5, right: -5,
+                  background: "white", color: "var(--ink-1)",
+                  border: "1px solid var(--ink-1)",
+                  borderRadius: "50%", width: 15, height: 15,
+                  fontSize: 9, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  lineHeight: 1,
+                }}>
+                  {categories.length}
+                </span>
+              )}
             </button>
             {catOpen && (
               <div
@@ -567,23 +573,27 @@ function PartnersContent() {
             )}
           </div>
 
-          {/* Location picker button */}
+          {/* Location picker — icon only */}
           <button
             onClick={() => setLocationOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            title={location ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}` : (t("location") ?? "Ubicación")}
+            className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors relative"
             style={{
-              padding: "7px 12px",
-              fontSize: 12.5,
-              fontWeight: 500,
+              padding: "7px 10px",
               background: location ? "var(--ink-1)" : "#FFFFFF",
               color: location ? "white" : "var(--ink-1)",
               border: location ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
             }}
           >
-            <IcoMap className="h-3 w-3" />
-            {location
-              ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}`
-              : t("location") ?? "Ubicación"}
+            <IcoMap className="h-3.5 w-3.5" />
+            {location && (
+              <span style={{
+                position: "absolute", top: -5, right: -5,
+                width: 8, height: 8,
+                background: "white", border: "1.5px solid var(--ink-1)",
+                borderRadius: "50%",
+              }} />
+            )}
           </button>
 
           <LocationPicker
@@ -593,49 +603,40 @@ function PartnersContent() {
             onApply={(loc) => setLocation(loc)}
           />
 
-          {/* Mis proveedores toggle (favorites) — red bg when active */}
+          {/* Mis proveedores toggle — icono corazón */}
           <button
             onClick={() => setFavoritesOnly((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            title={t("myProviders")}
+            className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors"
             style={{
-              padding: "7px 12px",
-              fontSize: 12.5,
-              fontWeight: 500,
+              padding: "7px 10px",
               background: favoritesOnly ? "#FEF0F0" : "#FFFFFF",
               color: favoritesOnly ? "#C44" : "var(--ink-2)",
               border: `1px solid ${favoritesOnly ? "#E8B8B8" : "var(--line-strong)"}`,
             }}
           >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
+            <svg width="14" height="14" viewBox="0 0 24 24"
               fill={favoritesOnly ? "#C44" : "none"}
               stroke={favoritesOnly ? "#C44" : "currentColor"}
               strokeWidth="1.8"
             >
               <path d="M12 21s-8-5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-8 11-8 11z" />
             </svg>
-            {t("myProviders")}
           </button>
 
-          {/* Verified toggle — blue bg when active */}
+          {/* Verified toggle — icono verificado */}
           <button
             onClick={() => setVerifiedOnly((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            title={t("verified")}
+            className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors"
             style={{
-              padding: "7px 12px",
-              fontSize: 12.5,
-              fontWeight: 500,
+              padding: "7px 10px",
               background: verifiedOnly ? "#E8F0FB" : "#FFFFFF",
               color: verifiedOnly ? "#4B7BE8" : "var(--ink-2)",
               border: `1px solid ${verifiedOnly ? "#B8D0F0" : "var(--line-strong)"}`,
             }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
+            <svg width="14" height="14" viewBox="0 0 24 24"
               fill={verifiedOnly ? "#4B7BE8" : "none"}
               stroke={verifiedOnly ? "#4B7BE8" : "currentColor"}
               strokeWidth="1.8"
@@ -643,7 +644,6 @@ function PartnersContent() {
               <path d="M12 2l2.5 2.2 3.3-.3.7 3.3 3 1.5-1.2 3.1 1.2 3.1-3 1.5-.7 3.3-3.3-.3L12 22l-2.5-2.2-3.3.3-.7-3.3-3-1.5 1.2-3.1L2.5 9l3-1.5.7-3.3 3.3.3L12 2z" />
               <path d="M8.5 12l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.8" fill="none" />
             </svg>
-            {t("verified")}
           </button>
 
           {activeCount > 0 && (
