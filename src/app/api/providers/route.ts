@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const search = searchParams.get("search") || "";
-    const category = searchParams.get("category") || "";
+    const categoriesRaw = searchParams.get("categories") || searchParams.get("category") || "";
+    const categoryList = categoriesRaw ? categoriesRaw.split(",").map((c) => c.trim()).filter(Boolean) : [];
     const city = searchParams.get("city") || "";
     const countryFilter = searchParams.get("country") || "";
     const verified = searchParams.get("verified") === "true";
@@ -60,12 +61,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (category) {
-      const validCategories = ["booking", "logistica", "audiovisual", "otro"] as const;
-      type ProviderCategory = typeof validCategories[number];
-      if (validCategories.includes(category as ProviderCategory)) {
-        conditions.push(eq(organizations.providerCategory, category as ProviderCategory));
-      }
+    if (categoryList.length === 1) {
+      conditions.push(eq(organizations.providerCategory, categoryList[0]));
+    } else if (categoryList.length > 1) {
+      conditions.push(inArray(organizations.providerCategory, categoryList));
     }
 
     if (city) {

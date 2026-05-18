@@ -43,6 +43,27 @@ const IcoExternal = hgIcon(ExternalDriveIcon);
 const IcoSend = hgIcon(SentIcon);
 
 const PARTNERS_VIEW_STORAGE = "partners-view";
+const PARTNERS_FILTERS_STORAGE = "partners-filters";
+
+interface StoredFilters {
+  search: string;
+  categories: string[];
+  city: string;
+  country: string;
+  favoritesOnly: boolean;
+  verifiedOnly: boolean;
+}
+
+function readStoredFilters(): StoredFilters | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PARTNERS_FILTERS_STORAGE);
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredFilters;
+  } catch {
+    return null;
+  }
+}
 
 interface PartnersListing {
   id: number;
@@ -132,11 +153,15 @@ function PartnersContent() {
   const t = useTranslations("partners");
   const [providers, setProviders] = useState<PartnersListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [city, setCity] = useState("");
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const _sf = readStoredFilters();
+  const [search, setSearch] = useState(_sf?.search ?? "");
+  const [categories, setCategories] = useState<string[]>(_sf?.categories ?? []);
+  const [city, setCity] = useState(_sf?.city ?? "");
+  const [country, setCountry] = useState(_sf?.country ?? "");
+  const [favoritesOnly, setFavoritesOnly] = useState(_sf?.favoritesOnly ?? false);
+  const [verifiedOnly, setVerifiedOnly] = useState(_sf?.verifiedOnly ?? false);
+
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<"cards" | "list">(readStoredViewMode);
@@ -148,8 +173,7 @@ function PartnersContent() {
   const [inviting, setInviting] = useState(false);
   const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
   const [resendingId, setResendingId] = useState<number | null>(null);
-
-  const [country, setCountry] = useState("");
+  const filtersReady = useRef(false);
 
   const [catOpen, setCatOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -186,8 +210,20 @@ function PartnersContent() {
     return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
   }, [countryOpen]);
 
-  // Pre-fill country and city from the current org on first load
+  // Persist filters to localStorage whenever they change (skip first render to avoid overwriting saved state)
   useEffect(() => {
+    if (!filtersReady.current) {
+      filtersReady.current = true;
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const filters: StoredFilters = { search, categories, city, country, favoritesOnly, verifiedOnly };
+    localStorage.setItem(PARTNERS_FILTERS_STORAGE, JSON.stringify(filters));
+  }, [search, categories, city, country, favoritesOnly, verifiedOnly]);
+
+  // Pre-fill country and city from the current org on first load — only if no saved filters
+  useEffect(() => {
+    if (readStoredFilters() !== null) return;
     fetch("/api/user/me")
       .then((r) => r.json())
       .then((d) => {
@@ -274,7 +310,7 @@ function PartnersContent() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (category) params.set("category", category);
+      if (categories.length > 0) params.set("categories", categories.join(","));
       if (city) params.set("city", city);
       if (country) params.set("country", country);
       if (favoritesOnly) params.set("favorites", "true");
@@ -293,11 +329,11 @@ function PartnersContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, city, country, favoritesOnly, verifiedOnly, page]);
+  }, [search, categories, city, country, favoritesOnly, verifiedOnly, page]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, category, city, country, favoritesOnly, verifiedOnly]);
+  }, [search, categories, city, country, favoritesOnly, verifiedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchProviders, 300);
@@ -336,16 +372,17 @@ function PartnersContent() {
 
   const clearFilters = () => {
     setSearch("");
-    setCategory("");
+    setCategories([]);
     setCity("");
     setCountry("");
     setFavoritesOnly(false);
     setVerifiedOnly(false);
+    if (typeof window !== "undefined") localStorage.removeItem(PARTNERS_FILTERS_STORAGE);
   };
 
-  const hasFilters = !!(search || category || city || country || favoritesOnly || verifiedOnly);
+  const hasFilters = !!(search || categories.length || city || country || favoritesOnly || verifiedOnly);
   const activeCount =
-    (category ? 1 : 0) + (city ? 1 : 0) + (country ? 1 : 0) +
+    (categories.length > 0 ? 1 : 0) + (city ? 1 : 0) + (country ? 1 : 0) +
     (favoritesOnly ? 1 : 0) + (verifiedOnly ? 1 : 0) + (search ? 1 : 0);
 
   // Build lookup: normalized provider name → pending claim (for card badges)
@@ -355,7 +392,7 @@ function PartnersContent() {
 
   // Build dropdown options from loaded providers
   const cities = [t("filterAll"), ...Array.from(new Set(providers.map((p) => p.city).filter((c): c is string => !!c))).sort()];
-  const categories = [t("filterAll"), ...PROVIDER_CATEGORIES];
+  const categoryOptions = PROVIDER_CATEGORIES as readonly string[];
 
   // Countries: derive from loaded providers + keep current filter value visible
   const countryNames = new Intl.DisplayNames(["es"], { type: "region" });
@@ -478,47 +515,92 @@ function PartnersContent() {
                 padding: "7px 12px",
                 fontSize: 12.5,
                 fontWeight: 500,
-                background: category ? "var(--ink-1)" : "#FFFFFF",
-                color: category ? "white" : "var(--ink-1)",
-                border: category ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+                background: categories.length > 0 ? "var(--ink-1)" : "#FFFFFF",
+                color: categories.length > 0 ? "white" : "var(--ink-1)",
+                border: categories.length > 0 ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
               }}
             >
               <IcoFilter className="h-3 w-3" />
-              {category || t("category")}
+              {categories.length === 0
+                ? t("category")
+                : categories.length === 1
+                  ? categories[0]
+                  : `${categories.length} categorías`}
               <IcoChevDown className="h-3 w-3" />
             </button>
             {catOpen && (
               <div
-                className="absolute left-0 top-[calc(100%+4px)] min-w-[200px] rounded-[8px] p-1 z-50"
+                className="absolute left-0 top-[calc(100%+4px)] rounded-[8px] p-1 z-50"
                 style={{
                   background: "white",
                   border: "1px solid var(--line-1)",
                   boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                  minWidth: 240,
+                  maxHeight: 320,
+                  overflowY: "auto",
                 }}
               >
-                {categories.map((c) => {
-                  const isAll = c === t("filterAll");
-                  const active = isAll ? !category : category === c;
+                {/* Limpiar selección */}
+                {categories.length > 0 && (
+                  <button
+                    onClick={() => setCategories([])}
+                    className="flex items-center w-full text-left cursor-pointer transition-colors"
+                    style={{
+                      padding: "7px 10px",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid var(--line-1)",
+                      borderRadius: 0,
+                      fontSize: 12,
+                      color: "var(--ink-3)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Limpiar selección
+                  </button>
+                )}
+                {categoryOptions.map((c) => {
+                  const checked = categories.includes(c);
                   return (
                     <button
                       key={c}
                       onClick={() => {
-                        setCategory(isAll ? "" : c);
-                        setCatOpen(false);
+                        setCategories((prev) =>
+                          checked ? prev.filter((x) => x !== c) : [...prev, c]
+                        );
                       }}
-                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
+                      className="flex items-center justify-between w-full text-left cursor-pointer transition-colors"
                       style={{
                         padding: "8px 10px",
-                        background: active ? "var(--bg-subtle)" : "transparent",
+                        background: checked ? "var(--bg-subtle)" : "transparent",
                         border: "none",
                         borderRadius: 4,
                         fontSize: 12.5,
-                        fontWeight: active ? 600 : 400,
+                        fontWeight: checked ? 600 : 400,
                         color: "var(--ink-1)",
+                        gap: 8,
                       }}
                     >
-                      {active && <IcoCheck className="h-3 w-3" />}
-                      <span style={{ marginLeft: active ? 0 : 20 }}>{c}</span>
+                      <span>{c}</span>
+                      <span
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          border: checked ? "none" : "1.5px solid var(--line-strong)",
+                          background: checked ? "var(--ink-1)" : "transparent",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {checked && (
+                          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                            <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </span>
                     </button>
                   );
                 })}
