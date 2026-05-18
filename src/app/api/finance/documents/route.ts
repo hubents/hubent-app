@@ -86,6 +86,7 @@ export const POST = withMonitoring(
         globalSurchargeType: body.globalSurchargeType,
         paymentMethod: body.paymentMethod,
         bankAccountId: body.bankAccountId,
+        attachedContractId: body.attachedContractId,
         direction: body.direction,
         currency: body.currency,
         status: body.status,

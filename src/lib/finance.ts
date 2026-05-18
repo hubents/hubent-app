@@ -477,6 +477,7 @@ export async function createDocument(
     globalSurchargeType?: "percentage" | "fixed";
     paymentMethod?: string;
     bankAccountId?: number;
+    attachedContractId?: number;
     direction?: "incoming" | "outgoing";
     status?: "draft" | "approved";
     currency?: string;
@@ -585,6 +586,7 @@ export async function createDocument(
       globalSurchargeType,
       paymentMethod: data.paymentMethod,
       bankAccountId: data.bankAccountId,
+      attachedContractId: data.attachedContractId,
       direction,
       notes: data.notes,
       termsAndConditions: data.termsAndConditions,
@@ -755,6 +757,7 @@ export async function updateDocument(
     globalSurchargeType?: "percentage" | "fixed";
     paymentMethod?: string;
     bankAccountId?: number;
+    attachedContractId?: number | null;
     direction?: "incoming" | "outgoing";
     currency?: string;
     items?: Array<{
@@ -825,6 +828,8 @@ export async function updateDocument(
     updateData.paymentMethod = data.paymentMethod || null;
   if (data.bankAccountId !== undefined)
     updateData.bankAccountId = data.bankAccountId || null;
+  if (data.attachedContractId !== undefined)
+    updateData.attachedContractId = data.attachedContractId || null;
   if (data.direction !== undefined) updateData.direction = data.direction;
   if (data.currency !== undefined) updateData.currency = data.currency;
   if (data.globalDiscount !== undefined)

@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
-import { SessionProvider } from "@/components/providers/session-provider";
-import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -15,12 +12,8 @@ export const metadata: Metadata = {
   title: "Hubents - Wedding & Event Management",
   description: "Plataforma integral para gestión de bodas y eventos",
   icons: {
-    icon: [
-      { url: "/images/icon.png", type: "image/png" },
-    ],
-    apple: [
-      { url: "/images/icon.png", sizes: "180x180", type: "image/png" },
-    ],
+    icon: [{ url: "/images/icon.png", type: "image/png" }],
+    apple: [{ url: "/images/icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -32,11 +25,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${dmSans.variable} antialiased`} suppressHydrationWarning>
-        <SessionProvider>
-          {children}
-        </SessionProvider>
-        <Toaster position="top-right" />
-        <Analytics />
+        {children}
       </body>
     </html>
   );

@@ -2364,6 +2364,8 @@ export const financialDocuments = pgTable("financial_documents", {
 
   sourceOrgId: integer("source_org_id").references(() => organizations.id),
 
+  attachedContractId: integer("attached_contract_id").references(() => orgDocuments.id, { onDelete: "set null" }),
+
   createdBy: text("created_by").references(() => users.id),
 
   createdAt: timestamp("created_at").defaultNow(),

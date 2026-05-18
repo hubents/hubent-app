@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { Logo } from "@/components/ui/logo";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { useEvent } from "@/contexts/event-context";
 import { useSession, signOut } from "next-auth/react";
@@ -187,6 +188,7 @@ type Org = { id: number; name: string; slug: string; logo?: string | null };
 
 function TenantChip({ collapsed }: { collapsed: boolean }) {
   const router = useRouter();
+  const tMenu = useTranslations("userMenu");
   const [open, setOpen] = useState(false);
   const [org, setOrg] = useState<Org | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -271,21 +273,21 @@ function TenantChip({ collapsed }: { collapsed: boolean }) {
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoStore className="h-4 w-4 text-[var(--ink-2)]" />
-            Mi Perfil Público
+            {tMenu("publicProfile")}
           </button>
           <button
             onClick={() => { setOpen(false); router.push("/dashboard/team"); }}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoTeam className="h-4 w-4 text-[var(--ink-2)]" />
-            Usuarios
+            {tMenu("users")}
           </button>
           <button
             onClick={() => { setOpen(false); router.push("/dashboard/settings"); }}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoSettings className="h-4 w-4 text-[var(--ink-2)]" />
-            Configuración
+            {tMenu("settings")}
           </button>
           <div className="my-1 mx-1 h-px bg-[var(--line-1)]" />
           <button
@@ -293,7 +295,7 @@ function TenantChip({ collapsed }: { collapsed: boolean }) {
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-2)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoAdd className="h-4 w-4 text-[var(--ink-2)]" />
-            Cambiar de espacio
+            {tMenu("switchSpace")}
           </button>
         </div>
       )}
@@ -360,6 +362,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
   const { data: session } = useSession();
   useUserSession();
   const onboarding = useOnboardingProgress();
+  const tMenu = useTranslations("userMenu");
   const [open, setOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("sand");
@@ -385,7 +388,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
     return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
   }, [open]);
 
-  const name = session?.user?.name || "Usuario";
+  const name = session?.user?.name || tMenu("userFallback");
   const email = session?.user?.email || "";
   const userImage = (session?.user as { image?: string | null })?.image;
 
@@ -407,7 +410,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {obPct < 100 ? `Perfil ${obPct}% completo — ${name}` : `${name} — Mi perfil`}
+            {obPct < 100 ? tMenu("profilePct", { pct: obPct, name }) : tMenu("profileComplete", { name })}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -469,21 +472,21 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoUser className="h-4 w-4 text-[var(--ink-2)]" />
-            Mi perfil
+            {tMenu("profile")}
           </button>
           <button
             onClick={() => { setOpen(false); router.push("/dashboard/public-profile"); }}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoStore className="h-4 w-4 text-[var(--ink-2)]" />
-            Mi Perfil Público
+            {tMenu("publicProfile")}
           </button>
           <button
             onClick={() => { setOpen(false); router.push("/dashboard/settings"); }}
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-1)] hover:bg-[var(--bg-subtle)]"
           >
             <IcoSettings className="h-4 w-4 text-[var(--ink-2)]" />
-            Preferencias
+            {tMenu("preferences")}
           </button>
 
           {/* Tweaks (theme + density) */}
@@ -494,7 +497,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
           >
             <span className="flex items-center gap-2.5">
               <IcoDashboard className="h-4 w-4 text-[var(--ink-2)]" />
-              Tweaks
+              {tMenu("tweaks")}
             </span>
             <IcoChevDown
               className={cn(
@@ -507,15 +510,10 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
             <div className="mx-1.5 mb-1 mt-0.5 flex flex-col gap-3 rounded-[10px] bg-[var(--bg-subtle)] p-2.5">
               <div>
                 <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">
-                  Tema
+                  {tMenu("theme")}
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {([
-                    ["sand", "Arena"],
-                    ["mono", "Mono"],
-                    ["forest", "Bosque"],
-                    ["dark", "Oscuro"],
-                  ] as const).map(([v, l]) => {
+                  {(["sand", "mono", "forest", "dark"] as const).map((v) => {
                     const active = theme === v;
                     return (
                       <button
@@ -528,7 +526,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
                             : "bg-white text-[var(--ink-2)] border border-[var(--line-1)] hover:border-[var(--line-strong)]"
                         )}
                       >
-                        {l}
+                        {tMenu(`themes.${v}`)}
                       </button>
                     );
                   })}
@@ -536,13 +534,10 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
               </div>
               <div>
                 <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">
-                  Densidad
+                  {tMenu("density")}
                 </div>
                 <div className="flex gap-1">
-                  {([
-                    ["comfortable", "Cómoda"],
-                    ["compact", "Compacta"],
-                  ] as const).map(([v, l]) => {
+                  {(["comfortable", "compact"] as const).map((v) => {
                     const active = density === v;
                     return (
                       <button
@@ -555,7 +550,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
                             : "bg-white text-[var(--ink-2)] border border-[var(--line-1)] hover:border-[var(--line-strong)]"
                         )}
                       >
-                        {l}
+                        {tMenu(`densities.${v}`)}
                       </button>
                     );
                   })}
@@ -570,7 +565,7 @@ function UserChip({ collapsed }: { collapsed: boolean }) {
             className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left text-[12.5px] font-medium text-[var(--ink-2)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-1)]"
           >
             <IcoLogout className="h-4 w-4 text-[var(--ink-2)]" />
-            Cerrar sesión
+            {tMenu("signOut")}
           </button>
         </div>
       )}
@@ -598,6 +593,8 @@ function NavConfigPanel({
   onSave,
   onCancel,
 }: NavConfigPanelProps) {
+  const tSidebar = useTranslations("sidebar");
+  const tMenu = useTranslations("userMenu");
   const [hidden, setHidden] = React.useState<string[]>(initialPrefs.hidden);
   const [order, setOrder] = React.useState<string[]>(() => {
     const available = availableSections.map((s) => s.id);
@@ -654,12 +651,30 @@ function NavConfigPanel({
 
   const displayOrder = order.filter((id) => availableSections.some((s) => s.id === id));
 
+  const subItemLabelMap: Record<string, string> = {
+    "contacts.Todos":        tSidebar("nav.contacts"),
+    "contacts.Personas":     tSidebar("nav.people"),
+    "contacts.Empresas":     tSidebar("nav.companies"),
+    "contacts.Proveedores":  tSidebar("nav.vendors"),
+    "finance.Dashboard":     tSidebar("nav.financeOverview"),
+    "finance.Presupuestos":  tSidebar("nav.quotes"),
+    "finance.Facturas":      tSidebar("nav.invoices"),
+    "finance.Rectificativas":tSidebar("nav.creditNotes"),
+    "finance.Albaranes":     tSidebar("nav.deliveryNotes"),
+    "finance.Pagos":         tSidebar("nav.payments"),
+    "finance.Configuración": tSidebar("nav.financeSettings"),
+    "productivity.Calendario":tSidebar("nav.calendar"),
+    "productivity.Tareas":   tSidebar("nav.tasks"),
+    "productivity.Formularios":tSidebar("nav.forms"),
+    "productivity.Documentos":tSidebar("nav.documents"),
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="px-[14px] pt-4 pb-2">
-        <div className="text-[13.5px] font-semibold text-[var(--ink-1)]">Personaliza tu navegación</div>
-        <div className="text-[11px] text-[var(--ink-4)] mt-0.5">Marca las categorías que quieras ver y arrástralas para cambiar el orden.</div>
+        <div className="text-[13.5px] font-semibold text-[var(--ink-1)]">{tSidebar("navConfig.title")}</div>
+        <div className="text-[11px] text-[var(--ink-4)] mt-0.5">{tSidebar("navConfig.description")}</div>
       </div>
 
       {/* Scrollable section list */}
@@ -754,7 +769,7 @@ function NavConfigPanel({
                             "text-[12px]",
                             subChecked ? "text-[var(--ink-1)]" : "text-[var(--ink-4)]"
                           )}>
-                            {sub.label}
+                            {subItemLabelMap[sub.id] ?? sub.label}
                           </span>
                         </label>
                       );
@@ -771,17 +786,17 @@ function NavConfigPanel({
 
         {/* Theme — dropdown */}
         <div className="mb-3">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">Tema</div>
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[.08em] text-[var(--ink-4)]">{tMenu("theme")}</div>
           <div className="relative">
             <select
               value={draftTheme}
               onChange={(e) => setDraftTheme(e.target.value as Theme)}
               className="w-full appearance-none rounded-[8px] border border-[var(--line-1)] bg-white px-3 py-[7px] text-[12.5px] text-[var(--ink-1)] cursor-pointer pr-8 focus:outline-none focus:border-[var(--ink-2)]"
             >
-              <option value="sand">Arena</option>
-              <option value="mono">Mono</option>
-              <option value="forest">Bosque</option>
-              <option value="dark">Oscuro</option>
+              <option value="sand">{tMenu("themes.sand")}</option>
+              <option value="mono">{tMenu("themes.mono")}</option>
+              <option value="forest">{tMenu("themes.forest")}</option>
+              <option value="dark">{tMenu("themes.dark")}</option>
             </select>
             <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-3)]" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="2,4 6,8 10,4" />
@@ -798,13 +813,13 @@ function NavConfigPanel({
           onClick={() => onSave({ hidden, order }, draftTheme)}
           className="w-full rounded-[8px] bg-[var(--ink-1)] px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[var(--ink-2)]"
         >
-          Guardar
+          {tSidebar("navConfig.save")}
         </button>
         <button
           onClick={onCancel}
           className="w-full rounded-[8px] border border-[var(--line-1)] px-3 py-2 text-[13px] font-medium text-[var(--ink-2)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)]"
         >
-          Cancelar
+          {tSidebar("navConfig.cancel")}
         </button>
       </div>
     </div>
@@ -1069,6 +1084,44 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
   const { isEventView } = useEvent();
   const { can, eventScoped, orgType, providerModule, data: sessionData } = useUserSession();
   const orgId = sessionData?.organizationId;
+  const tSidebar = useTranslations("sidebar");
+
+  const navNameMap = useMemo<Record<string, string>>(() => ({
+    "Dashboard":    tSidebar("sections.dashboard"),
+    "Eventos":      tSidebar("sections.events"),
+    "CRM":          tSidebar("sections.crm"),
+    "Contactos":    tSidebar("sections.contacts"),
+    "Finanzas":     tSidebar("sections.finance"),
+    "Productos":    tSidebar("sections.products"),
+    "Logística":    tSidebar("sections.providerModule"),
+    "Audiovisual":  tSidebar("sections.providerModule"),
+    "Venues":       tSidebar("sections.providerModule"),
+    "Productividad":tSidebar("sections.productivity"),
+    "HubIA":        tSidebar("sections.ai"),
+    "Partners":     tSidebar("sections.partners"),
+    "Presupuestos": tSidebar("nav.quotes"),
+    "Facturas":     tSidebar("nav.invoices"),
+    "Rectificativas":tSidebar("nav.creditNotes"),
+    "Albaranes":    tSidebar("nav.deliveryNotes"),
+    "Pagos":        tSidebar("nav.payments"),
+    "Configuración":tSidebar("nav.financeSettings"),
+    "Dashboard fin.":tSidebar("nav.financeOverview"),
+    "Calendario":   tSidebar("nav.calendar"),
+    "Tareas":       tSidebar("nav.tasks"),
+    "Formularios":  tSidebar("nav.forms"),
+    "Documentos":   tSidebar("nav.documents"),
+    "Todos":        tSidebar("nav.contacts"),
+    "Personas":     tSidebar("nav.people"),
+    "Empresas":     tSidebar("nav.companies"),
+    "Proveedores":  tSidebar("nav.vendors"),
+    "Catálogo":     tSidebar("nav.products"),
+    "Booking":      tSidebar("nav.booking"),
+    "Almacenes":    tSidebar("nav.warehouses"),
+    "Órdenes":      tSidebar("nav.orders"),
+  }), [tSidebar]);
+
+  const navLabel = (name: string) => navNameMap[name] ?? name;
+
   const [financeExpanded, setFinanceExpanded] = useState(false);
   const [productivityExpanded, setProductivityExpanded] = useState(false);
   const [contactsExpanded, setContactsExpanded] = useState(false);
@@ -1142,6 +1195,18 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
 
   // Sections this user can actually see (used by NavConfigPanel)
   const availableSections = useMemo(() => {
+    const sectionLabel: Record<string, string> = {
+      dashboard:       tSidebar("sections.dashboard"),
+      partners:        tSidebar("sections.partners"),
+      contacts:        tSidebar("sections.contacts"),
+      events:          tSidebar("sections.events"),
+      crm:             tSidebar("sections.crm"),
+      finance:         tSidebar("sections.finance"),
+      products:        tSidebar("sections.products"),
+      "provider-module": tSidebar("sections.providerModule"),
+      productivity:    tSidebar("sections.productivity"),
+      ai:              tSidebar("sections.ai"),
+    };
     return ALL_SECTIONS.filter((s) => {
       if (s.id === "dashboard") return true;
       if (s.id === "partners") return hasSection("partners");
@@ -1154,8 +1219,8 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
       if (s.id === "productivity") return hasSection("productivity") && !eventScoped;
       if (s.id === "ai") return hasSection("ai") && !eventScoped;
       return false;
-    });
-  }, [orgType, hasSection, showContacts, showFinance, eventScoped, providerModuleNav]);
+    }).map((s) => ({ ...s, label: sectionLabel[s.id] ?? s.label }));
+  }, [orgType, hasSection, showContacts, showFinance, eventScoped, providerModuleNav, tSidebar]);
 
   // Ordered section IDs respecting saved prefs (hidden sections excluded)
   const orderedSectionIds = useMemo(() => {
@@ -1225,7 +1290,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                         <item.icon className="h-[18px] w-[18px]" />
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent side="right">{item.name}</TooltipContent>
+                    <TooltipContent side="right">{navLabel(item.name)}</TooltipContent>
                   </Tooltip>
                 );
               }
@@ -1241,7 +1306,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   )}
                 >
                   <item.icon className="h-[18px] w-[18px]" />
-                  {item.name}
+                  {navLabel(item.name)}
                 </Link>
               );
             })}
@@ -1269,7 +1334,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                         <item.icon className="h-[18px] w-[18px]" />
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent side="right">{item.name}</TooltipContent>
+                    <TooltipContent side="right">{navLabel(item.name)}</TooltipContent>
                   </Tooltip>
                 );
               }
@@ -1285,7 +1350,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   )}
                 >
                   <item.icon className="h-[18px] w-[18px]" />
-                  {item.name}
+                  {navLabel(item.name)}
                 </Link>
               );
             })}
@@ -1311,7 +1376,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoContacts className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Contactos</TooltipContent>
+                <TooltipContent side="right">{navLabel("Contactos")}</TooltipContent>
               </Tooltip>
             ) : (
               <NavParent
@@ -1429,7 +1494,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoBank className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Finanzas</TooltipContent>
+                <TooltipContent side="right">{navLabel("Finanzas")}</TooltipContent>
               </Tooltip>
             ) : (
               <NavParent
@@ -1465,7 +1530,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoProducts className="h-[18px] w-[18px]" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Productos</TooltipContent>
+                <TooltipContent side="right">{navLabel("Productos")}</TooltipContent>
               </Tooltip>
             ) : (
               <Link
@@ -1552,7 +1617,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoChart className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Productividad</TooltipContent>
+                <TooltipContent side="right">{navLabel("Productividad")}</TooltipContent>
               </Tooltip>
             ) : (
               <NavParent
@@ -1588,7 +1653,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoSparkles className="h-5 w-5" />
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">HubIA</TooltipContent>
+                <TooltipContent side="right">{navLabel("HubIA")}</TooltipContent>
               </Tooltip>
             ) : (
               <Link
@@ -1686,7 +1751,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                   onClick={() => setNavConfigOpen(true)}
                   className="text-[11.5px] text-[var(--ink-4)] hover:text-[var(--ink-2)] transition-colors px-[8px] py-1"
                 >
-                  Configurar barra lateral
+                  {tSidebar("bottom.configSidebar")}
                 </button>
               </div>
             )}
@@ -1698,19 +1763,19 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               <div className="mx-1 mb-2 h-px bg-[var(--line-1)]" />
               <button
                 onClick={() => {
-                  toast("Programa de referidos — próximamente");
+                  toast(tSidebar("bottom.inviteToast"));
                 }}
                 className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer"
               >
                 <IcoGift className="h-[17px] w-[17px]" />
-                <span className="text-left">Invita y gana hasta 500€</span>
+                <span className="text-left">{tSidebar("bottom.invite")}</span>
               </button>
               <a
                 href="mailto:hello@hubents.com"
                 className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-normal text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors no-underline"
               >
                 <IcoHelp className="h-[17px] w-[17px]" />
-                <span>Ayuda y soporte</span>
+                <span>{tSidebar("bottom.support")}</span>
               </a>
             </div>
           )}
@@ -1722,13 +1787,13 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => toast("Programa de referidos — próximamente")}
+                    onClick={() => toast(tSidebar("bottom.inviteToast"))}
                     className="flex items-center justify-center rounded-[8px] p-3 text-[var(--ink-2)] hover:bg-[var(--bg-hover)] hover:text-[var(--ink-1)] transition-colors bg-transparent border-none cursor-pointer w-full"
                   >
                     <IcoGift className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right">Invita y gana hasta 500€</TooltipContent>
+                <TooltipContent side="right">{tSidebar("bottom.invite")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1739,7 +1804,7 @@ export function MainSidebar({ collapsed = false, onToggle }: MainSidebarProps) {
                     <IcoHelp className="h-5 w-5" />
                   </a>
                 </TooltipTrigger>
-                <TooltipContent side="right">Ayuda y soporte</TooltipContent>
+                <TooltipContent side="right">{tSidebar("bottom.support")}</TooltipContent>
               </Tooltip>
             </div>
           )}

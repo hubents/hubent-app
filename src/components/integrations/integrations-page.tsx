@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IntegrationCard } from "./integration-card";
@@ -16,6 +17,7 @@ interface IntegrationsPageProps {
 }
 
 export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
+  const t = useTranslations("settingsSub");
   const searchParams = useSearchParams();
   const { toolkits, comingSoonApps, loading, connect, disconnect, refresh } = useIntegrations();
   const { role, can } = useUserSession();
@@ -30,7 +32,7 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
     const error = searchParams.get("error");
 
     if (connected) {
-      toast.success(`${connected} conectado correctamente`);
+      toast.success(`${connected} ${t("integrationsConnectedOk")}`);
       refresh();
       window.history.replaceState(
         {},
@@ -41,10 +43,10 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
     if (error) {
       toast.error(
         error === "connection_failed"
-          ? "Error al conectar la integración"
+          ? t("integrationsErrorConnection")
           : error === "missing_params"
-          ? "Parámetros faltantes en callback"
-          : "Error inesperado"
+          ? t("integrationsErrorMissingParams")
+          : t("integrationsErrorUnexpected")
       );
       window.history.replaceState(
         {},
@@ -62,11 +64,10 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <RiPlugLine className="w-6 h-6" />
-          Integraciones
+          {t("integrationsTitle")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Conectá tus apps externas para enviar emails, mensajes de WhatsApp y más
-          desde Hubents.
+          {t("integrationsSubtitle")}
         </p>
       </div>
 
@@ -79,23 +80,23 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
         <Tabs defaultValue={connectedToolkits.length > 0 ? "my-apps" : "marketplace"}>
           <TabsList>
             <TabsTrigger value="my-apps">
-              Mis Apps{" "}
+              {t("integrationsMyApps")}{" "}
               {connectedToolkits.length > 0 && (
                 <span className="ml-1 text-[10px] bg-green-600 text-white rounded-full px-1.5">
                   {connectedToolkits.length}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            <TabsTrigger value="marketplace">{t("integrationsMarketplace")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="my-apps" className="mt-4 space-y-3">
             {connectedToolkits.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <RiPlugLine className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No tenés apps conectadas</p>
+                <p className="text-sm">{t("integrationsNoApps")}</p>
                 <p className="text-xs mt-1">
-                  Andá al Marketplace para conectar Gmail, WhatsApp y más
+                  {t("integrationsNoAppsHint")}
                 </p>
               </div>
             ) : (
@@ -115,7 +116,7 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
             {/* Disponibles */}
             <div>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Disponibles
+                {t("integrationsAvailable")}
               </h3>
               <div className="space-y-3">
                 {toolkits.map((toolkit) => (
@@ -134,7 +135,7 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
             {comingSoonApps.length > 0 && (
               <div className="border-t pt-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  Próximamente
+                  {t("integrationsSoon")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {comingSoonApps.map((app) => (
@@ -149,8 +150,7 @@ export function IntegrationsPage({ portalType }: IntegrationsPageProps) {
 
       {!canManage && !loading && (
         <p className="text-xs text-muted-foreground border-t pt-3">
-          Solo el owner o admin de la organización puede conectar/desconectar
-          integraciones.
+          {t("integrationsReadOnly")}
         </p>
       )}
     </div>

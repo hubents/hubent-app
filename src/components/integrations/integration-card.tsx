@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ export function IntegrationCard({
   onConnect,
   onDisconnect,
 }: IntegrationCardProps) {
+  const t = useTranslations("settingsSub");
   const [imgError, setImgError] = useState(false);
   const initials = name.slice(0, 2).toUpperCase();
 
@@ -67,11 +69,11 @@ export function IntegrationCard({
               <h3 className="font-medium text-sm">{name}</h3>
               {isConnected ? (
                 <Badge variant="default" className="bg-green-600 text-[10px] px-1.5 py-0">
-                  Conectado
+                  {t("integrationsConnected")}
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  No conectado
+                  {t("integrationsNotConnected")}
                 </Badge>
               )}
             </div>
@@ -82,7 +84,7 @@ export function IntegrationCard({
               <p className="text-xs text-muted-foreground mt-1">
                 {connectedEmail}
                 {connectedByName && (
-                  <span> · Conectado por {connectedByName}</span>
+                  <span> · {t("integrationsConnectedBy")} {connectedByName}</span>
                 )}
               </p>
             )}
@@ -90,7 +92,7 @@ export function IntegrationCard({
             {requiresBusiness && !isConnected && (
               <div className="flex items-center gap-1 mt-1.5">
                 <span className="text-[10px] text-amber-600 font-medium">
-                  Requiere cuenta Business
+                  {t("integrationsRequiresBusiness")}
                 </span>
                 {helpTooltip && (
                   <TooltipProvider>
@@ -111,7 +113,7 @@ export function IntegrationCard({
                     rel="noopener noreferrer"
                     className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
                   >
-                    Cómo configurar
+                    {t("integrationsHowToSetup")}
                     <RiExternalLinkLine className="w-3 h-3" />
                   </a>
                 )}
@@ -129,7 +131,7 @@ export function IntegrationCard({
                   onClick={() => onConnect(slug)}
                   disabled={!canManage}
                 >
-                  Reconectar
+                  {t("integrationsReconnect")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -138,7 +140,7 @@ export function IntegrationCard({
                   onClick={() => onDisconnect(slug)}
                   disabled={!canManage}
                 >
-                  Desconectar
+                  {t("integrationsDisconnect")}
                 </Button>
               </>
             ) : (
@@ -148,7 +150,7 @@ export function IntegrationCard({
                 onClick={() => onConnect(slug)}
                 disabled={!canManage}
               >
-                Conectar
+                {t("integrationsConnect")}
               </Button>
             )}
           </div>

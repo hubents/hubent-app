@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   RiAddLine,
   RiSearchLine,
-  RiFilterLine,
   RiArrowDownSLine,
   RiArrowUpSLine,
   RiArrowUpDownLine,
@@ -14,6 +14,18 @@ import {
   RiDeleteBinLine,
   RiEyeLine,
 } from "@remixicon/react";
+import {
+  FilterHorizontalIcon,
+  Calendar01Icon,
+  Download01Icon,
+  ArrowDown01Icon,
+} from "@hugeicons/core-free-icons";
+import { hgIcon } from "@/components/ui/hg-icon";
+
+const IcoFilter   = hgIcon(FilterHorizontalIcon);
+const IcoCalendar = hgIcon(Calendar01Icon);
+const IcoDownload = hgIcon(Download01Icon);
+const IcoChevDown = hgIcon(ArrowDown01Icon);
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -61,36 +73,19 @@ interface Payment {
 }
 
 // Status pill colors — vivid palette from prototype's `statusColor()` (finance.jsx:471-490).
-const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  pending: { bg: "#F6D9BE", fg: "#A35A1F", label: "Pendiente" },
-  partial: { bg: "#D4E7F0", fg: "#2F6A85", label: "Parcial" },
-  paid: { bg: "#D9ECD1", fg: "#1F6A3A", label: "Pagada" },
-  overdue: { bg: "#F8D4D4", fg: "#8B2A2A", label: "Vencida" },
-  cancelled: { bg: "#F8D4D4", fg: "#8B2A2A", label: "Cancelado" },
-  complete: { bg: "#D9ECD1", fg: "#1F6A3A", label: "Pagada" },
+const STATUS_PILL_COLORS: Record<string, { bg: string; fg: string }> = {
+  pending:  { bg: "#F6D9BE", fg: "#A35A1F" },
+  partial:  { bg: "#D4E7F0", fg: "#2F6A85" },
+  paid:     { bg: "#D9ECD1", fg: "#1F6A3A" },
+  overdue:  { bg: "#F8D4D4", fg: "#8B2A2A" },
+  cancelled:{ bg: "#F8D4D4", fg: "#8B2A2A" },
+  complete: { bg: "#D9ECD1", fg: "#1F6A3A" },
 };
 
 // Type pill (Cobro vs Pago) — matches prototype's `typeColor` (finance.jsx:491-494).
-// Cobro = red (incoming, money to receive)  · Pago = green (outgoing, money paid out)
-const TYPE_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  incoming: { bg: "#F8D4D4", fg: "#8B2A2A", label: "Cobro" },
-  outgoing: { bg: "#D9ECD1", fg: "#1F6A3A", label: "Pago" },
-};
-
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "all", label: "Todos" },
-  { value: "pending", label: "Pendiente" },
-  { value: "partial", label: "Parcial" },
-  { value: "paid", label: "Pagada" },
-  { value: "overdue", label: "Vencida" },
-];
-
-const PAYMENT_METHODS: Record<string, string> = {
-  bank_transfer: "Transferencia",
-  cash: "Efectivo",
-  card: "Tarjeta",
-  stripe: "Stripe",
-  other: "Otro",
+const TYPE_PILL_COLORS: Record<string, { bg: string; fg: string }> = {
+  incoming: { bg: "#F8D4D4", fg: "#8B2A2A" },
+  outgoing: { bg: "#D9ECD1", fg: "#1F6A3A" },
 };
 
 interface PaymentsPageContentProps {
@@ -103,9 +98,26 @@ interface PaymentsPageContentProps {
 }
 
 export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) {
+  const t = useTranslations("finance");
   const isEventScoped = typeof eventId === "number";
   const { can } = useUserSession();
   const { formatCurrency } = useOrgCurrency();
+
+  const STATUS_OPTIONS: { value: string; label: string }[] = [
+    { value: "all",     label: t("filters.statusAll") },
+    { value: "pending", label: t("status.pending") },
+    { value: "partial", label: t("status.partial") },
+    { value: "paid",    label: t("status.paid") },
+    { value: "overdue", label: t("status.overdue") },
+  ];
+
+  const PAYMENT_METHODS: Record<string, string> = {
+    bank_transfer: t("paymentMethods.bank_transfer"),
+    cash:          t("paymentMethods.cash"),
+    card:          t("paymentMethods.card"),
+    stripe:        t("paymentMethods.stripe"),
+    other:         t("paymentMethods.other"),
+  };
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -119,6 +131,12 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
   const filterRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`);
+  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPaymentData, setEditPaymentData] = useState<EditPaymentData | null>(
@@ -163,6 +181,18 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
     fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directionFilter, page, scope, eventId]);
+
+  // Close date picker on outside click
+  useEffect(() => {
+    if (!datePickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setDatePickerOpen(false);
+      }
+    };
+    const id = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(id); document.removeEventListener("mousedown", handler); };
+  }, [datePickerOpen]);
 
   // Close status filter on outside click
   useEffect(() => {
@@ -209,28 +239,28 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
       }
     } catch (error) {
       console.error("Failed to fetch payments:", error);
-      setFetchError("No se pudo conectar con el servidor");
-      toast.error("Error al cargar pagos");
+      setFetchError(t("toast.connectError"));
+      toast.error(t("toast.loadPaymentsError"));
     } finally {
       setLoading(false);
     }
   }
 
   async function deletePayment(id: number) {
-    if (!await appConfirm({ title: "Eliminar pago", description: "Se recalculará el saldo del documento asociado. Esta acción no se puede deshacer.", confirmLabel: "Eliminar", variant: "destructive" })) return;
+    if (!await appConfirm({ title: t("confirm.deletePaymentTitle"), description: t("confirm.deletePaymentDescription"), confirmLabel: t("confirm.confirmLabel"), variant: "destructive" })) return;
     try {
       const res = await fetch(`/api/finance/payments/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        toast.success("Pago eliminado");
+        toast.success(t("toast.paymentDeleted"));
         fetchPayments();
       } else {
         const data = await res.json().catch(() => null);
-        toast.error(data?.error?.message || "Error al eliminar");
+        toast.error(data?.error?.message || t("toast.deleteError"));
       }
     } catch {
-      toast.error("Error al eliminar");
+      toast.error(t("toast.deleteError"));
     }
   }
 
@@ -269,17 +299,73 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
         }
       }
     } catch {
-      toast.error("Error al cargar documento");
+      toast.error(t("toast.loadError"));
     }
   }
 
   const getEntityName = (p: Payment) =>
-    p.contactName || p.vendorName || "Sin contacto";
+    p.contactName || p.vendorName || t("table.noContact");
 
-  // Apply search + status filter client-side (API only filters by direction).
+  const getStatusLabel = (status: string): string => {
+    const knownStatuses = ["paid","pending","draft","overdue","sent","accepted","cancelled","rejected","partial","delivered","payment_promise","approved","complete"];
+    return knownStatuses.includes(status)
+      ? t(`status.${status as "paid" | "pending" | "draft" | "overdue" | "sent" | "accepted" | "cancelled" | "rejected" | "partial" | "delivered" | "payment_promise" | "approved" | "complete"}`)
+      : status;
+  };
+
+  const getDirectionLabel = (direction: string): string => {
+    if (direction === "incoming") return t("direction.incomingLabel");
+    if (direction === "outgoing") return t("direction.outgoingLabel");
+    return direction;
+  };
+
+  function handleDownloadCSV() {
+    const toExport = selected.size > 0
+      ? sortedPayments.filter((p) => selected.has(p.id))
+      : sortedPayments;
+    const headers = [
+      t("payments.csvHeaders.date"),
+      t("payments.csvHeaders.client"),
+      t("payments.csvHeaders.method"),
+      t("payments.csvHeaders.type"),
+      t("payments.csvHeaders.reference"),
+      t("payments.csvHeaders.event"),
+      t("payments.csvHeaders.status"),
+      t("payments.csvHeaders.amount"),
+    ];
+    const rows = toExport.map((p) => [
+      p.paymentDate ? format(new Date(p.paymentDate), "dd/MM/yyyy") : "",
+      getEntityName(p),
+      p.paymentMethod ? (PAYMENT_METHODS[p.paymentMethod] || p.paymentMethod) : "",
+      getDirectionLabel(p.direction),
+      p.documentNumber || p.reference || "",
+      p.eventName || "",
+      getStatusLabel(p.status || "complete"),
+      parseFloat(p.amount || "0").toFixed(2),
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pagos-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Apply search + status + date filter client-side (API only filters by direction).
   const filteredPayments = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
     return payments.filter((p) => {
+      if (p.paymentDate) {
+        const d = new Date(p.paymentDate);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+      }
       if (statusFilter !== "all" && (p.status || "complete") !== statusFilter)
         return false;
       if (!q) return true;
@@ -295,7 +381,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [payments, searchTerm, statusFilter]);
+  }, [payments, searchTerm, statusFilter, dateFrom, dateTo]);
 
   // Sorted view
   const sortedPayments = useMemo(() => {
@@ -345,34 +431,34 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
       .reduce((s, p) => s + parseFloat(p.amount || "0"), 0);
     return [
       {
-        label: "Total cobrado",
+        label: t("payments.kpiCollected"),
         value: formatCurrency(incoming),
         delta: "",
-        sub: "del listado",
+        sub: t("payments.kpiOfList"),
       },
       {
-        label: "Total pagado",
+        label: t("payments.kpiPaid"),
         value: formatCurrency(outgoing),
         delta: "",
-        sub: "del listado",
+        sub: t("payments.kpiOfList"),
       },
       {
-        label: "Balance",
+        label: t("payments.kpiBalance"),
         value: formatCurrency(balance),
         delta: "",
-        sub: "neto en el período",
+        sub: t("payments.kpiNetPeriod"),
         balance: true,
         positive: balance >= 0,
       },
       {
-        label: "Vencidas",
+        label: t("payments.kpiOverdue"),
         value: formatCurrency(overdue),
         delta: "",
-        sub: "sin cobrar",
+        sub: t("payments.kpiUnpaid"),
         warn: overdue > 0,
       },
     ];
-  }, [payments, formatCurrency]);
+  }, [payments, formatCurrency, t]);
 
   if (loading) {
     return (
@@ -456,9 +542,9 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
         }}
       >
         {[
-          { key: "all" as const, label: "Todos" },
-          { key: "incoming" as const, label: "Cobros" },
-          { key: "outgoing" as const, label: "Pagos" },
+          { key: "all" as const, label: t("direction.all") },
+          { key: "incoming" as const, label: t("direction.incoming") },
+          { key: "outgoing" as const, label: t("direction.outgoing") },
         ].map((d) => {
           const active = directionFilter === d.key;
           return (
@@ -518,7 +604,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
               }}
             />
             <input
-              placeholder="Buscar por cliente, número, referencia..."
+              placeholder={t("filters.searchPayments")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -562,11 +648,11 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                 cursor: "pointer",
               }}
             >
-              <RiFilterLine size={13} />
+              <IcoFilter className="h-3.5 w-3.5" />
               {statusFilter === "all"
-                ? "Estado"
+                ? t("filters.status")
                 : STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label}
-              <RiArrowDownSLine size={12} />
+              <IcoChevDown className="h-3.5 w-3.5" />
             </button>
             {filterOpen && (
               <div
@@ -615,6 +701,63 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
             )}
           </div>
 
+          {/* Date range */}
+          <div ref={datePickerRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setDatePickerOpen((o) => !o)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 12px",
+                border: "1px solid var(--line-strong)",
+                borderRadius: "var(--r-sm)",
+                background: "var(--bg-panel)",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--ink-1)",
+                cursor: "pointer",
+              }}
+            >
+              <IcoCalendar className="h-3.5 w-3.5" />
+              {format(new Date(dateFrom), "dd/MM/yyyy")} — {format(new Date(dateTo), "dd/MM/yyyy")}
+              <IcoChevDown className="h-3.5 w-3.5" />
+            </button>
+            {datePickerOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 240, background: "#FFFFFF", border: "1px solid var(--line-1)", borderRadius: "var(--r-md)", boxShadow: "0 8px 24px rgba(15,16,18,.08)", padding: 16, zIndex: 30, display: "flex", flexDirection: "column", gap: 12 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  {t("filters.dateFrom")}
+                  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink-3)" }}>
+                  {t("filters.dateTo")}
+                  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: "6px 10px", border: "1px solid var(--line-strong)", borderRadius: "var(--r-sm)", fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit", outline: "none" }} />
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Download CSV */}
+          <button
+            onClick={handleDownloadCSV}
+            disabled={selected.size === 0}
+            title={selected.size > 0 ? t("payments.exportTitle").replace("{count}", String(selected.size)) : t("payments.exportHint")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "7px 10px",
+              border: "1px solid var(--line-strong)",
+              borderRadius: "var(--r-sm)",
+              background: "var(--bg-panel)",
+              color: selected.size > 0 ? "var(--ink-1)" : "var(--ink-3)",
+              opacity: selected.size === 0 ? 0.45 : 1,
+              cursor: selected.size === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <IcoDownload className="h-4 w-4" />
+          </button>
+
           <div style={{ marginLeft: "auto" }}>
             {can("finance:create") && (
               <button
@@ -633,7 +776,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                   cursor: "pointer",
                 }}
               >
-                <RiAddLine size={14} /> Nuevo Pago
+                <RiAddLine size={14} /> {t("buttons.newPayment")}
               </button>
             )}
           </div>
@@ -678,19 +821,19 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
               </th>
               {(
                 [
-                  { label: "Cliente", key: "client" as SortKey },
-                  { label: "Fecha", key: "date" as SortKey },
-                  { label: "Método de pago", key: "method" as SortKey },
-                  { label: "Tipo", key: "kind" as SortKey },
+                  { label: t("table.client"), key: "client" as SortKey },
+                  { label: t("table.date"), key: "date" as SortKey },
+                  { label: t("table.paymentMethod"), key: "method" as SortKey },
+                  { label: t("table.type"), key: "kind" as SortKey },
                   // "Evento" is redundant when the page is already scoped to one
                   // event — drop it so the table fits without horizontal scroll
                   // inside the event-workspace (which has the EventSidebar).
                   ...(isEventScoped
                     ? []
-                    : [{ label: "Evento", key: "event" as SortKey }]),
-                  { label: "Conciliado con", key: "ref" as SortKey },
-                  { label: "Estado", key: "status" as SortKey },
-                  { label: "Total", key: "total" as SortKey },
+                    : [{ label: t("table.event"), key: "event" as SortKey }]),
+                  { label: t("table.reconciledWith"), key: "ref" as SortKey },
+                  { label: t("table.status"), key: "status" as SortKey },
+                  { label: t("table.total"), key: "total" as SortKey },
                   { label: "", key: null as SortKey | null },
                 ]
               ).map((c, i) => {
@@ -760,7 +903,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                       cursor: "pointer",
                     }}
                   >
-                    Reintentar
+                    {t("buttons.retry")}
                   </button>
                 </td>
               </tr>
@@ -775,26 +918,26 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>
-                    No hay pagos
+                    {t("payments.empty")}
                   </div>
                   <div style={{ fontSize: 12.5 }}>
-                    Usa el botón de arriba para registrar el primero
+                    {t("payments.emptyCreate")}
                   </div>
                 </td>
               </tr>
             ) : (
               sortedPayments.map((p) => {
-                const status = (p.status || "complete") as keyof typeof STATUS_PILL;
-                const statusPill = STATUS_PILL[status] || {
+                const statusKey = (p.status || "complete");
+                const statusPillColors = STATUS_PILL_COLORS[statusKey] || {
                   bg: "var(--bg-subtle)",
                   fg: "var(--ink-2)",
-                  label: status,
                 };
-                const typePill = TYPE_PILL[p.direction] || {
+                const statusPillLabel = getStatusLabel(statusKey);
+                const typePillColors = TYPE_PILL_COLORS[p.direction] || {
                   bg: "var(--bg-subtle)",
                   fg: "var(--ink-2)",
-                  label: p.direction,
                 };
+                const typePillLabel = getDirectionLabel(p.direction);
                 const entityName = getEntityName(p);
                 return (
                   <tr
@@ -880,15 +1023,15 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                     >
                       <span
                         style={{
-                          background: typePill.bg,
-                          color: typePill.fg,
+                          background: typePillColors.bg,
+                          color: typePillColors.fg,
                           padding: "3px 10px",
                           borderRadius: 999,
                           fontSize: 11.5,
                           fontWeight: 500,
                         }}
                       >
-                        {typePill.label}
+                        {typePillLabel}
                       </span>
                     </td>
                     {/* Evento — hidden inside the event workspace */}
@@ -946,15 +1089,15 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                     >
                       <span
                         style={{
-                          background: statusPill.bg,
-                          color: statusPill.fg,
+                          background: statusPillColors.bg,
+                          color: statusPillColors.fg,
                           padding: "3px 10px",
                           borderRadius: 999,
                           fontSize: 11.5,
                           fontWeight: 500,
                         }}
                       >
-                        {statusPill.label}
+                        {statusPillLabel}
                       </span>
                     </td>
                     {/* Total */}
@@ -999,13 +1142,13 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEditPayment(p)}>
-                            <RiEditLine className="mr-2 h-4 w-4" /> Editar
+                            <RiEditLine className="mr-2 h-4 w-4" /> {t("actions.edit")}
                           </DropdownMenuItem>
                           {p.documentId && (
                             <DropdownMenuItem
                               onClick={() => openDocPreview(p.documentId!)}
                             >
-                              <RiEyeLine className="mr-2 h-4 w-4" /> Ver documento
+                              <RiEyeLine className="mr-2 h-4 w-4" /> {t("actions.viewDocument")}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -1013,7 +1156,7 @@ export function PaymentsPageContent({ eventId }: PaymentsPageContentProps = {}) 
                             className="text-red-600"
                             onClick={() => deletePayment(p.id)}
                           >
-                            <RiDeleteBinLine className="mr-2 h-4 w-4" /> Eliminar
+                            <RiDeleteBinLine className="mr-2 h-4 w-4" /> {t("actions.delete")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

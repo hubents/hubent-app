@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { hgIcon } from "@/components/ui/hg-icon";
 import {
   PlusSignIcon, Search01Icon, RadioButtonIcon, Calendar01Icon,
@@ -56,21 +57,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 // ── Column meta — pastel header per prototype TK_COL ──
 const COLUMN_META = {
   pending: {
-    label: "Por hacer",
     bg: "#FDE4DE",
     dot: "#E86A55",
     ink: "#8A3A2A",
     borderLeft: "#F3B6A9",
   },
   in_progress: {
-    label: "En progreso",
     bg: "#FCE7CC",
     dot: "#D9822B",
     ink: "#7A4B1E",
     borderLeft: "#EBC78D" as string | null,
   },
   completed: {
-    label: "Completado",
     bg: "#DCEEDD",
     dot: "#4DA363",
     ink: "#2E5A3A",
@@ -86,9 +84,9 @@ const COLUMN_ORDER: Array<keyof typeof COLUMN_META> = [
 
 // ── Priority — colored, with signal icon ──
 const PRIO = {
-  high: { label: "Alta", color: "#C0392B", Icon: RiSignalWifiLine },
-  medium: { label: "Media", color: "#D9822B", Icon: RiSignalWifi2Line },
-  low: { label: "Baja", color: "#6E7781", Icon: RiSignalWifi1Line },
+  high: { color: "#C0392B", Icon: RiSignalWifiLine },
+  medium: { color: "#D9822B", Icon: RiSignalWifi2Line },
+  low: { color: "#6E7781", Icon: RiSignalWifi1Line },
 } as const;
 
 const PRIO_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -96,12 +94,11 @@ const PRIO_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 // ── Scope <-> tab mapping (preserves API behavior) ──
 const SCOPE_TABS: Array<{
   key: TaskScope;
-  label: string;
   Icon: React.ComponentType<{ className?: string }> | null;
 }> = [
-  { key: "all", label: "Todas", Icon: null },
-  { key: "event", label: "De evento", Icon: RiCalendarEventLine },
-  { key: "standalone", label: "Generales", Icon: RiClipboardLine },
+  { key: "all", Icon: null },
+  { key: "event", Icon: RiCalendarEventLine },
+  { key: "standalone", Icon: RiClipboardLine },
 ];
 
 interface TaskAvatar {
@@ -126,21 +123,21 @@ interface Task {
 }
 
 // Event-type pill palette — matches the events page typePill mapping.
-const EVENT_TYPE_PILL: Record<string, { label: string; bg: string; fg: string }> = {
-  wedding:      { label: "Boda",        bg: "#FCE6E2", fg: "#B03A2E" },
-  pre_wedding:  { label: "Pre-Boda",    bg: "#E0F5EC", fg: "#007A49" },
-  post_wedding: { label: "Post-Boda",   bg: "#FCEBD9", fg: "#A24E0F" },
-  birthday:     { label: "Cumpleaños",  bg: "#EFE5FA", fg: "#5C2EAA" },
-  corporate:    { label: "Corporativo", bg: "#E1ECFB", fg: "#1F4FA8" },
-  social:       { label: "Social",      bg: "#FBF1D7", fg: "#8A6300" },
-  other:        { label: "Otro",        bg: "#ECEAE5", fg: "#5C5A55" },
+const EVENT_TYPE_PILL: Record<string, { bg: string; fg: string }> = {
+  wedding:      { bg: "#FCE6E2", fg: "#B03A2E" },
+  pre_wedding:  { bg: "#E0F5EC", fg: "#007A49" },
+  post_wedding: { bg: "#FCEBD9", fg: "#A24E0F" },
+  birthday:     { bg: "#EFE5FA", fg: "#5C2EAA" },
+  corporate:    { bg: "#E1ECFB", fg: "#1F4FA8" },
+  social:       { bg: "#FBF1D7", fg: "#8A6300" },
+  other:        { bg: "#ECEAE5", fg: "#5C5A55" },
 };
 
 const eventTypePill = (type?: string | null, customType?: string | null) => {
   if (!type) return null;
   const meta = EVENT_TYPE_PILL[type] || EVENT_TYPE_PILL.other;
-  const label = type === "other" && customType?.trim() ? customType.trim() : meta.label;
-  return { label, bg: meta.bg, fg: meta.fg };
+  const label = type === "other" && customType?.trim() ? customType.trim() : null;
+  return { type, label, bg: meta.bg, fg: meta.fg };
 };
 
 // ── Avatar stack — overlapped circular initials, prototype style ──
@@ -239,6 +236,7 @@ function SortableTaskCard({
     transition,
   };
 
+  const t = useTranslations("tasks");
   const meta = COLUMN_META[task.status as keyof typeof COLUMN_META];
   const prio = PRIO[task.priority as keyof typeof PRIO] ?? PRIO.low;
   const PrioIcon = prio.Icon;
@@ -291,7 +289,7 @@ function SortableTaskCard({
               }}
               className="truncate"
             >
-              {task.eventName || "Sin evento"}
+              {task.eventName || t("card.noEvent")}
             </div>
             <div
               style={{
@@ -323,7 +321,7 @@ function SortableTaskCard({
                 whiteSpace: "nowrap",
               }}
             >
-              {tagPill.label}
+              {tagPill.label ?? t(`eventType.${tagPill.type as "wedding" | "pre_wedding" | "post_wedding" | "birthday" | "corporate" | "social" | "other"}`)}
             </span>
           ) : (
             <span
@@ -337,7 +335,7 @@ function SortableTaskCard({
                 whiteSpace: "nowrap",
               }}
             >
-              General
+              {t("card.general")}
             </span>
           )}
           <span
@@ -347,12 +345,12 @@ function SortableTaskCard({
             {task.eventId ? (
               <>
                 <RiCalendarEventLine className="h-3 w-3" />
-                De evento
+                {t("card.fromEvent")}
               </>
             ) : (
               <>
                 <RiClipboardLine className="h-3 w-3" />
-                General
+                {t("card.general")}
               </>
             )}
           </span>
@@ -367,7 +365,7 @@ function SortableTaskCard({
           }}
         >
           <RiCalendarLine className="h-3 w-3" />
-          <span>{dueLabel || "Sin fecha"}</span>
+          <span>{dueLabel || t("card.noDate")}</span>
         </div>
 
         {/* Priority */}
@@ -376,7 +374,7 @@ function SortableTaskCard({
           style={{ fontSize: 12, color: prio.color, marginTop: "auto" }}
         >
           <PrioIcon className="h-3.5 w-3.5" />
-          <span style={{ fontWeight: 500 }}>{prio.label}</span>
+          <span style={{ fontWeight: 500 }}>{t(`prio.${task.priority as "high" | "medium" | "low"}`)}</span>
         </div>
 
         {/* Footer — counters + participant count */}
@@ -405,7 +403,7 @@ function SortableTaskCard({
             <span
               className="inline-flex items-center gap-1"
               style={{ marginLeft: "auto", color: "#5B8CC8", fontWeight: 500 }}
-              title="Participantes"
+              title={t("card.participants")}
             >
               <RiTeamLine className="h-3 w-3" />
               {task.participantCount}
@@ -431,6 +429,7 @@ function TaskColumn({
   onQuickAdd: (title: string, status: string) => Promise<void>;
   onToggleComplete: (taskId: number, currentStatus: string) => void;
 }) {
+  const t = useTranslations("tasks");
   const meta = COLUMN_META[id];
   const { setNodeRef, isOver } = useDroppable({ id });
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
@@ -493,7 +492,7 @@ function TaskColumn({
         <span
           style={{ fontSize: 13, fontWeight: 600, color: meta.ink }}
         >
-          {meta.label}
+          {t(`col.${id}`)}
         </span>
         <span style={{ fontSize: 12, color: meta.ink, opacity: 0.7 }}>
           {tasks.length}
@@ -507,8 +506,8 @@ function TaskColumn({
             color: meta.ink,
             padding: 2,
           }}
-          title={`Agregar tarea en ${meta.label}`}
-          aria-label={`Agregar tarea en ${meta.label}`}
+          title={t("col.addTaskIn", { col: t(`col.${id}`) })}
+          aria-label={t("col.addTaskIn", { col: t(`col.${id}`) })}
         >
           <RiAddLine className="h-3.5 w-3.5" />
         </button>
@@ -541,7 +540,7 @@ function TaskColumn({
                   setQuickAddTitle("");
                 }
               }}
-              placeholder="Título de la tarea..."
+              placeholder={t("quickAdd.placeholder")}
               disabled={isCreating}
               className="w-full outline-none"
               style={{
@@ -569,7 +568,7 @@ function TaskColumn({
                   opacity: !quickAddTitle.trim() || isCreating ? 0.6 : 1,
                 }}
               >
-                {isCreating ? "Creando..." : "Crear"}
+                {isCreating ? t("quickAdd.creating") : t("quickAdd.create")}
               </button>
               <button
                 onClick={() => {
@@ -588,7 +587,7 @@ function TaskColumn({
                   borderRadius: 8,
                 }}
               >
-                Cancelar
+                {t("quickAdd.cancel")}
               </button>
             </div>
           </div>
@@ -614,7 +613,7 @@ function TaskColumn({
               color: "var(--ink-3)",
             }}
           >
-            {isOver ? "Soltar aquí" : "No hay tareas"}
+            {isOver ? t("col.dropHere") : t("col.noTasks")}
           </div>
         )}
       </div>
@@ -632,6 +631,7 @@ interface TasksPageContentProps {
 }
 
 export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
+  const t = useTranslations("tasks");
   const isEventScoped = typeof eventId === "number";
   const [scope, setScope] = useState<TaskScope>(isEventScoped ? "event" : "all");
   const { tasks: apiTasks, loading, refetch } = useTasks(
@@ -933,17 +933,17 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
   const canUpdateTask = can("tasks:update");
 
   const PRIO_OPTIONS: Array<{ v: typeof prioFilter; l: string }> = [
-    { v: "all", l: "Todas" },
-    { v: "high", l: "Alta" },
-    { v: "medium", l: "Media" },
-    { v: "low", l: "Baja" },
+    { v: "all", l: t("filter.prioAll") },
+    { v: "high", l: t("prio.high") },
+    { v: "medium", l: t("prio.medium") },
+    { v: "low", l: t("prio.low") },
   ];
 
   const SORT_OPTIONS: Array<{ v: typeof sortBy; l: string }> = [
-    { v: "default", l: "Por defecto" },
-    { v: "name-az", l: "Nombre A → Z" },
-    { v: "name-za", l: "Nombre Z → A" },
-    { v: "prio", l: "Prioridad" },
+    { v: "default", l: t("sort.default") },
+    { v: "name-az", l: t("sort.nameAz") },
+    { v: "name-za", l: t("sort.nameZa") },
+    { v: "prio", l: t("sort.prio") },
   ];
 
   return (
@@ -973,7 +973,7 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
           >
             <RiSearchLine className="h-3.5 w-3.5 text-[var(--ink-3)]" />
             <input
-              placeholder="Buscar tareas..."
+              placeholder={t("toolbar.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 outline-none bg-transparent"
@@ -981,7 +981,7 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                 fontSize: 13,
                 color: "var(--ink-1)",
               }}
-              aria-label="Buscar tareas"
+              aria-label={t("toolbar.searchLabel")}
             />
           </div>
 
@@ -996,13 +996,13 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
               padding: 4,
             }}
           >
-            {SCOPE_TABS.map((t) => {
-              const active = scope === t.key;
+            {SCOPE_TABS.map((tab) => {
+              const active = scope === tab.key;
               return (
                 <button
-                  key={t.key}
+                  key={tab.key}
                   onClick={() => {
-                    setScope(t.key);
+                    setScope(tab.key);
                     setLocalTasks([]);
                   }}
                   className="inline-flex items-center cursor-pointer"
@@ -1019,8 +1019,8 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                   }}
                   aria-current={active ? "page" : undefined}
                 >
-                  {t.Icon && <t.Icon className="h-3 w-3" />}
-                  <span>{t.label}</span>
+                  {tab.Icon && <tab.Icon className="h-3 w-3" />}
+                  <span>{t(`scope.${tab.key}`)}</span>
                   <span
                     style={{
                       background: active ? "var(--bg-subtle)" : "rgba(0,0,0,0.05)",
@@ -1031,9 +1031,9 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                       fontWeight: 600,
                     }}
                   >
-                    {t.key === "all"
+                    {tab.key === "all"
                       ? tabCounts.all
-                      : t.key === "event"
+                      : tab.key === "event"
                         ? tabCounts.event
                         : tabCounts.standalone}
                   </span>
@@ -1057,12 +1057,12 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                 color: "var(--ink-1)",
               }}
               aria-expanded={filterOpen}
-              aria-label="Abrir filtros"
+              aria-label={t("toolbar.openFilters")}
             >
               <RiFilter3Line className="h-3.5 w-3.5" />
               {prioFilter === "all"
-                ? "Filtrar"
-                : `Prioridad: ${PRIO[prioFilter as keyof typeof PRIO]?.label}`}
+                ? t("toolbar.filter")
+                : t("toolbar.filterPrio", { prio: t(`prio.${prioFilter}`) })}
             </button>
             {filterOpen && (
               <div
@@ -1088,7 +1088,7 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                     padding: "6px 10px 4px",
                   }}
                 >
-                  Prioridad
+                  {t("toolbar.priority")}
                 </div>
                 {PRIO_OPTIONS.map((o) => {
                   const active = prioFilter === o.v;
@@ -1132,10 +1132,10 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                 color: "var(--ink-1)",
               }}
               aria-expanded={sortOpen}
-              aria-label="Abrir ordenamiento"
+              aria-label={t("toolbar.openSort")}
             >
               <RiSortDesc className="h-3.5 w-3.5" />
-              Ordenar por
+              {t("toolbar.sortBy")}
             </button>
             {sortOpen && (
               <div
@@ -1161,7 +1161,7 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                     padding: "6px 10px 4px",
                   }}
                 >
-                  Ordenar por
+                  {t("toolbar.sortBy")}
                 </div>
                 {SORT_OPTIONS.map((o) => {
                   const active = sortBy === o.v;
@@ -1209,10 +1209,10 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
               onMouseLeave={(e) =>
                 (e.currentTarget.style.background = "var(--color-primary)")
               }
-              aria-label="Crear nueva tarea"
+              aria-label={t("toolbar.newTask")}
             >
               <RiAddLine className="h-3.5 w-3.5" />
-              Nueva tarea
+              {t("toolbar.newTask")}
             </button>
           )}
         </div>
@@ -1234,17 +1234,17 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
               style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-1)" }}
               className="mb-2"
             >
-              No hay tareas
+              {t("empty.title")}
             </h3>
             <p
               style={{ fontSize: 13, color: "var(--ink-3)" }}
               className="mb-4"
             >
               {scope === "standalone"
-                ? "No hay tareas independientes. Crea una tarea aquí o cambia el filtro."
+                ? t("empty.standalone")
                 : scope === "event"
-                  ? "No hay tareas asociadas a eventos. Crea tareas desde la vista de cada evento."
-                  : "Crea tu primera tarea para comenzar"}
+                  ? t("empty.event")
+                  : t("empty.all")}
             </p>
             {canCreateTask && scope !== "event" && (
               <button
@@ -1260,7 +1260,7 @@ export function TasksPageContent({ eventId }: TasksPageContentProps = {}) {
                 }}
               >
                 <RiAddLine className="h-3.5 w-3.5" />
-                Nueva tarea
+                {t("toolbar.newTask")}
               </button>
             )}
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,6 +19,7 @@ export function ComingSoonCard({
   category,
   logoUrl,
 }: ComingSoonCardProps) {
+  const t = useTranslations("settingsSub");
   const [imgError, setImgError] = useState(false);
   const initials = name.slice(0, 2);
 
@@ -46,7 +48,7 @@ export function ComingSoonCard({
                 variant="outline"
                 className="text-[9px] px-1 py-0 border-amber-300 text-amber-600 bg-amber-50"
               >
-                Próximamente
+                {t("integrationsSoonBadge")}
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">

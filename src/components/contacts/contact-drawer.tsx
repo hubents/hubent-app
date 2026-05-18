@@ -353,7 +353,7 @@ export function ContactDrawer({
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
+  const handleOpenChange = async (newOpen: boolean) => {
     if (!newOpen && hasChanges) {
       if (!await appConfirm({ title: "Descartar cambios", description: "Perderás los cambios realizados en este contacto.", variant: "destructive", confirmLabel: "Descartar" })) return;
     }

@@ -358,6 +358,9 @@ export function DocumentDrawer({
   const [documentStatus, setDocumentStatus] = useState<string | undefined>();
   const [showNotes, setShowNotes] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [showContract, setShowContract] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState<string>("");
+  const [orgDocs, setOrgDocs] = useState<Array<{ id: number; name: string; fileType: string | null }>>([]);
   const [accountingAccount, setAccountingAccount] = useState(FIN_ACCOUNTS[0]);
   const [perConcept, setPerConcept] = useState(false);
   const [tags, setTags] = useState("");
@@ -429,7 +432,8 @@ export function DocumentDrawer({
   function resetForm() {
     setContactValue(null); setEventId(""); setDueDate(""); setValidUntil("");
     setNotes(""); setTermsAndConditions(""); setPaymentMethod(""); setPaymentNotes("");
-    setBankAccountId(""); setGlobalDiscountEnabled(false); setCargoEnabled(false); setCargoAmt(""); setCargoType("percentage"); setDiscGlobal(false); setDiscGlobalAmt(""); setDiscGlobalType("percentage"); setDocumentNumber(undefined); setDocumentStatus(undefined);
+    setBankAccountId(""); setShowContract(false); setSelectedContractId("");
+    setGlobalDiscountEnabled(false); setCargoEnabled(false); setCargoAmt(""); setCargoType("percentage"); setDiscGlobal(false); setDiscGlobalAmt(""); setDiscGlobalType("percentage"); setDocumentNumber(undefined); setDocumentStatus(undefined);
     setIssueDate(new Date().toISOString().split("T")[0]);
     setAccountingAccount(FIN_ACCOUNTS[0]); setPerConcept(false); setTags(""); setPerConceptTags(false);
     setItems([{ description: "", details: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: defaultTaxRate, total: 0 }]);
@@ -437,11 +441,12 @@ export function DocumentDrawer({
 
   async function fetchReferenceData() {
     try {
-      const [eventsRes, taxRatesRes, settingsRes, bankAccountsRes] = await Promise.all([
+      const [eventsRes, taxRatesRes, settingsRes, bankAccountsRes, orgDocsRes] = await Promise.all([
         lockedEvent ? Promise.resolve(null) : fetch(eventsEndpoint || "/api/events?scope=accessible"),
         fetch("/api/finance/tax-rates"),
         fetch("/api/finance/settings"),
         fetch("/api/finance/bank-accounts"),
+        fetch("/api/documents"),
       ]);
       if (eventsRes?.ok) { const d = await (eventsRes as Response).json(); setEvents(d.data || []); }
       if (taxRatesRes.ok) {
@@ -450,6 +455,7 @@ export function DocumentDrawer({
         if (def) setDefaultTaxRate(parseFloat(def.rate));
       }
       if (bankAccountsRes.ok) { const d = await bankAccountsRes.json(); setBankAccounts(d.data || []); }
+      if (orgDocsRes.ok) { const d = await orgDocsRes.json(); setOrgDocs(d.data || []); }
       if (settingsRes.ok) {
         const d = await settingsRes.json();
         if (d.data?.defaultTermsAndConditions && !documentId && !initialData) setTermsAndConditions(d.data.defaultTermsAndConditions);
@@ -495,6 +501,8 @@ export function DocumentDrawer({
           setValidUntil(doc.validUntil ? doc.validUntil.split("T")[0] : "");
           setNotes(doc.notes || ""); setTermsAndConditions(doc.termsAndConditions || "");
           setPaymentMethod(doc.paymentMethod || ""); setBankAccountId(doc.bankAccountId?.toString() || "");
+          if (doc.attachedContractId) { setShowContract(true); setSelectedContractId(doc.attachedContractId.toString()); }
+          else { setShowContract(false); setSelectedContractId(""); }
           const gd = parseFloat(doc.globalDiscount || "0");
           const gs = parseFloat(doc.globalSurcharge || "0");
           if (gd > 0 || gs > 0) {
@@ -574,6 +582,7 @@ export function DocumentDrawer({
         dueDate: dueDate || undefined, validUntil: validUntil || undefined,
         notes: notes || undefined, termsAndConditions: termsAndConditions || undefined,
         paymentMethod: paymentMethod || undefined, bankAccountId: bankAccountId ? parseInt(bankAccountId) : undefined,
+        attachedContractId: showContract && selectedContractId ? parseInt(selectedContractId) : null,
         globalDiscount: globalDiscountEnabled && discGlobal ? (Number(discGlobalAmt) || 0) : 0,
         globalDiscountType: discGlobalType,
         globalSurcharge: globalDiscountEnabled && cargoEnabled ? (Number(cargoAmt) || 0) : 0,
@@ -872,6 +881,28 @@ export function DocumentDrawer({
                         style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
                       Añadir mensaje al final
                     </label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-2)", cursor: "pointer" }}>
+                        <input type="checkbox" checked={showContract} onChange={e => { setShowContract(e.target.checked); if (!e.target.checked) setSelectedContractId(""); }}
+                          style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--ink-1)" }} />
+                        Adjuntar contrato al documento
+                      </label>
+                      {showContract && (
+                        <div style={{ marginLeft: 22, maxWidth: 260 }}>
+                          <FSelect value={selectedContractId} onChange={setSelectedContractId} style={{ fontSize: 12.5 }}>
+                            <option value="">— Seleccionar contrato —</option>
+                            {orgDocs.map(d => (
+                              <option key={d.id} value={d.id.toString()}>{d.name}</option>
+                            ))}
+                          </FSelect>
+                          {orgDocs.length === 0 && (
+                            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 5 }}>
+                              Sin documentos. Sube contratos en la sección <strong>Documentos</strong>.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Totals */}

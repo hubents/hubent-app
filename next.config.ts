@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 function getR2RemotePatterns(): NonNullable<
   NextConfig["images"]
@@ -33,13 +36,12 @@ function getR2RemotePatterns(): NonNullable<
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
 
   images: {
     remotePatterns: getR2RemotePatterns(),
   },
-  
+
   async headers() {
     return [
       {
@@ -54,24 +56,24 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
+      // Locale-aware redirects for dashboard marketplace → partners
       {
-        source: "/dashboard/marketplace",
-        destination: "/dashboard/partners",
+        source: "/:locale/dashboard/marketplace",
+        destination: "/:locale/dashboard/partners",
         permanent: true,
       },
       {
-        source: "/dashboard/marketplace/:path*",
-        destination: "/dashboard/partners/:path*",
+        source: "/:locale/dashboard/marketplace/:path*",
+        destination: "/:locale/dashboard/partners/:path*",
         permanent: true,
       },
       {
-        source: "/dashboard/events/:id/vendors",
-        destination: "/dashboard/events/:id/partners",
+        source: "/:locale/dashboard/events/:id/vendors",
+        destination: "/:locale/dashboard/events/:id/partners",
         permanent: true,
       },
     ];
   },
-
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);
