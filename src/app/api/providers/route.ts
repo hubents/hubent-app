@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const locationRegion = searchParams.get("locationRegion") || "";
     const locationCountry = searchParams.get("locationCountry") || "";
     const locationRadius = parseInt(searchParams.get("locationRadius") || "0");
+    const locationLat = parseFloat(searchParams.get("locationLat") || "");
+    const locationLon = parseFloat(searchParams.get("locationLon") || "");
     const verified = searchParams.get("verified") === "true";
     const favoritesOnly = searchParams.get("favorites") === "true";
     const myProvidersOnly = searchParams.get("myProviders") === "true";
@@ -72,22 +74,37 @@ export async function GET(request: NextRequest) {
       conditions.push(inArray(organizations.providerCategory, categoryList));
     }
 
-    if (locationCity || locationCountry) {
-      // Location picker filter: radius-aware
-      if (locationCountry) conditions.push(eq(organizations.country, locationCountry));
-      if (locationRadius < 500 && locationRadius > 0) {
-        if (locationRadius <= 75 && locationCity) {
-          conditions.push(ilike(organizations.city, `%${locationCity}%`));
-        } else if (locationRadius <= 300) {
-          const clauses = [];
-          if (locationRegion) clauses.push(ilike(organizations.region, `%${locationRegion}%`));
-          if (locationCity) clauses.push(ilike(organizations.city, `%${locationCity}%`));
-          if (clauses.length === 1) conditions.push(clauses[0]);
-          else if (clauses.length > 1) conditions.push(or(...(clauses as [ReturnType<typeof ilike>, ReturnType<typeof ilike>]))!);
-        }
-        // > 300km and < 500: country only (already added above)
+    if (locationCountry || locationCity) {
+      const hasCoords = !isNaN(locationLat) && !isNaN(locationLon);
+      const sinLimit = locationRadius >= 500;
+
+      if (hasCoords && !sinLimit) {
+        // Real Haversine distance filter: only include orgs with known coordinates within the radius
+        // Orgs without lat/lon fall back to city/country text match
+        conditions.push(
+          sql`(
+            (${organizations.lat} IS NOT NULL AND ${organizations.lon} IS NOT NULL AND
+              6371 * acos(LEAST(1.0,
+                cos(radians(${locationLat})) * cos(radians(${organizations.lat})) *
+                cos(radians(${organizations.lon}) - radians(${locationLon})) +
+                sin(radians(${locationLat})) * sin(radians(${organizations.lat}))
+              )) <= ${locationRadius}
+            )
+            OR
+            (${organizations.lat} IS NULL AND
+              ${locationCity ? sql`${organizations.city} ILIKE ${'%' + locationCity + '%'}` : sql`TRUE`}
+              AND ${locationCountry ? sql`${organizations.country} = ${locationCountry}` : sql`TRUE`}
+            )
+          )`
+        );
+      } else if (sinLimit) {
+        // Sin límite: solo filtrar por país
+        if (locationCountry) conditions.push(eq(organizations.country, locationCountry));
+      } else {
+        // Sin coordenadas del centro: texto fallback
+        if (locationCountry) conditions.push(eq(organizations.country, locationCountry));
+        if (locationCity) conditions.push(ilike(organizations.city, `%${locationCity}%`));
       }
-      // radius === 0 or >= 500: sin límite → country only (already added)
     } else {
       // Legacy city/country params
       if (city) conditions.push(ilike(organizations.city, `%${city}%`));

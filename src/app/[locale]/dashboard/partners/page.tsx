@@ -279,6 +279,8 @@ function PartnersContent() {
         params.set("locationRegion", location.region);
         params.set("locationCountry", location.country);
         params.set("locationRadius", location.radius.toString());
+        params.set("locationLat", location.lat.toString());
+        params.set("locationLon", location.lon.toString());
       }
       if (favoritesOnly) params.set("favorites", "true");
       if (verifiedOnly) params.set("verified", "true");

@@ -14,6 +14,8 @@ import {
 
   decimal,
 
+  doublePrecision,
+
   pgEnum,
 
   primaryKey,
@@ -741,6 +743,10 @@ export const organizations = pgTable("organizations", {
   city: text("city"),
 
   region: text("region"),
+
+  lat: doublePrecision("lat"),
+
+  lon: doublePrecision("lon"),
 
   coverImage: text("cover_image"),
 

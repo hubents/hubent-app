@@ -6,6 +6,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { z } from "zod";
 import { INSTAGRAM_POST_URL_REGEX } from "@/lib/instagram-post-url";
 import { apiHandler, ok, notFound, badRequest } from "@/lib/api-handler";
+import { geocodeCity } from "@/lib/geocode";
 
 /**
  * GET /api/organizations/profile
@@ -168,6 +169,16 @@ export async function PATCH(request: NextRequest) {
     if (data.city !== undefined) updates.city = data.city || null;
     if (data.region !== undefined) updates.region = data.region || null;
     if (data.country !== undefined) updates.country = data.country || null;
+
+    // Re-geocode whenever city or country changes
+    if (data.city !== undefined || data.country !== undefined) {
+      const geocity = (data.city ?? org.city) || "";
+      const geocountry = (data.country ?? org.country) || "";
+      if (geocity || geocountry) {
+        const coords = await geocodeCity(geocity, geocountry);
+        if (coords) { updates.lat = coords.lat; updates.lon = coords.lon; }
+      }
+    }
     if (data.publicEmail !== undefined) updates.publicEmail = data.publicEmail || null;
     if (data.brochureUrl !== undefined) updates.brochureUrl = data.brochureUrl || null;
     if (data.instagramPosts !== undefined) updates.instagramPosts = data.instagramPosts;
