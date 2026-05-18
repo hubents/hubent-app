@@ -465,33 +465,27 @@ function PartnersContent() {
             />
           </div>
 
-          {/* Category dropdown — icon only */}
+          {/* Category dropdown */}
           <div ref={catRef} className="relative">
             <button
               onClick={() => setCatOpen((o) => !o)}
-              title={categories.length > 0 ? categories.join(", ") : t("category")}
-              className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors relative"
+              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
               style={{
-                padding: "7px 10px",
+                padding: "7px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
                 background: categories.length > 0 ? "var(--ink-1)" : "#FFFFFF",
                 color: categories.length > 0 ? "white" : "var(--ink-1)",
                 border: categories.length > 0 ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
               }}
             >
-              <IcoFilter className="h-3.5 w-3.5" />
-              {categories.length > 0 && (
-                <span style={{
-                  position: "absolute", top: -5, right: -5,
-                  background: "white", color: "var(--ink-1)",
-                  border: "1px solid var(--ink-1)",
-                  borderRadius: "50%", width: 15, height: 15,
-                  fontSize: 9, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  lineHeight: 1,
-                }}>
-                  {categories.length}
-                </span>
-              )}
+              <IcoFilter className="h-3 w-3" />
+              {categories.length === 0
+                ? t("category")
+                : categories.length === 1
+                  ? categories[0]
+                  : `${categories.length} categorías`}
+              <IcoChevDown className="h-3 w-3" />
             </button>
             {catOpen && (
               <div
@@ -573,27 +567,23 @@ function PartnersContent() {
             )}
           </div>
 
-          {/* Location picker — icon only */}
+          {/* Location picker */}
           <button
             onClick={() => setLocationOpen(true)}
-            title={location ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}` : (t("location") ?? "Ubicación")}
-            className="inline-flex items-center justify-center rounded-[8px] cursor-pointer transition-colors relative"
+            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
             style={{
-              padding: "7px 10px",
+              padding: "7px 12px",
+              fontSize: 12.5,
+              fontWeight: 500,
               background: location ? "var(--ink-1)" : "#FFFFFF",
               color: location ? "white" : "var(--ink-1)",
               border: location ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
             }}
           >
-            <IcoMap className="h-3.5 w-3.5" />
-            {location && (
-              <span style={{
-                position: "absolute", top: -5, right: -5,
-                width: 8, height: 8,
-                background: "white", border: "1.5px solid var(--ink-1)",
-                borderRadius: "50%",
-              }} />
-            )}
+            <IcoMap className="h-3 w-3" />
+            {location
+              ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}`
+              : (t("location") ?? "Ubicación")}
           </button>
 
           <LocationPicker
