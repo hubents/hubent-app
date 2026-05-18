@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
     const categoryList = categoriesRaw ? categoriesRaw.split(",").map((c) => c.trim()).filter(Boolean) : [];
     const city = searchParams.get("city") || "";
     const countryFilter = searchParams.get("country") || "";
+    // Location picker params (override city/country when present)
+    const locationCity = searchParams.get("locationCity") || "";
+    const locationRegion = searchParams.get("locationRegion") || "";
+    const locationCountry = searchParams.get("locationCountry") || "";
+    const locationRadius = parseInt(searchParams.get("locationRadius") || "0");
     const verified = searchParams.get("verified") === "true";
     const favoritesOnly = searchParams.get("favorites") === "true";
     const myProvidersOnly = searchParams.get("myProviders") === "true";
@@ -67,12 +72,26 @@ export async function GET(request: NextRequest) {
       conditions.push(inArray(organizations.providerCategory, categoryList));
     }
 
-    if (city) {
-      conditions.push(ilike(organizations.city, `%${city}%`));
-    }
-
-    if (countryFilter) {
-      conditions.push(eq(organizations.country, countryFilter));
+    if (locationCity || locationCountry) {
+      // Location picker filter: radius-aware
+      if (locationCountry) conditions.push(eq(organizations.country, locationCountry));
+      if (locationRadius < 500 && locationRadius > 0) {
+        if (locationRadius <= 75 && locationCity) {
+          conditions.push(ilike(organizations.city, `%${locationCity}%`));
+        } else if (locationRadius <= 300) {
+          const clauses = [];
+          if (locationRegion) clauses.push(ilike(organizations.region, `%${locationRegion}%`));
+          if (locationCity) clauses.push(ilike(organizations.city, `%${locationCity}%`));
+          if (clauses.length === 1) conditions.push(clauses[0]);
+          else if (clauses.length > 1) conditions.push(or(...(clauses as [ReturnType<typeof ilike>, ReturnType<typeof ilike>]))!);
+        }
+        // > 300km and < 500: country only (already added above)
+      }
+      // radius === 0 or >= 500: sin límite → country only (already added)
+    } else {
+      // Legacy city/country params
+      if (city) conditions.push(ilike(organizations.city, `%${city}%`));
+      if (countryFilter) conditions.push(eq(organizations.country, countryFilter));
     }
 
     // Get user's favorites for isFavorite flag

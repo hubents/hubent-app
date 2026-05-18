@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hgIcon } from "@/components/ui/hg-icon";
 import { PartnerLandingDrawer } from "@/components/partners/partner-landing-drawer";
+import { LocationPicker, type LocationFilter } from "@/components/partners/location-picker";
 import {
   Search01Icon,
   FilterIcon,
@@ -43,13 +44,12 @@ const IcoExternal = hgIcon(ExternalDriveIcon);
 const IcoSend = hgIcon(SentIcon);
 
 const PARTNERS_VIEW_STORAGE = "partners-view";
-const PARTNERS_FILTERS_STORAGE = "partners-filters";
+const PARTNERS_FILTERS_STORAGE = "partners-filters-v2";
 
 interface StoredFilters {
   search: string;
   categories: string[];
-  city: string;
-  country: string;
+  location: LocationFilter | null;
   favoritesOnly: boolean;
   verifiedOnly: boolean;
 }
@@ -157,8 +157,7 @@ function PartnersContent() {
   const _sf = readStoredFilters();
   const [search, setSearch] = useState(_sf?.search ?? "");
   const [categories, setCategories] = useState<string[]>(_sf?.categories ?? []);
-  const [city, setCity] = useState(_sf?.city ?? "");
-  const [country, setCountry] = useState(_sf?.country ?? "");
+  const [location, setLocation] = useState<LocationFilter | null>(_sf?.location ?? null);
   const [favoritesOnly, setFavoritesOnly] = useState(_sf?.favoritesOnly ?? false);
   const [verifiedOnly, setVerifiedOnly] = useState(_sf?.verifiedOnly ?? false);
 
@@ -176,11 +175,8 @@ function PartnersContent() {
   const filtersReady = useRef(false);
 
   const [catOpen, setCatOpen] = useState(false);
-  const [cityOpen, setCityOpen] = useState(false);
-  const [countryOpen, setCountryOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
   const catRef = useRef<HTMLDivElement>(null);
-  const cityRef = useRef<HTMLDivElement>(null);
-  const countryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!catOpen) return;
@@ -191,25 +187,6 @@ function PartnersContent() {
     return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
   }, [catOpen]);
 
-  useEffect(() => {
-    if (!cityOpen) return;
-    const h = (e: MouseEvent) => {
-      if (cityRef.current && !cityRef.current.contains(e.target as Node)) setCityOpen(false);
-    };
-    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
-    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
-  }, [cityOpen]);
-
-  // Close country dropdown on outside click
-  useEffect(() => {
-    if (!countryOpen) return;
-    const h = (e: MouseEvent) => {
-      if (countryRef.current && !countryRef.current.contains(e.target as Node)) setCountryOpen(false);
-    };
-    const id = setTimeout(() => document.addEventListener("mousedown", h), 0);
-    return () => { clearTimeout(id); document.removeEventListener("mousedown", h); };
-  }, [countryOpen]);
-
   // Persist filters to localStorage whenever they change (skip first render to avoid overwriting saved state)
   useEffect(() => {
     if (!filtersReady.current) {
@@ -217,23 +194,9 @@ function PartnersContent() {
       return;
     }
     if (typeof window === "undefined") return;
-    const filters: StoredFilters = { search, categories, city, country, favoritesOnly, verifiedOnly };
+    const filters: StoredFilters = { search, categories, location, favoritesOnly, verifiedOnly };
     localStorage.setItem(PARTNERS_FILTERS_STORAGE, JSON.stringify(filters));
-  }, [search, categories, city, country, favoritesOnly, verifiedOnly]);
-
-  // Pre-fill country and city from the current org on first load — only if no saved filters
-  useEffect(() => {
-    if (readStoredFilters() !== null) return;
-    fetch("/api/user/me")
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.success) return;
-        if (d.data?.orgCountry) setCountry(d.data.orgCountry);
-        if (d.data?.orgCity) setCity(d.data.orgCity);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [search, categories, location, favoritesOnly, verifiedOnly]);
 
   useEffect(() => {
     if (inviteTarget) {
@@ -311,8 +274,12 @@ function PartnersContent() {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (categories.length > 0) params.set("categories", categories.join(","));
-      if (city) params.set("city", city);
-      if (country) params.set("country", country);
+      if (location) {
+        params.set("locationCity", location.city);
+        params.set("locationRegion", location.region);
+        params.set("locationCountry", location.country);
+        params.set("locationRadius", location.radius.toString());
+      }
       if (favoritesOnly) params.set("favorites", "true");
       if (verifiedOnly) params.set("verified", "true");
       params.set("page", page.toString());
@@ -329,11 +296,11 @@ function PartnersContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, categories, city, country, favoritesOnly, verifiedOnly, page]);
+  }, [search, categories, location, favoritesOnly, verifiedOnly, page]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, categories, city, country, favoritesOnly, verifiedOnly]);
+  }, [search, categories, location, favoritesOnly, verifiedOnly]);
 
   useEffect(() => {
     const timer = setTimeout(fetchProviders, 300);
@@ -373,16 +340,15 @@ function PartnersContent() {
   const clearFilters = () => {
     setSearch("");
     setCategories([]);
-    setCity("");
-    setCountry("");
+    setLocation(null);
     setFavoritesOnly(false);
     setVerifiedOnly(false);
     if (typeof window !== "undefined") localStorage.removeItem(PARTNERS_FILTERS_STORAGE);
   };
 
-  const hasFilters = !!(search || categories.length || city || country || favoritesOnly || verifiedOnly);
+  const hasFilters = !!(search || categories.length || location || favoritesOnly || verifiedOnly);
   const activeCount =
-    (categories.length > 0 ? 1 : 0) + (city ? 1 : 0) + (country ? 1 : 0) +
+    (categories.length > 0 ? 1 : 0) + (location ? 1 : 0) +
     (favoritesOnly ? 1 : 0) + (verifiedOnly ? 1 : 0) + (search ? 1 : 0);
 
   // Build lookup: normalized provider name → pending claim (for card badges)
@@ -390,17 +356,8 @@ function PartnersContent() {
     pendingClaims.map((c) => [c.providerName.toLowerCase().trim(), c])
   );
 
-  // Build dropdown options from loaded providers
-  const cities = [t("filterAll"), ...Array.from(new Set(providers.map((p) => p.city).filter((c): c is string => !!c))).sort()];
   const categoryOptions = PROVIDER_CATEGORIES as readonly string[];
 
-  // Countries: derive from loaded providers + keep current filter value visible
-  const countryNames = new Intl.DisplayNames(["es"], { type: "region" });
-  const countryLabel = (code: string) => { try { return countryNames.of(code) ?? code; } catch { return code; } };
-  const providerCountryCodes = Array.from(new Set(providers.map((p) => p.country).filter((c): c is string => !!c))).sort();
-  // Always include the active filter even if no provider currently matches (avoids chip disappearing)
-  if (country && !providerCountryCodes.includes(country)) providerCountryCodes.push(country);
-  const countries = [t("filterAllM"), ...providerCountryCodes];
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -608,113 +565,31 @@ function PartnersContent() {
             )}
           </div>
 
-          {/* City dropdown — dark when active */}
-          <div ref={cityRef} className="relative">
-            <button
-              onClick={() => setCityOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
-              style={{
-                padding: "7px 12px",
-                fontSize: 12.5,
-                fontWeight: 500,
-                background: city ? "var(--ink-1)" : "#FFFFFF",
-                color: city ? "white" : "var(--ink-1)",
-                border: city ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
-              }}
-            >
-              <IcoMap className="h-3 w-3" />
-              {city || t("city")}
-              <IcoChevDown className="h-3 w-3" />
-            </button>
-            {cityOpen && (
-              <div
-                className="absolute left-0 top-[calc(100%+4px)] min-w-[200px] rounded-[8px] p-1 z-50"
-                style={{
-                  background: "white",
-                  border: "1px solid var(--line-1)",
-                  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-                {cities.map((c) => {
-                  const isAll = c === t("filterAll");
-                  const active = isAll ? !city : city === c;
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => {
-                        setCity(isAll ? "" : c);
-                        setCityOpen(false);
-                      }}
-                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
-                      style={{
-                        padding: "8px 10px",
-                        background: active ? "var(--bg-subtle)" : "transparent",
-                        border: "none",
-                        borderRadius: 4,
-                        fontSize: 12.5,
-                        fontWeight: active ? 600 : 400,
-                        color: "var(--ink-1)",
-                      }}
-                    >
-                      {active && <IcoCheck className="h-3 w-3" />}
-                      <span style={{ marginLeft: active ? 0 : 20 }}>{c}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* Location picker button */}
+          <button
+            onClick={() => setLocationOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
+            style={{
+              padding: "7px 12px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: location ? "var(--ink-1)" : "#FFFFFF",
+              color: location ? "white" : "var(--ink-1)",
+              border: location ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
+            }}
+          >
+            <IcoMap className="h-3 w-3" />
+            {location
+              ? `${location.label}${location.radius < 500 ? ` · ${location.radius}km` : ""}`
+              : t("location") ?? "Ubicación"}
+          </button>
 
-          {/* Country dropdown */}
-          <div ref={countryRef} className="relative">
-            <button
-              onClick={() => setCountryOpen((o) => !o)}
-              className="inline-flex items-center gap-1.5 rounded-[8px] cursor-pointer transition-colors"
-              style={{
-                padding: "7px 12px",
-                fontSize: 12.5,
-                fontWeight: 500,
-                background: country ? "var(--ink-1)" : "#FFFFFF",
-                color: country ? "white" : "var(--ink-1)",
-                border: country ? "1px solid var(--ink-1)" : "1px solid var(--line-strong)",
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-              </svg>
-              {country ? countryLabel(country) : t("country")}
-              <IcoChevDown className="h-3 w-3" />
-            </button>
-            {countryOpen && (
-              <div
-                className="absolute left-0 top-[calc(100%+4px)] min-w-[180px] rounded-[8px] p-1 z-50"
-                style={{ background: "white", border: "1px solid var(--line-1)", boxShadow: "0 6px 20px rgba(0,0,0,0.08)" }}
-              >
-                {countries.map((c) => {
-                  const isAll = c === t("filterAllM");
-                  const active = isAll ? !country : country === c;
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => { setCountry(isAll ? "" : c); setCountryOpen(false); }}
-                      className="flex items-center gap-2 w-full text-left cursor-pointer transition-colors"
-                      style={{
-                        padding: "8px 10px", background: active ? "var(--bg-subtle)" : "transparent",
-                        border: "none", borderRadius: 4, fontSize: 12.5,
-                        fontWeight: active ? 600 : 400, color: "var(--ink-1)",
-                      }}
-                    >
-                      {active && <IcoCheck className="h-3 w-3" />}
-                      <span style={{ marginLeft: active ? 0 : 20 }}>
-                        {isAll ? t("allCountries") : countryLabel(c)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <LocationPicker
+            open={locationOpen}
+            onClose={() => setLocationOpen(false)}
+            value={location}
+            onApply={(loc) => setLocation(loc)}
+          />
 
           {/* Mis proveedores toggle (favorites) — red bg when active */}
           <button
