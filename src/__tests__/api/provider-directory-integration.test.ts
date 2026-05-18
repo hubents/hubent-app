@@ -46,10 +46,9 @@ describe("Bottom-nav: Proveedores points to directory", () => {
     "utf-8"
   );
 
-  it("generalMoreItems Proveedores points to /dashboard/providers", () => {
-    // Find the Proveedores entry in generalMoreItems
+  it("generalMoreItems Partners points to /dashboard/partners", () => {
     const generalMore = content.split("generalMoreItems")[1]?.split("];")[0] || "";
-    expect(generalMore).toContain('"/dashboard/providers"');
+    expect(generalMore).toContain('"/dashboard/partners"');
   });
 
   it("does NOT point to contacts?segment=vendors for general nav", () => {
